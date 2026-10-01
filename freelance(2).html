@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EliteFlow — บันทึกข้อมูลพนักงานฟรีแลนซ์</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04020e;--surface:#0e0b1f;--surface2:#141028;--border:#1e1437;
+  --accent:#a855f7;--accent2:#7c3aed;--teal:#2dd4bf;--green:#4ade80;
+  --red:#f87171;--yellow:#fbbf24;--pink:#f472b6;--orange:#fb923c;--blue:#60a5fa;
+  --text:#f3e8ff;--muted:#5b3f8a;--muted2:#8b6ab5;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(ellipse 60% 40% at 5% 10%,rgba(124,58,237,0.12),transparent 60%),
+  radial-gradient(ellipse 40% 50% at 95% 90%,rgba(45,212,191,0.05),transparent 60%),var(--bg);
+  pointer-events:none;z-index:0;}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:20px;transition:opacity 0.4s;}
+.loading-brand{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;}
+.loading-brand span{background:linear-gradient(135deg,var(--accent),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.loading-bar{width:140px;height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent),var(--teal));animation:load 1s ease forwards;}
+
+/* TOAST */
+.toast{position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid rgba(74,222,128,0.4);border-radius:10px;padding:10px 16px;font-size:13px;color:var(--green);box-shadow:0 8px 24px rgba(0,0,0,0.5);transform:translateY(60px);opacity:0;transition:all 0.3s;z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:rgba(248,113,113,0.4);color:var(--red);}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;height:50px;display:flex;align-items:center;gap:12px;padding:0 20px;background:rgba(4,2,14,0.93);border-bottom:1px solid rgba(168,85,247,0.1);backdrop-filter:blur(20px);}
+.nb{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ns{color:rgba(168,85,247,0.3);}
+.nsp{flex:1;}
+.nbk{padding:6px 13px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted2);font-size:12px;cursor:pointer;transition:all 0.2s;text-decoration:none;font-family:'Noto Sans Thai',sans-serif;}
+.nbk:hover{border-color:var(--accent);color:var(--accent);}
+
+/* MAIN */
+.main{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 20px 80px;}
+
+/* PAGE HEADER */
+.ph{margin-bottom:24px;animation:fadeUp 0.3s ease;}
+.ph-top{display:flex;align-items:center;gap:14px;margin-bottom:4px;}
+.ph-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 16px rgba(124,58,237,0.4);}
+.ph-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ph-sub{font-size:12px;color:var(--muted2);margin-left:58px;}
+
+/* CODE BADGE */
+.code-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);border-radius:50px;margin-bottom:16px;}
+.code-badge-lbl{font-size:11px;color:var(--muted2);}
+.code-badge-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--accent);}
+.code-regen{padding:4px 10px;border-radius:20px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);color:var(--accent);font-size:11px;cursor:pointer;transition:all 0.15s;}
+.code-regen:hover{background:rgba(168,85,247,0.2);}
+
+/* SECTION */
+.sec{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;animation:fadeUp 0.4s ease;}
+.sec-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(30,20,55,0.7);}
+.sec-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.si-purple{background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.22);}
+.si-teal{background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.18);}
+.si-green{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.18);}
+.si-yellow{background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.18);}
+.si-pink{background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.18);}
+.si-blue{background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.18);}
+.si-red{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.18);}
+.si-orange{background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.18);}
+.sec-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.sec-sub{font-size:11px;color:var(--muted);margin-left:42px;margin-top:-10px;margin-bottom:14px;}
+
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
+.g1{display:grid;grid-template-columns:1fr;gap:12px;}
+@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr;}}
+
+/* FIELD */
+.f{display:flex;flex-direction:column;gap:5px;}
+.f label{font-size:10px;font-weight:700;color:var(--muted2);font-family:'Syne',sans-serif;letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:4px;}
+.req{color:var(--red);font-size:9px;}
+.f input,.f select,.f textarea{padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:all 0.2s;width:100%;}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,85,247,0.08);}
+.f input::placeholder,.f textarea::placeholder{color:rgba(91,63,138,0.45);}
+.f select option{background:var(--surface2);}
+.f textarea{resize:vertical;min-height:70px;line-height:1.6;}
+.f input[readonly]{opacity:0.4;cursor:not-allowed;}
+
+/* TYPE SELECTOR (ประเภทพนักงาน) */
+.type-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;}
+.type-btn{padding:9px 6px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:all 0.2s;text-align:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted2);}
+.type-btn:hover{border-color:rgba(168,85,247,0.3);color:var(--text);}
+.type-btn.active{color:white;box-shadow:0 0 0 2px rgba(168,85,247,0.2);}
+.type-btn[data-type="SUP"].active{border-color:#a855f7;background:rgba(168,85,247,0.15);color:#c084fc;}
+.type-btn[data-type="PT"].active{border-color:#2dd4bf;background:rgba(45,212,191,0.12);color:#2dd4bf;}
+.type-btn[data-type="PT_LOCAL"].active{border-color:#60a5fa;background:rgba(96,165,250,0.12);color:#60a5fa;}
+.type-btn[data-type="PC"].active{border-color:#4ade80;background:rgba(74,222,128,0.12);color:#4ade80;}
+.type-btn[data-type="MC"].active{border-color:#fbbf24;background:rgba(251,191,36,0.12);color:#fbbf24;}
+.type-btn[data-type="PR"].active{border-color:#f472b6;background:rgba(244,114,182,0.12);color:#f472b6;}
+.type-desc{font-size:9px;color:var(--muted);margin-top:2px;font-weight:400;}
+
+/* RADIO GROUP */
+.radio-group{display:flex;gap:8px;flex-wrap:wrap;}
+.ropt{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--muted2);transition:all 0.2s;user-select:none;}
+.ropt:hover{border-color:rgba(168,85,247,0.3);}
+.ropt input[type=radio]{accent-color:var(--accent);width:12px;height:12px;}
+.ropt:has(input:checked){border-color:var(--accent);background:rgba(168,85,247,0.08);color:var(--text);}
+
+/* FILE UPLOAD */
+.file-zone{border:2px dashed rgba(30,20,55,0.9);border-radius:11px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;min-height:75px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.file-zone:hover,.file-zone.drag{border-color:var(--accent);background:rgba(168,85,247,0.03);}
+.file-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.fz-ico{font-size:20px;}
+.fz-title{font-size:12px;font-weight:600;color:var(--muted2);}
+.fz-sub{font-size:10px;color:var(--muted);}
+.file-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+.fchip{display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:10px;color:var(--muted2);}
+.fchip .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;}
+.fcdel{cursor:pointer;color:var(--muted);font-size:12px;transition:color 0.15s;line-height:1;}
+.fcdel:hover{color:var(--red);}
+
+/* PROFILE PHOTO */
+.photo-area{display:flex;align-items:center;gap:16px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}
+.photo-preview{width:80px;height:80px;border-radius:12px;background:rgba(168,85,247,0.1);border:2px dashed rgba(168,85,247,0.25);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden;cursor:pointer;transition:all 0.2s;position:relative;}
+.photo-preview:hover{border-color:var(--accent);}
+.photo-preview img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.photo-preview input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.photo-info{flex:1;}
+.photo-info-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;}
+.photo-info-sub{font-size:11px;color:var(--muted2);}
+
+/* RANK DISPLAY */
+.rank-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.rank-btn{padding:8px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;text-align:center;transition:all 0.2s;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted2);}
+.rank-btn:hover{border-color:rgba(168,85,247,0.3);}
+.rank-btn.active{border-color:var(--yellow);background:rgba(251,191,36,0.1);color:var(--yellow);}
+.rank-star{font-size:14px;display:block;margin-bottom:2px;}
+
+/* SUBMIT */
+.submit-bar{display:flex;gap:10px;justify-content:flex-end;padding-top:4px;}
+.bcn{padding:10px 20px;border-radius:9px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Noto Sans Thai',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.bcn:hover{border-color:var(--muted2);color:var(--text);}
+.bsv{padding:10px 28px;border-radius:9px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:7px;}
+.bsv:hover{opacity:0.9;transform:translateY(-1px);box-shadow:0 5px 16px rgba(124,58,237,0.4);}
+.bsv:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-brand">Elite<span>Flow</span></div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<nav class="nav">
+  <div class="nb">EliteFlow</div>
+  <span class="ns">›</span>
+  <span style="font-size:12px;color:var(--muted2);" id="navPage">บันทึกข้อมูลพนักงานฟรีแลนซ์</span>
+  <div class="nsp"></div>
+  <a class="nbk" href="event.html">← กลับ Event</a>
+</nav>
+
+<div class="main" id="mainWrap" style="display:none;">
+
+  <!-- PAGE HEADER -->
+  <div class="ph">
+    <div class="ph-top">
+      <div class="ph-icon">👤</div>
+      <div class="ph-title" id="pageTitle">บันทึกข้อมูลพนักงานฟรีแลนซ์</div>
+    </div>
+    <div class="ph-sub">กรอกข้อมูลพนักงานให้ครบถ้วน เพื่อใช้ในการจัดการและติดต่อ</div>
+  </div>
+
+  <!-- CODE + TYPE -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-purple">🆔</div>
+      <div class="sec-title">ประเภทพนักงานและรหัส</div>
+    </div>
+    <div class="f" style="margin-bottom:14px;">
+      <label>ประเภทพนักงาน <span class="req">*</span></label>
+      <div class="type-grid">
+        <div class="type-btn active" data-type="SUP" onclick="selectEmpType('SUP')">
+          SUP<div class="type-desc">Supervisor</div>
+        </div>
+        <div class="type-btn" data-type="PT" onclick="selectEmpType('PT')">
+          PT<div class="type-desc">Part-time</div>
+        </div>
+        <div class="type-btn" data-type="PT_LOCAL" onclick="selectEmpType('PT_LOCAL')">
+          PT ประจำ<div class="type-desc">ประจำพื้นที่</div>
+        </div>
+        <div class="type-btn" data-type="PC" onclick="selectEmpType('PC')">
+          PC<div class="type-desc">Promoter</div>
+        </div>
+        <div class="type-btn" data-type="MC" onclick="selectEmpType('MC')">
+          MC<div class="type-desc">Master Cert.</div>
+        </div>
+        <div class="type-btn" data-type="PR" onclick="selectEmpType('PR')">
+          PR<div class="type-desc">PR/Event</div>
+        </div>
+      </div>
+    </div>
+    <div class="code-badge">
+      <span class="code-badge-lbl">รหัสพนักงาน</span>
+      <span class="code-badge-val" id="empCodeDisplay">SUP260001</span>
+      <input type="hidden" id="empCode" value="SUP260001">
+      <button class="code-regen" onclick="regenCode()">🔄 สร้างใหม่</button>
+    </div>
+    <div class="g3" style="margin-top:12px;">
+      <div class="f"><label>วัน/เดือน/ปี ที่ลงระบบ</label><input type="date" id="regDate"></div>
+      <div class="f"><label>วันที่เริ่มงาน <span class="req">*</span></label><input type="date" id="startDate"></div>
+      <div class="f"><label>สถานะการทำงาน</label>
+        <select id="workStatus">
+          <option value="active">✅ ทำงานอยู่</option>
+          <option value="inactive">⛔ ไม่ได้ทำงาน</option>
+          <option value="blacklist">🚫 Blacklist</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลส่วนตัว -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-teal">👤</div>
+      <div class="sec-title">ข้อมูลส่วนตัว</div>
+    </div>
+
+    <!-- รูปภาพ + ชื่อ -->
+    <div class="photo-area" style="margin-bottom:14px;">
+      <div class="photo-preview" id="photoPreview">
+        📷
+        <input type="file" accept="image/*" onchange="previewPhoto(this)">
+        <img id="photoImg" style="display:none;">
+      </div>
+      <div class="photo-info">
+        <div class="photo-info-title">รูปภาพพนักงาน</div>
+        <div class="photo-info-sub">คลิกเพื่อเลือกรูป · JPG, PNG · ไม่เกิน 5MB</div>
+      </div>
+    </div>
+
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>คำนำหน้า <span class="req">*</span></label>
+        <select id="prefix">
+          <option value="">— เลือก —</option>
+          <option value="นาย">นาย</option>
+          <option value="นาง">นาง</option>
+          <option value="นางสาว">นางสาว</option>
+        </select>
+      </div>
+      <div class="f"><label>ชื่อจริง <span class="req">*</span></label><input type="text" id="firstName" placeholder="ชื่อจริง"></div>
+      <div class="f"><label>นามสกุล <span class="req">*</span></label><input type="text" id="lastName" placeholder="นามสกุล"></div>
+      <div class="f"><label>ชื่อเล่น</label><input type="text" id="nickname" placeholder="ชื่อเล่น"></div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>วัน/เดือน/ปี เกิด</label><input type="date" id="birthDate" onchange="calcAge()"></div>
+      <div class="f"><label>อายุ</label><input type="number" id="age" placeholder="ปี" readonly></div>
+      <div class="f"><label>น้ำหนัก (กก.)</label><input type="number" id="weight" placeholder="กก." step="0.1"></div>
+      <div class="f"><label>ส่วนสูง (ซม.)</label><input type="number" id="height" placeholder="ซม." step="0.1"></div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>สัญชาติ</label><input type="text" id="nationality" placeholder="ไทย" value="ไทย"></div>
+      <div class="f"><label>เชื้อชาติ</label><input type="text" id="race" placeholder="ไทย" value="ไทย"></div>
+      <div class="f"><label>ศาสนา</label><input type="text" id="religion" placeholder="พุทธ" value="พุทธ"></div>
+      <div class="f"><label>สถานภาพ</label>
+        <select id="maritalStatus">
+          <option value="">— เลือก —</option>
+          <option value="โสด">โสด</option>
+          <option value="สมรส">สมรส</option>
+          <option value="หย่าร้าง">หย่าร้าง</option>
+          <option value="หม้าย">หม้าย</option>
+        </select>
+      </div>
+    </div>
+    <div class="g3">
+      <div class="f"><label>ระดับการศึกษา</label>
+        <select id="education">
+          <option value="">— เลือก —</option>
+          <option value="ประถมศึกษา">ประถมศึกษา</option>
+          <option value="มัธยมศึกษาตอนต้น">มัธยมศึกษาตอนต้น</option>
+          <option value="มัธยมศึกษาตอนปลาย">มัธยมศึกษาตอนปลาย</option>
+          <option value="ปวช.">ปวช.</option>
+          <option value="ปวส.">ปวส.</option>
+          <option value="ปริญญาตรี">ปริญญาตรี</option>
+          <option value="ปริญญาโท">ปริญญาโท</option>
+          <option value="สูงกว่าปริญญาโท">สูงกว่าปริญญาโท</option>
+        </select>
+      </div>
+      <div class="f"><label>เลขบัตรประชาชน <span class="req">*</span></label><input type="text" id="idCard" placeholder="X-XXXX-XXXXX-XX-X" maxlength="17"></div>
+      <div class="f"><label>เบอร์โทรศัพท์ <span class="req">*</span></label><input type="tel" id="phone" placeholder="08X-XXX-XXXX"></div>
+    </div>
+  </div>
+
+  <!-- ช่องทางติดต่อ -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-blue">📱</div>
+      <div class="sec-title">ช่องทางติดต่อ</div>
+    </div>
+    <div class="g4">
+      <div class="f"><label>Facebook</label><input type="text" id="facebook" placeholder="ชื่อ Facebook"></div>
+      <div class="f"><label>ID Line</label><input type="text" id="lineId" placeholder="ID Line"></div>
+      <div class="f"><label>Email</label><input type="email" id="email" placeholder="email@example.com"></div>
+      <div class="f"><label>กรณีฉุกเฉิน (ชื่อ เบอร์ ความสัมพันธ์)</label><input type="text" id="emergency" placeholder="ชื่อ / เบอร์ / ความสัมพันธ์"></div>
+    </div>
+  </div>
+
+  <!-- ที่อยู่ -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-green">🏠</div>
+      <div class="sec-title">ที่อยู่ตามทะเบียนบ้าน</div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>บ้านเลขที่</label><input type="text" id="addrNo" placeholder="บ้านเลขที่"></div>
+      <div class="f"><label>หมู่ที่</label><input type="text" id="addrMoo" placeholder="หมู่ที่"></div>
+      <div class="f"><label>ชั้นที่</label><input type="text" id="addrFloor" placeholder="ชั้นที่"></div>
+      <div class="f"><label>ห้องเลขที่</label><input type="text" id="addrRoom" placeholder="ห้องเลขที่"></div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>หมู่บ้าน/อาคาร</label><input type="text" id="addrVillage" placeholder="ชื่อหมู่บ้าน/อาคาร"></div>
+      <div class="f"><label>ซอย</label><input type="text" id="addrSoi" placeholder="ซอย"></div>
+      <div class="f"><label>ถนน</label><input type="text" id="addrRoad" placeholder="ถนน"></div>
+      <div class="f"><label>แยก</label><input type="text" id="addrJunction" placeholder="แยก"></div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>แขวง/ตำบล</label><input type="text" id="addrSubdistrict" placeholder="แขวง/ตำบล"></div>
+      <div class="f"><label>เขต/อำเภอ</label><input type="text" id="addrDistrict" placeholder="เขต/อำเภอ"></div>
+      <div class="f"><label>จังหวัด</label><input type="text" id="addrProvince" placeholder="จังหวัด"></div>
+      <div class="f"><label>รหัสไปรษณีย์</label><input type="text" id="addrZip" placeholder="XXXXX" maxlength="5"></div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>ที่อยู่ปัจจุบัน (ถ้าต่างจากทะเบียนบ้าน)</label><textarea id="addrCurrent" placeholder="ที่อยู่ปัจจุบัน..."></textarea></div>
+      <div class="f"><label>พักอาศัยอยู่กับ</label><input type="text" id="liveWith" placeholder="ผู้ปกครอง / คู่สมรส / คนเดียว..."></div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลครอบครัว -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-pink">👨‍👩‍👧</div>
+      <div class="sec-title">ข้อมูลครอบครัว</div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>ชื่อ-สกุล บิดา</label><input type="text" id="fatherName" placeholder="ชื่อ-สกุล บิดา"></div>
+      <div class="f"><label>อาชีพ บิดา</label><input type="text" id="fatherJob" placeholder="อาชีพ"></div>
+    </div>
+    <div class="g2" style="margin-top:12px;">
+      <div class="f"><label>ชื่อ-สกุล มารดา</label><input type="text" id="motherName" placeholder="ชื่อ-สกุล มารดา"></div>
+      <div class="f"><label>อาชีพ มารดา</label><input type="text" id="motherJob" placeholder="อาชีพ"></div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลธนาคาร -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-yellow">🏦</div>
+      <div class="sec-title">ข้อมูลธนาคาร</div>
+    </div>
+    <div class="g3">
+      <div class="f"><label>ธนาคาร</label>
+        <select id="bank">
+          <option value="">— เลือกธนาคาร —</option>
+          <option value="กสิกรไทย">กสิกรไทย (KBANK)</option>
+          <option value="ไทยพาณิชย์">ไทยพาณิชย์ (SCB)</option>
+          <option value="กรุงไทย">กรุงไทย (KTB)</option>
+          <option value="กรุงเทพ">กรุงเทพ (BBL)</option>
+          <option value="กรุงศรี">กรุงศรี (BAY)</option>
+          <option value="ทีทีบี">ทีทีบี (TTB)</option>
+          <option value="ออมสิน">ออมสิน</option>
+          <option value="อื่นๆ">อื่นๆ</option>
+        </select>
+      </div>
+      <div class="f"><label>เลขที่บัญชี</label><input type="text" id="bankAccount" placeholder="XXX-X-XXXXX-X"></div>
+      <div class="f"><label>ชื่อตามสมุดบัญชี</label><input type="text" id="bankName" placeholder="ชื่อ-นามสกุล ในบัญชี"></div>
+    </div>
+    <div class="g3" style="margin-top:12px;">
+      <div class="f"><label>ค่าจ้าง (บาท/วัน)</label><input type="number" id="wage" placeholder="0" min="0"></div>
+      <div class="f"><label>จ่ายทุก</label><input type="text" id="paySchedule" placeholder="เช่น สิ้นเดือน, ทุก 15 วัน"></div>
+      <div class="f"><label>จำนวนวันทำงาน</label><input type="number" id="workDays" placeholder="0" min="0"></div>
+    </div>
+  </div>
+
+  <!-- ตำแหน่งและสาขา -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-orange">🏬</div>
+      <div class="sec-title">ตำแหน่งงานและสาขา</div>
+    </div>
+    <div class="g3">
+      <div class="f"><label>ตำแหน่งที่สมัคร</label><input type="text" id="position" placeholder="ตำแหน่ง"></div>
+      <div class="f"><label>สาขาที่สมัคร</label><input type="text" id="branch" placeholder="ชื่อสาขา"></div>
+      <div class="f"><label>เงินเดือนที่คาดหวัง</label><input type="number" id="expectedSalary" placeholder="บาท" min="0"></div>
+    </div>
+    <div class="g3" style="margin-top:12px;">
+      <div class="f"><label>สาขาที่เคยทำงาน</label><input type="text" id="prevBranches" placeholder="ชื่อสาขา (คั่นด้วยจุลภาค)"></div>
+      <div class="f"><label>Area ที่เคยทำงาน</label><input type="text" id="prevAreas" placeholder="Area"></div>
+      <div class="f"><label>ประเภทพนักงานที่เคยทำ</label><input type="text" id="prevTypes" placeholder="ประเภท"></div>
+    </div>
+  </div>
+
+  <!-- RANK -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-yellow">⭐</div>
+      <div class="sec-title">RANK และคุณภาพการทำงาน</div>
+    </div>
+    <div class="f" style="margin-bottom:12px;">
+      <label>RANK</label>
+      <div class="rank-grid">
+        <div class="rank-btn" data-rank="D" onclick="selectRank('D')"><span class="rank-star">⭐</span>D</div>
+        <div class="rank-btn" data-rank="C" onclick="selectRank('C')"><span class="rank-star">⭐⭐</span>C</div>
+        <div class="rank-btn" data-rank="B" onclick="selectRank('B')"><span class="rank-star">⭐⭐⭐</span>B</div>
+        <div class="rank-btn active" data-rank="A" onclick="selectRank('A')"><span class="rank-star">⭐⭐⭐⭐</span>A</div>
+        <div class="rank-btn" data-rank="S" onclick="selectRank('S')"><span class="rank-star">🌟</span>S</div>
+      </div>
+    </div>
+    <div class="f">
+      <label>คุณภาพการทำงาน</label>
+      <textarea id="workQuality" placeholder="บันทึกประเมินคุณภาพ..."></textarea>
+    </div>
+  </div>
+
+  <!-- คำถามเพิ่มเติม -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-purple">❓</div>
+      <div class="sec-title">คำถามประกอบการสมัคร</div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>ท่านมีโรคประจำตัวหรือไม่</label><input type="text" id="disease" placeholder="ไม่มี / ระบุ..."></div>
+      <div class="f"><label>งานอดิเรก</label><input type="text" id="hobby" placeholder="งานอดิเรก..."></div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>เคยมีประวัติอาชญากรรม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="criminal" value="ไม่มี" checked> ไม่มี</label>
+          <label class="ropt"><input type="radio" name="criminal" value="มี"> มี (ระบุ)</label>
+        </div>
+      </div>
+      <div class="f"><label>ยินยอมตรวจประวัติอาชญากรรม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="consentCriminal" value="ยินยอม" checked> ยินยอม</label>
+          <label class="ropt"><input type="radio" name="consentCriminal" value="ไม่ยินยอม"> ไม่ยินยอม</label>
+        </div>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>เคยติดเครดิตของห้าง</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="credit" value="ไม่เคย" checked> ไม่เคย</label>
+          <label class="ropt"><input type="radio" name="credit" value="เคย"> เคย</label>
+        </div>
+      </div>
+      <div class="f"><label>คิดว่าตัวเองติดโทรศัพท์ไหม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="phoneAddict" value="ไม่"> ไม่</label>
+          <label class="ropt"><input type="radio" name="phoneAddict" value="บางครั้ง"> บางครั้ง</label>
+          <label class="ropt"><input type="radio" name="phoneAddict" value="ใช่"> ใช่</label>
+        </div>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>ยกของหนัก/พับผ้า/จัดร้านได้ไหม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="physical" value="ได้" checked> ได้</label>
+          <label class="ropt"><input type="radio" name="physical" value="ไม่ได้"> ไม่ได้</label>
+        </div>
+      </div>
+      <div class="f"><label>ทราบข่าวจากที่ไหน</label><input type="text" id="sourceInfo" placeholder="Facebook / เพื่อนแนะนำ / ..."></div>
+    </div>
+    <div class="g1" style="margin-bottom:12px;">
+      <div class="f"><label>ทำไมถึงอยากร่วมงานกับแบรนด์</label><textarea id="motivation" placeholder="เหตุผลที่อยากร่วมงาน..."></textarea></div>
+    </div>
+    <div class="g1" style="margin-bottom:12px;">
+      <div class="f"><label>ประวัติการทำงานที่ผ่านมา</label><textarea id="workHistory" placeholder="ระบุสถานที่ทำงาน ตำแหน่ง ระยะเวลา..."></textarea></div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>บุคคลอ้างอิง 2 คน (ไม่ใช่ญาติ/นายจ้าง)</label><textarea id="references" placeholder="ชื่อ / เบอร์ติดต่อ / ความสัมพันธ์..."></textarea></div>
+      <div class="f"><label>แนะนำตัวเอง / ลักษณะนิสัย</label><textarea id="selfIntro" placeholder="แนะนำตัวเอง..."></textarea></div>
+    </div>
+  </div>
+
+  <!-- เอกสารแนบ -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="sec-icon si-teal">📎</div>
+      <div class="sec-title">เอกสารและไฟล์แนบ</div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>สำเนาบัตรประชาชน (พร้อมลงนาม)</label>
+        <div class="file-zone" id="zone-idcard" ondragover="dragOver(event,'zone-idcard')" ondragleave="dragLeave('zone-idcard')" ondrop="dropFile(event,'idcard')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('idcard',this.files)">
+          <div class="fz-ico">🪪</div><div class="fz-title">แนบสำเนาบัตรประชาชน</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-idcard"></div>
+      </div>
+      <div class="f"><label>สำเนาทะเบียนบ้าน (พร้อมลงนาม)</label>
+        <div class="file-zone" id="zone-house" ondragover="dragOver(event,'zone-house')" ondragleave="dragLeave('zone-house')" ondrop="dropFile(event,'house')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('house',this.files)">
+          <div class="fz-ico">🏠</div><div class="fz-title">แนบสำเนาทะเบียนบ้าน</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-house"></div>
+      </div>
+      <div class="f"><label>สำเนาวุฒิการศึกษา (พร้อมลงนาม)</label>
+        <div class="file-zone" id="zone-edu" ondragover="dragOver(event,'zone-edu')" ondragleave="dragLeave('zone-edu')" ondrop="dropFile(event,'edu')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('edu',this.files)">
+          <div class="fz-ico">🎓</div><div class="fz-title">แนบวุฒิการศึกษา</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-edu"></div>
+      </div>
+      <div class="f"><label>หน้าบุ๊คแบงค์ธนาคารกสิกรไทย</label>
+        <div class="file-zone" id="zone-bank" ondragover="dragOver(event,'zone-bank')" ondragleave="dragLeave('zone-bank')" ondrop="dropFile(event,'bank')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('bank',this.files)">
+          <div class="fz-ico">🏦</div><div class="fz-title">แนบหน้าบุ๊คแบงค์</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-bank"></div>
+      </div>
+      <div class="f"><label>เอกสารอื่นๆ</label>
+        <div class="file-zone" id="zone-other" ondragover="dragOver(event,'zone-other')" ondragleave="dragLeave('zone-other')" ondrop="dropFile(event,'other')">
+          <input type="file" accept="image/*,.pdf,.doc,.docx" multiple onchange="addFiles('other',this.files)">
+          <div class="fz-ico">📂</div><div class="fz-title">เอกสารอื่นๆ</div><div class="fz-sub">ทุกรูปแบบไฟล์</div>
+        </div>
+        <div class="file-chips" id="chips-other"></div>
+      </div>
+      <div class="f"><label>หมายเหตุ</label><textarea id="remark" placeholder="หมายเหตุเพิ่มเติม..."></textarea></div>
+    </div>
+    <div class="f" style="margin-top:12px;"><label>ลงชื่อรับรองว่าข้อมูลเป็นความจริง</label><input type="text" id="signature" placeholder="พิมพ์ชื่อ-นามสกุล เพื่อรับรอง"></div>
+  </div>
+
+  <!-- SUBMIT -->
+  <div class="sec" style="padding:16px 20px;">
+    <div class="submit-bar">
+      <button class="bcn" onclick="history.back()">ยกเลิก</button>
+      <button class="bsv" id="submitBtn" onclick="submitForm()">💾 บันทึกข้อมูลพนักงาน</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, setDoc, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig={apiKey:"AIzaSyCcNc3DQ_iw0fcTyvgrXQcj3S15CNlyHGU",authDomain:"elitflow-38bc4.firebaseapp.com",projectId:"elitflow-38bc4",storageBucket:"elitflow-38bc4.firebasestorage.app",messagingSenderId:"697101909670",appId:"1:697101909670:web:afa2071ba0ca64dbba7e67"};
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
+
+let currentUser=null,currentCompanyName='',editingId=null;
+let currentEmpType='SUP',currentRank='A';
+let fileStore={idcard:[],house:[],edu:[],bank:[],other:[]};
+
+const EMP_TYPES={
+  'SUP':'SUP','PT':'PT','PT_LOCAL':'PTL','PC':'PC','MC':'MC','PR':'PR'
+};
+
+// AUTH
+onAuthStateChanged(auth,async(user)=>{
+  document.getElementById('loadingOverlay').style.opacity='0';
+  setTimeout(()=>document.getElementById('loadingOverlay').style.display='none',400);
+  if(!user){window.location.href='index.html';return;}
+  currentUser=user;
+  try{const c=await getDoc(doc(db,'companies',user.uid));if(c.exists())currentCompanyName=c.data().name||'';}catch(e){}
+  // set today as default
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('regDate').value=today;
+  // check edit mode
+  const params=new URLSearchParams(window.location.search);
+  editingId=params.get('id');
+  if(editingId){document.getElementById('pageTitle').textContent='✏️ แก้ไขข้อมูลพนักงาน';document.getElementById('navPage').textContent='แก้ไขข้อมูลพนักงาน';await loadForEdit(editingId);}
+  else{await generateCode('SUP');}
+  document.getElementById('mainWrap').style.display='block';
+});
+
+async function generateCode(type){
+  const prefix=EMP_TYPES[type]||type;
+  const yearShort=String(new Date().getFullYear()).slice(-2);
+  try{
+    const snap=await getDocs(query(collection(db,'freelancers'),where('companyId','==',currentUser.uid),where('empType','==',type)));
+    const nextNum=snap.size+1;
+    const code=`${prefix}${yearShort}${String(nextNum).padStart(4,'0')}`;
+    document.getElementById('empCode').value=code;
+    document.getElementById('empCodeDisplay').textContent=code;
+  }catch(e){
+    const code=`${prefix}${yearShort}0001`;
+    document.getElementById('empCode').value=code;
+    document.getElementById('empCodeDisplay').textContent=code;
+  }
+}
+
+window.regenCode=async()=>{await generateCode(currentEmpType);};
+
+window.selectEmpType=(type)=>{
+  currentEmpType=type;
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===type));
+  generateCode(type);
+};
+
+window.selectRank=(rank)=>{
+  currentRank=rank;
+  document.querySelectorAll('.rank-btn').forEach(b=>b.classList.toggle('active',b.dataset.rank===rank));
+};
+
+window.calcAge=()=>{
+  const b=document.getElementById('birthDate').value;
+  if(!b)return;
+  const age=Math.floor((new Date()-new Date(b))/(1000*60*60*24*365.25));
+  document.getElementById('age').value=age;
+};
+
+window.previewPhoto=(input)=>{
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=document.getElementById('photoImg');
+    img.src=e.target.result;img.style.display='block';
+    document.getElementById('photoPreview').querySelector(':not(input):not(img)').style.display='none';
+  };
+  reader.readAsDataURL(file);
+};
+
+// FILE
+window.addFiles=(key,fl)=>{Array.from(fl).forEach(f=>{if(!fileStore[key].find(x=>x.name===f.name))fileStore[key].push(f);});renderChips(key);};
+window.removeFile=(key,name)=>{fileStore[key]=fileStore[key].filter(f=>f.name!==name);renderChips(key);};
+function renderChips(key){
+  document.getElementById('chips-'+key).innerHTML=fileStore[key].map(f=>`<div class="fchip"><span>${gfi(f.name)}</span><span class="fn">${esc(f.name)}</span><span class="fcdel" onclick="removeFile('${key}','${esc(f.name)}')">✕</span></div>`).join('');
+}
+function gfi(n){const e=n.split('.').pop().toLowerCase();if(['jpg','jpeg','png','gif','webp'].includes(e))return'🖼️';if(e==='pdf')return'📕';return'📎';}
+window.dragOver=(e,z)=>{e.preventDefault();document.getElementById(z).classList.add('drag');};
+window.dragLeave=(z)=>{document.getElementById(z).classList.remove('drag');};
+window.dropFile=(e,key)=>{e.preventDefault();document.getElementById('zone-'+key).classList.remove('drag');addFiles(key,e.dataTransfer.files);};
+
+async function loadForEdit(id){
+  try{
+    const snap=await getDoc(doc(db,'freelancers',id));if(!snap.exists())return;
+    const d=snap.data();
+    window.selectEmpType(d.empType||'SUP');
+    window.selectRank(d.rank||'A');
+    const fields=['regDate','startDate','workStatus','prefix','firstName','lastName','nickname','birthDate','age','weight','height','nationality','race','religion','maritalStatus','education','idCard','phone','facebook','lineId','email','emergency','addrNo','addrMoo','addrFloor','addrRoom','addrVillage','addrSoi','addrRoad','addrJunction','addrSubdistrict','addrDistrict','addrProvince','addrZip','addrCurrent','liveWith','fatherName','fatherJob','motherName','motherJob','bank','bankAccount','bankName','wage','paySchedule','workDays','position','branch','expectedSalary','prevBranches','prevAreas','prevTypes','workQuality','disease','hobby','sourceInfo','motivation','workHistory','references','selfIntro','signature','remark'];
+    fields.forEach(k=>{const el=document.getElementById(k);if(el&&d[k]!==undefined)el.value=d[k];});
+    if(d.empCode){document.getElementById('empCode').value=d.empCode;document.getElementById('empCodeDisplay').textContent=d.empCode;}
+    if(d.criminal){const r=document.querySelector(`input[name="criminal"][value="${d.criminal}"]`);if(r)r.checked=true;}
+    if(d.consentCriminal){const r=document.querySelector(`input[name="consentCriminal"][value="${d.consentCriminal}"]`);if(r)r.checked=true;}
+    if(d.credit){const r=document.querySelector(`input[name="credit"][value="${d.credit}"]`);if(r)r.checked=true;}
+    if(d.phoneAddict){const r=document.querySelector(`input[name="phoneAddict"][value="${d.phoneAddict}"]`);if(r)r.checked=true;}
+    if(d.physical){const r=document.querySelector(`input[name="physical"][value="${d.physical}"]`);if(r)r.checked=true;}
+    document.getElementById('submitBtn').innerHTML='💾 บันทึกการแก้ไข';
+  }catch(e){showToast('❌ โหลดข้อมูลไม่ได้: '+e.message,true);}
+}
+
+window.submitForm=async()=>{
+  const firstName=document.getElementById('firstName').value.trim();
+  const lastName=document.getElementById('lastName').value.trim();
+  if(!firstName||!lastName){showToast('⚠️ กรุณากรอกชื่อ-นามสกุล',true);return;}
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังบันทึก...';
+  const g=id=>document.getElementById(id)?.value?.trim()||'';
+  const gr=name=>document.querySelector(`input[name="${name}"]:checked`)?.value||'';
+  const data={
+    empCode:g('empCode'),empType:currentEmpType,rank:currentRank,
+    regDate:g('regDate'),startDate:g('startDate'),workStatus:g('workStatus'),
+    prefix:g('prefix'),firstName,lastName,nickname:g('nickname'),
+    birthDate:g('birthDate'),age:parseInt(g('age'))||0,
+    weight:parseFloat(g('weight'))||0,height:parseFloat(g('height'))||0,
+    nationality:g('nationality'),race:g('race'),religion:g('religion'),maritalStatus:g('maritalStatus'),
+    education:g('education'),idCard:g('idCard'),phone:g('phone'),
+    facebook:g('facebook'),lineId:g('lineId'),email:g('email'),emergency:g('emergency'),
+    addrNo:g('addrNo'),addrMoo:g('addrMoo'),addrFloor:g('addrFloor'),addrRoom:g('addrRoom'),
+    addrVillage:g('addrVillage'),addrSoi:g('addrSoi'),addrRoad:g('addrRoad'),addrJunction:g('addrJunction'),
+    addrSubdistrict:g('addrSubdistrict'),addrDistrict:g('addrDistrict'),addrProvince:g('addrProvince'),addrZip:g('addrZip'),
+    addrCurrent:g('addrCurrent'),liveWith:g('liveWith'),
+    fatherName:g('fatherName'),fatherJob:g('fatherJob'),motherName:g('motherName'),motherJob:g('motherJob'),
+    bank:g('bank'),bankAccount:g('bankAccount'),bankName:g('bankName'),
+    wage:parseFloat(g('wage'))||0,paySchedule:g('paySchedule'),workDays:parseInt(g('workDays'))||0,
+    position:g('position'),branch:g('branch'),expectedSalary:parseFloat(g('expectedSalary'))||0,
+    prevBranches:g('prevBranches'),prevAreas:g('prevAreas'),prevTypes:g('prevTypes'),
+    workQuality:g('workQuality'),disease:g('disease'),hobby:g('hobby'),
+    criminal:gr('criminal'),consentCriminal:gr('consentCriminal'),credit:gr('credit'),
+    phoneAddict:gr('phoneAddict'),physical:gr('physical'),
+    sourceInfo:g('sourceInfo'),motivation:g('motivation'),workHistory:g('workHistory'),
+    references:g('references'),selfIntro:g('selfIntro'),signature:g('signature'),remark:g('remark'),
+    files:{idcard:fileStore.idcard.map(f=>f.name),house:fileStore.house.map(f=>f.name),edu:fileStore.edu.map(f=>f.name),bank:fileStore.bank.map(f=>f.name),other:fileStore.other.map(f=>f.name)},
+    companyId:currentUser.uid,companyName:currentCompanyName,updatedAt:serverTimestamp()
+  };
+  try{
+    if(editingId){await setDoc(doc(db,'freelancers',editingId),data,{merge:true});showToast('✅ แก้ไขข้อมูลแล้ว');}
+    else{data.createdAt=serverTimestamp();data.createdBy=currentUser.uid;await addDoc(collection(db,'freelancers'),data);showToast('✅ บันทึกข้อมูลพนักงานแล้ว');}
+    setTimeout(()=>window.location.href='event.html',1300);
+  }catch(err){showToast('❌ '+err.message,true);btn.disabled=false;btn.innerHTML='💾 บันทึกข้อมูลพนักงาน';}
+};
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+</script>
+</body>
+</html>

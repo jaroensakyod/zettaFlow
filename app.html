@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElitFlow Enterprise — App</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07050f;--surface:#0e0a1a;--surface2:#150f25;--border:#2a1a4a;
+  --accent:#c084fc;--accent2:#7c3aed;--accent3:#a855f7;
+  --teal:#2dd4bf;--green:#4ade80;--red:#f87171;--text:#f3e8ff;
+  --muted:#6b4fa0;--muted2:#9d7ec9;
+  --admin:#f472b6;--manager:#818cf8;--staff:#c084fc;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;}
+.global-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 15% 30%,rgba(124,58,237,0.15) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at 85% 70%,rgba(45,212,191,0.06) 0%,transparent 60%),var(--bg);}
+.global-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(168,85,247,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(168,85,247,0.04) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 20%,transparent 80%);}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:20px;transition:opacity 0.4s;}
+.loading-brand{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;}
+.loading-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.loading-bar{width:200px;height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent3),var(--teal));animation:load 1s ease forwards;}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* TOAST */
+.toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid rgba(74,222,128,0.4);border-radius:10px;padding:14px 20px;font-size:13px;color:var(--green);box-shadow:0 8px 24px rgba(0,0,0,0.4);transform:translateY(80px);opacity:0;transition:all 0.3s;z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:rgba(248,113,113,0.4);color:var(--red);}
+
+/* ══ FULL WIDTH NAV ══ */
+.top-nav{
+  position:fixed;top:0;left:0;right:0;
+  z-index:200;
+  height:56px;
+  display:flex;align-items:center;gap:0;
+  background:rgba(10,7,20,0.92);
+  border-bottom:1px solid rgba(168,85,247,0.2);
+  padding:0 24px;
+  backdrop-filter:blur(24px);
+  box-shadow:0 4px 24px rgba(0,0,0,0.3),0 0 24px rgba(124,58,237,0.08);
+}
+.app-nav-logo{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:white;border:1px solid rgba(168,85,247,0.4);box-shadow:0 0 10px rgba(168,85,247,0.3);flex-shrink:0;position:relative;overflow:hidden;margin-right:8px;}
+.app-nav-logo img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;}
+.app-nav-brand{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--text);flex-shrink:0;margin-right:4px;}
+.app-nav-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-pill-divider{width:1px;height:20px;background:rgba(168,85,247,0.2);margin:0 12px;flex-shrink:0;}
+.nav-links{display:flex;gap:2px;align-items:center;flex:1;}
+.nav-link{padding:6px 14px;border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.2s;border:none;background:transparent;font-family:'Noto Sans Thai',sans-serif;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.nav-link:hover{color:var(--text);background:rgba(168,85,247,0.1);}
+.nav-link.active{color:white;background:linear-gradient(135deg,var(--accent2),var(--accent3));box-shadow:0 4px 12px rgba(124,58,237,0.4);border-radius:8px;}
+.nav-pill-divider-r{width:1px;height:20px;background:rgba(168,85,247,0.2);margin:0 12px;flex-shrink:0;}
+.nav-right{display:flex;align-items:center;gap:8px;}
+.nav-profile-btn{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border-radius:10px;border:1px solid transparent;background:transparent;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;}
+.nav-profile-btn:hover{background:rgba(168,85,247,0.1);border-color:rgba(168,85,247,0.2);}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:white;flex-shrink:0;border:1px solid rgba(168,85,247,0.4);}
+.nav-profile-info{display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
+.user-name-nav{font-size:12px;color:var(--muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.role-badge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.role-admin{background:rgba(244,114,182,0.15);color:var(--admin);border:1px solid rgba(244,114,182,0.3);}
+.role-manager{background:rgba(129,140,248,0.15);color:var(--manager);border:1px solid rgba(129,140,248,0.3);}
+.role-staff{background:rgba(192,132,252,0.12);color:var(--staff);border:1px solid rgba(192,132,252,0.25);}
+.logout-btn{padding:6px 14px;border-radius:8px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;white-space:nowrap;}
+.logout-btn:hover{background:rgba(248,113,113,0.18);}
+
+/* PROFILE MODAL */
+.profile-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:300;padding:24px;}
+.profile-modal-overlay.open{display:flex;}
+.profile-modal{background:#0e0a1a;border:1px solid rgba(168,85,247,0.25);border-radius:22px;width:100%;max-width:420px;box-shadow:0 40px 80px rgba(0,0,0,0.6);overflow:hidden;animation:fadeUp 0.25s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.profile-hero{background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(45,212,191,0.1));padding:28px 28px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(168,85,247,0.15);}
+.profile-big-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:white;border:2px solid rgba(168,85,247,0.5);box-shadow:0 0 20px rgba(168,85,247,0.3);flex-shrink:0;}
+.profile-hero-info{flex:1;}
+.profile-hero-name{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#f3e8ff;}
+.profile-hero-email{font-size:12px;color:#6b4fa0;margin-top:3px;}
+.profile-tabs{display:flex;border-bottom:1px solid rgba(42,26,74,0.8);padding:0 20px;}
+.profile-tab{padding:12px 16px;font-size:13px;color:#6b4fa0;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;background:none;border-left:none;border-right:none;border-top:none;}
+.profile-tab.active{color:#a855f7;border-bottom-color:#a855f7;}
+.profile-tab-content{display:none;padding:22px;}
+.profile-tab-content.active{display:block;}
+.p-field{margin-bottom:14px;}
+.p-label{font-size:10px;color:#6b4fa0;letter-spacing:1.5px;text-transform:uppercase;font-family:'Syne',sans-serif;margin-bottom:5px;display:block;}
+.p-value{font-size:13px;color:#f3e8ff;padding:10px 13px;background:#150f25;border:1px solid #2a1a4a;border-radius:9px;}
+.p-input{width:100%;padding:10px 13px;background:#150f25;border:1px solid #2a1a4a;border-radius:9px;color:#f3e8ff;font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;margin-bottom:0;}
+.p-input:focus{border-color:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,0.1);}
+.p-input::placeholder{color:rgba(107,79,160,0.4);}
+.p-btn{width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:9px;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;margin-top:6px;}
+.p-btn:hover{opacity:0.9;transform:translateY(-1px);}
+.p-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.p-msg{font-size:12px;text-align:center;min-height:18px;margin-top:8px;}
+.p-msg.ok{color:#4ade80;}.p-msg.err{color:#f87171;}
+.info-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(42,26,74,0.5);}
+.info-row:last-child{border-bottom:none;}
+.info-key{font-size:12px;color:#6b4fa0;}
+.info-val{font-size:13px;color:#f3e8ff;font-weight:500;}
+
+
+/* MEGA MENU */
+.nav-dropdown{position:static;display:inline-flex;}
+.nav-dropdown-btn{padding:6px 14px;border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.2s;border:none;background:transparent;font-family:'Noto Sans Thai',sans-serif;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.nav-dropdown-btn:hover{color:var(--text);background:rgba(168,85,247,0.1);}
+.nav-dropdown-btn .arrow{font-size:10px;transition:transform 0.3s;}
+.nav-dropdown:hover .arrow{transform:rotate(180deg);}
+.nav-dropdown:hover .nav-dropdown-btn{color:var(--accent3);background:rgba(168,85,247,0.1);}
+.dropdown-menu{
+  position:fixed;
+  top:56px;
+  left:0;
+  width:100vw;
+  background:rgba(10,7,22,0.97);
+  border:none;
+  border-top:1px solid rgba(168,85,247,0.2);
+  border-bottom:1px solid rgba(168,85,247,0.15);
+  border-radius:0;
+  padding:24px 48px;
+  box-shadow:0 24px 60px rgba(0,0,0,0.6),0 0 40px rgba(124,58,237,0.08);
+  backdrop-filter:blur(24px);
+  opacity:0;visibility:hidden;
+  transition:opacity 0.25s ease,visibility 0.25s ease,transform 0.25s ease;
+  transform:translateY(-8px);
+  z-index:300;
+}
+.nav-dropdown:hover .dropdown-menu{opacity:1;visibility:visible;transform:translateY(0);}
+.mega-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-width:1600px;margin:0 auto;}
+.mega-section-label{grid-column:span 6;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:4px 8px 8px;border-bottom:1px solid rgba(168,85,247,0.1);margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.mega-section-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(168,85,247,0.15),transparent);}
+.dropdown-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;color:var(--muted2);font-size:13px;cursor:pointer;transition:all 0.2s;border:none;background:transparent;font-family:'Noto Sans Thai',sans-serif;width:100%;text-align:left;text-decoration:none;position:relative;overflow:hidden;}
+.dropdown-item::before{content:'';position:absolute;inset:0;border-radius:12px;background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(45,212,191,0.04));opacity:0;transition:opacity 0.2s;}
+.dropdown-item:hover::before{opacity:1;}
+.dropdown-item:hover{color:var(--text);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.2);}
+.dropdown-item:hover .d-icon{transform:scale(1.1);}
+.dropdown-item .d-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;transition:transform 0.2s;border:1px solid rgba(168,85,247,0.1);}
+.dropdown-item-info{flex:1;min-width:0;}
+.dropdown-item-name{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;}
+.dropdown-item-desc{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dropdown-divider{grid-column:span 6;height:1px;background:rgba(168,85,247,0.08);margin:4px 0;}
+.dropdown-coming{opacity:0.45;cursor:not-allowed;}
+.dropdown-coming:hover{transform:none!important;box-shadow:none!important;}
+.dropdown-coming:hover::before{opacity:0!important;}
+.badge-soon{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.2);letter-spacing:0.5px;}
+
+/* PAGE CONTENT */
+.page-content{padding:72px 24px 32px;max-width:1200px;margin:0 auto;display:none;position:relative;z-index:1;}
+.page-content.active{display:block;}
+.page-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:6px;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;}
+.stat-card:hover{border-color:var(--accent3);box-shadow:0 0 20px rgba(168,85,247,0.1);}
+.stat-card::before{content:'';position:absolute;top:0;right:0;width:80px;height:80px;border-radius:0 16px 0 80px;opacity:0.08;}
+.stat-card.c1::before{background:var(--accent3);}
+.stat-card.c2::before{background:var(--teal);}
+.stat-card.c3::before{background:var(--green);}
+.stat-card.c4::before{background:var(--manager);}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;}
+.stat-num{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;line-height:1;margin-bottom:4px;}
+.stat-card.c1 .stat-num{color:var(--accent3);}
+.stat-card.c2 .stat-num{color:var(--teal);}
+.stat-card.c3 .stat-num{color:var(--green);}
+.stat-card.c4 .stat-num{color:var(--manager);}
+.stat-desc{font-size:12px;color:var(--muted);}
+
+/* SECTION CARD */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:24px;}
+.section-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.section-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text);}
+.search-input{padding:8px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'Noto Sans Thai',sans-serif;outline:none;width:220px;transition:border-color 0.2s;}
+.search-input:focus{border-color:var(--accent3);}
+.add-btn{padding:8px 18px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);border-radius:8px;color:var(--accent3);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;white-space:nowrap;}
+.add-btn:hover{background:rgba(168,85,247,0.22);}
+table{width:100%;border-collapse:collapse;}
+th{padding:13px 20px;text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-weight:600;}
+td{padding:14px 20px;border-bottom:1px solid rgba(42,26,74,0.5);font-size:14px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(168,85,247,0.03);}
+.cust-id{font-family:'Syne',sans-serif;font-weight:700;color:var(--accent3);font-size:13px;}
+.action-btn{padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;border:none;transition:all 0.15s;font-family:'Noto Sans Thai',sans-serif;}
+.btn-del{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
+.btn-del:hover{background:rgba(248,113,113,0.2);}
+.empty-state{padding:48px;text-align:center;color:var(--muted);font-size:14px;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:200;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid rgba(168,85,247,0.25);border-radius:20px;padding:36px;width:440px;box-shadow:0 40px 80px rgba(0,0,0,0.6);animation:fadeUp 0.25s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:24px;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.cancel-btn{flex:1;padding:12px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'Noto Sans Thai',sans-serif;font-size:14px;cursor:pointer;transition:all 0.2s;}
+.cancel-btn:hover{border-color:var(--text);color:var(--text);}
+.form-group{margin-bottom:14px;}
+.form-label{display:block;font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif;}
+.form-input{width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;}
+.form-input:focus{border-color:var(--accent3);box-shadow:0 0 0 3px rgba(168,85,247,0.12);}
+.form-input::placeholder{color:rgba(107,79,160,0.5);}
+.primary-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;border-radius:9px;color:white;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 20px rgba(124,58,237,0.35);}
+.primary-btn:hover{transform:translateY(-1px);}
+.primary-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.msg{font-size:12px;text-align:center;margin-top:10px;min-height:18px;}
+.msg.error{color:var(--red);}
+.msg.success{color:var(--green);}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;vertical-align:middle;}
+
+/* ADMIN */
+.user-row{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(42,26,74,0.5);gap:14px;}
+.user-row:last-child{border-bottom:none;}
+.user-avatar{width:38px;height:38px;border-radius:50%;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--accent3);flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-email{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.role-select-sm{padding:5px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;cursor:pointer;outline:none;}
+.save-role-btn{padding:5px 12px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.25);border-radius:7px;color:var(--accent3);font-size:12px;cursor:pointer;transition:all 0.15s;font-family:'Noto Sans Thai',sans-serif;}
+.save-role-btn:hover{background:rgba(168,85,247,0.22);}
+.access-denied{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:var(--muted);gap:12px;}
+.access-denied .icon{font-size:48px;}
+.access-denied .title{font-family:'Syne',sans-serif;font-size:20px;color:var(--red);}
+</style>
+</head>
+<body>
+<div class="global-bg"></div>
+<div class="global-grid"></div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--teal));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white;border:2px solid rgba(168,85,247,0.5);box-shadow:0 0 24px rgba(168,85,247,0.4);position:relative;overflow:hidden;">
+    EF<img src="logo.png" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
+  </div>
+  <div class="loading-brand">Elit<span>Flow</span></div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ══ PILL NAV ══ -->
+<nav class="top-nav">
+  <div class="app-nav-logo">EF<img src="logo.png" onerror="this.style.display='none'"></div>
+  <div class="app-nav-brand">Elit<span>Flow</span></div>
+  <div class="nav-pill-divider"></div>
+  <div class="nav-links">
+    <div class="nav-dropdown">
+      <button class="nav-link active" id="nav-dashboard" onclick="showPage('dashboard')" style="gap:4px;">📊 Dashboard <span class="arrow" style="font-size:10px;transition:transform 0.3s;">▾</span></button>
+      <div class="dropdown-menu" style="padding:20px 40px;">
+        <div class="mega-grid" style="grid-template-columns:repeat(3,1fr);max-width:560px;">
+          <div class="mega-section-label" style="grid-column:span 3;">📊 Dashboard Tools</div>
+          <a class="dropdown-item" onclick="openCalendarModal();return false;" href="#">
+            <div class="d-icon" style="background:rgba(45,212,191,0.12);">📅</div>
+            <div class="dropdown-item-info">
+              <div class="dropdown-item-name">ปฏิทินส่วนตัว <span id="calNotifBadge" style="display:none;background:var(--red);color:white;border-radius:20px;font-size:9px;padding:1px 6px;font-weight:700;margin-left:4px;"></span></div>
+              <div class="dropdown-item-desc">จัดตารางงาน & แจ้งเตือน</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+    <button class="nav-link" id="nav-customers" onclick="showPage('customers')">👥 ลูกค้า</button>
+    <button class="nav-link" style="opacity:0.45;cursor:not-allowed;" title="Coming Soon">🏭 Supplier</button>
+    <button class="nav-link" id="nav-company" onclick="window.location.href='profilecompany.html'">🏢 บริษัท</button>
+    <button class="nav-link" onclick="window.location.href='employees.html'">👥 พนักงาน</button>
+    <button class="nav-link" onclick="window.location.href='project.html'">📋 โปรเจกต์</button>
+    <button class="nav-link" onclick="openChatModal()">💬 แชท<span id="chatUnreadNav" style="display:none;background:var(--red);color:white;border-radius:20px;font-size:9px;padding:1px 5px;margin-left:3px;font-weight:700;">!</span></button>
+
+    <!-- MEGA MENU: แผนก -->
+    <div class="nav-dropdown">
+      <button class="nav-dropdown-btn">🏬 แผนก <span class="arrow">▾</span></button>
+      <div class="dropdown-menu">
+        <div class="mega-grid">
+
+          <div class="mega-section-label">🏬 แผนกทั้งหมด</div>
+
+          <a class="dropdown-item" href="dept-accounting.html">
+            <div class="d-icon" style="background:rgba(74,222,128,0.1);">💰</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">บัญชี</div><div class="dropdown-item-desc">ระบบบัญชีและการเงิน</div></div>
+          </a>
+          <a class="dropdown-item" href="dept-marketing.html">
+            <div class="d-icon" style="background:rgba(248,113,113,0.1);">📣</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">Marketing</div><div class="dropdown-item-desc">การตลาดและโฆษณา</div></div>
+          </a>
+          <a class="dropdown-item" href="employees.html">
+            <div class="d-icon" style="background:rgba(129,140,248,0.12);">👔</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">HR</div><div class="dropdown-item-desc">ทรัพยากรบุคคล</div></div>
+          </a>
+          <a class="dropdown-item" href="dept-it.html">
+            <div class="d-icon" style="background:rgba(45,212,191,0.1);">💻</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">IT</div><div class="dropdown-item-desc">เทคโนโลยีสารสนเทศ</div></div>
+          </a>
+          <a class="dropdown-item" href="dept-cs.html">
+            <div class="d-icon" style="background:rgba(168,85,247,0.12);">🎧</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">Customer Service</div><div class="dropdown-item-desc">บริการลูกค้า</div></div>
+          </a>
+          <a class="dropdown-item" href="dept-data.html">
+            <div class="d-icon" style="background:rgba(251,191,36,0.1);">📊</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">DATA</div><div class="dropdown-item-desc">วิเคราะห์ข้อมูล</div></div>
+          </a>
+          <a class="dropdown-item" href="dept-legal.html">
+            <div class="d-icon" style="background:rgba(96,165,250,0.1);">⚖️</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">กฎหมาย</div><div class="dropdown-item-desc">นิติกรรมและสัญญา</div></div>
+          </a>
+          <a class="dropdown-item" href="stock.html">
+            <div class="d-icon" style="background:rgba(74,222,128,0.1);">📦</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">สต็อกสินค้า</div><div class="dropdown-item-desc">จัดการคลังสินค้า</div></div>
+          </a>
+          <a class="dropdown-item" href="event.html">
+            <div class="d-icon" style="background:rgba(248,113,113,0.1);">📅</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">Event</div><div class="dropdown-item-desc">บันทึกดีล / พื้นที่ดีล / Freelance</div></div>
+          </a>
+
+          <div class="dropdown-divider"></div>
+          <div class="mega-section-label">✨ เพิ่มเติม</div>
+
+          <a class="dropdown-item" href="store.html">
+            <div class="d-icon" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(251,191,36,0.08));">🛒</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">Module Store</div><div class="dropdown-item-desc">ซื้อระบบด้วยเหรียญ</div></div>
+          </a>
+          <a class="dropdown-item dropdown-coming" href="pricing.html">
+            <div class="d-icon" style="background:rgba(251,191,36,0.08);">💳</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">แพ็กเกจ <span class="badge-soon">SOON</span></div><div class="dropdown-item-desc">ระบบ Subscription</div></div>
+          </a>
+          <a class="dropdown-item dropdown-coming" href="theme-store.html">
+            <div class="d-icon" style="background:rgba(192,132,252,0.1);">🎨</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">Theme Store <span class="badge-soon">SOON</span></div><div class="dropdown-item-desc">ธีมตกแต่งระบบ</div></div>
+          </a>
+          <a class="dropdown-item dropdown-coming" href="ai-assistant.html">
+            <div class="d-icon" style="background:rgba(45,212,191,0.08);">🤖</div>
+            <div class="dropdown-item-info"><div class="dropdown-item-name">AI Assistant <span class="badge-soon">SOON</span></div><div class="dropdown-item-desc">ผู้ช่วย AI 3D</div></div>
+          </a>
+
+        </div>
+      </div>
+    </div>
+
+    <button class="nav-link" id="nav-admin" onclick="window.location.href='backoffice.html'" style="display:none;">⚙️ Admin</button>
+  </div>
+  <div class="nav-pill-divider-r"></div>
+  <div class="nav-right">
+    <div style="display:flex;align-items:center;gap:5px;padding:5px 11px;background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(251,191,36,0.05));border:1px solid rgba(245,158,11,0.2);border-radius:10px;cursor:pointer;" onclick="window.location.href='store.html'" title="เหรียญของฉัน">
+      <span style="font-size:14px;">🪙</span>
+      <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;background:linear-gradient(135deg,#f59e0b,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;" id="navCoinAmount">—</span>
+    </div>
+    <button class="nav-profile-btn" id="navProfileBtn" onclick="openProfileModal()" title="ดูโปรไฟล์ของฉัน">
+      <div class="nav-avatar" id="navAvatar">?</div>
+      <div class="nav-profile-info">
+        <span class="user-name-nav" id="navUserName"></span>
+        <span class="role-badge" id="navRoleBadge"></span>
+      </div>
+      <span style="font-size:11px;color:var(--muted);margin-left:2px;">▾</span>
+    </button>
+    <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
+  </div>
+</nav>
+
+<!-- DASHBOARD -->
+<div class="page-content active" id="page-dashboard">
+  <div class="page-title">Dashboard</div>
+  <div class="page-sub" id="dashGreeting"></div>
+  <div class="stats-grid">
+    <div class="stat-card c1"><div class="stat-label">ลูกค้าทั้งหมด</div><div class="stat-num" id="statTotal">—</div><div class="stat-desc">รายการในระบบ</div></div>
+    <div class="stat-card c2"><div class="stat-label">เพิ่มวันนี้</div><div class="stat-num" id="statToday">—</div><div class="stat-desc">รายการใหม่</div></div>
+    <div class="stat-card c3"><div class="stat-label">ผู้ใช้ในระบบ</div><div class="stat-num" id="statUsers">—</div><div class="stat-desc">บัญชีที่สมัคร</div></div>
+    <div class="stat-card c4"><div class="stat-label">Bangkok Node</div><div class="stat-num" style="font-size:20px;padding-top:8px;">🟢 LIVE</div><div class="stat-desc">Firebase Connected</div></div>
+  </div>
+  <div class="section-card">
+    <div class="section-header"><div class="section-title">รายการลูกค้าล่าสุด</div></div>
+    <table><thead><tr><th>รหัส</th><th>ชื่อลูกค้า</th><th>เวลา</th></tr></thead>
+    <tbody id="recentTable"><tr><td colspan="3" class="empty-state">กำลังโหลด...</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- CUSTOMERS -->
+<div class="page-content" id="page-customers">
+  <div class="page-title">จัดการข้อมูลลูกค้า</div>
+  <div class="page-sub">ระบบบันทึก-ดูข้อมูลลูกค้าแบบ Real-time</div>
+  <div class="section-card">
+    <div class="section-header">
+      <div class="section-title">รายชื่อลูกค้าทั้งหมด</div>
+      <input class="search-input" type="text" id="searchInput" placeholder="🔍 ค้นหา..." oninput="filterTable()">
+      <button class="add-btn" id="addCustBtn" onclick="openCustModal()">+ เพิ่มลูกค้า</button>
+    </div>
+    <table><thead><tr><th>รหัสลูกค้า</th><th>ชื่อ-นามสกุล</th><th>เวลาลงทะเบียน</th><th>จัดการ</th></tr></thead>
+    <tbody id="custTable"><tr><td colspan="4" class="empty-state">กำลังโหลด...</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="page-content" id="page-admin">
+  <div class="page-title">⚙️ Admin Panel</div>
+  <div class="page-sub">จัดการสิทธิ์ผู้ใช้งานในระบบ</div>
+  <div id="adminContent">
+    <div class="access-denied"><div class="icon">🔒</div><div class="title">ไม่มีสิทธิ์เข้าถึง</div><div>เฉพาะ Admin เท่านั้น</div></div>
+  </div>
+</div>
+
+<!-- MODAL: ADD CUSTOMER -->
+<div class="modal-overlay" id="addCustModal">
+  <div class="modal">
+    <div class="modal-title">➕ เพิ่มลูกค้าใหม่</div>
+    <div class="form-group"><label class="form-label">รหัสลูกค้า</label><input type="text" class="form-input" id="newCustId" placeholder="เช่น CUST-001"></div>
+    <div class="form-group"><label class="form-label">ชื่อ-นามสกุล</label><input type="text" class="form-input" id="newCustName" placeholder="ชื่อลูกค้า"></div>
+    <div class="form-group"><label class="form-label">เบอร์โทรศัพท์ (ถ้ามี)</label><input type="text" class="form-input" id="newCustPhone" placeholder="08x-xxx-xxxx"></div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeCustModal()">ยกเลิก</button>
+      <button class="primary-btn" style="flex:1;" onclick="saveCust()">บันทึก</button>
+    </div>
+    <div class="msg" id="custModalMsg"></div>
+  </div>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, query, orderBy, onSnapshot, getDoc, setDoc, getDocs, serverTimestamp, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyCcNc3DQ_iw0fcTyvgrXQcj3S15CNlyHGU",
+  authDomain:"elitflow-38bc4.firebaseapp.com",
+  projectId:"elitflow-38bc4",
+  storageBucket:"elitflow-38bc4.firebasestorage.app",
+  messagingSenderId:"697101909670",
+  appId:"1:697101909670:web:afa2071ba0ca64dbba7e67"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let currentUser = null;
+let currentRole = 'staff';
+let allCustomers = [];
+
+onAuthStateChanged(auth, async (user) => {
+  document.getElementById('loadingOverlay').style.opacity = '0';
+  setTimeout(() => document.getElementById('loadingOverlay').style.display='none', 400);
+  if (!user) { window.location.href = 'index.html'; return; }
+  currentUser = user;
+  const userDoc = await getDoc(doc(db,'users',user.uid));
+  if (userDoc.exists()) {
+    currentRole = userDoc.data().role || 'staff';
+  } else {
+    await setDoc(doc(db,'users',user.uid), { email:user.email, name:user.email.split('@')[0], role:'staff', createdAt:serverTimestamp() });
+    currentRole = 'staff';
+  }
+
+  // ── เช็คว่ากรอกข้อมูลบริษัทหรือยัง (ยกเว้น admin) ──
+  if (currentRole !== 'admin') {
+    try {
+      const compDoc = await getDoc(doc(db,'companies',user.uid));
+      if (!compDoc.exists() || !compDoc.data().name) {
+        // ยังไม่มีข้อมูลบริษัท → redirect ไปกรอกก่อน
+        window.location.href = 'profilecompany.html?setup=1';
+        return;
+      }
+    } catch(e) {}
+  }
+
+  setupUI();
+});
+
+function setupUI() {
+  const badge = document.getElementById('navRoleBadge');
+  badge.textContent = { admin:'Admin', manager:'Manager', staff:'Staff' }[currentRole] || 'Staff';
+  badge.className = 'role-badge role-' + currentRole;
+  const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+  document.getElementById('navUserName').textContent = displayName;
+  document.getElementById('navAvatar').textContent = displayName[0].toUpperCase();
+  if (currentRole === 'admin') document.getElementById('nav-admin').style.display = 'flex';
+  if (currentRole === 'staff') document.getElementById('addCustBtn').style.display = 'none';
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'อรุณสวัสดิ์' : hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
+  document.getElementById('dashGreeting').textContent = `${greet}, ${displayName} 👋 — ${new Date().toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}`;
+  loadCustomers();
+  loadDashStats();
+  loadUserCoins();
+  initChat();
+  if(window._calInit) window._calInit(currentUser);
+}
+
+// ── PROFILE MODAL ──
+window.openProfileModal = async () => {
+  const u = currentUser;
+  const initial = (u.displayName || u.email || '?')[0].toUpperCase();
+  document.getElementById('pmAvatar').textContent = initial;
+  document.getElementById('pmName').textContent = u.displayName || u.email.split('@')[0];
+  document.getElementById('pmEmail').textContent = u.email;
+  document.getElementById('pmInfoName').textContent = u.displayName || u.email.split('@')[0];
+  document.getElementById('pmInfoEmail').textContent = u.email;
+  document.getElementById('pmInfoRole').textContent = { admin:'👑 Admin', manager:'🔷 Manager', staff:'👤 Staff' }[currentRole] || 'Staff';
+  document.getElementById('pmInfoUid').textContent = u.uid;
+
+  // Load join date from Firestore
+  try {
+    const userDoc = await getDoc(doc(db,'users',u.uid));
+    if (userDoc.exists() && userDoc.data().createdAt?.toDate) {
+      document.getElementById('pmInfoDate').textContent = userDoc.data().createdAt.toDate().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
+    } else { document.getElementById('pmInfoDate').textContent = '—'; }
+  } catch(e) { document.getElementById('pmInfoDate').textContent = '—'; }
+
+  // Reset fields
+  ['pmCurrentPass','pmNewPass','pmConfirmPass'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pmMsg').textContent = '';
+  document.getElementById('pmResetMsg').textContent = '';
+  switchProfileTab('info');
+  document.getElementById('profileModal').classList.add('open');
+};
+
+window.closeProfileModal = () => {
+  document.getElementById('profileModal').classList.remove('open');
+};
+
+window.switchProfileTab = (tab) => {
+  document.querySelectorAll('.profile-tab').forEach((t,i) => t.classList.toggle('active', ['info','password'][i] === tab));
+  document.querySelectorAll('.profile-tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('ptab-' + tab).classList.add('active');
+};
+
+window.doChangePassword = async () => {
+  const current = document.getElementById('pmCurrentPass').value;
+  const newPass = document.getElementById('pmNewPass').value;
+  const confirm = document.getElementById('pmConfirmPass').value;
+  const btn = document.getElementById('pmChangeBtn');
+  const msg = document.getElementById('pmMsg');
+
+  msg.className = 'p-msg';
+  if (!current || !newPass || !confirm) { msg.className='p-msg err'; msg.textContent='⚠️ กรุณากรอกให้ครบทุกช่อง'; return; }
+  if (newPass.length < 6) { msg.className='p-msg err'; msg.textContent='⚠️ รหัสใหม่ต้องมีอย่างน้อย 6 ตัว'; return; }
+  if (newPass !== confirm) { msg.className='p-msg err'; msg.textContent='⚠️ รหัสผ่านใหม่ไม่ตรงกัน'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px;"></span>กำลังเปลี่ยน...';
+
+  try {
+    const credential = EmailAuthProvider.credential(currentUser.email, current);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPass);
+    msg.className = 'p-msg ok';
+    msg.textContent = '✅ เปลี่ยนรหัสผ่านสำเร็จแล้วค่ะ!';
+    ['pmCurrentPass','pmNewPass','pmConfirmPass'].forEach(id => document.getElementById(id).value = '');
+  } catch(e) {
+    msg.className = 'p-msg err';
+    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') msg.textContent = '❌ รหัสผ่านเดิมไม่ถูกต้อง';
+    else msg.textContent = '❌ ' + e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = '🔑 เปลี่ยนรหัสผ่าน';
+};
+
+window.doSendResetFromProfile = async () => {
+  const msg = document.getElementById('pmResetMsg');
+  try {
+    await sendPasswordResetEmail(auth, currentUser.email);
+    msg.className = 'p-msg ok';
+    msg.textContent = '✅ ส่ง Reset Email ไปที่ ' + currentUser.email + ' แล้วค่ะ';
+  } catch(e) {
+    msg.className = 'p-msg err';
+    msg.textContent = '❌ ' + e.message;
+  }
+};
+
+// Close on backdrop click
+document.getElementById('profileModal').addEventListener('click', function(e) {
+  if (e.target === this) closeProfileModal();
+});
+
+
+window.doLogout = async () => { await signOut(auth); window.location.href = 'index.html'; };
+
+window.showPage = (page) => {
+  document.querySelectorAll('.page-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  const navEl = document.getElementById('nav-'+page);
+  if(navEl) navEl.classList.add('active');
+  if (page === 'admin') loadAdmin();
+};
+
+function loadCustomers() {
+  const q = query(collection(db,'customers'), orderBy('timestamp','desc'));
+  onSnapshot(q, (snap) => {
+    allCustomers = snap.docs.map(d => ({id:d.id,...d.data()})).filter(c => c.companyId === currentUser.uid);
+    renderTable(allCustomers);
+    updateDashRecent();
+    document.getElementById('statTotal').textContent = allCustomers.length;
+    const today = new Date().toDateString();
+    document.getElementById('statToday').textContent = allCustomers.filter(c => c.timestamp?.toDate?.()?.toDateString() === today).length;
+  });
+}
+
+function renderTable(data) {
+  const tb = document.getElementById('custTable');
+  if (!data.length) { tb.innerHTML = '<tr><td colspan="4" class="empty-state">ยังไม่มีข้อมูลลูกค้า</td></tr>'; return; }
+  tb.innerHTML = data.map(c => `
+    <tr>
+      <td><span class="cust-id">${esc(c.cust_id)}</span></td>
+      <td>${esc(c.cust_name)}${c.cust_phone?`<span style="color:var(--muted);font-size:12px;margin-left:8px;">${esc(c.cust_phone)}</span>`:''}</td>
+      <td style="color:var(--muted);font-size:12px;">${c.timestamp?.toDate?.()?.toLocaleString('th-TH')||'—'}</td>
+      <td>${canDelete()?`<button class="action-btn btn-del" onclick="deleteCust('${c.id}')">ลบ</button>`:'<span style="color:var(--muted);font-size:12px;">—</span>'}</td>
+    </tr>`).join('');
+}
+
+function canDelete() { return currentRole==='admin'||currentRole==='manager'; }
+
+function updateDashRecent() {
+  const tb = document.getElementById('recentTable');
+  const recent = allCustomers.slice(0,5);
+  if (!recent.length) { tb.innerHTML = '<tr><td colspan="3" class="empty-state">ยังไม่มีข้อมูล</td></tr>'; return; }
+  tb.innerHTML = recent.map(c => `
+    <tr>
+      <td><span class="cust-id">${esc(c.cust_id)}</span></td>
+      <td>${esc(c.cust_name)}</td>
+      <td style="color:var(--muted);font-size:12px;">${c.timestamp?.toDate?.()?.toLocaleString('th-TH')||'—'}</td>
+    </tr>`).join('');
+}
+
+window.filterTable = () => {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  renderTable(allCustomers.filter(c => c.cust_id?.toLowerCase().includes(q)||c.cust_name?.toLowerCase().includes(q)));
+};
+
+window.openCustModal = () => document.getElementById('addCustModal').classList.add('open');
+window.closeCustModal = () => {
+  document.getElementById('addCustModal').classList.remove('open');
+  ['newCustId','newCustName','newCustPhone'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('custModalMsg').textContent='';
+};
+
+window.saveCust = async () => {
+  const id = document.getElementById('newCustId').value.trim();
+  const name = document.getElementById('newCustName').value.trim();
+  const phone = document.getElementById('newCustPhone').value.trim();
+  const msg = document.getElementById('custModalMsg');
+  if (!id||!name) { msg.textContent='กรุณากรอกรหัสและชื่อลูกค้า'; msg.className='msg error'; return; }
+  try {
+    await addDoc(collection(db,'customers'), { cust_id:id, cust_name:name, cust_phone:phone, timestamp:serverTimestamp(), createdBy:currentUser.uid, companyId:currentUser.uid });
+    closeCustModal(); showToast('✅ บันทึกข้อมูลลูกค้าสำเร็จ');
+  } catch(e) { msg.textContent=e.message; msg.className='msg error'; }
+};
+
+window.deleteCust = async (docId) => {
+  if (!confirm('ยืนยันการลบ?')) return;
+  await deleteDoc(doc(db,'customers',docId));
+  showToast('🗑️ ลบข้อมูลแล้ว', true);
+};
+
+async function loadDashStats() {
+  const snap = await getDocs(collection(db,'users'));
+  document.getElementById('statUsers').textContent = snap.size;
+}
+
+async function loadAdmin() {
+  const content = document.getElementById('adminContent');
+  if (currentRole!=='admin') { content.innerHTML=`<div class="access-denied"><div class="icon">🔒</div><div class="title">ไม่มีสิทธิ์เข้าถึง</div><div>เฉพาะ Admin เท่านั้น</div></div>`; return; }
+  content.innerHTML='<div style="padding:20px;color:var(--muted);">กำลังโหลด...</div>';
+  const snap = await getDocs(collection(db,'users'));
+  const users = snap.docs.map(d => ({uid:d.id,...d.data()}));
+  content.innerHTML=`<div class="section-card"><div class="section-header"><div class="section-title">ผู้ใช้ในระบบ (${users.length} คน)</div></div>${users.map(u=>`<div class="user-row"><div class="user-avatar">${(u.name||u.email||'?')[0].toUpperCase()}</div><div class="user-info"><div class="user-email">${esc(u.name||'—')}</div><div class="user-meta">${esc(u.email)}</div></div><select class="role-select-sm" id="role_${u.uid}"><option value="staff" ${u.role==='staff'?'selected':''}>Staff</option><option value="manager" ${u.role==='manager'?'selected':''}>Manager</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select><button class="save-role-btn" onclick="updateRole('${u.uid}')">บันทึก</button></div>`).join('')}</div>`;
+}
+
+window.updateRole = async (uid) => {
+  const newRole = document.getElementById('role_'+uid).value;
+  await setDoc(doc(db,'users',uid), {role:newRole}, {merge:true});
+  showToast(`✅ อัปเดต Role เป็น ${newRole} แล้ว`);
+};
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast'+(isErr?' error':'');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+document.getElementById('addCustModal').addEventListener('click', function(e) {
+  if (e.target===this) closeCustModal();
+});
+
+// ── COINS ──
+async function loadUserCoins() {
+  const snap = await getDoc(doc(db,'users',currentUser.uid));
+  const coins = snap.exists() ? (snap.data().coins || 0) : 0;
+  document.getElementById('navCoinAmount').textContent = coins.toLocaleString();
+}
+
+// ── CHAT ──
+let chatRoomId = null;
+let chatUnsubscribe = null;
+
+async function initChat() {
+  chatRoomId = currentUser.uid;
+  // listen unread
+  onSnapshot(doc(db,'chatRooms',chatRoomId), (snap) => {
+    if (!snap.exists()) return;
+    const unread = snap.data().userUnread || 0;
+    const dot = document.getElementById('chatUnreadDot');
+    const navBadge = document.getElementById('chatUnreadNav');
+    if (unread > 0) {
+      dot.style.display = 'flex';
+      navBadge.style.display = 'inline-block';
+    } else {
+      dot.style.display = 'none';
+      navBadge.style.display = 'none';
+    }
+  });
+}
+
+window.openChatModal = async () => {
+  document.getElementById('chatModalOverlay').classList.add('open');
+  // reset userUnread
+  try {
+    await setDoc(doc(db,'chatRooms',chatRoomId), {
+      userUnread: 0,
+      userEmail: currentUser.email,
+      userName: currentUser.displayName || currentUser.email.split('@')[0],
+      userUid: currentUser.uid,
+    }, { merge: true });
+  } catch(e) {}
+
+  if (chatUnsubscribe) chatUnsubscribe();
+  const msgQ = query(collection(db,'chatRooms',chatRoomId,'messages'), orderBy('createdAt','asc'));
+  chatUnsubscribe = onSnapshot(msgQ, (snap) => {
+    const el = document.getElementById('chatModalMessages');
+    if (!snap.docs.length) {
+      el.innerHTML = `<div style="text-align:center;padding:20px 0;">
+        <div style="font-size:28px;margin-bottom:8px;">👋</div>
+        <div style="color:#9d7ec9;font-size:13px;line-height:1.7;">สวัสดีค่ะ! มีอะไรให้ช่วยไหม?<br>พิมพ์ข้อความมาได้เลยค่ะ</div>
+      </div>`;
+      return;
+    }
+    el.innerHTML = snap.docs.map(d => {
+      const m = d.data();
+      const isMe = m.role === 'user';
+      const time = m.createdAt?.toDate ? m.createdAt.toDate().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : '';
+      return `<div class="${isMe?'msg-wrap-me':'msg-wrap-admin'}">
+        <div class="msg-bubble ${isMe?'msg-me':'msg-admin'}">${esc(m.text)}</div>
+        <div class="msg-time">${time}</div>
+      </div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  });
+
+  document.getElementById('chatModalInput').focus();
+};
+
+window.closeChatModal = () => {
+  document.getElementById('chatModalOverlay').classList.remove('open');
+  if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+};
+
+window.sendUserMsg = async () => {
+  const input = document.getElementById('chatModalInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+  try {
+    await addDoc(collection(db,'chatRooms',chatRoomId,'messages'), {
+      text, role: 'user',
+      senderName: displayName,
+      senderUid: currentUser.uid,
+      createdAt: serverTimestamp(),
+    });
+    await setDoc(doc(db,'chatRooms',chatRoomId), {
+      lastMessage: text,
+      lastMessageAt: serverTimestamp(),
+      adminUnread: increment(1),
+      userEmail: currentUser.email,
+      userName: displayName,
+      userUid: currentUser.uid,
+    }, { merge: true });
+  } catch(e) { showToast('❌ ส่งไม่ได้: '+e.message, true); }
+};
+
+document.getElementById('chatModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeChatModal();
+});
+</script>
+<!-- CHAT MODAL + FLOAT BTN -->
+<style>
+.chat-float-btn{position:fixed;bottom:28px;right:28px;z-index:150;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 8px 24px rgba(124,58,237,0.5);transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);animation:floatIn 0.5s ease forwards;}
+.chat-float-btn:hover{transform:scale(1.12);box-shadow:0 12px 32px rgba(124,58,237,0.7);}
+.chat-float-btn:active{transform:scale(0.95);}
+.chat-unread-dot{position:absolute;top:4px;right:4px;width:14px;height:14px;border-radius:50%;background:#f87171;border:2px solid #07050f;font-size:8px;font-weight:700;color:white;display:none;align-items:center;justify-content:center;}
+.chat-tooltip{position:absolute;right:68px;bottom:50%;transform:translateY(50%);background:rgba(10,7,20,0.95);border:1px solid rgba(168,85,247,0.3);color:#f3e8ff;font-size:12px;font-family:'Noto Sans Thai',sans-serif;padding:6px 12px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity 0.2s;backdrop-filter:blur(10px);}
+.chat-float-btn:hover .chat-tooltip{opacity:1;}
+@keyframes floatIn{from{opacity:0;transform:scale(0) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+/* CHAT MODAL */
+.chat-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:flex-end;z-index:200;padding:100px 28px 28px;}
+.chat-modal-overlay.open{display:flex;}
+.chat-modal{width:380px;height:520px;background:#0e0a1a;border:1px solid rgba(168,85,247,0.25);border-radius:20px;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.6);animation:slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.chat-modal-header{padding:14px 18px;border-bottom:1px solid rgba(42,26,74,0.6);display:flex;align-items:center;gap:10px;border-radius:20px 20px 0 0;background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(168,85,247,0.05));}
+.chat-modal-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.chat-modal-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;flex:1;}
+.chat-modal-sub{font-size:11px;color:#6b4fa0;margin-top:1px;}
+.chat-modal-close{width:28px;height:28px;border-radius:8px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.15);color:#6b4fa0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.2s;}
+.chat-modal-close:hover{border-color:var(--red);color:var(--red);}
+
+.chat-modal-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;}
+.chat-modal-messages::-webkit-scrollbar{width:4px;}
+.chat-modal-messages::-webkit-scrollbar-track{background:transparent;}
+.chat-modal-messages::-webkit-scrollbar-thumb{background:rgba(168,85,247,0.2);border-radius:2px;}
+
+.msg-bubble{max-width:80%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word;}
+.msg-me{background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border-radius:14px 14px 4px 14px;align-self:flex-end;}
+.msg-admin{background:#150f25;border:1px solid #2a1a4a;color:#f3e8ff;border-radius:14px 14px 14px 4px;align-self:flex-start;}
+.msg-wrap-me{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.msg-wrap-admin{display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
+.msg-time{font-size:10px;color:#6b4fa0;}
+
+.chat-modal-input{padding:10px 14px;border-top:1px solid rgba(42,26,74,0.6);display:flex;gap:8px;border-radius:0 0 20px 20px;}
+.chat-modal-input input{flex:1;padding:9px 13px;background:#150f25;border:1px solid #2a1a4a;border-radius:10px;color:#f3e8ff;font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;}
+.chat-modal-input input:focus{border-color:#a855f7;}
+.chat-modal-input input::placeholder{color:rgba(107,79,160,0.4);}
+.chat-send-btn{padding:9px 16px;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.chat-send-btn:hover{opacity:0.9;}
+</style>
+
+<button class="chat-float-btn" onclick="openChatModal()" title="แชท">
+  💬
+  <div class="chat-unread-dot" id="chatUnreadDot"></div>
+  <div class="chat-tooltip">💬 แชทกับ Admin</div>
+</button>
+
+<!-- CHAT MODAL -->
+<div class="chat-modal-overlay" id="chatModalOverlay">
+  <div class="chat-modal">
+    <div class="chat-modal-header">
+      <div class="chat-modal-avatar">🛡️</div>
+      <div>
+        <div class="chat-modal-title">Admin Support</div>
+        <div class="chat-modal-sub">ElitFlow Team · ตอบกลับภายใน 24 ชม.</div>
+      </div>
+      <button class="chat-modal-close" onclick="closeChatModal()">✕</button>
+    </div>
+    <div class="chat-modal-messages" id="chatModalMessages">
+      <div style="text-align:center;color:#6b4fa0;font-size:12px;padding:20px 0;">กำลังโหลดข้อความ...</div>
+    </div>
+    <div class="chat-modal-input">
+      <input type="text" id="chatModalInput" placeholder="พิมพ์ข้อความ..." onkeydown="if(event.key==='Enter')sendUserMsg()">
+      <button class="chat-send-btn" onclick="sendUserMsg()">ส่ง</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MY PROFILE -->
+<div class="profile-modal-overlay" id="profileModal">
+  <div class="profile-modal">
+    <!-- HERO -->
+    <div class="profile-hero">
+      <div class="profile-big-avatar" id="pmAvatar">?</div>
+      <div class="profile-hero-info">
+        <div class="profile-hero-name" id="pmName">—</div>
+        <div class="profile-hero-email" id="pmEmail">—</div>
+      </div>
+      <button onclick="closeProfileModal()" style="background:transparent;border:none;color:#6b4fa0;font-size:20px;cursor:pointer;padding:4px;line-height:1;margin-left:auto;align-self:flex-start;">✕</button>
+    </div>
+    <!-- TABS -->
+    <div class="profile-tabs">
+      <button class="profile-tab active" onclick="switchProfileTab('info')">👤 ข้อมูลของฉัน</button>
+      <button class="profile-tab" onclick="switchProfileTab('password')">🔑 เปลี่ยนรหัสผ่าน</button>
+    </div>
+    <!-- TAB: INFO -->
+    <div class="profile-tab-content active" id="ptab-info">
+      <div class="info-row"><span class="info-key">ชื่อผู้ใช้</span><span class="info-val" id="pmInfoName">—</span></div>
+      <div class="info-row"><span class="info-key">Email</span><span class="info-val" id="pmInfoEmail">—</span></div>
+      <div class="info-row"><span class="info-key">Role</span><span class="info-val" id="pmInfoRole">—</span></div>
+      <div class="info-row"><span class="info-key">สถานะ</span><span class="info-val">🟢 ใช้งานได้</span></div>
+      <div class="info-row"><span class="info-key">สมัครเมื่อ</span><span class="info-val" id="pmInfoDate">—</span></div>
+      <div class="info-row"><span class="info-key">UID</span><span class="info-val" id="pmInfoUid" style="font-size:10px;color:#6b4fa0;word-break:break-all;">—</span></div>
+    </div>
+    <!-- TAB: PASSWORD -->
+    <div class="profile-tab-content" id="ptab-password">
+      <div class="p-field">
+        <label class="p-label">รหัสผ่านปัจจุบัน</label>
+        <input type="password" class="p-input" id="pmCurrentPass" placeholder="กรอกรหัสผ่านเดิม">
+      </div>
+      <div class="p-field">
+        <label class="p-label">รหัสผ่านใหม่</label>
+        <input type="password" class="p-input" id="pmNewPass" placeholder="อย่างน้อย 6 ตัวอักษร">
+      </div>
+      <div class="p-field">
+        <label class="p-label">ยืนยันรหัสผ่านใหม่</label>
+        <input type="password" class="p-input" id="pmConfirmPass" placeholder="พิมพ์รหัสใหม่อีกครั้ง" onkeydown="if(event.key==='Enter')doChangePassword()">
+      </div>
+      <button class="p-btn" id="pmChangeBtn" onclick="doChangePassword()">🔑 เปลี่ยนรหัสผ่าน</button>
+      <div class="p-msg" id="pmMsg"></div>
+      <div style="text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid rgba(42,26,74,0.5);">
+        <span style="font-size:12px;color:#6b4fa0;">ลืมรหัสผ่านเดิม? </span>
+        <span style="font-size:12px;color:#a855f7;cursor:pointer;text-decoration:underline;text-underline-offset:3px;" onclick="doSendResetFromProfile()">ส่ง Reset Email</span>
+      </div>
+      <div class="p-msg" id="pmResetMsg" style="margin-top:6px;"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ CALENDAR STYLES ══ -->
+<style>
+.cal-overlay{position:fixed;inset:0;background:rgba(5,3,14,0.97);backdrop-filter:blur(20px);display:none;z-index:400;flex-direction:column;overflow:hidden;}
+.cal-overlay.open{display:flex;}
+.cal-topbar{height:56px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 24px;border-bottom:1px solid rgba(168,85,247,0.18);background:rgba(10,7,20,0.95);}
+.cal-topbar-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;flex:1;}
+.cal-topbar-btn{height:33px;padding:0 13px;border-radius:9px;border:1px solid rgba(168,85,247,0.25);background:rgba(168,85,247,0.08);color:var(--muted2);font-size:13px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;display:flex;align-items:center;gap:5px;}
+.cal-topbar-btn:hover{background:rgba(168,85,247,0.18);color:var(--text);}
+.cal-topbar-btn.primary{background:linear-gradient(135deg,var(--accent2),var(--accent3));border-color:transparent;color:white;font-weight:700;}
+.cal-close-fs{width:33px;height:33px;border-radius:9px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.2s;}
+.cal-close-fs:hover{background:rgba(248,113,113,0.2);}
+.cal-main{flex:1;display:grid;grid-template-columns:280px 1fr 340px;overflow:hidden;}
+.cal-sidebar-left{border-right:1px solid rgba(42,26,74,0.6);padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
+.cal-mini-nav{display:flex;align-items:center;justify-content:space-between;}
+.cal-mini-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.cal-nav-arrow{width:25px;height:25px;border-radius:7px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.15);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.15s;}
+.cal-nav-arrow:hover{background:rgba(168,85,247,0.2);color:var(--text);}
+.cal-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:8px;}
+.cal-dow{text-align:center;font-size:9px;font-family:'Syne',sans-serif;font-weight:700;color:var(--muted);padding:3px 0 5px;}
+.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:7px;font-size:11px;cursor:pointer;transition:all 0.15s;position:relative;border:1px solid transparent;}
+.cal-day:hover{background:rgba(168,85,247,0.12);}
+.cal-day.today{background:linear-gradient(135deg,rgba(124,58,237,0.4),rgba(168,85,247,0.25));border-color:rgba(168,85,247,0.5);color:white;font-weight:700;}
+.cal-day.selected{background:linear-gradient(135deg,var(--accent2),var(--accent3));border-color:transparent;color:white;font-weight:700;box-shadow:0 3px 8px rgba(124,58,237,0.4);}
+.cal-day.other-month{color:rgba(107,79,160,0.28);}
+.cal-day.has-event::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:3px;height:3px;border-radius:50%;background:var(--teal);}
+.cal-day.has-event.selected::after,.cal-day.has-event.today::after{background:rgba(255,255,255,0.7);}
+.cal-section-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;}
+.upcoming-item{padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;border-left:3px solid var(--accent3);margin-bottom:5px;cursor:pointer;transition:all 0.15s;}
+.upcoming-item.soon{border-left-color:#f59e0b;}
+.upcoming-item.urgent{border-left-color:var(--red);}
+.upcoming-time{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent3);}
+.upcoming-item.soon .upcoming-time{color:#f59e0b;}
+.upcoming-item.urgent .upcoming-time{color:var(--red);}
+.upcoming-title{font-size:12px;color:var(--text);margin-top:1px;}
+.cal-center{overflow-y:auto;padding:22px 26px;display:flex;flex-direction:column;}
+.cal-center-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.cal-center-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.cal-center-btn{width:34px;height:34px;border-radius:9px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;}
+.cal-center-btn:hover{background:rgba(168,85,247,0.22);color:var(--text);}
+.cal-big-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;grid-auto-rows:auto;}
+.cal-big-dow{text-align:center;font-size:11px;font-family:'Syne',sans-serif;font-weight:700;color:var(--muted);letter-spacing:1px;padding:5px 0 9px;text-transform:uppercase;}
+.cal-big-day{min-height:88px;border-radius:11px;border:1px solid rgba(42,26,74,0.4);padding:7px;cursor:pointer;transition:all 0.15s;background:rgba(14,10,26,0.4);overflow:visible;}
+.cal-big-day:hover{border-color:rgba(168,85,247,0.3);background:rgba(168,85,247,0.05);}
+.cal-big-day.today{border-color:rgba(168,85,247,0.5);background:rgba(124,58,237,0.1);}
+.cal-big-day.selected{border-color:var(--accent3);background:rgba(168,85,247,0.1);box-shadow:0 0 0 2px rgba(168,85,247,0.15);}
+.cal-big-day.other-month{opacity:0.28;}
+.cal-big-day-num{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--muted2);margin-bottom:3px;}
+.cal-big-day.today .cal-big-day-num{color:var(--accent3);}
+.cal-big-day.selected .cal-big-day-num{color:white;}
+.cal-big-ev{padding:2px 5px;border-radius:4px;font-size:10px;font-weight:600;color:white;background:linear-gradient(90deg,var(--accent2),var(--accent3));margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;display:flex;align-items:center;gap:3px;}
+.cal-big-ev.ev-soon{background:linear-gradient(90deg,#92400e,#f59e0b);}
+.cal-big-ev.ev-urgent{background:linear-gradient(90deg,#991b1b,var(--red));}
+.cal-big-ev.ev-pm{background:linear-gradient(90deg,#3730a3,#6366f1);}
+.ev-tod-icon{font-size:9px;flex-shrink:0;line-height:1;}
+.cal-sidebar-right{border-left:1px solid rgba(42,26,74,0.6);display:flex;flex-direction:column;overflow:hidden;}
+.cal-right-head{padding:15px 18px;border-bottom:1px solid rgba(42,26,74,0.6);flex-shrink:0;}
+.cal-right-date{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;}
+.cal-right-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.cal-right-events{flex:1;overflow-y:auto;padding:12px;}
+.cal-right-events::-webkit-scrollbar{width:4px;}
+.cal-right-events::-webkit-scrollbar-thumb{background:rgba(168,85,247,0.2);border-radius:2px;}
+.ev-card{background:var(--surface2);border:1px solid var(--border);border-radius:11px;margin-bottom:7px;overflow:hidden;border-left:3px solid var(--accent3);}
+.ev-card.ev-soon{border-left-color:#f59e0b;}
+.ev-card.ev-urgent{border-left-color:var(--red);}
+.ev-card-head{padding:9px 11px;display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;transition:background 0.15s;}
+.ev-card-head:hover{background:rgba(168,85,247,0.05);}
+.ev-card-time{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent3);flex-shrink:0;}
+.ev-card.ev-soon .ev-card-time{color:#f59e0b;}
+.ev-card.ev-urgent .ev-card-time{color:var(--red);}
+.ev-card-title{font-size:13px;color:var(--text);flex:1;}
+.ev-card-arrow{font-size:10px;color:var(--muted);transition:transform 0.2s;flex-shrink:0;}
+.ev-card.open .ev-card-arrow{transform:rotate(180deg);}
+.ev-card-body{display:none;padding:9px 13px 11px;border-top:1px solid rgba(42,26,74,0.5);}
+.ev-card.open .ev-card-body{display:block;}
+.ev-detail-row{display:flex;gap:7px;align-items:flex-start;margin-bottom:5px;font-size:12px;color:var(--muted2);}
+.ev-edit-btn{padding:6px 12px;border-radius:7px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);color:var(--accent3);font-size:11px;cursor:pointer;transition:all 0.15s;font-family:'Noto Sans Thai',sans-serif;margin-right:6px;}
+.ev-del-btn{padding:6px 12px;border-radius:7px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);font-size:11px;cursor:pointer;transition:all 0.15s;font-family:'Noto Sans Thai',sans-serif;}
+.cal-add-section{padding:12px 18px;border-top:1px solid rgba(42,26,74,0.6);flex-shrink:0;background:rgba(10,7,20,0.7);}
+.cal-input{width:100%;padding:8px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;}
+.cal-input:focus{border-color:var(--accent3);box-shadow:0 0 0 3px rgba(168,85,247,0.1);}
+.cal-input::placeholder{color:rgba(107,79,160,0.4);}
+.cal-save-btn{padding:9px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;border-radius:8px;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;width:100%;}
+.cal-notif-btn{position:relative;height:33px;width:33px;border-radius:9px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.2);color:var(--teal);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.2s;}
+.cal-notif-btn:hover{background:rgba(45,212,191,0.16);}
+.cal-notif-count{position:absolute;top:-5px;right:-5px;min-width:15px;height:15px;border-radius:20px;background:var(--red);color:white;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid #07050f;}
+.no-event{text-align:center;color:var(--muted);font-size:13px;padding:20px 0;}
+/* CLOCK PICKER */
+.clock-picker-wrap{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:600;}
+.clock-picker-wrap.open{display:flex;}
+.clock-picker{border-radius:22px;padding:22px 24px;width:290px;box-shadow:0 30px 70px rgba(0,0,0,0.7);animation:fadeUp 0.22s ease;display:flex;flex-direction:column;align-items:center;gap:12px;transition:background 0.5s,border-color 0.5s;}
+.clock-picker.mode-am{background:linear-gradient(160deg,#1a0e2e,#2d1060,#1e3a5f);border:1px solid rgba(251,191,36,0.3);}
+.clock-picker.mode-pm{background:linear-gradient(160deg,#03051a,#0a0618,#060222);border:1px solid rgba(99,102,241,0.35);}
+.clock-sky{font-size:40px;line-height:1;transition:all 0.4s;}
+.clock-display{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;letter-spacing:2px;padding:8px 18px;border-radius:11px;transition:all 0.4s;}
+.clock-picker.mode-am .clock-display{background:rgba(255,200,50,0.1);border:1px solid rgba(251,191,36,0.3);color:#fde68a;}
+.clock-picker.mode-pm .clock-display{background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);color:#c7d2fe;}
+.clock-display span.active-part{text-decoration:underline;text-underline-offset:4px;}
+.clock-mode-hint{font-size:11px;font-family:'Noto Sans Thai',sans-serif;transition:color 0.4s;}
+.clock-picker.mode-am .clock-mode-hint{color:#fcd34d;}
+.clock-picker.mode-pm .clock-mode-hint{color:#a5b4fc;}
+.clock-face{position:relative;width:200px;height:200px;border-radius:50%;cursor:pointer;flex-shrink:0;transition:background 0.5s,border-color 0.5s,box-shadow 0.5s;}
+.clock-picker.mode-am .clock-face{background:radial-gradient(circle,rgba(251,191,36,0.12),rgba(30,58,95,0.6));border:2px solid rgba(251,191,36,0.25);box-shadow:0 0 24px rgba(251,191,36,0.1),inset 0 0 30px rgba(0,0,0,0.3);}
+.clock-picker.mode-pm .clock-face{background:radial-gradient(circle,rgba(99,102,241,0.15),rgba(3,5,26,0.8));border:2px solid rgba(99,102,241,0.3);box-shadow:0 0 24px rgba(99,102,241,0.12),inset 0 0 30px rgba(0,0,0,0.4);}
+.clock-center-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;z-index:3;transition:background 0.4s;}
+.clock-picker.mode-am .clock-center-dot{background:#fbbf24;}
+.clock-picker.mode-pm .clock-center-dot{background:#818cf8;}
+.clock-hand{position:absolute;bottom:50%;left:50%;transform-origin:bottom center;border-radius:4px;z-index:2;}
+.clock-hand-hr{width:4px;height:55px;margin-left:-2px;}
+.clock-hand-min{width:2px;height:72px;margin-left:-1px;}
+.clock-picker.mode-am .clock-hand-hr{background:linear-gradient(to top,#fbbf24,rgba(251,191,36,0.3));}
+.clock-picker.mode-am .clock-hand-min{background:linear-gradient(to top,#fde68a,rgba(253,230,138,0.25));}
+.clock-picker.mode-pm .clock-hand-hr{background:linear-gradient(to top,#818cf8,rgba(129,140,248,0.3));}
+.clock-picker.mode-pm .clock-hand-min{background:linear-gradient(to top,#a5b4fc,rgba(165,180,252,0.25));}
+.clock-tick{position:absolute;font-size:10px;font-family:'Syne',sans-serif;font-weight:700;transform:translate(-50%,-50%);pointer-events:none;user-select:none;transition:color 0.4s;}
+.clock-picker.mode-am .clock-tick{color:#fcd34d;}
+.clock-picker.mode-pm .clock-tick{color:#818cf8;}
+.clock-ampm{display:flex;gap:8px;}
+.clock-ampm-btn{padding:8px 22px;border-radius:10px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:6px;border:1px solid transparent;}
+#btnAM{background:rgba(251,191,36,0.08);border-color:rgba(251,191,36,0.2);color:#fcd34d;}
+#btnAM.active{background:linear-gradient(135deg,#b45309,#f59e0b);border-color:transparent;color:white;box-shadow:0 4px 14px rgba(245,158,11,0.4);}
+#btnPM{background:rgba(99,102,241,0.08);border-color:rgba(99,102,241,0.2);color:#a5b4fc;}
+#btnPM.active{background:linear-gradient(135deg,#4338ca,#818cf8);border-color:transparent;color:white;box-shadow:0 4px 14px rgba(99,102,241,0.4);}
+.clock-actions{display:flex;gap:8px;width:100%;}
+.clock-cancel{flex:1;padding:9px;border-radius:9px;background:transparent;border:1px solid rgba(107,79,160,0.3);color:var(--muted2);font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.clock-ok{flex:2;padding:9px;border-radius:9px;border:none;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.3s;}
+.clock-picker.mode-am .clock-ok{background:linear-gradient(135deg,#b45309,#f59e0b);}
+.clock-picker.mode-pm .clock-ok{background:linear-gradient(135deg,#4338ca,#818cf8);}
+.clock-stars{position:absolute;inset:0;border-radius:50%;pointer-events:none;overflow:hidden;}
+.star{position:absolute;width:2px;height:2px;border-radius:50%;background:white;animation:twinkle 2s ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:0.2}50%{opacity:0.9}}
+/* ADD MODAL */
+.tl-add-modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(14px);display:none;align-items:center;justify-content:center;z-index:500;padding:20px;}
+.tl-add-modal-wrap.open{display:flex;}
+.tl-add-modal{background:var(--surface);border:1px solid rgba(168,85,247,0.3);border-radius:22px;width:100%;max-width:480px;box-shadow:0 40px 80px rgba(0,0,0,0.7);animation:fadeUp 0.25s ease;overflow:hidden;}
+.tl-add-modal-head{padding:20px 24px 16px;background:linear-gradient(135deg,rgba(124,58,237,0.2),rgba(45,212,191,0.05));border-bottom:1px solid rgba(168,85,247,0.15);display:flex;align-items:center;gap:12px;}
+.tl-add-modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;flex:1;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.tl-add-modal-body{padding:22px 24px;display:flex;flex-direction:column;gap:12px;}
+.tl-add-date-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.25);color:var(--accent3);font-size:13px;font-weight:600;font-family:'Syne',sans-serif;align-self:flex-start;}
+/* EDIT MODAL for calendar */
+.cal-edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:500;padding:20px;}
+.cal-edit-overlay.open{display:flex;}
+</style>
+
+<!-- ══ FULLSCREEN CALENDAR ══ -->
+<div class="cal-overlay" id="calOverlay">
+  <div class="cal-topbar">
+    <span style="font-size:18px;">📅</span>
+    <div class="cal-topbar-title">ปฏิทินส่วนตัว</div>
+    <button class="cal-topbar-btn" onclick="calGoToday()">📍 วันนี้</button>
+    <button class="cal-topbar-btn" id="calTimeFmtBtn" onclick="toggleTimeFmt()" title="สลับรูปแบบเวลา">🕐 AM/PM</button>
+    <button class="cal-notif-btn" id="calNotifBtn" onclick="calScrollUpcoming()" title="กำหนดการที่จะมาถึง">🔔<span class="cal-notif-count" id="calNotifCount" style="display:none;"></span></button>
+    <button class="cal-topbar-btn primary" onclick="openTlAddModal()">➕ เพิ่มงาน</button>
+    <button class="cal-close-fs" onclick="closeCalendarModal()">✕</button>
+  </div>
+  <div class="cal-main">
+    <div class="cal-sidebar-left" id="calSideLeft">
+      <div>
+        <div class="cal-mini-nav">
+          <button class="cal-nav-arrow" onclick="calPrevMonth()">◀</button>
+          <div class="cal-mini-title" id="calMiniTitle"></div>
+          <button class="cal-nav-arrow" onclick="calNextMonth()">▶</button>
+        </div>
+        <div class="cal-mini-grid" id="calMiniGrid"></div>
+      </div>
+      <div>
+        <div class="cal-section-label">🔔 กำหนดการที่จะมาถึง</div>
+        <div id="calUpcomingList"><div class="no-event" style="font-size:12px;">ไม่มีกำหนดการ</div></div>
+      </div>
+    </div>
+    <div class="cal-center">
+      <div class="cal-center-nav">
+        <button class="cal-center-btn" onclick="calPrevMonth()">◀</button>
+        <div class="cal-center-title" id="calCenterTitle"></div>
+        <button class="cal-center-btn" onclick="calNextMonth()">▶</button>
+      </div>
+      <div class="cal-big-grid" id="calBigGrid"></div>
+    </div>
+    <div class="cal-sidebar-right" id="calSideRight">
+      <div class="cal-right-head">
+        <div class="cal-right-date" id="calRightDate">เลือกวันที่</div>
+        <div class="cal-right-sub" id="calRightSub">คลิกที่วันในปฏิทิน</div>
+      </div>
+      <div class="cal-right-events" id="calRightEvents"><div class="no-event">ยังไม่ได้เลือกวัน</div></div>
+      <div class="cal-add-section">
+        <div style="display:none;">
+          <input id="calEvTitle"><input id="calEvTimeDisplay"><input id="calEvNote">
+          <input id="calEvLocation"><select id="calNotifMin"><option value="60" selected>60</option></select>
+          <div id="calLocationSuggestions"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EVENT MODAL -->
+<div class="tl-add-modal-wrap" id="tlAddModalWrap" onclick="void(0)">
+  <div class="tl-add-modal" onclick="event.stopPropagation()">
+    <div class="tl-add-modal-head">
+      <span style="font-size:22px;">✨</span>
+      <div class="tl-add-modal-title">เพิ่มกำหนดการ</div>
+      <button onclick="closeTlAddModal()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:2px;">✕</button>
+    </div>
+    <div class="tl-add-modal-body">
+      <div class="tl-add-date-badge" id="tlAddDateBadge">📅 —</div>
+      <input class="cal-input" type="text" id="tlAddTitle" placeholder="ชื่องาน / นัดหมาย *">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="cal-input" id="tlAddTimeDisp" type="text" placeholder="🕐 เลือกเวลา" readonly style="flex:1;cursor:pointer;" onclick="openClockPicker('tladd')">
+        <button onclick="openClockPicker('tladd')" style="width:36px;height:36px;border-radius:9px;background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.25);color:var(--teal);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🕐</button>
+      </div>
+      <input class="cal-input" type="text" id="tlAddNote" placeholder="หมายเหตุ (ถ้ามี)">
+      <input class="cal-input" type="text" id="tlAddLocation" placeholder="📍 สถานที่ (พิมพ์หรือค้นหา)">
+      <div id="tlAddLocSugg" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;max-height:130px;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <label style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;">แจ้งเตือนก่อน</label>
+        <select class="cal-input" id="tlAddNotif" style="padding:8px 10px;">
+          <option value="15">15 นาที</option>
+          <option value="30">30 นาที</option>
+          <option value="60" selected>1 ชั่วโมง</option>
+          <option value="120">2 ชั่วโมง</option>
+          <option value="1440">1 วัน</option>
+        </select>
+      </div>
+      <button class="cal-save-btn" onclick="saveTlEvent()" style="margin-top:4px;">💾 บันทึกงาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLOCK PICKER -->
+<div class="clock-picker-wrap" id="clockPickerWrap" onclick="void(0)">
+  <div class="clock-picker mode-am" id="clockPickerBox" onclick="event.stopPropagation()">
+    <div class="clock-sky" id="clockSky">☀️</div>
+    <div class="clock-display" id="clockDisplay"><span id="clockHrDisplay">12</span>:<span id="clockMinDisplay">00</span></div>
+    <div class="clock-mode-hint" id="clockModeHint">แตะเพื่อเลือกชั่วโมง</div>
+    <div id="clockPreviewLabel" style="font-size:13px;font-weight:700;font-family:'Syne',sans-serif;padding:5px 14px;border-radius:8px;background:rgba(255,255,255,0.07);letter-spacing:1px;min-height:28px;"></div>
+    <div class="clock-face" id="clockFace">
+      <div class="clock-stars" id="clockStars"></div>
+      <div class="clock-center-dot" id="clockDot"></div>
+      <div class="clock-hand clock-hand-hr" id="clockHandHr"></div>
+      <div class="clock-hand clock-hand-min" id="clockHandMin" style="opacity:0.35;"></div>
+    </div>
+    <div class="clock-ampm">
+      <button class="clock-ampm-btn active" id="btnAM" onclick="setClockAmPm('AM')">☀️ เช้า</button>
+      <button class="clock-ampm-btn" id="btnPM" onclick="setClockAmPm('PM')">🌙 บ่าย/เย็น</button>
+    </div>
+    <div class="clock-actions">
+      <button class="clock-cancel" onclick="closeClockPicker()">ยกเลิก</button>
+      <button class="clock-ok" id="clockOkBtn" onclick="confirmClockPicker()">ตกลง ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT EVENT MODAL -->
+<div class="cal-edit-overlay" id="editEvModal" onclick="void(0)">
+  <div class="profile-modal" style="max-width:460px;" onclick="event.stopPropagation()">
+    <div class="profile-hero" style="padding:20px 24px 16px;">
+      <div style="font-size:22px;">✏️</div>
+      <div class="profile-hero-info"><div class="profile-hero-name">แก้ไขกำหนดการ</div><div class="profile-hero-email" id="editEvDateLabel">—</div></div>
+      <button onclick="closeEditModal()" style="background:transparent;border:none;color:#6b4fa0;font-size:20px;cursor:pointer;padding:4px;line-height:1;margin-left:auto;align-self:flex-start;">✕</button>
+    </div>
+    <div style="padding:20px;">
+      <div class="p-field"><label class="p-label">ชื่องาน</label><input class="p-input" id="editEvTitle" type="text"></div>
+      <div class="p-field"><label class="p-label">เวลา</label>
+        <div style="display:flex;gap:7px;">
+          <input class="p-input" id="editEvTimeDisplay" type="text" placeholder="🕐 เลือกเวลา" readonly style="flex:1;cursor:pointer;" onclick="openClockPicker('edit')">
+          <button onclick="openClockPicker('edit')" style="width:34px;height:34px;border-radius:8px;background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.25);color:var(--teal);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🕐</button>
+        </div>
+      </div>
+      <div class="p-field"><label class="p-label">หมายเหตุ</label><input class="p-input" id="editEvNote" type="text"></div>
+      <div class="p-field"><label class="p-label">สถานที่</label><input class="p-input" id="editEvLocation" type="text" placeholder="📍 สถานที่">
+        <div id="editLocationSuggestions" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;max-height:130px;overflow-y:auto;margin-top:4px;"></div>
+      </div>
+      <div class="p-field"><label class="p-label">แจ้งเตือนก่อน</label>
+        <select class="p-input" id="editNotifMin">
+          <option value="15">15 นาที</option><option value="30">30 นาที</option>
+          <option value="60">1 ชั่วโมง</option><option value="120">2 ชั่วโมง</option><option value="1440">1 วัน</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="cancel-btn" onclick="closeEditModal()">ยกเลิก</button>
+        <button class="p-btn" onclick="confirmEditEvent()" style="flex:1;">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ CALENDAR SYSTEM ══
+let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
+let calSelectedDate=new Date().toISOString().split('T')[0];
+let calEvents={},calNotifTimer=null,_calUser=null;
+let _editEvId=null,_editEvDate=null,_clockTarget='add';
+let calTimeFmt=localStorage.getItem('calTimeFmt')||'ampm';
+
+function calKey(){return`calEv_${_calUser?.uid||'g'}`;}
+function loadCal(){try{calEvents=JSON.parse(localStorage.getItem(calKey())||'{}');}catch{calEvents={};}}
+function saveCal(){localStorage.setItem(calKey(),JSON.stringify(calEvents));}
+
+const MONTHS_TH=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const DOWS=['อา','จ','อ','พ','พฤ','ศ','ส'];
+const todayKey=()=>new Date().toISOString().split('T')[0];
+
+function formatTime12(t){if(!t)return'';const[h,m]=t.split(':').map(Number);const ampm=h>=12?'PM':'AM';const h12=h===0?12:h>12?h-12:h;return`${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ampm}`;}
+function formatTimeDisp(t){if(!t)return'';if(calTimeFmt==='thai')return t+' น.';return formatTime12(t);}
+function displayTo24(s){if(!s)return'';if(s.includes('น.')){return s.replace(' น.','').trim();}const[tp,ap]=s.split(' ');let[h,m]=tp.split(':').map(Number);if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+window.toggleTimeFmt=()=>{calTimeFmt=calTimeFmt==='ampm'?'thai':'ampm';localStorage.setItem('calTimeFmt',calTimeFmt);const btn=document.getElementById('calTimeFmtBtn');if(btn)btn.textContent=calTimeFmt==='ampm'?'🕐 AM/PM':'🕐 เวลาไทย';renderAll();};
+
+window.openCalendarModal=()=>{loadCal();calYear=new Date().getFullYear();calMonth=new Date().getMonth();calSelectedDate=todayKey();renderAll();updateNotifBadge();const btn=document.getElementById('calTimeFmtBtn');if(btn)btn.textContent=calTimeFmt==='ampm'?'🕐 AM/PM':'🕐 เวลาไทย';document.getElementById('calOverlay').classList.add('open');startCalChecker();};
+window.closeCalendarModal=()=>document.getElementById('calOverlay').classList.remove('open');
+window.calGoToday=()=>{calYear=new Date().getFullYear();calMonth=new Date().getMonth();calSelectedDate=todayKey();renderAll();};
+window.calPrevMonth=()=>{calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderAll();};
+window.calNextMonth=()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderAll();};
+// calOverlay: ปิดด้วย ✕ เท่านั้น
+
+function renderAll(){renderMini();renderBig();renderRight();renderUpcoming();}
+
+function buildCells(y,m){const first=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),prev=new Date(y,m,0).getDate();const cells=[];for(let i=first-1;i>=0;i--)cells.push({day:prev-i,thisMonth:false});for(let d=1;d<=dim;d++){const mm=String(m+1).padStart(2,'0'),dd=String(d).padStart(2,'0');cells.push({day:d,thisMonth:true,key:`${y}-${mm}-${dd}`});}const tot=Math.ceil((first+dim)/7)*7;for(let d=1;d<=tot-first-dim;d++)cells.push({day:d,thisMonth:false});return cells;}
+
+function renderMini(){document.getElementById('calMiniTitle').textContent=`${MONTHS_TH[calMonth]} ${calYear+543}`;let h=DOWS.map(d=>`<div class="cal-dow">${d}</div>`).join('');buildCells(calYear,calMonth).forEach(c=>{if(!c.thisMonth){h+=`<div class="cal-day other-month">${c.day}</div>`;return;}let cls='cal-day';if(c.key===todayKey())cls+=' today';if(c.key===calSelectedDate)cls+=' selected';if(calEvents[c.key]?.length)cls+=' has-event';h+=`<div class="${cls}" onclick="calSel('${c.key}')">${c.day}</div>`;});document.getElementById('calMiniGrid').innerHTML=h;}
+
+function renderBig(){document.getElementById('calCenterTitle').textContent=`${MONTHS_TH[calMonth]} ${calYear+543}`;const now=new Date();let h=DOWS.map(d=>`<div class="cal-big-dow">${d}</div>`).join('');buildCells(calYear,calMonth).forEach(c=>{let cls='cal-big-day';if(!c.thisMonth)cls+=' other-month';if(c.key===todayKey())cls+=' today';if(c.key===calSelectedDate)cls+=' selected';const evs=(calEvents[c.key]||[]).sort((a,b)=>a.time.localeCompare(b.time));let evH='';evs.forEach(ev=>{const h24=ev.time?parseInt(ev.time.split(':')[0]):0;const icon=h24>=6&&h24<18?'☀️':h24>=18&&h24<21?'🌅':'🌙';let ec='cal-big-ev';if(h24>=18||h24<6)ec+=' ev-pm';if(c.key===todayKey()&&ev.time){const[hh,mm]=ev.time.split(':').map(Number);const diff=(new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm)-now)/60000;if(diff>0&&diff<=30){ec=ec.replace(' ev-pm','');ec+=' ev-soon';}if(diff>0&&diff<=10){ec=ec.replace(' ev-pm','').replace(' ev-soon','');ec+=' ev-urgent';}}const timeDisp=ev.time?formatTimeDisp(ev.time):'';evH+=`<div class="${ec}" onclick="calSel('${c.key}');event.stopPropagation();"><span class="ev-tod-icon">${icon}</span><span style="overflow:hidden;text-overflow:ellipsis;">${timeDisp?timeDisp+' ':''}${escH(ev.title)}</span></div>`;});h+=`<div class="${cls}" onclick="calSel('${c.key}')"><div class="cal-big-day-num">${c.day}</div>${evH}</div>`;});document.getElementById('calBigGrid').innerHTML=h;}
+
+window.calSel=(key)=>{calSelectedDate=key;renderMini();renderBig();renderRight();const[y,m,d]=key.split('-');const dayNames=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];document.getElementById('calRightDate').textContent=`${parseInt(d)} ${MONTHS_TH[parseInt(m)-1]} ${parseInt(y)+543}`;document.getElementById('calRightSub').textContent='วัน'+dayNames[new Date(key).getDay()];};
+
+function renderRight(){const el=document.getElementById('calRightEvents');const evs=(calEvents[calSelectedDate]||[]).sort((a,b)=>a.time.localeCompare(b.time));if(!evs.length){el.innerHTML='<div class="no-event">ไม่มีงานในวันนี้ 🌙</div>';return;}const now=new Date();el.innerHTML=evs.map(ev=>{let cc='ev-card';if(calSelectedDate===todayKey()&&ev.time){const[hh,mm]=ev.time.split(':').map(Number);const diff=(new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm)-now)/60000;if(diff>0&&diff<=30)cc+=' ev-soon';if(diff>0&&diff<=10)cc+=' ev-urgent';}const timeDisp=ev.time?formatTimeDisp(ev.time):'ไม่ระบุเวลา';return`<div class="${cc}" id="evcard_${ev.id}"><div class="ev-card-head" onclick="toggleEv('${ev.id}')"><div class="ev-card-time">${timeDisp}</div><div class="ev-card-title">${escH(ev.title)}</div><div class="ev-card-arrow">▾</div></div><div class="ev-card-body">${ev.note?`<div class="ev-detail-row"><span>📝</span><span>${escH(ev.note)}</span></div>`:''} ${ev.location?`<div class="ev-detail-row"><span>📍</span><span>${escH(ev.location)}</span></div>`:''}<div class="ev-detail-row"><span>🔔</span><span>แจ้งเตือนก่อน ${ev.notifMin||60} นาที</span></div><div style="margin-top:8px;display:flex;gap:6px;"><button class="ev-edit-btn" onclick="openEditModal('${calSelectedDate}','${ev.id}')">✏️ แก้ไข</button><button class="ev-del-btn" onclick="deleteCalEvent('${calSelectedDate}','${ev.id}')">🗑️ ลบ</button></div></div></div>`;}).join('');}
+
+window.toggleEv=(id)=>{const c=document.getElementById('evcard_'+id);if(c)c.classList.toggle('open');};
+
+window.openTlAddModal=()=>{const dateKey=calSelectedDate;const[y,m,d]=dateKey.split('-').map(Number);document.getElementById('tlAddDateBadge').textContent=`📅 ${d} ${MONTHS_TH[m-1]} ${y+543}`;document.getElementById('tlAddTitle').value='';document.getElementById('tlAddTimeDisp').value='';document.getElementById('tlAddNote').value='';document.getElementById('tlAddLocation').value='';document.getElementById('tlAddModalWrap').classList.add('open');};
+window.closeTlAddModal=()=>document.getElementById('tlAddModalWrap').classList.remove('open');
+// tlAddModal: ปิดด้วย ✕ เท่านั้น
+
+window.saveTlEvent=()=>{const dateKey=calSelectedDate;const title=document.getElementById('tlAddTitle').value.trim();const timeRaw=document.getElementById('tlAddTimeDisp').value.trim();const note=document.getElementById('tlAddNote').value.trim();const location=document.getElementById('tlAddLocation').value.trim();const notifMin=parseInt(document.getElementById('tlAddNotif').value);if(!title){showToast('⚠️ กรุณาใส่ชื่องาน',true);return;}const time24=displayTo24(timeRaw);if(!calEvents[dateKey])calEvents[dateKey]=[];calEvents[dateKey].push({id:Date.now().toString(),title,time:time24,note,location,notifMin,notified:false});saveCal();renderAll();updateNotifBadge();closeTlAddModal();showToast('✅ บันทึกงานแล้ว');};
+
+window.deleteCalEvent=(dk,id)=>{calEvents[dk]=(calEvents[dk]||[]).filter(e=>e.id!==id);if(!calEvents[dk].length)delete calEvents[dk];saveCal();renderAll();updateNotifBadge();};
+
+window.openEditModal=(dk,id)=>{const ev=(calEvents[dk]||[]).find(e=>e.id===id);if(!ev)return;_editEvId=id;_editEvDate=dk;const[y,m,d]=dk.split('-');document.getElementById('editEvDateLabel').textContent=`${parseInt(d)} ${MONTHS_TH[parseInt(m)-1]} ${parseInt(y)+543}`;document.getElementById('editEvTitle').value=ev.title;document.getElementById('editEvTimeDisplay').value=ev.time?formatTimeDisp(ev.time):'';document.getElementById('editEvNote').value=ev.note||'';document.getElementById('editEvLocation').value=ev.location||'';document.getElementById('editNotifMin').value=ev.notifMin||60;document.getElementById('editEvModal').classList.add('open');};
+window.closeEditModal=()=>{document.getElementById('editEvModal').classList.remove('open');if(document.getElementById('calOverlay').classList.contains('open'))renderRight();};
+window.confirmEditEvent=()=>{const ev=(calEvents[_editEvDate]||[]).find(e=>e.id===_editEvId);if(!ev)return;ev.title=document.getElementById('editEvTitle').value.trim()||ev.title;ev.time=displayTo24(document.getElementById('editEvTimeDisplay').value.trim());ev.note=document.getElementById('editEvNote').value.trim();ev.location=document.getElementById('editEvLocation').value.trim();ev.notifMin=parseInt(document.getElementById('editNotifMin').value);ev.notified=false;saveCal();renderAll();updateNotifBadge();closeEditModal();showToast('✅ แก้ไขแล้ว');};
+// editEvModal: ปิดด้วย ✕ เท่านั้น
+
+function renderUpcoming(){const now=new Date();let items=[];Object.keys(calEvents).sort().forEach(dk=>{(calEvents[dk]||[]).forEach(ev=>{if(!ev.time)return;const[y,m,d]=dk.split('-').map(Number);const[hh,mm]=ev.time.split(':').map(Number);const diff=(new Date(y,m-1,d,hh,mm)-now)/60000;if(diff>0&&diff<=1440)items.push({ev,diff,dk});});});items.sort((a,b)=>a.diff-b.diff);const el=document.getElementById('calUpcomingList');if(!items.length){el.innerHTML='<div class="no-event" style="font-size:12px;">ไม่มีกำหนดการใน 24 ชม.</div>';return;}el.innerHTML=items.slice(0,8).map(({ev,diff})=>{const hrs=Math.floor(diff/60),mins=Math.round(diff%60);const label=hrs>0?`อีก ${hrs} ชม. ${mins} น.`:`อีก ${mins} น.`;const u=diff<=10?' urgent':diff<=30?' soon':'';return`<div class="upcoming-item${u}"><div class="upcoming-time">${label} · ${formatTimeDisp(ev.time)}</div><div class="upcoming-title">${escH(ev.title)}</div></div>`;}).join('');}
+window.calScrollUpcoming=()=>document.getElementById('calUpcomingList').scrollIntoView({behavior:'smooth'});
+
+function updateNotifBadge(){const now=new Date();let cnt=0;Object.entries(calEvents).forEach(([dk,evs])=>(evs||[]).forEach(ev=>{if(!ev.time)return;const[y,m,d]=dk.split('-').map(Number);const[hh,mm]=ev.time.split(':').map(Number);const diff=(new Date(y,m-1,d,hh,mm)-now)/60000;if(diff>0&&diff<=60)cnt++;}));const el=document.getElementById('calNotifCount'),badge=document.getElementById('calNotifBadge');if(cnt>0){el.textContent=cnt;el.style.display='flex';if(badge){badge.textContent=cnt;badge.style.display='inline-block';}}else{el.style.display='none';if(badge)badge.style.display='none';}}
+
+function startCalChecker(){checkCalNotifs();if(calNotifTimer)clearInterval(calNotifTimer);calNotifTimer=setInterval(checkCalNotifs,30000);}
+function checkCalNotifs(){if(!_calUser)return;loadCal();const now=new Date();let changed=false;Object.keys(calEvents).forEach(dk=>(calEvents[dk]||[]).forEach(ev=>{if(!ev.time||ev.notified)return;const[y,m,d]=dk.split('-').map(Number);const[hh,mm]=ev.time.split(':').map(Number);const diff=(new Date(y,m-1,d,hh,mm)-now)/60000;if(diff<=ev.notifMin/60&&diff>0){ev.notified=true;changed=true;showToast(`🔔 อีก ${Math.round(diff)} น.: ${ev.title}`);if(typeof Notification!=='undefined'&&Notification.permission==='granted')new Notification('📅 EliteFlow',{body:`อีก ${Math.round(diff)} นาที: ${ev.title}`,icon:'logo.png'});}}));if(changed)saveCal();updateNotifBadge();renderUpcoming();}
+
+window._calInit=(user)=>{_calUser=user;loadCal();updateNotifBadge();startCalChecker();if(typeof Notification!=='undefined'&&Notification.permission==='default')Notification.requestPermission();};
+
+// ── LOCATION SEARCH ──
+function setupLocationSearch(inputId,suggId){let locTimer=null;const el=document.getElementById(inputId);if(!el)return;el.addEventListener('input',function(){clearTimeout(locTimer);const q=this.value.trim();const sugg=document.getElementById(suggId);if(q.length<3){sugg.style.display='none';return;}locTimer=setTimeout(async()=>{try{const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&accept-language=th`);const data=await res.json();if(!data.length){sugg.style.display='none';return;}sugg.style.display='block';sugg.innerHTML=data.map(r=>`<div style="padding:8px 12px;cursor:pointer;font-size:12px;color:var(--text);border-bottom:1px solid rgba(42,26,74,0.4);transition:background 0.15s;" onmouseover="this.style.background='rgba(168,85,247,0.08)'" onmouseout="this.style.background=''" onclick="document.getElementById('${inputId}').value='${escH(r.display_name)}';document.getElementById('${suggId}').style.display='none';">${escH(r.display_name)}</div>`).join('');}catch{sugg.style.display='none';}},400);})}
+setupLocationSearch('tlAddLocation','tlAddLocSugg');
+setupLocationSearch('editEvLocation','editLocationSuggestions');
+
+// ── CLOCK PICKER ──
+let ckMode='hour',ckHour=12,ckMin=0,ckAmPm='AM',ckDrag=false;
+function buildStars(){const s=document.getElementById('clockStars');s.innerHTML='';for(let i=0;i<18;i++){const star=document.createElement('div');star.className='star';star.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${1+Math.random()*2}px;height:${1+Math.random()*2}px;animation-delay:${Math.random()*2}s;animation-duration:${1.5+Math.random()*2}s;`;s.appendChild(star);}}
+function applyClockTheme(){const box=document.getElementById('clockPickerBox');const isDay=ckHour>=6&&ckHour<18;box.className='clock-picker '+(isDay?'mode-am':'mode-pm');document.getElementById('clockSky').textContent=isDay?'☀️':'🌙';document.getElementById('clockStars').style.opacity=isDay?'0':'1';const isAM=ckAmPm==='AM';document.getElementById('btnAM').classList.toggle('active',isAM);document.getElementById('btnPM').classList.toggle('active',!isAM);}
+function renderClock(){const face=document.getElementById('clockFace');const isThai=calTimeFmt==='thai';face.querySelectorAll('.clock-tick').forEach(e=>e.remove());const nums=ckMode==='hour'?[12,1,2,3,4,5,6,7,8,9,10,11]:[0,5,10,15,20,25,30,35,40,45,50,55];const r=78;nums.forEach((n,i)=>{const a=(i/12)*2*Math.PI-Math.PI/2;const x=100+r*Math.cos(a),y=100+r*Math.sin(a);const t=document.createElement('div');t.className='clock-tick';t.style.cssText=`left:${x}px;top:${y}px;`;t.textContent=n;face.appendChild(t);});const hrA=((ckHour%12)/12)*360-90;const minA=(ckMin/60)*360-90;document.getElementById('clockHandHr').style.cssText=`transform:rotate(${hrA+90}deg);opacity:${ckMode==='hour'?1:0.3};`;document.getElementById('clockHandMin').style.cssText=`transform:rotate(${minA+90}deg);opacity:${ckMode==='minute'?1:0.3};`;if(isThai){document.getElementById('clockHrDisplay').textContent=String(ckHour).padStart(2,'0');}else{const h12=ckHour===0?12:ckHour>12?ckHour-12:ckHour;document.getElementById('clockHrDisplay').textContent=String(h12).padStart(2,'0');}document.getElementById('clockHrDisplay').className=ckMode==='hour'?'active-part':'';document.getElementById('clockMinDisplay').textContent=String(ckMin).padStart(2,'0');document.getElementById('clockMinDisplay').className=ckMode==='minute'?'active-part':'';document.getElementById('clockModeHint').textContent=ckMode==='hour'?'แตะหน้าปัดเพื่อเลือกชั่วโมง':'แตะหน้าปัดเพื่อเลือกนาที';const ampmRow=document.querySelector('.clock-ampm');if(ampmRow){ampmRow.style.display='flex';document.getElementById('btnAM').innerHTML=isThai?'☀️ เช้า':'☀️ AM';document.getElementById('btnPM').innerHTML=isThai?'🌙 บ่าย/เย็น':'🌙 PM';}const previewEl=document.getElementById('clockPreviewLabel');if(previewEl){const mm=String(ckMin).padStart(2,'0');let previewText='';if(isThai){previewText=`= ${String(ckHour).padStart(2,'0')}:${mm} น.`;if(ckHour===0)previewText+='  (เที่ยงคืน)';else if(ckHour<=5)previewText+=`  (ตี ${ckHour})`;else if(ckHour<=11)previewText+=`  (${ckHour} โมงเช้า)`;else if(ckHour===12)previewText+='  (เที่ยงวัน)';else if(ckHour<=17)previewText+=`  (บ่าย ${ckHour-12})`;else if(ckHour===18)previewText+='  (6 โมงเย็น)';else previewText+=`  (${ckHour-18} ทุ่ม)`;}else{const h12=ckHour===0?12:ckHour>12?ckHour-12:ckHour;previewText=`= ${String(h12).padStart(2,'0')}:${mm} ${ckAmPm}`;}previewEl.textContent=previewText;previewEl.style.color=ckAmPm==='AM'?'#fcd34d':'#a5b4fc';}applyClockTheme();}
+function getClockAngle(e,face){const rect=face.getBoundingClientRect();const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;const cx_=e.touches?e.touches[0].clientX:e.clientX,cy_=e.touches?e.touches[0].clientY:e.clientY;let a=Math.atan2(cy_-cy,cx_-cx)*(180/Math.PI)+90;if(a<0)a+=360;return a;}
+function handleClockTouch(e){const a=getClockAngle(e,document.getElementById('clockFace'));if(ckMode==='hour'){let h=Math.round(a/30)%12;h=ckAmPm==='PM'?(h===0?12:h+12):(calTimeFmt==='thai'?(h===0?0:h):(h===0?12:h));ckHour=h;}else{ckMin=Math.round(a/6)%60;}renderClock();}
+const cf=document.getElementById('clockFace');
+cf.addEventListener('mousedown',e=>{ckDrag=true;handleClockTouch(e);});
+cf.addEventListener('mousemove',e=>{if(ckDrag)handleClockTouch(e);});
+cf.addEventListener('mouseup',()=>{ckDrag=false;});
+cf.addEventListener('touchstart',e=>{e.preventDefault();handleClockTouch(e);},{passive:false});
+cf.addEventListener('touchmove',e=>{e.preventDefault();handleClockTouch(e);},{passive:false});
+cf.addEventListener('touchend',()=>{ckDrag=false;});
+cf.addEventListener('click',e=>handleClockTouch(e));
+// clockPicker: ปิดด้วย ✕ เท่านั้น
+window.setClockAmPm=(v)=>{ckAmPm=v;if(v==='AM'&&ckHour>=12)ckHour-=12;if(v==='PM'&&ckHour<12)ckHour+=12;renderClock();};
+window.openClockPicker=(target='add')=>{_clockTarget=target;const existVal=target==='add'?document.getElementById('calEvTimeDisplay')?.value:target==='edit'?document.getElementById('editEvTimeDisplay')?.value:document.getElementById('tlAddTimeDisp')?.value;if(existVal){if(calTimeFmt==='thai'){const raw=existVal.replace(' น.','').trim();const[h,m]=raw.split(':').map(Number);ckHour=h||0;ckMin=m||0;ckAmPm=ckHour>=12?'PM':'AM';}else{const[tp,ap]=existVal.split(' ');if(tp&&ap){let[h,m]=tp.split(':').map(Number);ckAmPm=ap;if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;ckHour=h;ckMin=m;}}}else{ckHour=9;ckMin=0;ckAmPm='AM';}ckMode='hour';buildStars();renderClock();document.getElementById('clockPickerWrap').classList.add('open');};
+window.closeClockPicker=()=>document.getElementById('clockPickerWrap').classList.remove('open');
+window.confirmClockPicker=()=>{if(ckMode==='hour'){ckMode='minute';renderClock();return;}let val;if(calTimeFmt==='thai'){val=`${String(ckHour).padStart(2,'0')}:${String(ckMin).padStart(2,'0')} น.`;}else{const h12=ckHour===0?12:ckHour>12?ckHour-12:ckHour;val=`${String(h12).padStart(2,'0')}:${String(ckMin).padStart(2,'0')} ${ckAmPm}`;}const map={add:'calEvTimeDisplay',edit:'editEvTimeDisplay',tladd:'tlAddTimeDisp'};document.getElementById(map[_clockTarget]||'tlAddTimeDisp').value=val;closeClockPicker();};
+// ── TIMELINE: เปิดเมื่อกดที่วันในปฏิทิน ──
+// Override calSel to also open timeline
+const _origCalSel = window.calSel;
+window.calSel = (key) => {
+  calSelectedDate = key;
+  renderMini(); renderBig(); renderRight();
+  const[y,m,d]=key.split('-');
+  const dayNames=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+  document.getElementById('calRightDate').textContent=`${parseInt(d)} ${MONTHS_TH[parseInt(m)-1]} ${parseInt(y)+543}`;
+  document.getElementById('calRightSub').textContent='วัน'+dayNames[new Date(key).getDay()];
+  openTimelinePopup(key);
+};
+</script>
+
+<!-- ══ TIMELINE STYLES ══ -->
+<style>
+.tl-overlay{position:fixed;inset:0;background:rgba(3,2,12,0.97);backdrop-filter:blur(20px);display:none;z-index:450;flex-direction:column;overflow:hidden;}
+.tl-overlay.open{display:flex;}
+.tl-head{height:60px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 28px;border-bottom:1px solid rgba(168,85,247,0.2);background:linear-gradient(90deg,rgba(124,58,237,0.15),rgba(45,212,191,0.05));}
+.tl-head-date{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.tl-head-day{font-size:13px;color:var(--muted);margin-left:2px;}
+.tl-head-count{padding:4px 12px;border-radius:20px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.25);color:var(--accent3);font-size:12px;font-weight:700;font-family:'Syne',sans-serif;}
+.tl-head-add{padding:7px 16px;border-radius:9px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
+.tl-head-add:hover{opacity:0.9;transform:translateY(-1px);}
+.tl-close{width:34px;height:34px;border-radius:9px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.2s;margin-left:auto;}
+.tl-close:hover{background:rgba(248,113,113,0.18);}
+.tl-nav-btn{width:36px;height:36px;border-radius:10px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;flex-shrink:0;}
+.tl-nav-btn:hover{background:rgba(168,85,247,0.22);color:var(--text);}
+.tl-ruler-wrap{flex-shrink:0;overflow-x:auto;overflow-y:hidden;border-bottom:1px solid rgba(42,26,74,0.5);height:52px;position:relative;}
+.tl-ruler-wrap::-webkit-scrollbar{height:8px;}
+.tl-ruler-wrap::-webkit-scrollbar-track{background:rgba(42,26,74,0.25);border-radius:4px;}
+.tl-ruler-wrap::-webkit-scrollbar-thumb{background:linear-gradient(90deg,var(--accent2),var(--accent3));border-radius:4px;}
+.tl-ruler{position:absolute;top:0;left:0;height:42px;}
+.tl-ruler-hr{position:absolute;top:0;height:100%;display:flex;align-items:flex-end;justify-content:center;padding-bottom:7px;font-size:12px;font-family:'Syne',sans-serif;font-weight:700;color:var(--muted);}
+.tl-ruler-hr.now-hr{color:var(--teal);}
+.tl-ruler-hr::after{content:'';position:absolute;bottom:0;left:50%;width:1px;height:8px;background:rgba(168,85,247,0.3);}
+.tl-ruler-hr.now-hr::after{background:var(--teal);height:12px;}
+.tl-body{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative;}
+.tl-canvas-wrap{flex:1;overflow:hidden;position:relative;}
+.tl-canvas{position:relative;height:100%;}
+.tl-hr-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(42,26,74,0.35);}
+.tl-hr-line.now-div{background:rgba(45,212,191,0.45);}
+.tl-card{position:absolute;border-radius:14px;padding:14px 16px;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;overflow:hidden;border:1px solid transparent;display:flex;flex-direction:column;gap:6px;width:180px;height:160px;}
+.tl-card::before{content:'';position:absolute;inset:0;border-radius:14px;opacity:0;background:rgba(255,255,255,0.06);transition:opacity 0.2s;pointer-events:none;}
+.tl-card:hover::before{opacity:1;}
+.tl-card:hover{transform:translateY(-3px) scale(1.01);box-shadow:0 12px 32px rgba(0,0,0,0.5);}
+.tl-card.day{background:linear-gradient(135deg,rgba(109,40,217,0.6),rgba(168,85,247,0.35));border-color:rgba(168,85,247,0.5);}
+.tl-card.eve{background:linear-gradient(135deg,rgba(180,83,9,0.6),rgba(245,158,11,0.35));border-color:rgba(245,158,11,0.5);}
+.tl-card.night{background:linear-gradient(135deg,rgba(49,46,129,0.65),rgba(99,102,241,0.35));border-color:rgba(99,102,241,0.5);}
+.tl-card.soon{background:linear-gradient(135deg,rgba(146,64,14,0.65),rgba(245,158,11,0.4));border-color:rgba(245,158,11,0.65);}
+.tl-card.urgent{background:linear-gradient(135deg,rgba(153,27,27,0.65),rgba(248,113,113,0.4));border-color:rgba(248,113,113,0.65);}
+.tl-card-icon{font-size:18px;line-height:1;}
+.tl-card-time{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);}
+.tl-card-title{font-size:15px;font-weight:700;color:white;line-height:1.35;word-break:break-word;}
+.tl-card-note{font-size:12px;color:rgba(255,255,255,0.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tl-card-loc{font-size:12px;color:rgba(45,212,191,0.9);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tl-now-line{position:absolute;top:0;bottom:0;width:2px;background:var(--teal);box-shadow:0 0 10px rgba(45,212,191,0.7);z-index:10;pointer-events:none;}
+.tl-now-dot{position:absolute;top:8px;left:-5px;width:12px;height:12px;border-radius:50%;background:var(--teal);box-shadow:0 0 12px rgba(45,212,191,0.9);}
+.tl-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--muted);}
+.tl-empty-icon{font-size:56px;}
+.tl-empty-txt{font-size:15px;font-family:'Syne',sans-serif;}
+.tl-detail{position:absolute;right:0;top:0;bottom:0;width:320px;background:rgba(10,7,20,0.99);border-left:1px solid rgba(168,85,247,0.2);transform:translateX(100%);transition:transform 0.3s cubic-bezier(0.34,1.2,0.64,1);z-index:20;display:flex;flex-direction:column;overflow-y:auto;padding:20px;}
+.tl-detail.open{transform:translateX(0);}
+.tl-detail-close{align-self:flex-end;width:28px;height:28px;border-radius:7px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.15);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.2s;margin-bottom:12px;}
+.tl-detail-close:hover{border-color:var(--red);color:var(--red);}
+</style>
+
+<!-- TIMELINE HTML -->
+<div class="tl-overlay" id="tlOverlay">
+  <div class="tl-head">
+    <div>
+      <div class="tl-head-date" id="tlHeadDate">—</div>
+      <div class="tl-head-day" id="tlHeadDay">—</div>
+    </div>
+    <div class="tl-head-count" id="tlHeadCount">0 งาน</div>
+    <button class="tl-nav-btn" onclick="tlNavDay(-1)" title="วันก่อนหน้า">◀</button>
+    <button class="tl-nav-btn" onclick="tlNavDay(1)" title="วันถัดไป">▶</button>
+    <button class="tl-head-add" onclick="openTlAddModal()">➕ เพิ่มงาน</button>
+    <button class="tl-close" onclick="closeTimelinePopup()">✕</button>
+  </div>
+  <div class="tl-ruler-wrap" id="tlRulerWrap">
+    <div class="tl-ruler" id="tlRuler"></div>
+  </div>
+  <div class="tl-body" id="tlBody">
+    <div class="tl-canvas-wrap" id="tlCanvasWrap">
+      <div class="tl-canvas" id="tlCanvas"></div>
+    </div>
+    <div class="tl-detail" id="tlDetail">
+      <button class="tl-detail-close" onclick="closeTlDetail()">✕</button>
+      <div id="tlDetailContent"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ TIMELINE POPUP ══
+let tlDate = null;
+const TL_COL = 200, TL_H = 380, TL_PAD = 24;
+
+window.openTimelinePopup = (key) => {
+  tlDate = key;
+  renderTimeline();
+  document.getElementById('tlOverlay').classList.add('open');
+  setTimeout(scrollTlToFocus, 80);
+};
+window.closeTimelinePopup = () => {
+  document.getElementById('tlOverlay').classList.remove('open');
+  closeTlDetail();
+};
+// ปิดได้เฉพาะกด ✕
+document.getElementById('tlOverlay').addEventListener('click', function(e){ });
+
+window.tlNavDay = (dir) => {
+  const d = new Date(tlDate); d.setDate(d.getDate()+dir);
+  tlDate = d.toISOString().split('T')[0];
+  calSelectedDate = tlDate;
+  renderMini(); renderBig(); renderRight();
+  const[y,m,dd]=tlDate.split('-');
+  const dayNames=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+  document.getElementById('calRightDate').textContent=`${parseInt(dd)} ${MONTHS_TH[parseInt(m)-1]} ${parseInt(y)+543}`;
+  document.getElementById('calRightSub').textContent='วัน'+dayNames[new Date(tlDate).getDay()];
+  renderTimeline(); setTimeout(scrollTlToFocus, 80);
+};
+
+function renderTimeline(){
+  const [y,m,d] = tlDate.split('-').map(Number);
+  const dayNames = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+  document.getElementById('tlHeadDate').textContent = `${d} ${MONTHS_TH[m-1]} ${y+543}`;
+  document.getElementById('tlHeadDay').textContent = 'วัน'+dayNames[new Date(y,m-1,d).getDay()];
+  const evs = (calEvents[tlDate]||[]).sort((a,b)=>a.time.localeCompare(b.time));
+  document.getElementById('tlHeadCount').textContent = `${evs.length} งาน`;
+  const now = new Date();
+  const isToday = tlDate === todayKey();
+  const totalW = TL_COL * 24 + TL_PAD * 2;
+  // Ruler
+  const ruler = document.getElementById('tlRuler');
+  ruler.style.width = totalW + 'px';
+  let rulerHtml = '';
+  for(let hr=0; hr<24; hr++){
+    const x = TL_PAD + hr * TL_COL;
+    const isNow = isToday && now.getHours()===hr;
+    rulerHtml += `<div class="tl-ruler-hr${isNow?' now-hr':''}" style="left:${x}px;width:${TL_COL}px;">${String(hr).padStart(2,'0')}:00</div>`;
+  }
+  ruler.innerHTML = rulerHtml;
+  // Canvas
+  const canvas = document.getElementById('tlCanvas');
+  canvas.style.width = totalW + 'px';
+  canvas.style.height = TL_H + 'px';
+  canvas.innerHTML = '';
+  for(let hr=0; hr<24; hr++){
+    const x = TL_PAD + hr * TL_COL;
+    const div = document.createElement('div');
+    div.className = 'tl-hr-line' + (isToday && now.getHours()===hr?' now-div':'');
+    div.style.left = x + 'px';
+    canvas.appendChild(div);
+  }
+  if(!evs.length){
+    canvas.innerHTML += `<div class="tl-empty"><div class="tl-empty-icon">📭</div><div class="tl-empty-txt">ไม่มีงานในวันนี้</div><button class="tl-head-add" style="margin-top:8px;" onclick="openTlAddModal()">➕ เพิ่มงาน</button></div>`;
+  }
+  // Group by hour
+  const byHour = {};
+  evs.forEach(ev=>{ if(!ev.time)return; const hh=parseInt(ev.time.split(':')[0]); if(!byHour[hh])byHour[hh]=[]; byHour[hh].push(ev); });
+  const CARD_W=180, CARD_GAP=8, CARD_TOP=14;
+  Object.entries(byHour).forEach(([hrStr,hEvs])=>{
+    const hr=parseInt(hrStr);
+    hEvs.forEach((ev,idx)=>{
+      const[hh,mm]=ev.time.split(':').map(Number);
+      const baseX=TL_PAD+hr*TL_COL+6+idx*(CARD_W+CARD_GAP);
+      let cls='tl-card ';
+      if(hh>=6&&hh<18)cls+='day'; else if(hh>=18&&hh<21)cls+='eve'; else cls+='night';
+      if(isToday){const diff=(new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm)-now)/60000;if(diff>0&&diff<=30)cls='tl-card soon';if(diff>0&&diff<=10)cls='tl-card urgent';}
+      const icon=hh>=6&&hh<18?'☀️':hh>=18&&hh<21?'🌅':'🌙';
+      const card=document.createElement('div');
+      card.className=cls;
+      card.style.cssText=`left:${baseX}px;top:${CARD_TOP}px;`;
+      card.innerHTML=`<div style="display:flex;align-items:center;gap:5px;"><span class="tl-card-icon">${icon}</span><span class="tl-card-time">${formatTimeDisp(ev.time)}</span></div><div class="tl-card-title">${escH(ev.title)}</div>${ev.note?`<div class="tl-card-note">📝 ${escH(ev.note)}</div>`:''}${ev.location?`<div class="tl-card-loc">📍 ${escH(ev.location.split(',')[0])}</div>`:''}`;
+      card.onclick=(e)=>{e.stopPropagation();openTlDetail(ev);};
+      canvas.appendChild(card);
+    });
+  });
+  // Now line
+  if(isToday){
+    const nowX=TL_PAD+now.getHours()*TL_COL+(now.getMinutes()/60)*TL_COL;
+    const line=document.createElement('div');line.className='tl-now-line';line.style.left=nowX+'px';line.innerHTML='<div class="tl-now-dot"></div>';canvas.appendChild(line);
+  }
+  // Sync scroll
+  const wrap=document.getElementById('tlCanvasWrap');
+  const rulerWrap=document.getElementById('tlRulerWrap');
+  rulerWrap.onscroll=()=>{wrap.scrollLeft=rulerWrap.scrollLeft;};
+  wrap.onscroll=()=>{rulerWrap.scrollLeft=wrap.scrollLeft;};
+}
+
+function scrollTlToFocus(){
+  const now=new Date();const isToday=tlDate===todayKey();
+  let targetHr=isToday?now.getHours():8;
+  if(!isToday){const evs=(calEvents[tlDate]||[]).filter(e=>e.time);if(evs.length)targetHr=parseInt(evs[0].time.split(':')[0]);}
+  const offset=Math.max(0,TL_PAD+targetHr*TL_COL-120);
+  document.getElementById('tlRulerWrap').scrollLeft=offset;
+  document.getElementById('tlCanvasWrap').scrollLeft=offset;
+}
+
+function openTlDetail(ev){
+  const h24=ev.time?parseInt(ev.time):0;
+  const icon=h24>=6&&h24<18?'☀️':h24>=18&&h24<21?'🌅':'🌙';
+  document.getElementById('tlDetailContent').innerHTML=`
+    <div style="font-size:32px;text-align:center;margin-bottom:14px;">${icon}</div>
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;">${escH(ev.title)}</div>
+    <div style="font-size:14px;color:var(--accent3);font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;">🕐 ${formatTimeDisp(ev.time)||'ไม่ระบุเวลา'}</div>
+    ${ev.note?`<div style="padding:10px 13px;background:var(--surface2);border-radius:10px;font-size:13px;color:var(--muted2);border:1px solid var(--border);margin-bottom:10px;">📝 ${escH(ev.note)}</div>`:''}
+    ${ev.location?`<div style="padding:10px 13px;background:rgba(45,212,191,0.07);border-radius:10px;font-size:12px;color:var(--teal);border:1px solid rgba(45,212,191,0.2);margin-bottom:10px;">📍 ${escH(ev.location)}</div>`:''}
+    <div style="padding:8px 13px;background:var(--surface2);border-radius:10px;font-size:12px;color:var(--muted2);border:1px solid var(--border);margin-bottom:18px;">🔔 แจ้งเตือนก่อน ${ev.notifMin||60} นาที</div>
+    <div style="display:flex;gap:8px;">
+      <button class="ev-edit-btn" style="flex:1;" onclick="closeTimelinePopup();openEditModal('${tlDate}','${ev.id}')">✏️ แก้ไข</button>
+      <button class="ev-del-btn" style="flex:1;" onclick="deleteCalEvent('${tlDate}','${ev.id}');renderTimeline();closeTlDetail();">🗑️ ลบ</button>
+    </div>`;
+  document.getElementById('tlDetail').classList.add('open');
+}
+window.closeTlDetail=()=>document.getElementById('tlDetail').classList.remove('open');
+</script>
+</html>
