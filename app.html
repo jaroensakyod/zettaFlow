@@ -304,7 +304,28 @@ tr:hover td{background:rgba(168,85,247,0.03);}
     </div>
     <button class="nav-link" id="nav-customers" onclick="showPage('customers')">👥 ลูกค้า</button>
     <button class="nav-link" style="opacity:0.45;cursor:not-allowed;" title="Coming Soon">🏭 Supplier</button>
-    <button class="nav-link" id="nav-company" onclick="window.location.href='profilecompany.html'">🏢 บริษัท</button>
+    <div class="nav-dropdown">
+      <button class="nav-link" id="nav-company" onclick="if(matchMedia('(hover:hover)').matches)location.href='profilecompany.html'" style="gap:4px;">🏢 บริษัท <span class="arrow" style="font-size:10px;transition:transform 0.3s;">▾</span></button>
+      <div class="dropdown-menu" style="padding:20px 40px;">
+        <div class="mega-grid" style="grid-template-columns:repeat(3,1fr);max-width:560px;">
+          <div class="mega-section-label" style="grid-column:span 3;">🏢 บริษัท</div>
+          <a class="dropdown-item" href="profilecompany.html">
+            <div class="d-icon" style="background:rgba(129,140,248,0.12);">🏢</div>
+            <div class="dropdown-item-info">
+              <div class="dropdown-item-name">ข้อมูลบริษัท</div>
+              <div class="dropdown-item-desc">ชื่อ ที่อยู่ โลโก้ ช่องทางติดต่อ</div>
+            </div>
+          </a>
+          <a class="dropdown-item" href="assets.html">
+            <div class="d-icon" style="background:rgba(251,191,36,0.1);">🏷️</div>
+            <div class="dropdown-item-info">
+              <div class="dropdown-item-name">ทรัพย์สินบริษัท</div>
+              <div class="dropdown-item-desc">อุปกรณ์ ราคา ผู้ดูแล รูป & ไฟล์</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
     <button class="nav-link" onclick="window.location.href='employees.html'">👥 พนักงาน</button>
     <button class="nav-link" onclick="window.location.href='project.html'">📋 โปรเจกต์</button>
     <button class="nav-link" onclick="openChatModal()">💬 แชท<span id="chatUnreadNav" style="display:none;background:var(--red);color:white;border-radius:20px;font-size:9px;padding:1px 5px;margin-left:3px;font-weight:700;">!</span></button>
