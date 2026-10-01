@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EliteFlow — บันทึกข้อมูลพนักงานฟรีแลนซ์</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04020e;--surface:#0e0b1f;--surface2:#141028;--border:#1e1437;
+  --accent:#a855f7;--accent2:#7c3aed;--teal:#2dd4bf;--green:#4ade80;
+  --red:#f87171;--yellow:#fbbf24;--pink:#f472b6;--orange:#fb923c;--blue:#60a5fa;
+  --text:#f3e8ff;--muted:#5b3f8a;--muted2:#8b6ab5;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(ellipse 60% 40% at 5% 10%,rgba(124,58,237,0.12),transparent 60%),
+  radial-gradient(ellipse 40% 50% at 95% 90%,rgba(45,212,191,0.05),transparent 60%),var(--bg);
+  pointer-events:none;z-index:0;}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:20px;transition:opacity 0.4s;}
+.loading-brand{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;}
+.loading-brand span{background:linear-gradient(135deg,var(--accent),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.loading-bar{width:140px;height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent),var(--teal));animation:load 1s ease forwards;}
+
+/* TOAST */
+.toast{position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid rgba(74,222,128,0.4);border-radius:10px;padding:10px 16px;font-size:13px;color:var(--green);box-shadow:0 8px 24px rgba(0,0,0,0.5);transform:translateY(60px);opacity:0;transition:all 0.3s;z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:rgba(248,113,113,0.4);color:var(--red);}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;height:50px;display:flex;align-items:center;gap:12px;padding:0 20px;background:rgba(4,2,14,0.93);border-bottom:1px solid rgba(168,85,247,0.1);backdrop-filter:blur(20px);}
+.nb{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ns{color:rgba(168,85,247,0.3);}
+.nsp{flex:1;}
+.nbk{padding:6px 13px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted2);font-size:12px;cursor:pointer;transition:all 0.2s;text-decoration:none;font-family:'Noto Sans Thai',sans-serif;}
+.nbk:hover{border-color:var(--accent);color:var(--accent);}
+
+/* MAIN */
+.main{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 20px 80px;}
+
+/* PAGE HEADER */
+.ph{margin-bottom:24px;animation:fadeUp 0.3s ease;}
+.ph-top{display:flex;align-items:center;gap:14px;margin-bottom:4px;}
+.ph-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 16px rgba(124,58,237,0.4);}
+.ph-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ph-sub{font-size:12px;color:var(--muted2);margin-left:58px;}
+
+/* CODE BADGE */
+.code-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);border-radius:50px;margin-bottom:16px;}
+.code-badge-lbl{font-size:11px;color:var(--muted2);}
+.code-badge-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--accent);}
+.code-regen{padding:4px 10px;border-radius:20px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);color:var(--accent);font-size:11px;cursor:pointer;transition:all 0.15s;}
+.code-regen:hover{background:rgba(168,85,247,0.2);}
+
+/* SECTION — สีสัน */
+.sec{background:var(--surface);border-radius:16px;padding:20px;margin-bottom:16px;animation:fadeUp 0.4s ease;border-left:3px solid transparent;position:relative;overflow:hidden;}
+.sec::before{content:'';position:absolute;inset:0;border-radius:16px;pointer-events:none;}
+.sec.s-purple{border:1px solid rgba(168,85,247,0.25);border-left:3px solid var(--accent);background:linear-gradient(135deg,rgba(168,85,247,0.06) 0%,var(--surface) 50%);}
+.sec.s-teal{border:1px solid rgba(45,212,191,0.2);border-left:3px solid var(--teal);background:linear-gradient(135deg,rgba(45,212,191,0.05) 0%,var(--surface) 50%);}
+.sec.s-blue{border:1px solid rgba(96,165,250,0.2);border-left:3px solid var(--blue);background:linear-gradient(135deg,rgba(96,165,250,0.05) 0%,var(--surface) 50%);}
+.sec.s-green{border:1px solid rgba(74,222,128,0.2);border-left:3px solid var(--green);background:linear-gradient(135deg,rgba(74,222,128,0.05) 0%,var(--surface) 50%);}
+.sec.s-pink{border:1px solid rgba(244,114,182,0.2);border-left:3px solid var(--pink);background:linear-gradient(135deg,rgba(244,114,182,0.05) 0%,var(--surface) 50%);}
+.sec.s-yellow{border:1px solid rgba(251,191,36,0.2);border-left:3px solid var(--yellow);background:linear-gradient(135deg,rgba(251,191,36,0.05) 0%,var(--surface) 50%);}
+.sec.s-orange{border:1px solid rgba(251,146,60,0.2);border-left:3px solid var(--orange);background:linear-gradient(135deg,rgba(251,146,60,0.05) 0%,var(--surface) 50%);}
+.sec.s-red{border:1px solid rgba(248,113,113,0.2);border-left:3px solid var(--red);background:linear-gradient(135deg,rgba(248,113,113,0.05) 0%,var(--surface) 50%);}
+
+/* EMPLOYEE ID CARD */
+.emp-card-wrap{display:flex;justify-content:center;margin-bottom:24px;animation:fadeUp 0.4s ease;}
+.emp-card{width:340px;height:200px;border-radius:20px;background:linear-gradient(135deg,#1a0a3e,#2d1060,#0d2040);border:1px solid rgba(168,85,247,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 0 1px rgba(168,85,247,0.1),inset 0 1px 0 rgba(255,255,255,0.08);position:relative;overflow:hidden;padding:20px;display:flex;flex-direction:column;justify-content:space-between;transition:all 0.3s;}
+.emp-card::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(168,85,247,0.12);pointer-events:none;}
+.emp-card::after{content:'';position:absolute;bottom:-30px;left:-30px;width:120px;height:120px;border-radius:50%;background:rgba(45,212,191,0.07);pointer-events:none;}
+.emp-card-top{display:flex;align-items:center;gap:12px;position:relative;z-index:1;}
+.emp-card-photo{width:56px;height:56px;border-radius:12px;background:rgba(168,85,247,0.15);border:2px solid rgba(168,85,247,0.4);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.emp-card-photo img{width:100%;height:100%;object-fit:cover;}
+.emp-card-info{flex:1;}
+.emp-card-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:white;line-height:1.2;}
+.emp-card-nickname{font-size:11px;color:rgba(255,255,255,0.5);margin-top:1px;}
+.emp-card-type-badge{padding:2px 9px;border-radius:20px;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;margin-top:4px;display:inline-block;}
+.emp-card-mid{position:relative;z-index:1;}
+.emp-card-code{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:rgba(255,255,255,0.9);letter-spacing:2px;}
+.emp-card-company{font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;}
+.emp-card-bottom{display:flex;justify-content:space-between;align-items:flex-end;position:relative;z-index:1;}
+.emp-card-date{font-size:10px;color:rgba(255,255,255,0.4);}
+.emp-card-logo{font-family:'Syne',sans-serif;font-size:12px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+/* card color variants */
+.emp-card[data-type="SUP"]{background:linear-gradient(135deg,#1a0a3e,#2d1060,#0d2040);}
+.emp-card[data-type="PT"]{background:linear-gradient(135deg,#052020,#0a3535,#052530);}
+.emp-card[data-type="PT_LOCAL"]{background:linear-gradient(135deg,#051835,#0a2550,#051f3a);}
+.emp-card[data-type="PC"]{background:linear-gradient(135deg,#051a10,#0a3020,#052015);}
+.emp-card[data-type="MC"]{background:linear-gradient(135deg,#251a00,#3a2a00,#1a1200);}
+.emp-card[data-type="PR"]{background:linear-gradient(135deg,#250020,#3a0030,#200020);}
+
+/* ADDRESS CASCADE */
+.addr-cascade{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px;}
+@media(max-width:700px){.addr-cascade{grid-template-columns:1fr 1fr;}}
+/* ADDRESS AUTOCOMPLETE */
+.addr-auto{position:relative;}
+.addr-drop{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid rgba(168,85,247,0.25);border-radius:9px;max-height:180px;overflow-y:auto;z-index:100;display:none;box-shadow:0 12px 30px rgba(0,0,0,0.5);margin-top:3px;}
+.addr-drop.open{display:block;}
+.addr-opt{padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid rgba(30,20,55,0.4);transition:background 0.15s;color:var(--text);}
+.addr-opt:last-child{border-bottom:none;}
+.addr-opt:hover{background:rgba(168,85,247,0.07);}
+.addr-opt-main{font-weight:600;}
+.addr-opt-sub{font-size:10px;color:var(--muted2);margin-top:1px;}
+.sec-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(30,20,55,0.7);}
+.sec-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.si-purple{background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.22);}
+.si-teal{background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.18);}
+.si-green{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.18);}
+.si-yellow{background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.18);}
+.si-pink{background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.18);}
+.si-blue{background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.18);}
+.si-red{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.18);}
+.si-orange{background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.18);}
+.sec-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.sec-sub{font-size:11px;color:var(--muted);margin-left:42px;margin-top:-10px;margin-bottom:14px;}
+
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
+.g1{display:grid;grid-template-columns:1fr;gap:12px;}
+@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr;}}
+
+/* FIELD */
+.f{display:flex;flex-direction:column;gap:5px;}
+.f label{font-size:10px;font-weight:700;color:var(--muted2);font-family:'Syne',sans-serif;letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:4px;}
+.req{color:var(--red);font-size:9px;}
+.f input,.f select,.f textarea{padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:all 0.2s;width:100%;}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,85,247,0.08);}
+.f input::placeholder,.f textarea::placeholder{color:rgba(91,63,138,0.45);}
+.f select option{background:var(--surface2);}
+.f textarea{resize:vertical;min-height:70px;line-height:1.6;}
+.f input[readonly]{opacity:0.4;cursor:not-allowed;}
+
+/* TYPE SELECTOR (ประเภทพนักงาน) */
+.type-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;}
+.type-btn{padding:9px 6px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:all 0.2s;text-align:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted2);}
+.type-btn:hover{border-color:rgba(168,85,247,0.3);color:var(--text);}
+.type-btn.active{color:white;box-shadow:0 0 0 2px rgba(168,85,247,0.2);}
+.type-btn[data-type="SUP"].active{border-color:#a855f7;background:rgba(168,85,247,0.15);color:#c084fc;}
+.type-btn[data-type="PT"].active{border-color:#2dd4bf;background:rgba(45,212,191,0.12);color:#2dd4bf;}
+.type-btn[data-type="PT_LOCAL"].active{border-color:#60a5fa;background:rgba(96,165,250,0.12);color:#60a5fa;}
+.type-btn[data-type="PC"].active{border-color:#4ade80;background:rgba(74,222,128,0.12);color:#4ade80;}
+.type-btn[data-type="MC"].active{border-color:#fbbf24;background:rgba(251,191,36,0.12);color:#fbbf24;}
+.type-btn[data-type="PR"].active{border-color:#f472b6;background:rgba(244,114,182,0.12);color:#f472b6;}
+.type-desc{font-size:9px;color:var(--muted);margin-top:2px;font-weight:400;}
+
+/* RADIO GROUP */
+.radio-group{display:flex;gap:8px;flex-wrap:wrap;}
+.ropt{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--muted2);transition:all 0.2s;user-select:none;}
+.ropt:hover{border-color:rgba(168,85,247,0.3);}
+.ropt input[type=radio]{accent-color:var(--accent);width:12px;height:12px;}
+.ropt:has(input:checked){border-color:var(--accent);background:rgba(168,85,247,0.08);color:var(--text);}
+
+/* FILE UPLOAD */
+.file-zone{border:2px dashed rgba(30,20,55,0.9);border-radius:11px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;min-height:75px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.file-zone:hover,.file-zone.drag{border-color:var(--accent);background:rgba(168,85,247,0.03);}
+.file-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.fz-ico{font-size:20px;}
+.fz-title{font-size:12px;font-weight:600;color:var(--muted2);}
+.fz-sub{font-size:10px;color:var(--muted);}
+.file-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+.fchip{display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:10px;color:var(--muted2);}
+.fchip .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;}
+.fcdel{cursor:pointer;color:var(--muted);font-size:12px;transition:color 0.15s;line-height:1;}
+.fcdel:hover{color:var(--red);}
+
+/* PROFILE PHOTO */
+.photo-area{display:flex;align-items:center;gap:16px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}
+.photo-preview{width:80px;height:80px;border-radius:12px;background:rgba(168,85,247,0.1);border:2px dashed rgba(168,85,247,0.25);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden;cursor:pointer;transition:all 0.2s;position:relative;}
+.photo-preview:hover{border-color:var(--accent);}
+.photo-preview img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.photo-preview input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.photo-info{flex:1;}
+.photo-info-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;}
+.photo-info-sub{font-size:11px;color:var(--muted2);}
+
+/* RANK DISPLAY */
+.rank-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.rank-btn{padding:8px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;text-align:center;transition:all 0.2s;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted2);}
+.rank-btn:hover{border-color:rgba(168,85,247,0.3);}
+.rank-btn.active{border-color:var(--yellow);background:rgba(251,191,36,0.1);color:var(--yellow);}
+.rank-star{font-size:14px;display:block;margin-bottom:2px;}
+
+/* SUBMIT */
+.submit-bar{display:flex;gap:10px;justify-content:flex-end;padding-top:4px;}
+.bcn{padding:10px 20px;border-radius:9px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Noto Sans Thai',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.bcn:hover{border-color:var(--muted2);color:var(--text);}
+.bsv{padding:10px 28px;border-radius:9px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:7px;}
+.bsv:hover{opacity:0.9;transform:translateY(-1px);box-shadow:0 5px 16px rgba(124,58,237,0.4);}
+.bsv:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-brand">Elite<span>Flow</span></div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<nav class="nav">
+  <div class="nb">EliteFlow</div>
+  <span class="ns">›</span>
+  <span style="font-size:12px;color:var(--muted2);" id="navPage">บันทึกข้อมูลพนักงานฟรีแลนซ์</span>
+  <div class="nsp"></div>
+  <a class="nbk" href="event.html">← กลับ Event</a>
+</nav>
+
+<div class="main" id="mainWrap" style="display:none;">
+
+  <!-- EMPLOYEE ID CARD PREVIEW -->
+  <div class="emp-card-wrap">
+    <div class="emp-card" id="empCard" data-type="SUP">
+      <div class="emp-card-top">
+        <div class="emp-card-photo" id="cardPhoto">👤<img id="cardPhotoImg" style="display:none;"></div>
+        <div class="emp-card-info">
+          <div class="emp-card-name" id="cardName">ชื่อ นามสกุล</div>
+          <div class="emp-card-nickname" id="cardNickname">ชื่อเล่น</div>
+          <div class="emp-card-type-badge" id="cardTypeBadge" style="background:rgba(168,85,247,0.2);color:#c084fc;">SUP</div>
+        </div>
+      </div>
+      <div class="emp-card-mid">
+        <div class="emp-card-code" id="cardCode">SUP260001</div>
+        <div class="emp-card-company" id="cardCompany">EliteFlow Enterprise</div>
+      </div>
+      <div class="emp-card-bottom">
+        <div class="emp-card-date" id="cardDate">เริ่มงาน: —</div>
+        <div class="emp-card-logo">EliteFlow</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE HEADER -->
+  <div class="ph">
+    <div class="ph-top">
+      <div class="ph-icon">👤</div>
+      <div class="ph-title" id="pageTitle">บันทึกข้อมูลพนักงานฟรีแลนซ์</div>
+    </div>
+    <div class="ph-sub">กรอกข้อมูลพนักงานให้ครบถ้วน เพื่อใช้ในการจัดการและติดต่อ</div>
+  </div>
+
+  <!-- CODE + TYPE -->
+  <div class="sec s-purple">
+    <div class="sec-head">
+      <div class="sec-icon si-purple">🆔</div>
+      <div class="sec-title">ประเภทพนักงานและรหัส</div>
+    </div>
+    <div class="f" style="margin-bottom:14px;">
+      <label>ประเภทพนักงาน <span class="req">*</span></label>
+      <div class="type-grid">
+        <div class="type-btn active" data-type="SUP" onclick="selectEmpType('SUP')">
+          SUP<div class="type-desc">Supervisor</div>
+        </div>
+        <div class="type-btn" data-type="PT" onclick="selectEmpType('PT')">
+          PT<div class="type-desc">Part-time</div>
+        </div>
+        <div class="type-btn" data-type="PT_LOCAL" onclick="selectEmpType('PT_LOCAL')">
+          PT ประจำ<div class="type-desc">ประจำพื้นที่</div>
+        </div>
+        <div class="type-btn" data-type="PC" onclick="selectEmpType('PC')">
+          PC<div class="type-desc">Promoter</div>
+        </div>
+        <div class="type-btn" data-type="MC" onclick="selectEmpType('MC')">
+          MC<div class="type-desc">Master Cert.</div>
+        </div>
+        <div class="type-btn" data-type="PR" onclick="selectEmpType('PR')">
+          PR<div class="type-desc">PR/Event</div>
+        </div>
+      </div>
+    </div>
+    <div class="code-badge">
+      <span class="code-badge-lbl">รหัสพนักงาน</span>
+      <span class="code-badge-val" id="empCodeDisplay">SUP260001</span>
+      <input type="hidden" id="empCode" value="SUP260001">
+      <button class="code-regen" onclick="regenCode()">🔄 สร้างใหม่</button>
+    </div>
+    <div class="g3" style="margin-top:12px;">
+      <div class="f"><label>วัน/เดือน/ปี ที่ลงระบบ</label><input type="date" id="regDate"></div>
+      <div class="f"><label>วันที่เริ่มงาน <span class="req">*</span></label><input type="date" id="startDate"></div>
+      <div class="f"><label>สถานะการทำงาน</label>
+        <select id="workStatus">
+          <option value="active">✅ ทำงานอยู่</option>
+          <option value="inactive">⛔ ไม่ได้ทำงาน</option>
+          <option value="blacklist">🚫 Blacklist</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลส่วนตัว -->
+  <div class="sec s-teal">
+    <div class="sec-head">
+      <div class="sec-icon si-teal">👤</div>
+      <div class="sec-title">ข้อมูลส่วนตัว</div>
+    </div>
+
+    <!-- รูปภาพ + ชื่อ -->
+    <div class="photo-area" style="margin-bottom:14px;">
+      <div class="photo-preview" id="photoPreview">
+        📷
+        <input type="file" accept="image/*" onchange="previewPhoto(this)">
+        <img id="photoImg" style="display:none;">
+      </div>
+      <div class="photo-info">
+        <div class="photo-info-title">รูปภาพพนักงาน</div>
+        <div class="photo-info-sub">คลิกเพื่อเลือกรูป · JPG, PNG · ไม่เกิน 5MB</div>
+      </div>
+    </div>
+
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>คำนำหน้า <span class="req">*</span></label>
+        <select id="prefix">
+          <option value="">— เลือก —</option>
+          <option value="นาย">นาย</option>
+          <option value="นาง">นาง</option>
+          <option value="นางสาว">นางสาว</option>
+        </select>
+      </div>
+      <div class="f"><label>ชื่อจริง <span class="req">*</span></label><input type="text" id="firstName" placeholder="ชื่อจริง"></div>
+      <div class="f"><label>นามสกุล <span class="req">*</span></label><input type="text" id="lastName" placeholder="นามสกุล"></div>
+      <div class="f"><label>ชื่อเล่น</label><input type="text" id="nickname" placeholder="ชื่อเล่น"></div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>วัน/เดือน/ปี เกิด</label><input type="date" id="birthDate" onchange="calcAge()"></div>
+      <div class="f"><label>อายุ</label><input type="number" id="age" placeholder="ปี" readonly></div>
+      <div class="f"><label>น้ำหนัก (กก.)</label><input type="number" id="weight" placeholder="กก." step="0.1"></div>
+      <div class="f"><label>ส่วนสูง (ซม.)</label><input type="number" id="height" placeholder="ซม." step="0.1"></div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>สัญชาติ</label><input type="text" id="nationality" placeholder="ไทย" value="ไทย"></div>
+      <div class="f"><label>เชื้อชาติ</label><input type="text" id="race" placeholder="ไทย" value="ไทย"></div>
+      <div class="f"><label>ศาสนา</label><input type="text" id="religion" placeholder="พุทธ" value="พุทธ"></div>
+      <div class="f"><label>สถานภาพ</label>
+        <select id="maritalStatus">
+          <option value="">— เลือก —</option>
+          <option value="โสด">โสด</option>
+          <option value="สมรส">สมรส</option>
+          <option value="หย่าร้าง">หย่าร้าง</option>
+          <option value="หม้าย">หม้าย</option>
+        </select>
+      </div>
+    </div>
+    <div class="g3">
+      <div class="f"><label>ระดับการศึกษา</label>
+        <select id="education">
+          <option value="">— เลือก —</option>
+          <option value="ประถมศึกษา">ประถมศึกษา</option>
+          <option value="มัธยมศึกษาตอนต้น">มัธยมศึกษาตอนต้น</option>
+          <option value="มัธยมศึกษาตอนปลาย">มัธยมศึกษาตอนปลาย</option>
+          <option value="ปวช.">ปวช.</option>
+          <option value="ปวส.">ปวส.</option>
+          <option value="ปริญญาตรี">ปริญญาตรี</option>
+          <option value="ปริญญาโท">ปริญญาโท</option>
+          <option value="สูงกว่าปริญญาโท">สูงกว่าปริญญาโท</option>
+        </select>
+      </div>
+      <div class="f"><label>เลขบัตรประชาชน <span class="req">*</span></label><input type="text" id="idCard" placeholder="X-XXXX-XXXXX-XX-X" maxlength="17"></div>
+      <div class="f"><label>เบอร์โทรศัพท์ <span class="req">*</span></label><input type="tel" id="phone" placeholder="08X-XXX-XXXX"></div>
+    </div>
+  </div>
+
+  <!-- ช่องทางติดต่อ -->
+  <div class="sec s-blue">
+    <div class="sec-head">
+      <div class="sec-icon si-blue">📱</div>
+      <div class="sec-title">ช่องทางติดต่อ</div>
+    </div>
+    <div class="g4">
+      <div class="f"><label>Facebook</label><input type="text" id="facebook" placeholder="ชื่อ Facebook"></div>
+      <div class="f"><label>ID Line</label><input type="text" id="lineId" placeholder="ID Line"></div>
+      <div class="f"><label>Email</label><input type="email" id="email" placeholder="email@example.com"></div>
+      <div class="f"><label>กรณีฉุกเฉิน (ชื่อ เบอร์ ความสัมพันธ์)</label><input type="text" id="emergency" placeholder="ชื่อ / เบอร์ / ความสัมพันธ์"></div>
+    </div>
+  </div>
+
+  <!-- ที่อยู่ -->
+  <div class="sec s-green">
+    <div class="sec-head">
+      <div class="sec-icon si-green">🏠</div>
+      <div class="sec-title">ที่อยู่ตามทะเบียนบ้าน</div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>บ้านเลขที่</label><input type="text" id="addrNo" placeholder="บ้านเลขที่"></div>
+      <div class="f"><label>หมู่ที่</label><input type="text" id="addrMoo" placeholder="หมู่ที่"></div>
+      <div class="f"><label>ชั้นที่</label><input type="text" id="addrFloor" placeholder="ชั้นที่"></div>
+      <div class="f"><label>ห้องเลขที่</label><input type="text" id="addrRoom" placeholder="ห้องเลขที่"></div>
+    </div>
+    <div class="g4" style="margin-bottom:12px;">
+      <div class="f"><label>หมู่บ้าน/อาคาร</label><input type="text" id="addrVillage" placeholder="ชื่อหมู่บ้าน/อาคาร"></div>
+      <div class="f"><label>ซอย</label><input type="text" id="addrSoi" placeholder="ซอย"></div>
+      <div class="f"><label>ถนน</label><input type="text" id="addrRoad" placeholder="ถนน"></div>
+      <div class="f"><label>แยก</label><input type="text" id="addrJunction" placeholder="แยก"></div>
+    </div>
+    <div class="addr-cascade">
+      <div class="f">
+        <label>จังหวัด <span class="req">*</span></label>
+        <select id="addrProvince" onchange="onProvinceChange()">
+          <option value="">— เลือกจังหวัด —</option>
+        </select>
+      </div>
+      <div class="f">
+        <label>เขต/อำเภอ</label>
+        <select id="addrDistrict" onchange="onDistrictChange()" disabled>
+          <option value="">— เลือกอำเภอ —</option>
+        </select>
+      </div>
+      <div class="f">
+        <label>แขวง/ตำบล</label>
+        <select id="addrSubdistrict" onchange="onSubdistrictChange()" disabled>
+          <option value="">— เลือกตำบล —</option>
+        </select>
+      </div>
+      <div class="f">
+        <label>รหัสไปรษณีย์</label>
+        <input type="text" id="addrZip" placeholder="อัตโนมัติ" readonly style="opacity:0.7;">
+      </div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>ที่อยู่ปัจจุบัน (ถ้าต่างจากทะเบียนบ้าน)</label><textarea id="addrCurrent" placeholder="ที่อยู่ปัจจุบัน..."></textarea></div>
+      <div class="f"><label>พักอาศัยอยู่กับ</label><input type="text" id="liveWith" placeholder="ผู้ปกครอง / คู่สมรส / คนเดียว..."></div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลครอบครัว -->
+  <div class="sec s-pink">
+    <div class="sec-head">
+      <div class="sec-icon si-pink">👨‍👩‍👧</div>
+      <div class="sec-title">ข้อมูลครอบครัว</div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>ชื่อ-สกุล บิดา</label><input type="text" id="fatherName" placeholder="ชื่อ-สกุล บิดา"></div>
+      <div class="f"><label>อาชีพ บิดา</label><input type="text" id="fatherJob" placeholder="อาชีพ"></div>
+    </div>
+    <div class="g2" style="margin-top:12px;">
+      <div class="f"><label>ชื่อ-สกุล มารดา</label><input type="text" id="motherName" placeholder="ชื่อ-สกุล มารดา"></div>
+      <div class="f"><label>อาชีพ มารดา</label><input type="text" id="motherJob" placeholder="อาชีพ"></div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลธนาคาร -->
+  <div class="sec s-yellow">
+    <div class="sec-head">
+      <div class="sec-icon si-yellow">🏦</div>
+      <div class="sec-title">ข้อมูลธนาคาร</div>
+    </div>
+    <div class="g3">
+      <div class="f"><label>ธนาคาร</label>
+        <select id="bank">
+          <option value="">— เลือกธนาคาร —</option>
+          <option value="กสิกรไทย">กสิกรไทย (KBANK)</option>
+          <option value="ไทยพาณิชย์">ไทยพาณิชย์ (SCB)</option>
+          <option value="กรุงไทย">กรุงไทย (KTB)</option>
+          <option value="กรุงเทพ">กรุงเทพ (BBL)</option>
+          <option value="กรุงศรี">กรุงศรี (BAY)</option>
+          <option value="ทีทีบี">ทีทีบี (TTB)</option>
+          <option value="ออมสิน">ออมสิน</option>
+          <option value="อื่นๆ">อื่นๆ</option>
+        </select>
+      </div>
+      <div class="f"><label>เลขที่บัญชี</label><input type="text" id="bankAccount" placeholder="XXX-X-XXXXX-X"></div>
+      <div class="f"><label>ชื่อตามสมุดบัญชี</label><input type="text" id="bankName" placeholder="ชื่อ-นามสกุล ในบัญชี"></div>
+    </div>
+    <div class="g3" style="margin-top:12px;">
+      <div class="f"><label>ค่าจ้าง (บาท/วัน)</label><input type="number" id="wage" placeholder="0" min="0"></div>
+      <div class="f"><label>จ่ายทุก</label><input type="text" id="paySchedule" placeholder="เช่น สิ้นเดือน, ทุก 15 วัน"></div>
+      <div class="f"><label>จำนวนวันทำงาน</label><input type="number" id="workDays" placeholder="0" min="0"></div>
+    </div>
+  </div>
+
+  <!-- ตำแหน่งและสาขา -->
+  <div class="sec s-orange">
+    <div class="sec-head">
+      <div class="sec-icon si-orange">🏬</div>
+      <div class="sec-title">ตำแหน่งงานและสาขา</div>
+    </div>
+    <div class="g3">
+      <div class="f"><label>ตำแหน่งที่สมัคร</label><input type="text" id="position" placeholder="ตำแหน่ง"></div>
+      <div class="f"><label>สาขาที่สมัคร</label><input type="text" id="branch" placeholder="ชื่อสาขา"></div>
+      <div class="f"><label>เงินเดือนที่คาดหวัง</label><input type="number" id="expectedSalary" placeholder="บาท" min="0"></div>
+    </div>
+    <div class="g3" style="margin-top:12px;">
+      <div class="f"><label>สาขาที่เคยทำงาน</label><input type="text" id="prevBranches" placeholder="ชื่อสาขา (คั่นด้วยจุลภาค)"></div>
+      <div class="f"><label>Area ที่เคยทำงาน</label><input type="text" id="prevAreas" placeholder="Area"></div>
+      <div class="f"><label>ประเภทพนักงานที่เคยทำ</label><input type="text" id="prevTypes" placeholder="ประเภท"></div>
+    </div>
+  </div>
+
+  <!-- RANK -->
+  <div class="sec s-yellow">
+    <div class="sec-head">
+      <div class="sec-icon si-yellow">⭐</div>
+      <div class="sec-title">RANK และคุณภาพการทำงาน</div>
+    </div>
+    <div class="f" style="margin-bottom:12px;">
+      <label>RANK</label>
+      <div class="rank-grid">
+        <div class="rank-btn" data-rank="D" onclick="selectRank('D')"><span class="rank-star">⭐</span>D</div>
+        <div class="rank-btn" data-rank="C" onclick="selectRank('C')"><span class="rank-star">⭐⭐</span>C</div>
+        <div class="rank-btn" data-rank="B" onclick="selectRank('B')"><span class="rank-star">⭐⭐⭐</span>B</div>
+        <div class="rank-btn active" data-rank="A" onclick="selectRank('A')"><span class="rank-star">⭐⭐⭐⭐</span>A</div>
+        <div class="rank-btn" data-rank="S" onclick="selectRank('S')"><span class="rank-star">🌟</span>S</div>
+      </div>
+    </div>
+    <div class="f">
+      <label>คุณภาพการทำงาน</label>
+      <textarea id="workQuality" placeholder="บันทึกประเมินคุณภาพ..."></textarea>
+    </div>
+  </div>
+
+  <!-- คำถามเพิ่มเติม -->
+  <div class="sec s-purple">
+    <div class="sec-head">
+      <div class="sec-icon si-purple">❓</div>
+      <div class="sec-title">คำถามประกอบการสมัคร</div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>ท่านมีโรคประจำตัวหรือไม่</label><input type="text" id="disease" placeholder="ไม่มี / ระบุ..."></div>
+      <div class="f"><label>งานอดิเรก</label><input type="text" id="hobby" placeholder="งานอดิเรก..."></div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>เคยมีประวัติอาชญากรรม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="criminal" value="ไม่มี" checked> ไม่มี</label>
+          <label class="ropt"><input type="radio" name="criminal" value="มี"> มี (ระบุ)</label>
+        </div>
+      </div>
+      <div class="f"><label>ยินยอมตรวจประวัติอาชญากรรม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="consentCriminal" value="ยินยอม" checked> ยินยอม</label>
+          <label class="ropt"><input type="radio" name="consentCriminal" value="ไม่ยินยอม"> ไม่ยินยอม</label>
+        </div>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>เคยติดเครดิตของห้าง</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="credit" value="ไม่เคย" checked> ไม่เคย</label>
+          <label class="ropt"><input type="radio" name="credit" value="เคย"> เคย</label>
+        </div>
+      </div>
+      <div class="f"><label>คิดว่าตัวเองติดโทรศัพท์ไหม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="phoneAddict" value="ไม่"> ไม่</label>
+          <label class="ropt"><input type="radio" name="phoneAddict" value="บางครั้ง"> บางครั้ง</label>
+          <label class="ropt"><input type="radio" name="phoneAddict" value="ใช่"> ใช่</label>
+        </div>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div class="f"><label>ยกของหนัก/พับผ้า/จัดร้านได้ไหม</label>
+        <div class="radio-group">
+          <label class="ropt"><input type="radio" name="physical" value="ได้" checked> ได้</label>
+          <label class="ropt"><input type="radio" name="physical" value="ไม่ได้"> ไม่ได้</label>
+        </div>
+      </div>
+      <div class="f"><label>ทราบข่าวจากที่ไหน</label><input type="text" id="sourceInfo" placeholder="Facebook / เพื่อนแนะนำ / ..."></div>
+    </div>
+    <div class="g1" style="margin-bottom:12px;">
+      <div class="f"><label>ทำไมถึงอยากร่วมงานกับแบรนด์</label><textarea id="motivation" placeholder="เหตุผลที่อยากร่วมงาน..."></textarea></div>
+    </div>
+    <div class="g1" style="margin-bottom:12px;">
+      <div class="f"><label>ประวัติการทำงานที่ผ่านมา</label><textarea id="workHistory" placeholder="ระบุสถานที่ทำงาน ตำแหน่ง ระยะเวลา..."></textarea></div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>บุคคลอ้างอิง 2 คน (ไม่ใช่ญาติ/นายจ้าง)</label><textarea id="references" placeholder="ชื่อ / เบอร์ติดต่อ / ความสัมพันธ์..."></textarea></div>
+      <div class="f"><label>แนะนำตัวเอง / ลักษณะนิสัย</label><textarea id="selfIntro" placeholder="แนะนำตัวเอง..."></textarea></div>
+    </div>
+  </div>
+
+  <!-- เอกสารแนบ -->
+  <div class="sec s-teal">
+    <div class="sec-head">
+      <div class="sec-icon si-teal">📎</div>
+      <div class="sec-title">เอกสารและไฟล์แนบ</div>
+    </div>
+    <div class="g2">
+      <div class="f"><label>สำเนาบัตรประชาชน (พร้อมลงนาม)</label>
+        <div class="file-zone" id="zone-idcard" ondragover="dragOver(event,'zone-idcard')" ondragleave="dragLeave('zone-idcard')" ondrop="dropFile(event,'idcard')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('idcard',this.files)">
+          <div class="fz-ico">🪪</div><div class="fz-title">แนบสำเนาบัตรประชาชน</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-idcard"></div>
+      </div>
+      <div class="f"><label>สำเนาทะเบียนบ้าน (พร้อมลงนาม)</label>
+        <div class="file-zone" id="zone-house" ondragover="dragOver(event,'zone-house')" ondragleave="dragLeave('zone-house')" ondrop="dropFile(event,'house')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('house',this.files)">
+          <div class="fz-ico">🏠</div><div class="fz-title">แนบสำเนาทะเบียนบ้าน</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-house"></div>
+      </div>
+      <div class="f"><label>สำเนาวุฒิการศึกษา (พร้อมลงนาม)</label>
+        <div class="file-zone" id="zone-edu" ondragover="dragOver(event,'zone-edu')" ondragleave="dragLeave('zone-edu')" ondrop="dropFile(event,'edu')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('edu',this.files)">
+          <div class="fz-ico">🎓</div><div class="fz-title">แนบวุฒิการศึกษา</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-edu"></div>
+      </div>
+      <div class="f"><label>หน้าบุ๊คแบงค์ธนาคารกสิกรไทย</label>
+        <div class="file-zone" id="zone-bank" ondragover="dragOver(event,'zone-bank')" ondragleave="dragLeave('zone-bank')" ondrop="dropFile(event,'bank')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="addFiles('bank',this.files)">
+          <div class="fz-ico">🏦</div><div class="fz-title">แนบหน้าบุ๊คแบงค์</div><div class="fz-sub">JPG, PNG, PDF</div>
+        </div>
+        <div class="file-chips" id="chips-bank"></div>
+      </div>
+      <div class="f"><label>เอกสารอื่นๆ</label>
+        <div class="file-zone" id="zone-other" ondragover="dragOver(event,'zone-other')" ondragleave="dragLeave('zone-other')" ondrop="dropFile(event,'other')">
+          <input type="file" accept="image/*,.pdf,.doc,.docx" multiple onchange="addFiles('other',this.files)">
+          <div class="fz-ico">📂</div><div class="fz-title">เอกสารอื่นๆ</div><div class="fz-sub">ทุกรูปแบบไฟล์</div>
+        </div>
+        <div class="file-chips" id="chips-other"></div>
+      </div>
+      <div class="f"><label>หมายเหตุ</label><textarea id="remark" placeholder="หมายเหตุเพิ่มเติม..."></textarea></div>
+    </div>
+    <div class="f" style="margin-top:12px;"><label>ลงชื่อรับรองว่าข้อมูลเป็นความจริง</label><input type="text" id="signature" placeholder="พิมพ์ชื่อ-นามสกุล เพื่อรับรอง"></div>
+  </div>
+
+  <!-- SUBMIT -->
+  <div class="sec" style="padding:16px 20px;">
+    <div class="submit-bar">
+      <button class="bcn" onclick="history.back()">ยกเลิก</button>
+      <button class="bsv" id="submitBtn" onclick="submitForm()">💾 บันทึกข้อมูลพนักงาน</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, setDoc, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig={apiKey:"",authDomain:"elitflow-38bc4.firebaseapp.com",projectId:"elitflow-38bc4",storageBucket:"elitflow-38bc4.firebasestorage.app",messagingSenderId:"697101909670",appId:"1:697101909670:web:afa2071ba0ca64dbba7e67"};
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
+
+let currentUser=null,currentCompanyName='',editingId=null;
+let currentEmpType='SUP',currentRank='A';
+let fileStore={idcard:[],house:[],edu:[],bank:[],other:[]};
+
+const EMP_TYPES={
+  'SUP':'SUP','PT':'PT','PT_LOCAL':'PTL','PC':'PC','MC':'MC','PR':'PR'
+};
+
+// AUTH
+onAuthStateChanged(auth,async(user)=>{
+  document.getElementById('loadingOverlay').style.opacity='0';
+  setTimeout(()=>document.getElementById('loadingOverlay').style.display='none',400);
+  if(!user){window.location.href='index.html';return;}
+  currentUser=user;
+  try{const c=await getDoc(doc(db,'companies',user.uid));if(c.exists())currentCompanyName=c.data().name||'';}catch(e){}
+  // set today as default
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('regDate').value=today;
+  // check edit mode
+  const params=new URLSearchParams(window.location.search);
+  editingId=params.get('id');
+  if(editingId){document.getElementById('pageTitle').textContent='✏️ แก้ไขข้อมูลพนักงาน';document.getElementById('navPage').textContent='แก้ไขข้อมูลพนักงาน';await loadForEdit(editingId);}
+  else{await generateCode('SUP');}
+  document.getElementById('mainWrap').style.display='block';
+});
+
+async function generateCode(type){
+  const prefix=EMP_TYPES[type]||type;
+  const yearShort=String(new Date().getFullYear()).slice(-2);
+  try{
+    const snap=await getDocs(query(collection(db,'freelancers'),where('companyId','==',currentUser.uid),where('empType','==',type)));
+    const nextNum=snap.size+1;
+    const code=`${prefix}${yearShort}${String(nextNum).padStart(4,'0')}`;
+    document.getElementById('empCode').value=code;
+    document.getElementById('empCodeDisplay').textContent=code;
+  }catch(e){
+    const code=`${prefix}${yearShort}0001`;
+    document.getElementById('empCode').value=code;
+    document.getElementById('empCodeDisplay').textContent=code;
+  }
+}
+
+window.regenCode=async()=>{await generateCode(currentEmpType);};
+
+window.selectEmpType=(type)=>{
+  currentEmpType=type;
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===type));
+  generateCode(type);
+};
+
+window.selectRank=(rank)=>{
+  currentRank=rank;
+  document.querySelectorAll('.rank-btn').forEach(b=>b.classList.toggle('active',b.dataset.rank===rank));
+};
+
+window.calcAge=()=>{
+  const b=document.getElementById('birthDate').value;
+  if(!b)return;
+  const age=Math.floor((new Date()-new Date(b))/(1000*60*60*24*365.25));
+  document.getElementById('age').value=age;
+};
+
+window.previewPhoto=(input)=>{
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=document.getElementById('photoImg');
+    img.src=e.target.result;img.style.display='block';
+    document.getElementById('photoPreview').querySelector(':not(input):not(img)').style.display='none';
+  };
+  reader.readAsDataURL(file);
+};
+
+// FILE
+window.addFiles=(key,fl)=>{Array.from(fl).forEach(f=>{if(!fileStore[key].find(x=>x.name===f.name))fileStore[key].push(f);});renderChips(key);};
+window.removeFile=(key,name)=>{fileStore[key]=fileStore[key].filter(f=>f.name!==name);renderChips(key);};
+function renderChips(key){
+  document.getElementById('chips-'+key).innerHTML=fileStore[key].map(f=>`<div class="fchip"><span>${gfi(f.name)}</span><span class="fn">${esc(f.name)}</span><span class="fcdel" onclick="removeFile('${key}','${esc(f.name)}')">✕</span></div>`).join('');
+}
+function gfi(n){const e=n.split('.').pop().toLowerCase();if(['jpg','jpeg','png','gif','webp'].includes(e))return'🖼️';if(e==='pdf')return'📕';return'📎';}
+window.dragOver=(e,z)=>{e.preventDefault();document.getElementById(z).classList.add('drag');};
+window.dragLeave=(z)=>{document.getElementById(z).classList.remove('drag');};
+window.dropFile=(e,key)=>{e.preventDefault();document.getElementById('zone-'+key).classList.remove('drag');addFiles(key,e.dataTransfer.files);};
+
+async function loadForEdit(id){
+  try{
+    const snap=await getDoc(doc(db,'freelancers',id));if(!snap.exists())return;
+    const d=snap.data();
+    window.selectEmpType(d.empType||'SUP');
+    window.selectRank(d.rank||'A');
+    const fields=['regDate','startDate','workStatus','prefix','firstName','lastName','nickname','birthDate','age','weight','height','nationality','race','religion','maritalStatus','education','idCard','phone','facebook','lineId','email','emergency','addrNo','addrMoo','addrFloor','addrRoom','addrVillage','addrSoi','addrRoad','addrJunction','addrSubdistrict','addrDistrict','addrProvince','addrZip','addrCurrent','liveWith','fatherName','fatherJob','motherName','motherJob','bank','bankAccount','bankName','wage','paySchedule','workDays','position','branch','expectedSalary','prevBranches','prevAreas','prevTypes','workQuality','disease','hobby','sourceInfo','motivation','workHistory','references','selfIntro','signature','remark'];
+    fields.forEach(k=>{const el=document.getElementById(k);if(el&&d[k]!==undefined)el.value=d[k];});
+    if(d.empCode){document.getElementById('empCode').value=d.empCode;document.getElementById('empCodeDisplay').textContent=d.empCode;}
+    if(d.criminal){const r=document.querySelector(`input[name="criminal"][value="${d.criminal}"]`);if(r)r.checked=true;}
+    if(d.consentCriminal){const r=document.querySelector(`input[name="consentCriminal"][value="${d.consentCriminal}"]`);if(r)r.checked=true;}
+    if(d.credit){const r=document.querySelector(`input[name="credit"][value="${d.credit}"]`);if(r)r.checked=true;}
+    if(d.phoneAddict){const r=document.querySelector(`input[name="phoneAddict"][value="${d.phoneAddict}"]`);if(r)r.checked=true;}
+    if(d.physical){const r=document.querySelector(`input[name="physical"][value="${d.physical}"]`);if(r)r.checked=true;}
+    document.getElementById('submitBtn').innerHTML='💾 บันทึกการแก้ไข';
+  }catch(e){showToast('❌ โหลดข้อมูลไม่ได้: '+e.message,true);}
+}
+
+window.submitForm=async()=>{
+  const firstName=document.getElementById('firstName').value.trim();
+  const lastName=document.getElementById('lastName').value.trim();
+  if(!firstName||!lastName){showToast('⚠️ กรุณากรอกชื่อ-นามสกุล',true);return;}
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังบันทึก...';
+  const g=id=>document.getElementById(id)?.value?.trim()||'';
+  const gr=name=>document.querySelector(`input[name="${name}"]:checked`)?.value||'';
+  const data={
+    empCode:g('empCode'),empType:currentEmpType,rank:currentRank,
+    regDate:g('regDate'),startDate:g('startDate'),workStatus:g('workStatus'),
+    prefix:g('prefix'),firstName,lastName,nickname:g('nickname'),
+    birthDate:g('birthDate'),age:parseInt(g('age'))||0,
+    weight:parseFloat(g('weight'))||0,height:parseFloat(g('height'))||0,
+    nationality:g('nationality'),race:g('race'),religion:g('religion'),maritalStatus:g('maritalStatus'),
+    education:g('education'),idCard:g('idCard'),phone:g('phone'),
+    facebook:g('facebook'),lineId:g('lineId'),email:g('email'),emergency:g('emergency'),
+    addrNo:g('addrNo'),addrMoo:g('addrMoo'),addrFloor:g('addrFloor'),addrRoom:g('addrRoom'),
+    addrVillage:g('addrVillage'),addrSoi:g('addrSoi'),addrRoad:g('addrRoad'),addrJunction:g('addrJunction'),
+    addrSubdistrict:g('addrSubdistrict'),addrDistrict:g('addrDistrict'),addrProvince:g('addrProvince'),addrZip:g('addrZip'),
+    addrCurrent:g('addrCurrent'),liveWith:g('liveWith'),
+    fatherName:g('fatherName'),fatherJob:g('fatherJob'),motherName:g('motherName'),motherJob:g('motherJob'),
+    bank:g('bank'),bankAccount:g('bankAccount'),bankName:g('bankName'),
+    wage:parseFloat(g('wage'))||0,paySchedule:g('paySchedule'),workDays:parseInt(g('workDays'))||0,
+    position:g('position'),branch:g('branch'),expectedSalary:parseFloat(g('expectedSalary'))||0,
+    prevBranches:g('prevBranches'),prevAreas:g('prevAreas'),prevTypes:g('prevTypes'),
+    workQuality:g('workQuality'),disease:g('disease'),hobby:g('hobby'),
+    criminal:gr('criminal'),consentCriminal:gr('consentCriminal'),credit:gr('credit'),
+    phoneAddict:gr('phoneAddict'),physical:gr('physical'),
+    sourceInfo:g('sourceInfo'),motivation:g('motivation'),workHistory:g('workHistory'),
+    references:g('references'),selfIntro:g('selfIntro'),signature:g('signature'),remark:g('remark'),
+    files:{idcard:fileStore.idcard.map(f=>f.name),house:fileStore.house.map(f=>f.name),edu:fileStore.edu.map(f=>f.name),bank:fileStore.bank.map(f=>f.name),other:fileStore.other.map(f=>f.name)},
+    companyId:currentUser.uid,companyName:currentCompanyName,updatedAt:serverTimestamp()
+  };
+  try{
+    if(editingId){await setDoc(doc(db,'freelancers',editingId),data,{merge:true});showToast('✅ แก้ไขข้อมูลแล้ว');}
+    else{data.createdAt=serverTimestamp();data.createdBy=currentUser.uid;await addDoc(collection(db,'freelancers'),data);showToast('✅ บันทึกข้อมูลพนักงานแล้ว');}
+    setTimeout(()=>window.location.href='event.html',1300);
+  }catch(err){showToast('❌ '+err.message,true);btn.disabled=false;btn.innerHTML='💾 บันทึกข้อมูลพนักงาน';}
+};
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+
+// ── EMPLOYEE CARD LIVE UPDATE ──
+const TYPE_BADGE_COLORS={
+  'SUP':'rgba(168,85,247,0.2);color:#c084fc',
+  'PT':'rgba(45,212,191,0.15);color:#2dd4bf',
+  'PT_LOCAL':'rgba(96,165,250,0.15);color:#60a5fa',
+  'PC':'rgba(74,222,128,0.15);color:#4ade80',
+  'MC':'rgba(251,191,36,0.15);color:#fbbf24',
+  'PR':'rgba(244,114,182,0.15);color:#f472b6',
+};
+const TYPE_LABELS={'SUP':'SUP — Supervisor','PT':'PT — Part-time','PT_LOCAL':'PT ประจำพื้นที่','PC':'PC — Promoter','MC':'MC — Master Cert.','PR':'PR — Event/PR'};
+
+function updateCard(){
+  const prefix=document.getElementById('prefix')?.value||'';
+  const fn=document.getElementById('firstName')?.value||'';
+  const ln=document.getElementById('lastName')?.value||'';
+  const nn=document.getElementById('nickname')?.value||'';
+  const code=document.getElementById('empCode')?.value||'';
+  const start=document.getElementById('startDate')?.value||'';
+  const company=currentCompanyName||'EliteFlow Enterprise';
+
+  document.getElementById('cardName').textContent=(prefix+fn+' '+ln).trim()||'ชื่อ นามสกุล';
+  document.getElementById('cardNickname').textContent=nn?`(${nn})`:'ชื่อเล่น';
+  document.getElementById('cardCode').textContent=code||'—';
+  document.getElementById('cardCompany').textContent=company;
+  const badge=document.getElementById('cardTypeBadge');
+  const col=TYPE_BADGE_COLORS[currentEmpType]||TYPE_BADGE_COLORS['SUP'];
+  badge.style.cssText=`background:${col.split(';')[0]};${col.split(';')[1]?col.split(';')[1]+';':''}padding:2px 9px;border-radius:20px;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;display:inline-block;`;
+  badge.textContent=TYPE_LABELS[currentEmpType]||currentEmpType;
+  document.getElementById('empCard').dataset.type=currentEmpType;
+  if(start){
+    const d=new Date(start);
+    document.getElementById('cardDate').textContent=`เริ่มงาน: ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()+543}`;
+  }
+}
+
+// Hook live update to inputs
+document.addEventListener('input',e=>{
+  const ids=['firstName','lastName','nickname','startDate'];
+  if(ids.includes(e.target.id)||e.target.id==='prefix')updateCard();
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='prefix'||e.target.id==='startDate')updateCard();
+});
+
+// Update photo to card
+const origPreviewPhoto=window.previewPhoto;
+window.previewPhoto=(input)=>{
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    // form photo
+    const img=document.getElementById('photoImg');
+    img.src=e.target.result;img.style.display='block';
+    const ico=document.getElementById('photoPreview').querySelector(':not(input):not(img)');
+    if(ico)ico.style.display='none';
+    // card photo
+    const cImg=document.getElementById('cardPhotoImg');
+    cImg.src=e.target.result;cImg.style.display='block';
+    const cIco=document.getElementById('cardPhoto').childNodes[0];
+    if(cIco&&cIco.nodeType===3)cIco.textContent='';
+  };
+  reader.readAsDataURL(file);
+};
+
+// Override selectEmpType to also update card
+const _origSelectEmpType=window.selectEmpType;
+window.selectEmpType=(type)=>{_origSelectEmpType(type);updateCard();};
+
+
+
+// ── ADDRESS CASCADE DROPDOWN ──
+const ADDR_DB = {"กรุงเทพมหานคร":{"พระนคร":{"พระบรมมหาราชวัง":10200,"วังบูรพาภิรมย์":10200,"วัดราชบพิธ":10200,"สำราญราษฎร์":10200,"ศาลเจ้าพ่อเสือ":10200,"เสาชิงช้า":10200,"บวรนิเวศ":10200,"ตลาดยอด":10200,"ชนะสงคราม":10200,"บ้านพานถม":10200,"บางขุนพรหม":10200,"วัดสามพระยา":10200},"ดุสิต":{"ดุสิต":10300,"วชิรพยาบาล":10300,"สวนจิตรลดา":10300,"สี่แยกมหานาค":10300,"ถนนนครไชยศรี":10300},"บางรัก":{"มหาพฤฒาราม":10500,"สีลม":10500,"สุริยวงศ์":10500,"บางรัก":10500,"สี่พระยา":10500},"บางเขน":{"อนุสาวรีย์":10220,"ท่าแร้ง":10220},"ลาดกระบัง":{"ลาดกระบัง":10520,"คลองสาม":10520,"คลองสี่":10520,"คลองห้า":10520,"คลองหก":10520,"ทับยาว":10520,"ขุมทอง":10520},"ยานนาวา":{"ช่องนนทรี":10120,"บางโพงพาง":10120},"สัมพันธวงศ์":{"สัมพันธวงศ์":10100,"จักรวรรดิ":10100,"เจริญกรุง":10100},"พระโขนง":{"บางจาก":10260},"มีนบุรี":{"มีนบุรี":10510,"แสนแสบ":10510},"ลาดพร้าว":{"ลาดพร้าว":10230,"จรเข้บัว":10230},"วังทองหลาง":{"วังทองหลาง":10310,"คลองเจ้าคุณสิงห์":10310,"พลับพลา":10310,"สะพานสอง":10310},"คลองสาน":{"สมเด็จเจ้าพระยา":10600,"คลองสาน":10600,"บางลำภูล่าง":10600,"คลองต้นไทร":10600},"ตลิ่งชัน":{"คลองชักพระ":10170,"ตลิ่งชัน":10170,"ฉิมพลี":10170,"บางพรม":10170,"บางระมาด":10170},"ห้วยขวาง":{"ห้วยขวาง":10310,"บางกะปิ":10310,"สามเสนนอก":10310},"คลองเตย":{"คลองเตย":10110,"คลองตัน":10110,"พระโขนง":10110},"สวนหลวง":{"สวนหลวง":10250,"อ่อนนุช":10250,"พัฒนาการ":10250},"จตุจักร":{"จตุจักร":10900,"จอมพล":10900,"เสนานิคม":10900,"จันทรเกษม":10900,"ลาดยาว":10900,"ตลาดบางเขน":10900},"บางซื่อ":{"ถนนนครไชยศรี":10800,"วงศ์สว่าง":10800,"บางซื่อ":10800},"บึงกุ่ม":{"คลองกุ่ม":10230,"นวมินทร์":10230,"นวลจันทร์":10230},"บางนา":{"บางนา":10260},"ทวีวัฒนา":{"ทวีวัฒนา":10170,"ศาลาธรรมสพน์":10170},"ทุ่งครุ":{"บางมด":10140,"ทุ่งครุ":10140},"บางบอน":{"บางบอน":10150,"บางบอนเหนือ":10150,"บางบอนใต้":10150,"คลองบางพราน":10150},"ประเวศ":{"ประเวศ":10250,"หนองบอน":10250,"ดอกไม้":10250},"สาทร":{"ทุ่งวัดดอน":10120,"ยานนาวา":10120,"ทุ่งมหาเมฆ":10120},"บางแค":{"บางแค":10160,"บางแคเหนือ":10160,"บางไผ่":10160,"หลักสอง":10160},"ภาษีเจริญ":{"บางด้วน":10160,"บางแวก":10160,"คลองขวาง":10160,"ปากคลองภาษีเจริญ":10160},"หลักสี่":{"ทุ่งสองห้อง":10210,"ตลาดบางเขน":10210},"ดอนเมือง":{"สีกัน":10210,"ดอนเมือง":10210},"ราษฎร์บูรณะ":{"ราษฎร์บูรณะ":10140,"สุขสวัสดิ์":10140},"คลองสาน2":{"คลองสาน":10600},"สะพานสูง":{"สะพานสูง":10240,"ราษฎร์พัฒนา":10240,"ทับช้าง":10240},"บางกอกใหญ่":{"วัดอรุณ":10600,"วัดท่าพระ":10600}},"นนทบุรี":{"เมืองนนทบุรี":{"สวนใหญ่":11000,"ตลาดขวัญ":11000,"บางเขน":11000,"บางกระสอ":11000,"บางกร่าง":11000,"บางไผ่":11000,"บางศรีเมือง":11000,"ท่าทราย":11000,"บางรักน้อย":11000},"บางกรวย":{"วัดชลอ":11130,"บางกรวย":11130,"บางสีทอง":11130,"บางขนุน":11130,"บางขุนกอง":11130,"บางคูเวียง":11130,"มหาสวัสดิ์":11130,"ปลายบาง":11130,"ศาลากลาง":11130},"บางใหญ่":{"บางม่วง":11140,"บางแม่นาง":11140,"บางเลน":11140,"เสาธงหิน":11140,"บางใหญ่":11140,"บ้านใหม่":11140},"บางบัวทอง":{"โสนลอย":11110,"บางบัวทอง":11110,"บางรักใหญ่":11110,"บางรักพัฒนา":11110,"ละหาร":11110,"ลำโพ":11110,"พิมลราช":11110,"บางคูรัด":11110},"ไทรน้อย":{"ไทรน้อย":11150,"ราษฎร์นิยม":11150,"หนองเพรางาย":11150,"ไทรใหญ่":11150,"ขุนศรี":11150,"คลองขวาง":11150,"ทวีวัฒนา":11150},"ปากเกร็ด":{"ปากเกร็ด":11120,"บางตะไนย์":11120,"คลองพระอุดม":11120,"ท่าอิฐ":11120,"เกาะเกร็ด":11120,"อ้อมเกร็ด":11120,"คลองข่อย":11120,"บางพูด":11120,"บางตลาด":11120,"คลองเกลือ":11120}},"ปทุมธานี":{"เมืองปทุมธานี":{"บางปรอก":12000,"บ้านใหม่":12000,"บ้านกลาง":12000,"บ้านฉาง":12000,"บ้านพระ":12000,"บางเดื่อ":12000,"สวนพริกไทย":12000,"หลักหก":12000,"ระแหง":12000},"คลองหลวง":{"คลองหนึ่ง":12120,"คลองสอง":12120,"คลองสาม":12120,"คลองสี่":12120,"คลองห้า":12120,"คลองหก":12120,"คลองเจ็ด":12120},"ธัญบุรี":{"ประชาธิปัตย์":12130,"บึงยี่โถ":12130,"รังสิต":12110,"ลำผักกูด":12130,"บึงสนั่น":12130,"บึงน้ำรักษ์":12130},"หนองเสือ":{"บึงบา":12170,"บึงบอน":12170,"บึงกาสาม":12170,"บึงชำอ้อ":12170,"หนองสามวัง":12170,"ศาลาครุ":12170,"นพรัตน์":12170},"ลาดหลุมแก้ว":{"ระแหง":12140,"ลาดหลุมแก้ว":12140,"คูบางหลวง":12140,"คูขวาง":12140,"หน้าไม้":12140},"ลำลูกกา":{"คูคต":12130,"ลาดสวาย":12150,"บึงคำพร้อย":12150,"ลำลูกกา":12150,"บึงทองหลาง":12150,"ลำไทร":12150,"บึงคอไห":12150,"พืชอุดม":12150},"สามโคก":{"บางเตย":12160,"สามโคก":12160,"กระแชง":12160,"บางโพธิ์เหนือ":12160,"เชียงรากใหญ่":12160,"บ้านปทุม":12160,"บ้านงิ้ว":12160,"เชียงรากน้อย":12160,"บางกระบือ":12160,"ท้ายเกาะ":12160}},"สมุทรปราการ":{"เมืองสมุทรปราการ":{"ตลาด":10270,"บางเมือง":10270,"ท้ายบ้าน":10270,"บางปูใหม่":10280,"แพรกษา":10280,"บางโปรง":10270,"บางปู":10280,"บางด้วน":10270,"เทพารักษ์":10270,"บางเมืองใหม่":10270,"แพรกษาใหม่":10280},"บางบ่อ":{"บางบ่อ":10550,"บ้านระกาศ":10550,"บางเพรียง":10550,"คลองด่าน":10550,"คลองสวน":10550,"เปร็ง":10550},"บางพลี":{"บางพลีใหญ่":10540,"บางแก้ว":10540,"บางปลา":10540,"บางโฉลง":10540,"ราชาเทวะ":10540,"หนองปรือ":10540},"พระประแดง":{"ตลาด":10130,"บางพึ่ง":10130,"บางจาก":10130,"บางครุ":10130,"บางหญ้าแพรก":10130,"บางหัวเสือ":10130,"สำโรงใต้":10130,"บางยอ":10130,"บางกะเจ้า":10130,"บางน้ำผึ้ง":10130,"บางกอบัว":10130,"ทรงคนอง":10130,"สำโรง":10130},"พระสมุทรเจดีย์":{"นาเกลือ":10290,"บ้านคลองสวน":10290,"แหลมฟ้าผ่า":10290,"ปากคลองบางปลากด":10290,"ในคลองบางปลากด":10290},"บางเสาธง":{"บางเสาธง":10570,"ศีรษะจรเข้น้อย":10570,"ศีรษะจรเข้ใหญ่":10570}},"สมุทรสาคร":{"เมืองสมุทรสาคร":{"มหาชัย":74000,"ท่าฉลอม":74000,"โกรกกราก":74000,"บ้านบ่อ":74000,"บางโทรัด":74000,"กาหลง":74000,"นาดี":74000,"ท่าจีน":74000,"นาโคก":74000,"พันท้ายนรสิงห์":74000,"บางน้ำจืด":74000,"โคกขาม":74000},"กระทุ่มแบน":{"ตลาดกระทุ่มแบน":74110,"อ้อมน้อย":74130,"ท่าไม้":74110,"สวนหลวง":74110,"บางยาง":74110,"คลองมะเดื่อ":74110,"หนองนกไข่":74110,"ดอนไก่ดี":74110,"แคราย":74110,"ท่าเสา":74110},"บ้านแพ้ว":{"บ้านแพ้ว":74120,"หลักสาม":74120,"ยกกระบัตร":74120,"โรงเข้":74120,"หนองสองห้อง":74120,"เกษตรพัฒนา":74120,"สวนส้ม":74120,"เจ็ดริ้ว":74120,"คลองตัน":74120,"อำแพง":74120}},"นครปฐม":{"เมืองนครปฐม":{"พระปฐมเจดีย์":73000,"บางแขม":73000,"พระประโทน":73000,"มาบแค":73000,"ลำพยา":73000,"สนามจันทร์":73000,"ดอนยายหอม":73000,"ห้วยจรเข้":73000,"ทัพหลวง":73000,"หนองดินแดง":73000,"วังตะกู":73000},"กำแพงแสน":{"กำแพงแสน":73140,"ทุ่งขวาง":73140,"สระสี่มุม":73140,"ทุ่งลูกนก":73140,"ห้วยหมอนทอง":73140,"ห้วยขวาง":73140,"รางพิกุล":73140,"หนองกระทุ่ม":73140,"นครชุมน์":73140,"วังน้ำเขียว":73140,"ดอนข่อย":73140,"ศรีษะทอง":73140},"นครชัยศรี":{"นครชัยศรี":73120,"บางกระเบา":73120,"ท่าตำหนัก":73120,"บางแก้ว":73120,"ท่ากระชับ":73120,"วัดสำโรง":73120,"ดอนแฝก":73120,"ห้วยพลู":73120,"บางระกำ":73120,"โคกพระเจดีย์":73120,"ศีรษะทอง":73120,"แหลมบัว":73120},"ดอนตูม":{"สามง่าม":73150,"ดอนตูม":73150,"ห้วยด้วน":73150,"ลำเหย":73150,"ดอนพุทรา":73150,"บ้านหลวง":73150,"เหมืองใหม่":73150,"ลำลูกบัว":73150},"บางเลน":{"บางเลน":73130,"บางปลา":73130,"บางหลวง":73130,"บางภาษี":73130,"บางระกำ":73130,"บัวปากท่า":73130,"คลองนกกระทุง":73130,"นราภิรมย์":73130,"ลำโป่ง":73130,"เหมืองใหม่":73130,"ไทรงาม":73130},"สามพราน":{"ท่าตลาด":73110,"บางช้าง":73110,"บ้านใหม่":73110,"บางเตย":73110,"สามพราน":73110,"บางกระทึก":73110,"บ้านพระ":73110,"ไร่ขิง":73110,"หอมเกร็ด":73110,"กระทุ่มล้ม":73110,"ตลาดจินดา":73110,"คลองใหม่":73110,"ท่าข้าม":73110},"พุทธมณฑล":{"ศาลายา":73170,"มหาสวัสดิ์":73170,"บางระมาด":73170,"บางไทรป่า":73170}},"ชลบุรี":{"เมืองชลบุรี":{"บางปลาสร้อย":20000,"มะขามหย่ง":20000,"บ้านโขด":20000,"แสนสุข":20130,"บ้านสวน":20000,"หนองรี":20000,"นาป่า":20000,"หนองข้างคอก":20000,"ดอนหัวฬ่อ":20000,"หนองไม้แดง":20000,"บางทราย":20000,"คลองตำหรุ":20000,"เสม็ด":20000,"อ่างศิลา":20000},"บ้านบึง":{"บ้านบึง":20170,"คลองกิ่ว":20170,"บ้านปึก":20170,"เหมือง":20170,"กลางชล":20170,"หนองชาก":20170,"หนองอิรุณ":20270,"หนองไผ่แก้ว":20270},"หนองใหญ่":{"หนองใหญ่":20190,"คลองพลู":20190,"หนองเสือช้าง":20190,"ห้างสูง":20190,"เขาซก":20190},"บางละมุง":{"บางละมุง":20150,"หนองปรือ":20150,"หนองปลาไหล":20150,"โป่ง":20150,"เขาไม้แก้ว":20150,"ห้วยใหญ่":20150,"ตะเคียนเตี้ย":20150,"นาเกลือ":20150},"พานทอง":{"พานทอง":20160,"หนองตำลึง":20160,"มาบโป่ง":20160,"หนองกะขะ":20160,"หนองหงษ์":20160,"โคกขี้หนอน":20160,"บ้านเก่า":20160},"พนัสนิคม":{"พนัสนิคม":20140,"หน้าพระธาตุ":20140,"วัดโบสถ์":20140,"กุฎโง้ง":20140,"หมอนนาง":20140,"สระสี่เหลี่ยม":20140},"ศรีราชา":{"ศรีราชา":20110,"สุรศักดิ์":20110,"ทุ่งสุขลา":20230,"บึง":20230,"บางพระ":20210,"เขาคันทรง":20110,"หนองขาม":20230},"เกาะสีชัง":{"ท่าเทววงษ์":20120},"สัตหีบ":{"สัตหีบ":20180,"นาจอมเทียน":20250,"พลูตาหลวง":20180,"บางเสร่":20250,"แสมสาร":20180},"บ่อทอง":{"บ่อทอง":20270,"วัดสุวรรณ":20270,"บ่อกวางทอง":20270,"ธาตุทอง":20270},"เกาะจันทร์":{"เกาะจันทร์":20240,"ท่าบุญมี":20240}},"เชียงใหม่":{"เมืองเชียงใหม่":{"ศรีภูมิ":50200,"พระสิงห์":50200,"หายยา":50100,"ช้างมอย":50300,"ช้างคลาน":50100,"วัดเกต":50000,"ช้างเผือก":50300,"สุเทพ":50200,"แม่เหียะ":50100,"ป่าแดด":50100,"หนองหอย":50000,"ท่าศาลา":50000,"หนองป่าครั่ง":50000,"ฟ้าฮ่าม":50000,"ป่าตัน":50300,"สันผีเสื้อ":50300},"จอมทอง":{"บ้านหลวง":50160,"ข่วงเปา":50160,"สบเตี๊ยะ":50160,"บ้านแปะ":50240,"ดอยแก้ว":50160,"แม่สอย":50240},"แม่แจ่ม":{"ช่างเคิ่ง":50270,"ท่าผา":50270,"บ้านทับ":50270,"แม่ศึก":50270,"แม่นาจร":50270,"ปางหินฝน":50270,"กองแขก":50270},"เชียงดาว":{"เชียงดาว":50170,"เมืองงาย":50170,"เมืองนะ":50170,"เมืองคอง":50170,"ปิงโค้ง":50170,"ทุ่งข้าวพวง":50170},"ดอยสะเก็ด":{"เชิงดอย":50220,"สันปูเลย":50220,"ลวงเหนือ":50220,"ป้านก":50220,"เทพเสด็จ":50220},"แม่แตง":{"สันมหาพน":50150,"แม่แตง":50150,"ขี้เหล็ก":50150,"ช่อแล":50150,"แม่หอพระ":50150,"สบเปิง":50150,"บ้านเป้า":50150,"สันป่ายาง":50150,"ป่าแป๋":50150,"เมืองก๋าย":50150,"บ้านช้าง":50150,"กื้ดช้าง":50150,"อินทขิล":50150,"แม่มาลัย":50150},"แม่ริม":{"ริมใต้":50180,"ริมเหนือ":50180,"สันโป่ง":50180,"ขี้เหล็ก":50180,"สะลวง":50180,"ห้วยทราย":50180,"แม่แรม":50180,"โป่งแยง":50180,"แม่สา":50180,"ดอนแก้ว":50180,"เหมืองแก้ว":50180},"สะเมิง":{"สะเมิงใต้":50250,"สะเมิงเหนือ":50250,"แม่สาบ":50250,"บ่อแก้ว":50250,"ยั้งเมิน":50250},"ฝาง":{"เวียง":50110,"ม่อนปิ่น":50110,"แม่งอน":50110,"แม่สูน":50110,"สันทราย":50110,"แม่คะ":50110,"แม่ข่า":50110,"โป่งน้ำร้อน":50110},"แม่อาย":{"แม่อาย":50280,"แม่สาว":50280,"สันต้นหมื้อ":50280,"แม่นาวาง":50280,"ท่าตอน":50280,"บ้านหลวง":50280},"พร้าว":{"เวียง":50190,"ทุ่งหลวง":50190,"ป่าตุ้ม":50190,"ป่าไหน่":50190,"สันทราย":50190,"บ้านโป่ง":50190,"น้ำแพร่":50190,"เขื่อนผาก":50190,"แม่แวน":50190,"แม่ปั๋ง":50190,"โหล่งขอด":50190},"สันป่าตอง":{"ยุหว่า":50120,"สันกลาง":50120,"ท่าวังพร้าว":50120,"มะขามหลวง":50120,"แม่ก๊า":50120,"บ้านแม":50120,"บ้านสหกรณ์":50120,"ทุ่งต้อม":50120,"น้ำบ่อหลวง":50120,"ทุ่งรวงทอง":50120,"แม่ทา":50120,"ทุ่งสะโตก":50120},"สันกำแพง":{"สันกำแพง":50130,"ทรายมูล":50130,"ร้องวัวแดง":50130,"บวกค้าง":50130,"โรงช้าง":50130,"เชิงดอย":50130,"สันกลาง":50130,"แม่ปูคา":50130,"ห้วยทราย":50130,"ออนใต้":50130},"สันทราย":{"สันทรายหลวง":50290,"สันทรายน้อย":50290,"สันพระเนตร":50290,"สันนาเม็ง":50290,"สันป่าเปา":50290,"หนองแหย่ง":50290,"หนองจ๊อม":50290,"ป่าไผ่":50290,"เมืองเล็น":50290,"หนองหาร":50290},"หางดง":{"หางดง":50230,"หนองแก๋ว":50230,"หารแก้ว":50230,"หนองตอง":50230,"ขุนคง":50230,"สบแม่ข่า":50230,"บ้านปง":50230,"น้ำแพร่":50230},"ฮอด":{"หางดง":50240,"ฮอด":50240,"บ้านตาล":50240,"บ่อหลวง":50240,"บ่อสลี":50240,"นาคอเรือ":50240},"ดอยเต่า":{"ดอยเต่า":50260,"ท่าเดื่อ":50260,"มืดกา":50260,"บ้านแอ่น":50260,"บงตัน":50260,"โปงทุ่ง":50260},"อมก๋อย":{"อมก๋อย":50310,"ยางเปียง":50310,"แม่ตื่น":50310,"ม่อนจอง":50310,"สบโขง":50310,"นาเกียน":50310},"สารภี":{"ยางเนิ้ง":50140,"สารภี":50140,"ชมพู":50140,"ไชยสถาน":50140,"ขัวมุง":50140,"หนองแฝก":50140,"หนองผึ้ง":50140,"ท่ากว้าง":50140,"ดอนแก้ว":50140,"ท่าวังตาล":50140,"สันทราย":50140,"ป่าบง":50140},"เวียงแหง":{"เมืองแหง":50350,"เปียงหลวง":50350,"แสนไห":50350},"ไชยปราการ":{"ปงตำ":50320,"ศรีดงเย็น":50320,"แม่ทะลบ":50320,"หนองบัว":50320},"แม่วาง":{"บ้านกาด":50360,"ทุ่งปี้":50360,"ทุ่งรวงทอง":50360,"แม่วิน":50360,"ดอนเปา":50360},"แม่ออน":{"ออนเหนือ":50130,"ออนกลาง":50130,"บ้านสหกรณ์":50130,"ห้วยแก้ว":50130,"แม่ทา":50130},"ดอยหล่อ":{"ดอยหล่อ":50160,"สองแคว":50160,"ยางคราม":50160,"สันติสุข":50160}},"ขอนแก่น":{"เมืองขอนแก่น":{"ในเมือง":40000,"สาวะถี":40000,"บ้านทุ่ม":40000,"เมืองเก่า":40000,"พระลับ":40000,"สักงาม":40000,"หนองตูม":40000,"บ้านเป็ด":40000,"พลงุ่น":40000,"สงเปือย":40000,"หนองแวง":40000},"บ้านฝาง":{"บ้านฝาง":40270,"ป่าหวายนั่ง":40270,"โนนฆ้อง":40270,"บ้านเหล่า":40270,"ป่ามะนาว":40270,"บ้านทุ่ม":40270,"หนองบัว":40270},"พระยืน":{"พระยืน":40320,"พระบุ":40320,"บ้านโต้น":40320,"หนองแวง":40320,"ขามป้อม":40320},"หนองเรือ":{"หนองเรือ":40210,"บ้านเม็ง":40210,"บ้านกง":40210,"ยางคำ":40210,"จระเข้":40210,"โนนทอง":40210,"กุดกว้าง":40210,"โนนทัน":40210,"โนนสะอาด":40210,"บ้านผือ":40210},"ชุมแพ":{"ชุมแพ":40130,"โนนหัน":40130,"นาหนองทุ่ม":40290,"ขัวเรียง":40130,"หนองไผ่":40130,"ไชยสอ":40130,"วังหินลาด":40130,"นาเพียง":40130},"สีชมพู":{"สีชมพู":40220,"ศรีสุข":40220,"นาจาน":40220,"วังเพิ่ม":40220,"ซำยาง":40220,"หนองแดง":40220,"ดงลาน":40220,"ภูห่าน":40220},"น้ำพอง":{"น้ำพอง":40140,"วังชัย":40140,"หนองกุง":40140,"บ้านขาม":40140,"บัวใหญ่":40140,"สะอาด":40140,"ม่วงหวาน":40140,"บ้านโคก":40140,"ทรายมูล":40140,"ท่ากระเสริม":40140,"พังทุย":40140,"กุดน้ำใส":40140},"อุบลรัตน์":{"โคกสูง":40250,"บ้านดง":40250,"เขื่อนอุบลรัตน์":40250,"นาคำ":40250,"ศรีสุขสำราญ":40250,"ทุ่งโป่ง":40250},"กระนวน":{"หนองโก":40170,"หนองกุงใหญ่":40170,"ห้วยโจด":40170,"ห้วยยาง":40170,"บ้านฝาง":40170,"ดูนสาด":40170,"หนองโน":40170,"น้ำอ้อม":40170,"หัวนาคำ":40170},"บ้านไผ่":{"บ้านไผ่":40110,"ในเมือง":40110,"เมืองเพีย":40110,"บ้านลาน":40110,"แคนเหนือ":40110,"ภูเหล็ก":40110,"ป่าปอ":40110,"หินตั้ง":40110,"หนองน้ำใส":40110,"หัวหนอง":40110},"เปือยน้อย":{"เปือยน้อย":40340,"วังม่วง":40340,"ขามป้อม":40340,"สระแก้ว":40340},"พล":{"เมืองพล":40120,"โจดหนองแก":40120,"เก่างิ้ว":40120,"หนองมะเขือ":40120,"หนองแวงโสกพระ":40120,"เพ็กใหญ่":40120,"โนนข่า":40120,"โสกนกเต็น":40120,"หัวทุ่ง":40120,"ลอมคอม":40120,"โนนสะอาด":40120}},"นครราชสีมา":{"เมืองนครราชสีมา":{"ในเมือง":30000,"โพธิ์กลาง":30000,"หัวทะเล":30000,"บ้านเกาะ":30000,"บ้านโพธิ์":30000,"มะเริง":30000,"หนองจะบก":30000,"โคกสูง":30000,"มะค่า":30000,"พุดซา":30000,"บ้านใหม่":30000,"พะเนา":30000,"หนองกระทุ่ม":30000,"ปรุใหญ่":30000},"ครบุรี":{"ครบุรี":30250,"โคกกระชาย":30250,"จระเข้หิน":30250,"มาบตะโกเอน":30250,"อรพิมพ์":30250,"บ้านใหม่":30250,"ลำเพียก":30250},"เสิงสาง":{"เสิงสาง":30330,"สระตะเคียน":30330,"โนนสมบูรณ์":30330,"กุดโบสถ์":30330,"สุขไพบูลย์":30330},"คง":{"เมืองคง":30260,"คูขาด":30260,"ขามสมบูรณ์":30260,"ดอนใหญ่":30260,"เทพาลัย":30260,"หนองมะนาว":30260,"หนองบัว":30260,"โนนเต็ง":30260,"พระนาม":30260},"บ้านเหลื่อม":{"บ้านเหลื่อม":30350,"วังโพธิ์":30350,"โคกกระเบื้อง":30350,"ช่อระกา":30350},"จักราช":{"จักราช":30230,"ท่าช้าง":30230,"ทองหลาง":30230,"สีสุก":30230,"หนองพลวง":30230,"หนองงูเหลือม":30230,"คลองเมือง":30230},"โชคชัย":{"กระโทก":30190,"พลกรัง":30190,"ท่าเยี่ยม":30190,"โชคชัย":30190,"ละลมใหม่พัฒนา":30190,"ด่านเกวียน":30190},"ด่านขุนทด":{"กุดพิมาน":36210,"ด่านขุนทด":36210,"ด่านนอก":36210,"ด่านใน":36210,"ตะเคียน":36210,"บ้านเก่า":36210},"โนนไทย":{"โนนไทย":30220,"กำปัง":30220,"สำโรง":30220,"ค้างพลู":30220,"บ้านวัง":30220,"บัลลังก์":30220,"สายออ":30220,"ถนนโพธิ์":30220,"มะค่า":30220},"โนนสูง":{"โนนสูง":30160,"ใหม่":30160,"โตนด":30160,"บิง":30160,"ดอนชมพู":30160,"ธารปราสาท":30160,"หัวทะเล":30160,"บึงอ้อ":30160,"ขามเฒ่า":30160,"จันอัด":30160,"ขามสะแกแสง":30160,"เมืองนาท":30160,"พลสงคราม":30160},"ขามสะแกแสง":{"ขามสะแกแสง":30290,"โนนเมือง":30290,"เมืองเกษตร":30290,"หนองหัวฟาน":30290,"เมืองนาท":30290,"กุดโบสถ์":30290},"หินดาด":{"หินดาด":36290},"พิมาย":{"ในเมือง":30110,"สัมฤทธิ์":30110,"โบสถ์":30110,"กระเบื้องใหญ่":30110,"ท่าหลวง":30110,"รังกาใหญ่":30110,"ชีวาน":30110,"นิคมสร้างตนเอง":30110,"กุดจิก":30110,"ดงใหญ่":30110,"ธารละหลอด":30110},"ห้วยแถลง":{"ห้วยแถลง":30240,"ทับสวาย":30240,"เมืองพลับพลา":30240,"หลุ่งตะเคียน":30240,"หินดาด":30240,"งิ้ว":30240,"กงรถ":30240},"ชุมพวง":{"ชุมพวง":30270,"ประสุข":30270,"สาหร่าย":30270,"หนองหลัก":30270,"โนนตูม":30270,"โนนยอ":30270}},"ระยอง":{"เมืองระยอง":{"ท่าประดู่":21000,"เชิงเนิน":21000,"ตะพง":21000,"ปากน้ำ":21000,"เนินพระ":21000,"นาตาขวัญ":21000,"กะเฉด":21100,"ทับมา":21000,"น้ำคอก":21000,"หนองละลอก":21000},"กลางนา":{"กลางนา":21160},"บ้านฉาง":{"บ้านฉาง":21130,"บ้านนา":21130,"สำนักท้อน":21130},"แกลง":{"ทางเกวียน":21110,"วังหว้า":21110,"ชากโดน":21110,"เนินฆ้อ":21110,"กองดิน":21110,"คลองปูน":21110,"พังราด":21110,"ปากน้ำกระแส":21110,"น้ำเป็น":21110,"ห้วยยาง":21110,"สองสลึง":21110,"ชากมะหาด":21110},"วังจันทร์":{"วังจันทร์":21210,"ชุมแสง":21210,"ป่ายุบใน":21210,"พลงตาเอี่ยม":21210},"บ้านค่าย":{"บ้านค่าย":21120,"หนองละลอก":21120,"หนองตะพาน":21120,"ตาขัน":21120,"บางบุตร":21120,"หนองบัว":21120,"ชากบก":21120},"ปลวกแดง":{"ปลวกแดง":21140,"พนานิคม":21140,"มาบยางพร":21140,"หนองไร่":21140,"มาบข่า":21140,"แม่น้ำคู้":21140},"เขาชะเมา":{"น้ำเป็น":21110,"ห้วยทับมอญ":21110,"ชำฆ้อ":21110,"เขาน้อย":21110},"นิคมพัฒนา":{"มาบข่า":21180,"ร่มเกล้า":21180,"นิคมพัฒนา":21180,"มะขามคู่":21180}},"ภูเก็ต":{"เมืองภูเก็ต":{"ตลาดใหญ่":83000,"ตลาดเหนือ":83000,"เกาะแก้ว":83000,"รัษฎา":83000,"วิชิต":83000,"ฉลอง":83130,"ราไวย์":83130,"กะรน":83100},"กะทู้":{"กะทู้":83120,"ป่าตอง":83150,"กมลา":83150},"ถลาง":{"เทพกษัตรี":83110,"ศรีสุนทร":83110,"เชิงทะเล":83110,"ป่าคลอก":83110,"ไม้ขาว":83110,"สาคู":83110}},"สงขลา":{"เมืองสงขลา":{"บ่อยาง":90000,"เขารูปช้าง":90000,"เกาะแต้ว":90000,"พะวง":90100,"ทุ่งหวัง":90100,"เกาะยอ":90100},"หาดใหญ่":{"หาดใหญ่":90110,"ควนลัง":90110,"คอหงส์":90110,"คลองอู่ตะเภา":90110,"ฉลุง":90110,"ทุ่งใหญ่":90110,"ท่าข้าม":90110,"น้ำน้อย":90110,"บ้านพรุ":90250,"พะตง":90230},"สะเดา":{"สะเดา":90120,"ปาดังเบซาร์":90240,"สำนักแต้ว":90120,"พังลา":90120},"สทิงพระ":{"จะทิ้งพระ":90190,"กระดังงา":90190,"สนามชัย":90190,"ดีหลวง":90190,"ชุมพล":90190,"คูขุด":90190,"ท่าหิน":90190},"ระโนด":{"ระโนด":90140,"คลองแดน":90140,"ตะเครียะ":90140,"ท่าบอน":90140},"กระแสสินธุ์":{"กระแสสินธุ์":90270,"เชิงแส":90270,"โรง":90270},"รัตภูมิ":{"กำแพงเพชร":90180,"ท่าชะมวง":90180,"คูหาใต้":90180},"สะบ้าย้อย":{"สะบ้าย้อย":90210,"บ้านโหนด":90210,"จะแหน":90210},"เทพา":{"เทพา":90150,"ปากบาง":90150},"จะนะ":{"บ้านนา":90130,"ป่าชิง":90130,"สะกอม":90130},"นาหม่อม":{"นาหม่อม":90310,"พิจิตร":90310},"ควนเนียง":{"รัตภูมิ":90220,"ควนโส":90220},"บางกล่ำ":{"บางกล่ำ":90110,"ท่าช้าง":90110},"สิงหนคร":{"สทิงหม้อ":90280,"ทำนบ":90280,"รำแดง":90280},"คลองหอยโข่ง":{"คลองหอยโข่ง":90230,"คลองหลา":90230},"นาทวี":{"นาทวี":90160,"นาหมอศรี":90160}},"สุราษฎร์ธานี":{"เมืองสุราษฎร์ธานี":{"ตลาด":84000,"มะขามเตี้ย":84000,"วัดประดู่":84000,"ขุนทะเล":84100,"บางชนะ":84000,"คลองน้อย":84000,"บางไทร":84000,"บางโพธิ์":84000,"บางกุ้ง":84000,"คลองฉนาก":84000},"กาญจนดิษฐ์":{"ท่าทองใหม่":84290,"ท่าทอง":84160,"กะแดะ":84160,"ทุ่งกง":84160,"กาญจนดิษฐ์":84160},"ดอนสัก":{"ดอนสัก":84340,"ชลคราม":84340,"ไชยคราม":84340},"เกาะสมุย":{"อ่างทอง":84140,"ลิปะน้อย":84140,"หน้าเมือง":84140,"มะเร็ต":84310,"บ่อผุด":84320,"แม่น้ำ":84330},"เกาะพะงัน":{"เกาะพะงัน":84280,"บ้านใต้":84280,"เกาะเต่า":84360},"ไชยา":{"ตลาดไชยา":84110,"พุมเรียง":84110,"เลม็ด":84110},"ท่าฉาง":{"ท่าฉาง":84150,"ท่าเคย":84150},"บ้านนาสาร":{"นาสาร":84120,"พรุพี":84120,"ทุ่งเตา":84120},"เวียงสระ":{"เวียงสระ":84190,"บ้านส้อง":84190},"พุนพิน":{"ท่าข้าม":84130,"ยางงาม":84130}},"อุดรธานี":{"เมืองอุดรธานี":{"หมากแข้ง":41000,"นิคมสงเคราะห์":41000,"บ้านขาว":41000,"บ้านจั่น":41000,"หนองบัว":41000,"บ้านเลื่อม":41000,"กุดสระ":41000,"นาดี":41000,"บ้านตาด":41000},"กุดจับ":{"กุดจับ":41250,"ปะโค":41250,"ขอนยูง":41250,"เชียงเพ็ง":41250},"หนองวัวซอ":{"กุดหมากไฟ":41360,"หนองอ้อ":41360,"อูบมุง":41360,"หนองวัวซอ":41360},"กุมภวาปี":{"ตูมใต้":41370,"พันดอน":41370,"เวียงคำ":41370,"แชแล":41370},"โนนสะอาด":{"โนนสะอาด":41240,"บุ่งแก้ว":41240,"โพธิ์ศรีสำราญ":41240},"หนองหาน":{"หนองหาน":41130,"หนองเม็ก":41130,"บ้านเชียง":41130},"บ้านดุง":{"บ้านดุง":41190,"ดงเย็น":41190,"โพนสูง":41190}},"อุบลราชธานี":{"เมืองอุบลราชธานี":{"ในเมือง":34000,"หัวเรือ":34000,"หนองขอน":34000,"ปทุม":34000,"ขามใหญ่":34000,"แจระแม":34000,"หนองบ่อ":34000,"ไร่น้อย":34000,"กระโสบ":34000,"กุดลาด":34000},"วารินชำราบ":{"วารินชำราบ":34190,"ธาตุน้อย":34190,"บุ่งหวาย":34310,"คูเมือง":34190},"เดชอุดม":{"เดชอุดม":34160,"นาส่วง":34160,"นาเจริญ":34160},"เขื่องใน":{"เขื่องใน":34150,"หัวดอน":34150,"ชีทวน":34150}},"เชียงราย":{"เมืองเชียงราย":{"เวียง":57000,"รอบเวียง":57000,"บ้านดู่":57100,"แม่กรณ์":57000,"ห้วยชมภู":57000,"ห้วยสัก":57000,"ริมกก":57000,"สันทราย":57000,"แม่ข้าวต้ม":57100,"นางแล":57100},"เวียงชัย":{"เวียงชัย":57210,"เวียงเหนือ":57210,"ดอนศิลา":57210},"เชียงของ":{"เวียง":57140,"สถาน":57140,"ครึ่ง":57140,"บุญเรือง":57140},"เทิง":{"เวียง":57160,"งิ้ว":57160,"ปล้อง":57160},"พาน":{"สันมะเค็ด":57120,"แม่อ้อ":57120,"ธารทอง":57120},"แม่จัน":{"แม่จัน":57110,"จันจว้า":57110,"แม่คำ":57110},"เชียงแสน":{"เวียง":57150,"ป่าสัก":57150},"แม่สาย":{"แม่สาย":57130,"เกาะช้าง":57130,"โป่งผา":57130}},"ลำปาง":{"เมืองลำปาง":{"เวียงเหนือ":52000,"หัวเวียง":52000,"สบตุ๋ย":52100,"พระบาท":52000,"ชมพู":52100,"กล้วยแพะ":52000,"ปงแสนทอง":52000,"บ้านแลง":52000,"พิชัย":52000,"ทุ่งฝาย":52000,"บ้านเอื้อม":52000},"แม่เมาะ":{"แม่เมาะ":52220,"จางเหนือ":52220,"นาสัก":52220},"เกาะคา":{"ลำปางหลวง":52130,"นาแก้ว":52130,"ไหล่หิน":52130,"วังพร้าว":52130,"ศาลา":52130,"เกาะคา":52130},"เสริมงาม":{"ทุ่งงาม":52210,"เสริมซ้าย":52210,"เสริมกลาง":52210}},"ลำพูน":{"เมืองลำพูน":{"ในเมือง":51000,"เหมืองง่า":51000,"อุโมงค์":51150,"หนองช้างคืน":51150,"ประตูป่า":51000,"ริมปิง":51000,"ต้นธง":51000,"บ้านแป้น":51000,"เหมืองจี้":51000,"บ้านกลาง":51000,"มะเขือแจ้":51000},"แม่ทา":{"ทาปลาดุก":51140,"ทาสบเส้า":51140,"ทาเหนือ":51140,"ทากาศ":51140}},"พิษณุโลก":{"เมืองพิษณุโลก":{"ในเมือง":65000,"วังน้ำคู้":65230,"อรัญญิก":65000,"บึงพระ":65000,"ไผ่ขอดอน":65000,"งิ้วงาม":65000,"ท่าทอง":65000,"ท่าโพธิ์":65000,"สมอแข":65000,"ดอนทอง":65000},"นครไทย":{"นครไทย":65120,"หนองกะท้าว":65120,"บ้านพร้าว":65120},"บางระกำ":{"บางระกำ":65140,"ปลักแรด":65140,"พันเสา":65140},"พรหมพิราม":{"พรหมพิราม":65150,"ท่าช้าง":65150,"วงฆ้อง":65150}},"เพชรบุรี":{"เมืองเพชรบุรี":{"ท่าราบ":76000,"คลองกระแชง":76000,"บางจาน":76000,"นาพันสาม":76000,"ธงชัย":76000,"ช่องสะแก":76000,"นาวุ้ง":76000,"สำมะโรง":76000,"โพพระ":76000,"หาดเจ้าสำราญ":76100,"หนองขนาน":76000,"หนองพลับ":76000,"ดอนยาง":76000,"หนองโสน":76000},"เขาย้อย":{"เขาย้อย":76140,"สระพัง":76140,"บึงลาด":76140,"ห้วยโรง":76140,"หนองปลาไหล":76140,"หนองปรง":76140,"เขาทะลุ":76140},"หนองหญ้าปล้อง":{"หนองหญ้าปล้อง":76160,"ยางน้ำกลัดเหนือ":76160,"ยางน้ำกลัดใต้":76160,"ท่าตะคร้อ":76160},"ชะอำ":{"ชะอำ":76120,"บางเก่า":76120,"นายาง":76120,"เขาใหญ่":76120,"หนองศาลา":76120},"ท่ายาง":{"ท่ายาง":76130,"ท่าคอย":76130,"ยางหย่อง":76130,"หนองจอก":76130},"บ้านลาด":{"บ้านลาด":76150,"บ้านหาด":76150,"บ้านทาน":76150},"บ้านแหลม":{"บ้านแหลม":76110,"บางตะบูน":76110,"บางตะบูนออก":76110},"แก่งกระจาน":{"แก่งกระจาน":76170,"สองพี่น้อง":76170,"วังจันทร์":76170,"ป่าเด็ง":76170}},"ประจวบคีรีขันธ์":{"เมืองประจวบคีรีขันธ์":{"ประจวบคีรีขันธ์":77000,"เกาะหลัก":77000,"คลองวาฬ":77000,"ห้วยทราย":77000,"อ่าวน้อย":77000,"บ่อนอก":77000},"กุยบุรี":{"กุยบุรี":77150,"กุยเหนือ":77150,"เขาแดง":77150,"ดอนยายหนู":77150,"สามกระทาย":77150,"หาดขาม":77150},"ทับสะแก":{"ทับสะแก":77130,"อ่างทอง":77130,"นาหูกวาง":77130,"เขาล้าน":77130,"ห้วยยาง":77130,"แสงอรุณ":77130},"บางสะพาน":{"กำเนิดนพคุณ":77140,"พงศ์ประศาสน์":77140,"ร่อนทอง":77140,"ธงชัย":77140,"ชัยเกษม":77140},"บางสะพานน้อย":{"บางสะพาน":77170,"ปากแพรก":77170},"ปราณบุรี":{"ปราณบุรี":77120,"เขาน้อย":77120,"ปากน้ำปราณ":77120,"หนองตาแต้ม":77120,"วังก์พง":77120,"เขาจ้าว":77120},"หัวหิน":{"หัวหิน":77110,"หนองแก":77110,"หินเหล็กไฟ":77110,"หนองพลับ":77110,"ทับใต้":77110,"ห้วยสัตว์ใหญ่":77110},"สามร้อยยอด":{"สามร้อยยอด":77120,"ศิลาลอย":77120,"ไร่เก่า":77120,"ศาลาลัย":77120,"ไร่ใหม่":77120}},"ราชบุรี":{"เมืองราชบุรี":{"หน้าเมือง":70000,"เจดีย์หัก":70000,"ดอนตะโก":70000,"หนองกลางนา":70000,"ห้วยไผ่":70000,"คุ้งน้ำวน":70000,"คุ้งกระถิน":70000,"อ่างทอง":70000,"โคกหม้อ":70000},"จอมบึง":{"จอมบึง":70150,"ปากช่อง":70150,"เบิกไพร":70150,"ด่านทับตะโก":70150,"แก้มอ้น":70150,"รางบัว":70150},"สวนผึ้ง":{"สวนผึ้ง":70180,"ป่าหวาย":70180,"ท่าเคย":70180,"บ้านคา":70180},"ดำเนินสะดวก":{"ดำเนินสะดวก":70130,"ประสาทสิทธิ์":70130,"ดอนกรวย":70130,"ดอนคลัง":70130},"บ้านโป่ง":{"บ้านโป่ง":70110,"ท่าผา":70110,"กรับใหญ่":70110,"รางหวาย":70110},"บางแพ":{"บางแพ":70160,"วังเย็น":70160,"หัวโพ":70160},"โพธาราม":{"โพธาราม":70120,"ดอนทราย":70120,"คลองตาคต":70120,"บ้านเลือก":70120},"ปากท่อ":{"ปากท่อ":70140,"ม่วงชุม":70140,"บ่อกระดาน":70140,"ยางหัก":70140},"วัดเพลง":{"เกาะศาลพระ":70170,"จอมประทัด":70170,"วัดเพลง":70170}},"กาญจนบุรี":{"เมืองกาญจนบุรี":{"บ้านเหนือ":71000,"บ้านใต้":71000,"ปากแพรก":71000,"ท่ามะขาม":71000,"แก่งเสี้ยน":71000,"หนองบัว":71000,"ลาดหญ้า":71000,"วังด้ง":71000},"ไทรโยค":{"ลุ่มสุ่ม":71150,"ท่าเสา":71150,"สิงห์":71150,"ไทรโยค":71150,"วังกระแจะ":71150,"ศรีมงคล":71150,"บ้องตี้":71150},"บ่อพลอย":{"บ่อพลอย":71160,"หนองกุ่ม":71160,"หนองรี":71160,"หลุมรัง":71160},"ศรีสวัสดิ์":{"นาสวน":71250,"ด่านแม่แฉลบ":71250,"หนองเป็ด":71250,"ท่ากระดาน":71250},"ท่ามะกา":{"พงตึก":71120,"ยางม่วง":71120,"ดอนชะเอม":71120,"ท่าไม้":71120},"ท่าม่วง":{"ท่าม่วง":71110,"วังขนาย":71110,"วังศาลา":71110,"ท่าล้อ":71110}},"สุพรรณบุรี":{"เมืองสุพรรณบุรี":{"ท่าพี่เลี้ยง":72000,"รั้วใหญ่":72000,"ทับตีเหล็ก":72000,"บ้านโพธิ์":72000,"สนามชัย":72000,"โคกโคเฒ่า":72000},"เดิมบางนางบวช":{"เดิมบาง":72120,"บ่อกรุ":72120,"วังใหม่":72120,"ปากน้ำ":72120},"ด่านช้าง":{"หนองมะค่าโมง":72180,"ด่านช้าง":72180,"ห้วยขมิ้น":72180},"บางปลาม้า":{"โคกคราม":72150,"บางปลาม้า":72150,"ตะค่า":72150},"ศรีประจันต์":{"ศรีประจันต์":72140,"บ้านกร่าง":72140,"มดแดง":72140},"ดอนเจดีย์":{"ดอนเจดีย์":72170,"หนองสาหร่าย":72170,"ไร่รถ":72170},"สองพี่น้อง":{"สองพี่น้อง":72110,"บางเลน":72110,"หัวโพธิ์":72110},"สามชุก":{"สามชุก":72130,"หนองผักนาก":72130,"บ้านสระ":72130},"อู่ทอง":{"อู่ทอง":72160,"สระยายโสม":72160,"ตะลุง":72160},"หนองหญ้าไซ":{"หนองหญ้าไซ":72240,"หนองราชวัตร":72240,"หนองโอ่ง":72240}},"สระบุรี":{"เมืองสระบุรี":{"ปากเพรียว":18000,"ดาวเรือง":18000,"นาโฉง":18000,"โคกสว่าง":18000,"หนองนาก":18000,"หนองปลาไหล":18000},"แก่งคอย":{"แก่งคอย":18110,"ตะกุด":18110,"ชะอม":18110,"สองคอน":18110,"เตาปูน":18110},"หนองแค":{"หนองแค":18140,"กุ่มหัก":18140,"โคกตูม":18140,"โคกแย้":18140},"วิหารแดง":{"วิหารแดง":18150,"บ้านลำ":18150,"คลองเรือ":18150},"มวกเหล็ก":{"มวกเหล็ก":18180,"มิตรภาพ":18180,"หนองย่างเสือ":18180},"วังม่วง":{"แสลงพัน":18220,"วังม่วง":18220,"ผึ้งรวง":18220},"เฉลิมพระเกียรติ":{"เขาดินพัฒนา":18000,"บ้านแก้ง":18000,"ผึ้งรวง":18000}},"ลพบุรี":{"เมืองลพบุรี":{"ทะเลชุบศร":15000,"ท่าหิน":15000,"กกโก":15000,"โก่งธนู":15000,"เขาสามยอด":15000},"พัฒนานิคม":{"พัฒนานิคม":15140,"ช่องสาริกา":15140,"มะนาวหวาน":15140,"หนองบัว":15140},"โคกสำโรง":{"โคกสำโรง":15120,"เกาะแก้ว":15120,"ถลุงเหล็ก":15120,"ดีลัง":15120},"ชัยบาดาล":{"ลำนารายณ์":15130,"ชัยบาดาล":15230,"ท่าดินดำ":15130},"ท่าวุ้ง":{"ท่าวุ้ง":15150,"บางคู้":15150,"โพตลาดแก้ว":15150}},"ชัยนาท":{"เมืองชัยนาท":{"ในเมือง":17000,"บ้านกล้วย":17000,"ท่าชัย":17000,"ชัยนาท":17000},"มโนรมย์":{"คุ้งสำเภา":17110,"วัดโคก":17110,"ศิลาดาน":17110},"วัดสิงห์":{"วัดสิงห์":17120,"มะขามเฒ่า":17120,"หนองน้อย":17120},"สรรพยา":{"สรรพยา":17150,"ตลุก":17150,"เขาแก้ว":17150}},"สิงห์บุรี":{"เมืองสิงห์บุรี":{"บางพุทรา":16000,"บางมัญ":16000,"โพกรวม":16000,"ม่วงหมู่":16000},"บางระจัน":{"สิงห์":16130,"ไม้ดัด":16130,"เชิงกลัด":16130},"ค่ายบางระจัน":{"โพทะเล":16150,"บ้านจ่า":16150},"พรหมบุรี":{"พรหมบุรี":16160,"บางน้ำเชี่ยว":16160}},"อ่างทอง":{"เมืองอ่างทอง":{"ตลาดหลวง":14000,"บางแก้ว":14000,"ศาลาแดง":14000,"ป่างิ้ว":14000},"ไชโย":{"ไชยภูมิ":14140,"ชะไว":14140,"ตรีณรงค์":14140},"ป่าโมก":{"ป่าโมก":14130,"บางปลากด":14130},"โพธิ์ทอง":{"อ่างแก้ว":14120,"องครักษ์":14120}},"พระนครศรีอยุธยา":{"พระนครศรีอยุธยา":{"ประตูชัย":13000,"กะมัง":13000,"หอรัตนไชย":13000,"หัวรอ":13000,"ท่าวาสุกรี":13000,"ไผ่ลิง":13000,"ปากกราน":13000,"ภูเขาทอง":13000,"สำเภาล่ม":13000,"สวนพริก":13000,"คลองสระบัว":13000,"เกาะเรียน":13000},"ท่าเรือ":{"ท่าเรือ":13130,"จำปา":13130,"ท่าหลวง":13130,"บ้านร่อม":13130},"นครหลวง":{"นครหลวง":13260,"ท่าช้าง":13260,"บ่อโพง":13260},"บางไทร":{"บางไทร":13190,"บางพลี":13190,"โพแตง":13190},"บางบาล":{"บางบาล":13250,"วัดยม":13250},"บางปะอิน":{"บางปะอิน":13160,"บ้านเลน":13160}},"ปทุมธานี2":{"เมืองปทุมธานี":{"บางปรอก":12000}},"นครสวรรค์":{"เมืองนครสวรรค์":{"ปากน้ำโพ":60000,"กลางแดด":60000,"เกรียงไกร":60000},"โกรกพระ":{"โกรกพระ":60170},"ชุมแสง":{"ชุมแสง":60120},"หนองบัว":{"หนองบัว":60110}},"เพชรบูรณ์":{"เมืองเพชรบูรณ์":{"ในเมือง":67000,"ตะเบาะ":67000,"บ้านโตก":67000,"สะเดียง":67000},"เขาค้อ":{"เขาค้อ":67270},"หล่มสัก":{"หล่มสัก":67110},"หล่มเก่า":{"หล่มเก่า":67120}},"สุโขทัย":{"เมืองสุโขทัย":{"ธานี":64000,"บ้านสวน":64000,"เมืองเก่า":64000},"สวรรคโลก":{"เมืองสวรรคโลก":64110},"ศรีสำโรง":{"คลองตาล":64120}},"กำแพงเพชร":{"เมืองกำแพงเพชร":{"กำแพงเพชร":62000,"ในเมือง":62000},"คลองขลุง":{"คลองขลุง":62120}},"ตาก":{"เมืองตาก":{"ระแหง":63000,"หนองหลวง":63000},"แม่สอด":{"แม่สอด":63110}},"อุตรดิตถ์":{"เมืองอุตรดิตถ์":{"ท่าอิฐ":53000,"ท่าเสา":53000},"ลับแล":{"ฝายหลวง":53130}},"แพร่":{"เมืองแพร่":{"ในเมือง":54000,"นาจักร":54000},"ลอง":{"ห้วยอ้อ":54150}},"น่าน":{"เมืองน่าน":{"ในเมือง":55000,"บ่อ":55000},"ปัว":{"ปัว":55120}},"พะเยา":{"เมืองพะเยา":{"เวียง":56000,"แม่ต๋ำ":56000},"จุน":{"ห้วยข้าวก่ำ":56150}},"แม่ฮ่องสอน":{"เมืองแม่ฮ่องสอน":{"จองคำ":58000,"ห้วยโป่ง":58000},"ปาย":{"เวียงใต้":58130}},"นครพนม":{"เมืองนครพนม":{"ในเมือง":48000,"หนองแสง":48000},"ธาตุพนม":{"ธาตุพนม":48110}},"สกลนคร":{"เมืองสกลนคร":{"ธาตุเชิงชุม":47000,"ขมิ้น":47000},"สว่างแดนดิน":{"สว่างแดนดิน":47110}},"มุกดาหาร":{"เมืองมุกดาหาร":{"มุกดาหาร":49000,"ศรีบุญเรือง":49000}},"กาฬสินธุ์":{"เมืองกาฬสินธุ์":{"กาฬสินธุ์":46000,"หนองสอ":46000},"กมลาไสย":{"กมลาไสย":46130}},"มหาสารคาม":{"เมืองมหาสารคาม":{"ตลาด":44000,"เขวา":44000},"กันทรวิชัย":{"โคกพระ":44150}},"ร้อยเอ็ด":{"เมืองร้อยเอ็ด":{"ในเมือง":45000,"รอบเมือง":45000},"สุวรรณภูมิ":{"สุวรรณภูมิ":45130}},"ยโสธร":{"เมืองยโสธร":{"ในเมือง":35000,"สาวะถี":35000}},"ศรีสะเกษ":{"เมืองศรีสะเกษ":{"เมืองเหนือ":33000,"เมืองใต้":33000},"กันทรลักษ์":{"บึงมะลู":33110}},"บึงกาฬ":{"เมืองบึงกาฬ":{"บึงกาฬ":38000,"โนนสมบูรณ์":38000}},"หนองบัวลำภู":{"เมืองหนองบัวลำภู":{"หนองบัวลำภู":39000,"หนองภัยศูนย์":39000}},"เลย":{"เมืองเลย":{"กุดป่อง":42000,"เมือง":42000},"เชียงคาน":{"เชียงคาน":42110}},"ชัยภูมิ":{"เมืองชัยภูมิ":{"ในเมือง":36000,"รอบเมือง":36000},"บ้านเขว้า":{"บ้านเขว้า":36170}},"บุรีรัมย์":{"เมืองบุรีรัมย์":{"ในเมือง":31000,"อิสาณ":31000},"กระสัง":{"กระสัง":31160}},"สุรินทร์":{"เมืองสุรินทร์":{"ในเมือง":32000,"คอโค":32000},"ปราสาท":{"กังแอน":32140}},"ตราด":{"เมืองตราด":{"บางพระ":23000,"วังกระแจะ":23000},"เกาะช้าง":{"เกาะช้าง":23170}},"จันทบุรี":{"เมืองจันทบุรี":{"ตลาด":22000,"วัดใหม่":22000},"ขลุง":{"ขลุง":22110}},"ปราจีนบุรี":{"เมืองปราจีนบุรี":{"หน้าเมือง":25000,"รอบเมือง":25000},"กบินทร์บุรี":{"กบินทร์":25110}},"สระแก้ว":{"เมืองสระแก้ว":{"สระแก้ว":27000,"บ้านแก้ง":27000},"อรัญประเทศ":{"อรัญประเทศ":27120}},"นครนายก":{"เมืองนครนายก":{"นครนายก":26000,"ท่าช้าง":26000}},"ฉะเชิงเทรา":{"เมืองฉะเชิงเทรา":{"หน้าเมือง":24000,"ท่าไข่":24000},"บางปะกง":{"บางปะกง":24130}},"สมุทรสงคราม":{"เมืองสมุทรสงคราม":{"แม่กลอง":75000,"บางขันแตก":75000},"อัมพวา":{"อัมพวา":75110},"บางคนที":{"บางคนที":75120}},"เพชรบุรี2":{"เมืองเพชรบุรี":{"ท่าราบ":76000}},"กระบี่":{"เมืองกระบี่":{"กระบี่ใหญ่":81000,"กระบี่น้อย":81000},"เกาะลันตา":{"ศาลาด่าน":81150},"อ่าวลึก":{"อ่าวลึกใต้":81110}},"พังงา":{"เมืองพังงา":{"ท้ายช้าง":82000,"นบปริง":82000},"เขาหลัก":{"คุระ":82150}},"ระนอง":{"เมืองระนอง":{"เขานิเวศน์":85000,"ราชกรูด":85000}},"ชุมพร":{"เมืองชุมพร":{"ท่าตะเภา":86000,"นาทุ่ง":86000},"หลังสวน":{"หลังสวน":86110}},"นครศรีธรรมราช":{"เมืองนครศรีธรรมราช":{"ในเมือง":80000,"ท่าวัง":80000},"ปากพนัง":{"ปากพนัง":80140},"ทุ่งสง":{"ชะมาย":80110}},"พัทลุง":{"เมืองพัทลุง":{"คูหาสวรรค์":93000,"เขาเจียก":93000},"ควนขนุน":{"ควนขนุน":93110}},"ตรัง":{"เมืองตรัง":{"ทับเที่ยง":92000,"นาพละ":92000},"กันตัง":{"กันตัง":92110}},"สตูล":{"เมืองสตูล":{"พิมาน":91000,"คลองขุด":91000}},"ปัตตานี":{"เมืองปัตตานี":{"สะบารัง":94000,"อาเนาะรู":94000}},"ยะลา":{"เมืองยะลา":{"สาเบาะ":95000,"ลำพะยา":95000},"เบตง":{"เบตง":95110}},"นราธิวาส":{"เมืองนราธิวาส":{"บางนาค":96000,"ลำภู":96000},"สุไหงโก-ลก":{"สุไหงโก-ลก":96120}}};
+
+// Populate province dropdown on load
+function initProvinceDropdown(){
+  const sel = document.getElementById('addrProvince');
+  if(!sel) return;
+  const provinces = Object.keys(ADDR_DB).sort();
+  provinces.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    sel.appendChild(opt);
+  });
+}
+
+window.onProvinceChange = () => {
+  const prov = document.getElementById('addrProvince').value;
+  const distSel = document.getElementById('addrDistrict');
+  const subSel = document.getElementById('addrSubdistrict');
+  const zipInp = document.getElementById('addrZip');
+  distSel.innerHTML = '<option value="">— เลือกอำเภอ —</option>';
+  subSel.innerHTML = '<option value="">— เลือกตำบล —</option>';
+  zipInp.value = '';
+  distSel.disabled = !prov;
+  subSel.disabled = true;
+  if(!prov) return;
+  const amphures = Object.keys(ADDR_DB[prov]).sort();
+  amphures.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    distSel.appendChild(opt);
+  });
+};
+
+window.onDistrictChange = () => {
+  const prov = document.getElementById('addrProvince').value;
+  const dist = document.getElementById('addrDistrict').value;
+  const subSel = document.getElementById('addrSubdistrict');
+  const zipInp = document.getElementById('addrZip');
+  subSel.innerHTML = '<option value="">— เลือกตำบล —</option>';
+  zipInp.value = '';
+  subSel.disabled = !dist;
+  if(!prov || !dist) return;
+  const tambons = Object.keys(ADDR_DB[prov][dist]).sort();
+  tambons.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    subSel.appendChild(opt);
+  });
+};
+
+window.onSubdistrictChange = () => {
+  const prov = document.getElementById('addrProvince').value;
+  const dist = document.getElementById('addrDistrict').value;
+  const sub = document.getElementById('addrSubdistrict').value;
+  if(!prov || !dist || !sub) return;
+  const zip = ADDR_DB[prov]?.[dist]?.[sub];
+  document.getElementById('addrZip').value = zip || '';
+};
+
+// Init province dropdown after DOM ready
+document.addEventListener('DOMContentLoaded', initProvinceDropdown);
+// Also init when auth ready (since mainWrap shown after auth)
+const _origOnAuthReady = window._onAuthReady;
+setTimeout(initProvinceDropdown, 1500);
+
+</script>
+</body>
+</html>

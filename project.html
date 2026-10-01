@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElitFlow — โปรเจกต์</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07050f;--surface:#0e0a1a;--surface2:#150f25;--border:#2a1a4a;
+  --accent:#c084fc;--accent2:#7c3aed;--accent3:#a855f7;
+  --teal:#2dd4bf;--green:#4ade80;--red:#f87171;--yellow:#fbbf24;--orange:#fb923c;
+  --text:#f3e8ff;--muted:#6b4fa0;--muted2:#9d7ec9;
+  --col-pending:#2a1a4a;--col-progress:#1a2a4a;--col-review:#2a2a1a;--col-done:#1a2a1a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;}
+.global-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 15% 30%,rgba(124,58,237,0.15) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at 85% 70%,rgba(45,212,191,0.06) 0%,transparent 60%),var(--bg);}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:20px;transition:opacity 0.4s;}
+.loading-brand{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;}
+.loading-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.loading-bar{width:180px;height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent3),var(--teal));animation:load 1s ease forwards;}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid rgba(74,222,128,0.4);border-radius:10px;padding:13px 18px;font-size:13px;color:var(--green);box-shadow:0 8px 24px rgba(0,0,0,0.4);transform:translateY(80px);opacity:0;transition:all 0.3s;z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:rgba(248,113,113,0.4);color:var(--red);}
+
+/* NAV */
+.top-nav{position:fixed;top:0;left:0;right:0;z-index:200;height:56px;display:flex;align-items:center;gap:0;background:rgba(10,7,20,0.92);border-bottom:1px solid rgba(168,85,247,0.2);padding:0 24px;backdrop-filter:blur(24px);box-shadow:0 4px 24px rgba(0,0,0,0.3);}
+.nav-logo{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:white;border:1px solid rgba(168,85,247,0.4);position:relative;overflow:hidden;flex-shrink:0;margin-right:8px;}
+.nav-logo img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;}
+.nav-brand{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-right:16px;}
+.nav-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-divider{width:1px;height:20px;background:rgba(168,85,247,0.2);margin:0 12px;}
+.nav-page-title{font-size:14px;color:var(--muted2);font-family:'Syne',sans-serif;font-weight:600;}
+.nav-spacer{flex:1;}
+.nav-back{padding:6px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;text-decoration:none;display:flex;align-items:center;gap:6px;}
+.nav-back:hover{border-color:var(--accent3);color:var(--accent3);}
+.nav-user{font-size:12px;color:var(--muted);}
+.logout-btn{padding:5px 12px;border-radius:8px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);font-size:11px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;margin-left:8px;}
+.logout-btn:hover{background:rgba(248,113,113,0.18);}
+
+/* MAIN */
+.main-wrap{position:relative;z-index:1;padding:72px 24px 32px;}
+
+/* HEADER */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.page-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.header-actions{display:flex;gap:10px;align-items:center;}
+
+/* STATS BAR */
+.stats-bar{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+.stat-pill{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surface);border:1px solid var(--border);border-radius:50px;font-size:12px;}
+.stat-pill .dot{width:8px;height:8px;border-radius:50%;}
+.stat-pill .num{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
+.filter-btn{padding:6px 14px;border-radius:50px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Noto Sans Thai',sans-serif;transition:all 0.2s;}
+.filter-btn:hover{border-color:var(--accent3);color:var(--accent3);}
+.filter-btn.active{background:linear-gradient(135deg,var(--accent2),var(--accent3));color:white;border-color:transparent;box-shadow:0 4px 12px rgba(124,58,237,0.3);}
+.search-box{padding:7px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:50px;color:var(--text);font-size:13px;font-family:'Noto Sans Thai',sans-serif;outline:none;width:220px;transition:border-color 0.2s;margin-left:auto;}
+.search-box:focus{border-color:var(--accent3);}
+
+/* KANBAN */
+.kanban-wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:start;}
+.kanban-col{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.col-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.col-dot{width:10px;height:10px;border-radius:50%;}
+.col-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.col-count{margin-left:auto;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);border-radius:50px;padding:2px 8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;}
+.col-body{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:200px;}
+
+/* PROJECT CARD */
+.project-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all 0.2s;animation:slideIn 0.25s ease;}
+.project-card:hover{border-color:rgba(168,85,247,0.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(124,58,237,0.12);}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.card-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.4;}
+.card-priority{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.5px;}
+.priority-high{background:rgba(248,113,113,0.12);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
+.priority-mid{background:rgba(251,191,36,0.1);color:var(--yellow);border:1px solid rgba(251,191,36,0.2);}
+.priority-low{background:rgba(74,222,128,0.08);color:var(--green);border:1px solid rgba(74,222,128,0.15);}
+.card-desc{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+.card-depts{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;}
+.dept-tag{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;}
+.card-footer{display:flex;align-items:center;justify-content:space-between;}
+.card-date{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+.card-progress{display:flex;align-items:center;gap:6px;}
+.progress-bar{width:60px;height:4px;background:rgba(168,85,247,0.15);border-radius:2px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--teal));border-radius:2px;transition:width 0.3s;}
+.progress-pct{font-size:10px;color:var(--muted2);font-family:'Syne',sans-serif;font-weight:700;}
+.card-menu{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all 0.2s;font-size:14px;}
+.card-menu:hover{background:rgba(168,85,247,0.1);color:var(--accent3);}
+
+/* ADD CARD BTN */
+.add-card-btn{width:100%;padding:10px;background:transparent;border:1.5px dashed rgba(168,85,247,0.2);border-radius:10px;color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;}
+.add-card-btn:hover{border-color:rgba(168,85,247,0.5);color:var(--accent3);background:rgba(168,85,247,0.04);}
+
+/* BUTTONS */
+.btn-primary{padding:9px 20px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;border-radius:9px;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 16px rgba(124,58,237,0.3);display:flex;align-items:center;gap:6px;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,58,237,0.5);}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;vertical-align:middle;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid rgba(168,85,247,0.25);border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px rgba(0,0,0,0.6);animation:fadeUp 0.25s ease;}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.modal-close{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.2s;}
+.modal-close:hover{border-color:var(--red);color:var(--red);}
+.modal-body{padding:24px;}
+.field-group{margin-bottom:16px;}
+.field-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;font-family:'Syne',sans-serif;}
+.field-input,.field-select,.field-textarea{width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;}
+.field-input:focus,.field-select:focus,.field-textarea:focus{border-color:var(--accent3);box-shadow:0 0 0 3px rgba(168,85,247,0.1);}
+.field-input::placeholder,.field-textarea::placeholder{color:rgba(107,79,160,0.4);}
+.field-textarea{resize:vertical;min-height:70px;}
+.field-select{cursor:pointer;appearance:none;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+/* DEPT CHECKBOXES */
+.dept-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.dept-check{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;cursor:pointer;transition:all 0.2s;user-select:none;}
+.dept-check:hover{border-color:rgba(168,85,247,0.3);}
+.dept-check.selected{background:rgba(168,85,247,0.1);border-color:var(--accent3);}
+.dept-check input{display:none;}
+.dept-check-icon{font-size:16px;}
+.dept-check-name{font-size:12px;font-weight:600;}
+
+/* MODAL ACTIONS */
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.btn-cancel{flex:1;padding:11px;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--muted);font-family:'Noto Sans Thai',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.btn-cancel:hover{border-color:var(--text);color:var(--text);}
+.msg{font-size:12px;text-align:center;margin-top:8px;min-height:16px;}
+.msg.error{color:var(--red);}
+.msg.success{color:var(--green);}
+
+/* DETAIL MODAL */
+.detail-section{margin-bottom:20px;}
+.detail-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-family:'Syne',sans-serif;margin-bottom:8px;}
+.dept-progress-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;}
+.dept-progress-icon{font-size:18px;width:32px;text-align:center;flex-shrink:0;}
+.dept-progress-name{flex:1;font-size:13px;font-weight:600;}
+.dept-status-badge{padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600;}
+.status-pending{background:rgba(107,79,160,0.15);color:var(--muted2);border:1px solid rgba(107,79,160,0.25);}
+.status-progress{background:rgba(251,191,36,0.1);color:var(--yellow);border:1px solid rgba(251,191,36,0.2);}
+.status-review{background:rgba(96,165,250,0.1);color:#60a5fa;border:1px solid rgba(96,165,250,0.2);}
+.status-done{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+
+/* EMPTY STATE */
+.empty-col{padding:24px;text-align:center;color:var(--muted);font-size:12px;}
+
+@media(max-width:900px){.kanban-wrap{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.kanban-wrap{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="global-bg"></div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--teal));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:white;border:2px solid rgba(168,85,247,0.5);position:relative;overflow:hidden;">
+    EF<img src="logo.png" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
+  </div>
+  <div class="loading-brand">Elit<span>Flow</span></div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- NAV -->
+<nav class="top-nav">
+  <div class="nav-logo">EF<img src="logo.png" onerror="this.style.display='none'"></div>
+  <div class="nav-brand">Elit<span>Flow</span></div>
+  <div class="nav-divider"></div>
+  <div class="nav-page-title">📋 โปรเจกต์</div>
+  <div class="nav-spacer"></div>
+  <span class="nav-user" id="navUser"></span>
+  <a class="nav-back" href="app.html">← กลับหน้าหลัก</a>
+  <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
+</nav>
+
+<!-- MAIN -->
+<div class="main-wrap">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">📋 จัดการโปรเจกต์</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;">ติดตามความคืบหน้าแต่ละแผนกแบบ Real-time</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-primary" onclick="openCreateModal()">＋ สร้างโปรเจกต์ใหม่</button>
+    </div>
+  </div>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-pill"><div class="dot" style="background:#6b4fa0;"></div><span>รอดำเนินการ</span><span class="num" id="statPending">0</span></div>
+    <div class="stat-pill"><div class="dot" style="background:#fbbf24;"></div><span>กำลังดำเนินการ</span><span class="num" id="statProgress">0</span></div>
+    <div class="stat-pill"><div class="dot" style="background:#60a5fa;"></div><span>รอตรวจสอบ</span><span class="num" id="statReview">0</span></div>
+    <div class="stat-pill"><div class="dot" style="background:#4ade80;"></div><span>เสร็จแล้ว</span><span class="num" id="statDone">0</span></div>
+  </div>
+
+  <!-- FILTER -->
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterProjects('all',this)">ทั้งหมด</button>
+    <button class="filter-btn" onclick="filterProjects('accounting',this)">💰 บัญชี</button>
+    <button class="filter-btn" onclick="filterProjects('marketing',this)">📣 Marketing</button>
+    <button class="filter-btn" onclick="filterProjects('hr',this)">👔 HR</button>
+    <button class="filter-btn" onclick="filterProjects('it',this)">💻 IT</button>
+    <button class="filter-btn" onclick="filterProjects('cs',this)">🎧 CS</button>
+    <button class="filter-btn" onclick="filterProjects('event',this)">📅 Event</button>
+    <input class="search-box" type="text" id="searchBox" placeholder="🔍 ค้นหาโปรเจกต์..." oninput="renderBoard()">
+  </div>
+
+  <!-- KANBAN BOARD -->
+  <div class="kanban-wrap">
+    <!-- รอดำเนินการ -->
+    <div class="kanban-col">
+      <div class="col-header">
+        <div class="col-dot" style="background:#6b4fa0;"></div>
+        <div class="col-title">⏳ รอดำเนินการ</div>
+        <div class="col-count" id="cnt-pending">0</div>
+      </div>
+      <div class="col-body" id="col-pending">
+        <div class="empty-col">ยังไม่มีโปรเจกต์</div>
+      </div>
+    </div>
+    <!-- กำลังดำเนินการ -->
+    <div class="kanban-col">
+      <div class="col-header">
+        <div class="col-dot" style="background:#fbbf24;"></div>
+        <div class="col-title">🔄 กำลังดำเนินการ</div>
+        <div class="col-count" id="cnt-progress">0</div>
+      </div>
+      <div class="col-body" id="col-progress">
+        <div class="empty-col">ยังไม่มีโปรเจกต์</div>
+      </div>
+    </div>
+    <!-- รอตรวจสอบ -->
+    <div class="kanban-col">
+      <div class="col-header">
+        <div class="col-dot" style="background:#60a5fa;"></div>
+        <div class="col-title">🔍 รอตรวจสอบ</div>
+        <div class="col-count" id="cnt-review">0</div>
+      </div>
+      <div class="col-body" id="col-review">
+        <div class="empty-col">ยังไม่มีโปรเจกต์</div>
+      </div>
+    </div>
+    <!-- เสร็จแล้ว -->
+    <div class="kanban-col">
+      <div class="col-header">
+        <div class="col-dot" style="background:#4ade80;"></div>
+        <div class="col-title">✅ เสร็จแล้ว</div>
+        <div class="col-count" id="cnt-done">0</div>
+      </div>
+      <div class="col-body" id="col-done">
+        <div class="empty-col">ยังไม่มีโปรเจกต์</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: สร้างโปรเจกต์ -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ สร้างโปรเจกต์ใหม่</div>
+      <button class="modal-close" onclick="closeCreateModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">ชื่อโปรเจกต์ *</label>
+        <input type="text" class="field-input" id="pjTitle" placeholder="ชื่อโปรเจกต์">
+      </div>
+      <div class="field-group">
+        <label class="field-label">รายละเอียด</label>
+        <textarea class="field-textarea" id="pjDesc" placeholder="อธิบายโปรเจกต์..."></textarea>
+      </div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label">ความสำคัญ</label>
+          <select class="field-select" id="pjPriority">
+            <option value="high">🔴 สูง</option>
+            <option value="mid" selected>🟡 กลาง</option>
+            <option value="low">🟢 ต่ำ</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">วันที่เริ่มโปรเจกต์</label>
+          <input type="date" class="field-input" id="pjStartDate">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label">Deadline (วันสิ้นสุด)</label>
+          <input type="date" class="field-input" id="pjDeadline">
+        </div>
+        <div class="field-group">
+          <label class="field-label">งบประมาณ (บาท)</label>
+          <input type="text" class="field-input" id="pjBudget" placeholder="เช่น 500,000">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">แนบเอกสาร (URL — Google Drive / OneDrive)</label>
+        <input type="text" class="field-input" id="pjDoc1" placeholder="เอกสาร 1: https://drive.google.com/...">
+        <input type="text" class="field-input" id="pjDoc2" placeholder="เอกสาร 2: https://drive.google.com/..." style="margin-top:8px;">
+        <input type="text" class="field-input" id="pjDoc3" placeholder="เอกสาร 3: https://drive.google.com/..." style="margin-top:8px;">
+      </div>
+      <div class="field-group">
+        <label class="field-label">แผนกที่เกี่ยวข้อง *</label>
+        <div class="dept-grid" id="deptGrid">
+          <div class="dept-check" data-dept="accounting" onclick="toggleDept(this)">
+            <span class="dept-check-icon">💰</span>
+            <span class="dept-check-name">บัญชี</span>
+          </div>
+          <div class="dept-check" data-dept="marketing" onclick="toggleDept(this)">
+            <span class="dept-check-icon">📣</span>
+            <span class="dept-check-name">Marketing</span>
+          </div>
+          <div class="dept-check" data-dept="hr" onclick="toggleDept(this)">
+            <span class="dept-check-icon">👔</span>
+            <span class="dept-check-name">HR</span>
+          </div>
+          <div class="dept-check" data-dept="it" onclick="toggleDept(this)">
+            <span class="dept-check-icon">💻</span>
+            <span class="dept-check-name">IT</span>
+          </div>
+          <div class="dept-check" data-dept="cs" onclick="toggleDept(this)">
+            <span class="dept-check-icon">🎧</span>
+            <span class="dept-check-name">CS</span>
+          </div>
+          <div class="dept-check" data-dept="data" onclick="toggleDept(this)">
+            <span class="dept-check-icon">📊</span>
+            <span class="dept-check-name">DATA</span>
+          </div>
+          <div class="dept-check" data-dept="legal" onclick="toggleDept(this)">
+            <span class="dept-check-icon">⚖️</span>
+            <span class="dept-check-name">กฎหมาย</span>
+          </div>
+          <div class="dept-check" data-dept="stock" onclick="toggleDept(this)">
+            <span class="dept-check-icon">📦</span>
+            <span class="dept-check-name">สต็อก</span>
+          </div>
+          <div class="dept-check" data-dept="event" onclick="toggleDept(this)">
+            <span class="dept-check-icon">📅</span>
+            <span class="dept-check-name">Event</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeCreateModal()">ยกเลิก</button>
+        <button class="btn-primary" id="createBtn" onclick="createProject()" style="flex:2;">🚀 สร้างโปรเจกต์</button>
+      </div>
+      <div class="msg" id="createMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: รายละเอียดโปรเจกต์ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="detailTitle">—</div>
+      <button class="modal-close" onclick="closeDetailModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-section">
+        <div class="detail-label">รายละเอียด</div>
+        <div style="font-size:13px;color:var(--muted2);line-height:1.6;" id="detailDesc">—</div>
+      </div>
+      <div id="detailMeta"></div>
+      <div class="detail-section">
+        <div class="detail-label">สถานะแต่ละแผนก</div>
+        <div id="detailDepts"></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">เปลี่ยน Status โปรเจกต์</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="updateProjectStatus('pending')" style="padding:8px 14px;border-radius:8px;background:rgba(107,79,160,0.15);border:1px solid rgba(107,79,160,0.25);color:var(--muted2);font-size:12px;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;">⏳ รอดำเนินการ</button>
+          <button onclick="updateProjectStatus('progress')" style="padding:8px 14px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);color:var(--yellow);font-size:12px;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;">🔄 กำลังดำเนินการ</button>
+          <button onclick="updateProjectStatus('review')" style="padding:8px 14px;border-radius:8px;background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.2);color:#60a5fa;font-size:12px;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;">🔍 รอตรวจสอบ</button>
+          <button onclick="updateProjectStatus('done')" style="padding:8px 14px;border-radius:8px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);color:var(--green);font-size:12px;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;">✅ เสร็จแล้ว</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn-cancel" onclick="closeDetailModal()">ปิด</button>
+        <button style="flex:1;padding:11px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:9px;color:var(--red);font-family:'Noto Sans Thai',sans-serif;font-size:13px;cursor:pointer;" onclick="deleteProject()">🗑️ ลบโปรเจกต์</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, getDoc, query, orderBy, where, onSnapshot, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"",
+  authDomain:"elitflow-38bc4.firebaseapp.com",
+  projectId:"elitflow-38bc4",
+  storageBucket:"elitflow-38bc4.firebasestorage.app",
+  messagingSenderId:"697101909670",
+  appId:"1:697101909670:web:afa2071ba0ca64dbba7e67"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let currentUser = null;
+let allProjects = [];
+let currentFilter = 'all';
+let currentProjectId = null;
+let currentCompanyName = '';
+
+const deptInfo = {
+  accounting:{ icon:'💰', name:'บัญชี', color:'rgba(74,222,128,0.12)', border:'rgba(74,222,128,0.25)', text:'#4ade80' },
+  marketing:{ icon:'📣', name:'Marketing', color:'rgba(248,113,113,0.1)', border:'rgba(248,113,113,0.2)', text:'#f87171' },
+  hr:{ icon:'👔', name:'HR', color:'rgba(129,140,248,0.12)', border:'rgba(129,140,248,0.25)', text:'#818cf8' },
+  it:{ icon:'💻', name:'IT', color:'rgba(45,212,191,0.1)', border:'rgba(45,212,191,0.2)', text:'#2dd4bf' },
+  cs:{ icon:'🎧', name:'CS', color:'rgba(168,85,247,0.12)', border:'rgba(168,85,247,0.25)', text:'#c084fc' },
+  data:{ icon:'📊', name:'DATA', color:'rgba(251,191,36,0.1)', border:'rgba(251,191,36,0.2)', text:'#fbbf24' },
+  legal:{ icon:'⚖️', name:'กฎหมาย', color:'rgba(96,165,250,0.1)', border:'rgba(96,165,250,0.2)', text:'#60a5fa' },
+  stock:{ icon:'📦', name:'สต็อก', color:'rgba(74,222,128,0.1)', border:'rgba(74,222,128,0.2)', text:'#4ade80' },
+  event:{ icon:'📅', name:'Event', color:'rgba(248,113,113,0.1)', border:'rgba(248,113,113,0.2)', text:'#f87171' },
+};
+
+const priorityInfo = {
+  high:{ label:'สูง', cls:'priority-high' },
+  mid:{ label:'กลาง', cls:'priority-mid' },
+  low:{ label:'ต่ำ', cls:'priority-low' },
+};
+
+onAuthStateChanged(auth, async (user) => {
+  document.getElementById('loadingOverlay').style.opacity = '0';
+  setTimeout(() => document.getElementById('loadingOverlay').style.display='none', 400);
+  if (!user) { window.location.href = 'index.html'; return; }
+  currentUser = user;
+  document.getElementById('navUser').textContent = user.email.split('@')[0];
+  // ดึงชื่อบริษัท
+  try {
+    const compSnap = await getDoc(doc(db,'companies',user.uid));
+    if (compSnap.exists()) currentCompanyName = compSnap.data().name || '';
+  } catch(e) {}
+  loadProjects();
+});
+
+window.doLogout = async () => { await signOut(auth); window.location.href = 'index.html'; };
+
+// ── LOAD ──
+function loadProjects() {
+  const q = query(collection(db,'projects'), where('companyId','==',currentUser.uid), orderBy('createdAt','desc'));
+  onSnapshot(q, (snap) => {
+    allProjects = snap.docs.map(d => ({id:d.id,...d.data()}));
+    renderBoard();
+    updateStats();
+  });
+}
+
+// ── RENDER ──
+window.renderBoard = () => {
+  const search = document.getElementById('searchBox')?.value?.toLowerCase() || '';
+  const cols = { pending:[], progress:[], review:[], done:[] };
+
+  allProjects.forEach(p => {
+    if (search && !p.title?.toLowerCase().includes(search)) return;
+    if (currentFilter !== 'all' && !(p.depts || []).includes(currentFilter)) return;
+    const status = p.status || 'pending';
+    if (cols[status]) cols[status].push(p);
+  });
+
+  Object.keys(cols).forEach(status => {
+    const el = document.getElementById('col-'+status);
+    const cnt = document.getElementById('cnt-'+status);
+    cnt.textContent = cols[status].length;
+    if (!cols[status].length) {
+      el.innerHTML = '<div class="empty-col">ยังไม่มีโปรเจกต์</div>';
+      return;
+    }
+    el.innerHTML = cols[status].map(p => renderCard(p)).join('');
+  });
+};
+
+function renderCard(p) {
+  const depts = (p.depts || []).map(d => {
+    const info = deptInfo[d];
+    if (!info) return '';
+    return `<span class="dept-tag" style="background:${info.color};border:1px solid ${info.border};color:${info.text};">${info.icon} ${info.name}</span>`;
+  }).join('');
+
+  const doneDepts = (p.deptStatus || {});
+  const total = (p.depts || []).length;
+  const done = Object.values(doneDepts).filter(s => s === 'done').length;
+  const pct = total > 0 ? Math.round((done/total)*100) : 0;
+  const pri = priorityInfo[p.priority] || priorityInfo.mid;
+  const deadline = p.deadline ? new Date(p.deadline).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '';
+
+  return `
+    <div class="project-card" onclick="openDetailModal('${p.id}')">
+      <div class="card-top">
+        <div class="card-title">${esc(p.title)}</div>
+        <span class="card-priority ${pri.cls}">${pri.label}</span>
+      </div>
+      ${p.desc ? `<div class="card-desc">${esc(p.desc).substring(0,60)}${p.desc.length>60?'...':''}</div>` : ''}
+      <div class="card-depts">${depts}</div>
+      <div class="card-footer">
+        <div class="card-date">${deadline ? '📅 '+deadline : ''}</div>
+        <div class="card-progress">
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateStats() {
+  const counts = { pending:0, progress:0, review:0, done:0 };
+  allProjects.forEach(p => { const s = p.status||'pending'; if(counts[s]!==undefined) counts[s]++; });
+  document.getElementById('statPending').textContent = counts.pending;
+  document.getElementById('statProgress').textContent = counts.progress;
+  document.getElementById('statReview').textContent = counts.review;
+  document.getElementById('statDone').textContent = counts.done;
+}
+
+// ── FILTER ──
+window.filterProjects = (dept, btn) => {
+  currentFilter = dept;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderBoard();
+};
+
+// ── TOGGLE DEPT ──
+window.toggleDept = (el) => {
+  el.classList.toggle('selected');
+};
+
+// ── CREATE ──
+window.openCreateModal = () => {
+  document.getElementById('createModal').classList.add('open');
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('pjStartDate').value = today;
+  document.getElementById('pjDeadline').valueAsDate = new Date(Date.now() + 7*24*60*60*1000);
+};
+window.closeCreateModal = () => {
+  document.getElementById('createModal').classList.remove('open');
+  ['pjTitle','pjDesc','pjBudget','pjDoc1','pjDoc2','pjDoc3'].forEach(id => document.getElementById(id).value='');
+  document.querySelectorAll('.dept-check').forEach(el => el.classList.remove('selected'));
+  document.getElementById('createMsg').textContent = '';
+};
+
+window.createProject = async () => {
+  const title = document.getElementById('pjTitle').value.trim();
+  const desc = document.getElementById('pjDesc').value.trim();
+  const priority = document.getElementById('pjPriority').value;
+  const startDate = document.getElementById('pjStartDate').value;
+  const deadline = document.getElementById('pjDeadline').value;
+  const budget = document.getElementById('pjBudget').value.trim();
+  const doc1 = document.getElementById('pjDoc1').value.trim();
+  const doc2 = document.getElementById('pjDoc2').value.trim();
+  const doc3 = document.getElementById('pjDoc3').value.trim();
+  const docs = [doc1,doc2,doc3].filter(d => d);
+  const depts = [...document.querySelectorAll('.dept-check.selected')].map(el => el.dataset.dept);
+  const msg = document.getElementById('createMsg');
+  const btn = document.getElementById('createBtn');
+
+  if (!title) { msg.textContent='⚠️ กรุณากรอกชื่อโปรเจกต์'; msg.className='msg error'; return; }
+  if (!depts.length) { msg.textContent='⚠️ กรุณาเลือกอย่างน้อย 1 แผนก'; msg.className='msg error'; return; }
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> กำลังสร้าง...';
+
+  const deptStatus = {};
+  depts.forEach(d => deptStatus[d] = 'pending');
+
+  try {
+    await addDoc(collection(db,'projects'), {
+      title, desc, priority, startDate, deadline, budget, docs, depts, deptStatus,
+      status:'pending',
+      companyId: currentUser.uid,
+      companyName: currentCompanyName,
+      createdBy: currentUser.uid,
+      createdAt: serverTimestamp()
+    });
+    closeCreateModal();
+    showToast('🚀 สร้างโปรเจกต์แล้ว — แจ้งเตือนทุกแผนกที่เกี่ยวข้องแล้วค่ะ');
+  } catch(e) {
+    msg.textContent='❌ '+e.message; msg.className='msg error';
+  }
+  btn.disabled=false; btn.innerHTML='🚀 สร้างโปรเจกต์';
+};
+
+// ── DETAIL ──
+window.openDetailModal = (id) => {
+  currentProjectId = id;
+  const p = allProjects.find(x => x.id===id);
+  if (!p) return;
+
+  document.getElementById('detailTitle').textContent = p.title;
+  document.getElementById('detailDesc').textContent = p.desc || 'ไม่มีรายละเอียด';
+
+  // แสดงข้อมูลเพิ่มเติม
+  const metaHtml = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">📅 วันที่เริ่ม</div>
+        <div style="font-size:13px;color:var(--text);">${p.startDate ? new Date(p.startDate).toLocaleDateString('th-TH') : '—'}</div>
+      </div>
+      <div style="padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">⏰ Deadline</div>
+        <div style="font-size:13px;color:var(--text);">${p.deadline ? new Date(p.deadline).toLocaleDateString('th-TH') : '—'}</div>
+      </div>
+      <div style="padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">💰 งบประมาณ</div>
+        <div style="font-size:13px;color:var(--text);">${p.budget ? p.budget+' บาท' : '—'}</div>
+      </div>
+      <div style="padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">🕐 บันทึกเมื่อ</div>
+        <div style="font-size:13px;color:var(--text);">${p.createdAt?.toDate?.()?.toLocaleDateString('th-TH') || '—'}</div>
+      </div>
+    </div>
+    ${(p.docs||[]).length ? `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📎 เอกสารแนบ</div>
+      ${(p.docs||[]).map((d,i) => `<a href="${d}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid rgba(96,165,250,0.2);border-radius:8px;color:#60a5fa;font-size:12px;text-decoration:none;margin-bottom:6px;">📄 เอกสาร ${i+1} <span style="color:var(--muted);font-size:10px;">→ เปิดลิงก์</span></a>`).join('')}
+    </div>` : ''}
+  `;
+  document.getElementById('detailMeta').innerHTML = metaHtml;
+
+  const deptHtml = (p.depts||[]).map(d => {
+    const info = deptInfo[d];
+    if (!info) return '';
+    const status = (p.deptStatus||{})[d] || 'pending';
+    const statusLabel = { pending:'⏳ รอดำเนินการ', progress:'🔄 กำลังดำเนินการ', review:'🔍 รอตรวจสอบ', done:'✅ เสร็จแล้ว' }[status];
+    const statusCls = { pending:'status-pending', progress:'status-progress', review:'status-review', done:'status-done' }[status];
+    return `
+      <div class="dept-progress-item">
+        <div class="dept-progress-icon">${info.icon}</div>
+        <div class="dept-progress-name">${info.name}</div>
+        <select onchange="updateDeptStatus('${id}','${d}',this.value)" style="padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;cursor:pointer;outline:none;margin-right:4px;">
+          <option value="pending" ${status==='pending'?'selected':''}>⏳ รอ</option>
+          <option value="progress" ${status==='progress'?'selected':''}>🔄 กำลังทำ</option>
+          <option value="review" ${status==='review'?'selected':''}>🔍 รอตรวจ</option>
+          <option value="done" ${status==='done'?'selected':''}>✅ เสร็จ</option>
+        </select>
+        <span class="dept-status-badge ${statusCls}">${statusLabel}</span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('detailDepts').innerHTML = deptHtml || '<div style="color:var(--muted);font-size:13px;">ไม่มีแผนก</div>';
+  document.getElementById('detailModal').classList.add('open');
+};
+
+window.closeDetailModal = () => {
+  document.getElementById('detailModal').classList.remove('open');
+  currentProjectId = null;
+};
+
+window.updateDeptStatus = async (projectId, dept, status) => {
+  await setDoc(doc(db,'projects',projectId), { [`deptStatus.${dept}`]: status }, { merge:true });
+  showToast(`✅ อัปเดตสถานะ ${deptInfo[dept]?.name} แล้ว`);
+};
+
+window.updateProjectStatus = async (status) => {
+  if (!currentProjectId) return;
+  await setDoc(doc(db,'projects',currentProjectId), { status }, { merge:true });
+  closeDetailModal();
+  showToast('✅ อัปเดต Status โปรเจกต์แล้ว');
+};
+
+window.deleteProject = async () => {
+  if (!currentProjectId) return;
+  if (!confirm('ยืนยันการลบโปรเจกต์นี้?')) return;
+  await deleteDoc(doc(db,'projects',currentProjectId));
+  closeDetailModal();
+  showToast('🗑️ ลบโปรเจกต์แล้ว', true);
+};
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast'+(isErr?' error':'');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+['createModal','detailModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target===this) this.classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>

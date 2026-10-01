@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElitFlow — บันทึกข้อมูล Dealer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07050f;--surface:#0e0a1a;--surface2:#150f25;--border:#2a1a4a;
+  --accent:#c084fc;--accent2:#7c3aed;--accent3:#a855f7;
+  --teal:#2dd4bf;--green:#4ade80;--red:#f87171;--yellow:#fbbf24;--pink:#f472b6;
+  --text:#f3e8ff;--muted:#6b4fa0;--muted2:#9d7ec9;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;}
+.global-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 70% 60% at 10% 20%,rgba(124,58,237,0.18) 0%,transparent 60%),radial-gradient(ellipse 50% 70% at 90% 80%,rgba(45,212,191,0.07) 0%,transparent 60%),var(--bg);}
+.global-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(168,85,247,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(168,85,247,0.04) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 20%,transparent 80%);}
+
+@keyframes load{from{width:0}to{width:100%}}
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:16px;transition:opacity 0.4s;}
+.loading-brand{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;}
+.loading-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.loading-bar{width:160px;height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent3),var(--teal));animation:load 1s ease forwards;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid rgba(74,222,128,0.4);border-radius:10px;padding:13px 18px;font-size:13px;color:var(--green);box-shadow:0 8px 24px rgba(0,0,0,0.4);transform:translateY(80px);opacity:0;transition:all 0.3s;z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:rgba(248,113,113,0.4);color:var(--red);}
+
+/* NAV */
+.top-nav{position:sticky;top:0;z-index:100;height:58px;background:rgba(7,5,15,0.96);border-bottom:1px solid rgba(168,85,247,0.15);backdrop-filter:blur(20px);display:flex;align-items:center;padding:0 28px;gap:14px;}
+.nav-logo{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:white;flex-shrink:0;position:relative;overflow:hidden;}
+.nav-logo img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;}
+.nav-brand{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;}
+.nav-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-div{width:1px;height:18px;background:rgba(168,85,247,0.2);}
+.nav-crumb{font-size:13px;color:var(--muted2);}
+.nav-crumb b{color:var(--text);}
+.nav-spacer{flex:1;}
+.nav-back-btn{padding:7px 16px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;transition:all 0.2s;text-decoration:none;display:flex;align-items:center;gap:6px;font-family:'Noto Sans Thai',sans-serif;}
+.nav-back-btn:hover{border-color:var(--accent3);color:var(--accent3);}
+
+/* PAGE LAYOUT */
+.page-wrap{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:32px 24px 60px;}
+
+/* TYPE SELECTOR */
+.type-selector{display:flex;gap:12px;margin-bottom:28px;}
+.type-btn{flex:1;padding:16px;border-radius:14px;border:2px solid var(--border);background:var(--surface);cursor:pointer;transition:all 0.2s;text-align:center;}
+.type-btn:hover{border-color:rgba(168,85,247,0.3);}
+.type-btn.active-dealer{border-color:#4ade80;background:rgba(74,222,128,0.06);box-shadow:0 0 20px rgba(74,222,128,0.1);}
+.type-btn.active-branch{border-color:#f472b6;background:rgba(244,114,182,0.06);box-shadow:0 0 20px rgba(244,114,182,0.1);}
+.type-btn-icon{font-size:28px;margin-bottom:6px;}
+.type-btn-label{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+.type-btn.active-dealer .type-btn-label{color:#4ade80;}
+.type-btn.active-branch .type-btn-label{color:#f472b6;}
+.type-btn-desc{font-size:11px;color:var(--muted);margin-top:3px;}
+
+/* SECTION */
+.form-section{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:20px;animation:fadeUp 0.3s ease;}
+.form-section-header{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:rgba(168,85,247,0.03);}
+.form-section-icon{font-size:18px;}
+.form-section-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:1.5px;}
+.form-section-body{padding:22px;}
+
+/* CODE BOX */
+.code-box{background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.15);border-radius:12px;padding:16px;margin-bottom:16px;}
+.code-grid{display:grid;grid-template-columns:1fr 70px 1fr 1fr auto;gap:10px;align-items:end;}
+
+/* FORM GRID */
+.fg-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;}
+.fg-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:14px;}
+.fg-1{margin-bottom:14px;}
+.field-group{display:flex;flex-direction:column;gap:5px;}
+.field-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-family:'Syne',sans-serif;}
+.field-label.req::after{content:' *';color:var(--red);}
+.field-input,.field-select,.field-textarea{width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+.field-input:focus,.field-select:focus,.field-textarea:focus{border-color:var(--accent3);box-shadow:0 0 0 3px rgba(168,85,247,0.1);}
+.field-input::placeholder,.field-textarea::placeholder{color:rgba(107,79,160,0.4);}
+.field-select{cursor:pointer;appearance:none;}
+.field-input[readonly]{color:var(--accent3);font-family:'Syne',sans-serif;font-weight:700;background:rgba(168,85,247,0.05);}
+.field-textarea{resize:vertical;min-height:80px;}
+
+/* CODE ID display */
+.code-display{background:linear-gradient(135deg,rgba(168,85,247,0.1),rgba(45,212,191,0.05));border:1px solid rgba(168,85,247,0.25);border-radius:10px;padding:10px 14px;font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--accent3);text-align:center;letter-spacing:2px;min-height:44px;display:flex;align-items:center;justify-content:center;}
+
+/* MAPS BTN */
+.maps-row{display:flex;gap:10px;align-items:stretch;}
+.maps-btn{padding:11px 16px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all 0.2s;flex-shrink:0;}
+.maps-btn:hover{opacity:0.9;transform:translateY(-1px);}
+
+/* SUBMIT BAR */
+.submit-bar{position:sticky;bottom:0;z-index:50;background:rgba(7,5,15,0.97);border-top:1px solid rgba(168,85,247,0.15);backdrop-filter:blur(20px);padding:16px 24px;display:flex;align-items:center;gap:14px;}
+.btn-submit{padding:13px 36px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 20px rgba(124,58,237,0.35);letter-spacing:0.5px;}
+.btn-submit:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(124,58,237,0.5);}
+.btn-submit:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-cancel{padding:13px 24px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'Noto Sans Thai',sans-serif;font-size:14px;cursor:pointer;transition:all 0.2s;}
+.btn-cancel:hover{border-color:var(--text);color:var(--text);}
+.submit-msg{font-size:13px;margin-left:8px;}
+.submit-msg.err{color:var(--red);}
+.submit-msg.ok{color:var(--green);}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;}
+
+/* REGEN BTN */
+.store-feat-input-row{display:flex;gap:8px;align-items:center;}
+.btn-add-feat{padding:10px 14px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.2);border-radius:8px;color:var(--teal);font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;white-space:nowrap;}
+.btn-add-feat:hover{background:rgba(45,212,191,0.16);}
+padding:11px 14px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.25);border-radius:10px;color:var(--accent3);font-size:12px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.regen-btn:hover{background:rgba(168,85,247,0.22);}
+
+@media(max-width:768px){
+  .fg-2,.fg-3,.code-grid{grid-template-columns:1fr;}
+  .type-selector{flex-direction:column;}
+  .code-display{font-size:14px;}
+}
+</style>
+</head>
+<body>
+<div class="global-bg"></div>
+<div class="global-grid"></div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--teal));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:white;animation:pulse 2s ease-in-out infinite;position:relative;overflow:hidden;">
+    EF<img src="logo.png" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
+  </div>
+  <div class="loading-brand">Elit<span>Flow</span></div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- NAV -->
+<nav class="top-nav">
+  <div class="nav-logo">EF<img src="logo.png" onerror="this.style.display='none'"></div>
+  <div class="nav-brand">Elit<span>Flow</span></div>
+  <div class="nav-div"></div>
+  <div class="nav-crumb">📅 Event › <b id="pageLabel">บันทึกข้อมูล Dealer</b></div>
+  <div class="nav-spacer"></div>
+  <span style="font-size:12px;color:var(--muted);margin-right:8px;" id="navUser"></span>
+  <a class="nav-back-btn" href="event.html">← กลับ</a>
+</nav>
+
+<!-- PAGE -->
+<div class="page-wrap" id="pageWrap" style="display:none;">
+
+  <!-- TYPE SELECTOR -->
+  <div class="type-selector">
+    <div class="type-btn active-dealer" id="typeDealer" onclick="selectType('dealer')">
+      <div class="type-btn-icon">🤝</div>
+      <div class="type-btn-label">Dealer</div>
+      <div class="type-btn-desc">ผู้จำหน่ายอิสระ</div>
+    </div>
+    <div class="type-btn" id="typeBranch" onclick="selectType('branch')">
+      <div class="type-btn-icon">🏪</div>
+      <div class="type-btn-label">สาขาประจำ</div>
+      <div class="type-btn-desc">สาขาในเครือ</div>
+    </div>
+  </div>
+
+  <!-- รหัส Dealer -->
+  <div class="form-section">
+    <div class="form-section-header">
+      <span class="form-section-icon">🔢</span>
+      <span class="form-section-title">รหัส Dealer</span>
+    </div>
+    <div class="form-section-body">
+      <div class="code-box">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;font-family:'Syne',sans-serif;margin-bottom:4px;">⚙️ รหัสสร้างอัตโนมัติ</div>
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;">
+          <span id="codeHintDealer">Dealer: ใช้ตัวย่อห้างที่เลือก + ปี + ลำดับ (เช่น LT250001)</span>
+          <span id="codeHintBranch" style="display:none;">สาขาประจำ: นับต่อจากเลขล่าสุดในระบบ</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end;">
+          <div class="field-group">
+            <label class="field-label">Prefix <span style="color:var(--muted);font-size:9px;">(Dealer ใช้ตัวย่อห้างอัตโนมัติ / แก้ได้)</span></label>
+            <input type="text" class="field-input" id="fCodePrefix" placeholder="อัตโนมัติจากตัวย่อห้าง" oninput="previewCode()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">รหัสที่จะใช้</label>
+            <div class="code-display" id="fCodeDisplay">—</div>
+            <input type="hidden" id="fCode">
+          </div>
+          <div class="field-group" style="justify-content:flex-end;">
+            <label class="field-label" style="opacity:0;">.</label>
+            <button class="regen-btn" onclick="previewCode()">🔄 สร้างใหม่</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fg-2">
+        <div class="field-group">
+          <label class="field-label">สถานะ</label>
+          <select class="field-select" id="fStatus">
+            <option value="active">✅ Active</option>
+            <option value="inactive">⛔ Inactive</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">ประเภทผู้จำหน่าย</label>
+          <select class="field-select" id="fLegalType">
+            <option value="บุคคล">บุคคล</option>
+            <option value="นิติบุคคล">นิติบุคคล</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลหลัก -->
+  <div class="form-section">
+    <div class="form-section-header">
+      <span class="form-section-icon">🏬</span>
+      <span class="form-section-title">ข้อมูลหลัก</span>
+    </div>
+    <div class="form-section-body">
+      <div class="fg-2">
+        <div class="field-group">
+          <label class="field-label">กลุ่มห้าง / เจ้าของศูนย์</label>
+          <select class="field-select" id="fGroup" onchange="updateMallOptions()">
+            <option value="">-- เลือกกลุ่มห้าง --</option>
+            <option>Central Group</option>
+            <option>CP Group</option>
+            <option>TCC Group</option>
+            <option>The Mall Group</option>
+            <option>Siam Piwat Group</option>
+            <option>SF Development</option>
+            <option>MBK Group</option>
+            <option>Future Park / Rangsit Plaza Group</option>
+            <option>Harbor Mall Group</option>
+            <option>King Power Group</option>
+            <option>Landmark / Terminal Group (L&H / Donki / Others)</option>
+            <option>Seacon</option>
+            <option>Jampha Group</option>
+            <option>V-Square Plaza</option>
+            <option>Siam Retail Development</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">กลุ่มธุรกิจย่อย</label>
+          <select class="field-select" id="fSubGroup">
+            <option value="">-- เลือกกลุ่มธุรกิจย่อย --</option>
+            <option>CRC (Central Retail)</option>
+            <option>CPN (Central Pattana)</option>
+            <option>Robinson</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg-3">
+        <div class="field-group">
+          <label class="field-label">ห้างสังกัด</label>
+          <select class="field-select" id="fMall">
+            <option value="">-- เลือกห้างสังกัด --</option>
+            <option>Central</option>
+            <option>Robinson</option>
+            <option>Central Village</option>
+            <option>Central World</option>
+            <option>Central Festival</option>
+            <option>Central Plaza</option>
+            <option>Central Marina</option>
+            <option>Central Phuket</option>
+            <option>Central Chaengwattana</option>
+            <option>Tops Plaza</option>
+            <option>Rinascente</option>
+            <option>Emporium</option>
+            <option>EmQuartier</option>
+            <option>Emsphere</option>
+            <option>Paragon</option>
+            <option>Bluport (หัวหิน)</option>
+            <option>The Mall Lifestore</option>
+            <option>Siam Paragon</option>
+            <option>Siam Center</option>
+            <option>Siam Discovery</option>
+            <option>ICONSIAM</option>
+            <option>ICS</option>
+            <option>Lotus's</option>
+            <option>Makro</option>
+            <option>CP Freshmart</option>
+            <option>Mega Bangna</option>
+            <option>Mega Living</option>
+            <option>Mega Food Walk</option>
+            <option>MBK Center</option>
+            <option>Paradise Park</option>
+            <option>The Nine Center (พระราม 9, ติวานนท์)</option>
+            <option>Future Park Rangsit</option>
+            <option>Zpell</option>
+            <option>The Bright</option>
+            <option>Harbor Mall Pattaya</option>
+            <option>Harbor Laemchabang</option>
+            <option>Harbor Sriracha</option>
+            <option>King Power Rangnam</option>
+            <option>King Power Srivaree</option>
+            <option>King Power Phuket</option>
+            <option>King Power Pattaya</option>
+            <option>Terminal 21 อโศก</option>
+            <option>Terminal 21 โคราช</option>
+            <option>Terminal 21 พัทยา</option>
+            <option>Gateway Ekamai</option>
+            <option>Gateway Bangsue</option>
+            <option>Donki Mall Thonglor</option>
+            <option>Seacon Square</option>
+            <option>Big C Supercenter</option>
+            <option>Esplanade</option>
+            <option>The Em District</option>
+            <option>V-Square</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label req">ตัวย่อห้าง</label>
+          <select class="field-select" id="fShortName" onchange="updateFullName();if(currentType==='dealer')previewCode();">
+            <option value="">-- เลือกตัวย่อ --</option>
+            <option value="RBS">RBS — Robinson Department Store</option>
+            <option value="CDS">CDS — Central Department Store</option>
+            <option value="TM">TM — The Mall Group</option>
+            <option value="LT">LT — Lotus's</option>
+            <option value="BC">BC — Big C Supercenter</option>
+            <option value="SHT">SHT — Sahathai Plaza</option>
+            <option value="STH">STH — Suermthai Complex</option>
+            <option value="REP">REP — Roi Et Plaza</option>
+            <option value="CPN">CPN — Central Pattana</option>
+            <option value="SHP">SHP — SHOP</option>
+            <option value="OCG">OCG — Ocean Group</option>
+            <option value="HBM">HBM — Harbour Mall</option>
+            <option value="JFL">JFL — Jamfa Mall Lamphun</option>
+            <option value="TLP">TLP — Topland Plaza Phitsanulok</option>
+            <option value="SCN">SCN — Seacon Square</option>
+            <option value="OTH">OTH — อื่นๆ</option>
+            <option value="T21">T21 — LH Mall & Hotel Co., Ltd.</option>
+            <option value="CTW">CTW — Jampha Shopping Mall</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">ชื่อสาขา</label>
+          <input type="text" class="field-input" id="fBranch" placeholder="ตั้งชื่อสาขาได้เลยค่ะ เช่น สาขาลาดพร้าว, Terminal21 พระราม9">
+        </div>
+      </div>
+      <div class="fg-1">
+        <div class="field-group">
+          <label class="field-label req">ชื่อเต็มห้าง Dealer</label>
+          <input type="text" class="field-input" id="fFullName" placeholder="ชื่อเต็มของ Dealer (กรอกเองหรือเลือกจากตัวย่อ)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ที่ตั้ง -->
+  <div class="form-section">
+    <div class="form-section-header">
+      <span class="form-section-icon">📍</span>
+      <span class="form-section-title">ที่ตั้ง</span>
+    </div>
+    <div class="form-section-body">
+      <div class="fg-2">
+        <div class="field-group">
+          <label class="field-label">ภูมิภาค</label>
+          <select class="field-select" id="fRegion">
+            <option value="">-- เลือก --</option>
+            <option>กรุงเทพ</option><option>ภาคกลาง</option><option>ภาคเหนือ</option>
+            <option>ภาคใต้</option><option>ภาคตะวันออก</option>
+            <option>ภาคตะวันออกเฉียงเหนือ</option><option>ภาคตะวันตก</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">จังหวัด</label>
+          <select class="field-select" id="fProvince">
+            <option value="">-- เลือก --</option>
+            <option>กรุงเทพมหานคร</option><option>กระบี่</option><option>กาญจนบุรี</option><option>กาฬสินธุ์</option><option>กำแพงเพชร</option><option>ขอนแก่น</option><option>จันทบุรี</option><option>ฉะเชิงเทรา</option><option>ชลบุรี</option><option>ชัยนาท</option><option>ชัยภูมิ</option><option>ชุมพร</option><option>เชียงราย</option><option>เชียงใหม่</option><option>ตรัง</option><option>ตราด</option><option>ตาก</option><option>นครนายก</option><option>นครปฐม</option><option>นครพนม</option><option>นครราชสีมา</option><option>นครศรีธรรมราช</option><option>นครสวรรค์</option><option>นนทบุรี</option><option>นราธิวาส</option><option>น่าน</option><option>บึงกาฬ</option><option>บุรีรัมย์</option><option>ปทุมธานี</option><option>ประจวบคีรีขันธ์</option><option>ปราจีนบุรี</option><option>ปัตตานี</option><option>พระนครศรีอยุธยา</option><option>พะเยา</option><option>พังงา</option><option>พัทลุง</option><option>พิจิตร</option><option>พิษณุโลก</option><option>เพชรบุรี</option><option>เพชรบูรณ์</option><option>แพร่</option><option>ภูเก็ต</option><option>มหาสารคาม</option><option>มุกดาหาร</option><option>แม่ฮ่องสอน</option><option>ยโสธร</option><option>ยะลา</option><option>ร้อยเอ็ด</option><option>ระนอง</option><option>ระยอง</option><option>ราชบุรี</option><option>ลพบุรี</option><option>ลำปาง</option><option>ลำพูน</option><option>เลย</option><option>ศรีสะเกษ</option><option>สกลนคร</option><option>สงขลา</option><option>สตูล</option><option>สมุทรปราการ</option><option>สมุทรสงคราม</option><option>สมุทรสาคร</option><option>สระแก้ว</option><option>สระบุรี</option><option>สิงห์บุรี</option><option>สุโขทัย</option><option>สุพรรณบุรี</option><option>สุราษฎร์ธานี</option><option>สุรินทร์</option><option>หนองคาย</option><option>หนองบัวลำภู</option><option>อ่างทอง</option><option>อำนาจเจริญ</option><option>อุดรธานี</option><option>อุตรดิตถ์</option><option>อุทัยธานี</option><option>อุบลราชธานี</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg-1">
+        <div class="field-group">
+          <label class="field-label">📍 Location / พิกัด Google Maps</label>
+          <div class="maps-row">
+            <input type="text" class="field-input" id="fLocation" placeholder="วาง Google Maps URL หรือพิกัดที่นี่">
+            <button class="maps-btn" onclick="openMaps()">🗺️ เปิด Maps</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลการเป็น Dealer -->
+  <div class="form-section">
+    <div class="form-section-header">
+      <span class="form-section-icon">📅</span>
+      <span class="form-section-title">ข้อมูลการเป็น Dealer</span>
+    </div>
+    <div class="form-section-body">
+      <div class="fg-2">
+        <div class="field-group">
+          <label class="field-label">วันที่เริ่มเป็น Dealer</label>
+          <input type="date" class="field-input" id="fStartDate" onchange="updateDays()">
+        </div>
+        <div class="field-group">
+          <label class="field-label">จำนวนวันที่เป็น Dealer</label>
+          <input type="text" class="field-input" id="fDays" placeholder="คำนวณอัตโนมัติ" readonly>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลติดต่อ -->
+  <div class="form-section">
+    <div class="form-section-header">
+      <span class="form-section-icon">📞</span>
+      <span class="form-section-title">ข้อมูลติดต่อ</span>
+    </div>
+    <div class="form-section-body">
+      <div class="fg-2">
+        <div class="field-group">
+          <label class="field-label">เบอร์ติดต่อสาขา</label>
+          <input type="text" class="field-input" id="fPhone" placeholder="02-xxx-xxxx">
+        </div>
+        <div class="field-group">
+          <label class="field-label">ชื่อผู้ติดต่อ</label>
+          <input type="text" class="field-input" id="fContactName" placeholder="ชื่อ-นามสกุล">
+        </div>
+      </div>
+      <div class="fg-2">
+        <div class="field-group">
+          <label class="field-label">Email ผู้ติดต่อ</label>
+          <input type="email" class="field-input" id="fEmail" placeholder="email@example.com">
+        </div>
+        <div class="field-group">
+          <label class="field-label">ตำแหน่งผู้ติดต่อ</label>
+          <input type="text" class="field-input" id="fPosition" placeholder="เช่น ผู้จัดการสาขา">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- หมายเหตุ -->
+  <div class="form-section">
+    <div class="form-section-header">
+      <span class="form-section-icon">📝</span>
+      <span class="form-section-title">หมายเหตุ</span>
+    </div>
+    <div class="form-section-body">
+      <div class="field-group">
+        <textarea class="field-textarea" id="fNote" placeholder="หมายเหตุเพิ่มเติม..." rows="3"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPACER for sticky bar -->
+  <div style="height:20px;"></div>
+
+</div><!-- end page-wrap -->
+
+<!-- SUBMIT BAR -->
+<div class="submit-bar">
+  <button class="btn-submit" id="submitBtn" onclick="saveDealer()">💾 บันทึกข้อมูลเข้าระบบ</button>
+  <button class="btn-cancel" onclick="window.location.href='event.html'">ยกเลิก</button>
+  <span class="submit-msg" id="submitMsg"></span>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"",
+  authDomain:"elitflow-38bc4.firebaseapp.com",
+  projectId:"elitflow-38bc4",
+  storageBucket:"elitflow-38bc4.firebasestorage.app",
+  messagingSenderId:"697101909670",
+  appId:"1:697101909670:web:afa2071ba0ca64dbba7e67"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let currentUser = null;
+let currentType = 'dealer';
+let editingId = null;
+let currentCompanyName = '';
+
+// ── AUTH ──
+onAuthStateChanged(auth, async (user) => {
+  document.getElementById('loadingOverlay').style.opacity='0';
+  setTimeout(()=>document.getElementById('loadingOverlay').style.display='none',400);
+  if (!user) { window.location.href='index.html'; return; }
+  currentUser = user;
+  document.getElementById('navUser').textContent = user.email.split('@')[0];
+  document.getElementById('pageWrap').style.display='block';
+
+  // ดึงชื่อบริษัทของ user นี้
+  try {
+    const compSnap = await getDoc(doc(db,'companies',user.uid));
+    if (compSnap.exists()) currentCompanyName = compSnap.data().name || '';
+  } catch(e) {}
+
+  // check if editing (URL param ?id=xxx)
+  const params = new URLSearchParams(window.location.search);
+  const editId = params.get('id');
+  if (editId) {
+    editingId = editId;
+    document.getElementById('pageLabel').textContent = 'แก้ไขข้อมูล Dealer';
+    await loadForEdit(editId);
+  } else {
+    selectType('dealer');
+    await previewCode();
+  }
+});
+
+// ── LOAD FOR EDIT ──
+async function loadForEdit(id) {
+  try {
+    const snap = await getDoc(doc(db,'dealers',id));
+    if (!snap.exists()) return;
+    const d = snap.data();
+    currentType = d.type || 'dealer';
+    selectType(currentType);
+    document.getElementById('fCode').value = d.code||'';
+    document.getElementById('fCodeDisplay').textContent = d.code||'—';
+    document.getElementById('fStatus').value = d.status||'active';
+    document.getElementById('fLegalType').value = d.legalType||'บุคคล';
+    document.getElementById('fGroup').value = d.group||'';
+    document.getElementById('fSubGroup').value = d.subGroup||'';
+    document.getElementById('fMall').value = d.mall||'';
+    // fShortName — match by value
+    const sn = document.getElementById('fShortName');
+    Array.from(sn.options).forEach(o => { if(o.value===d.shortName) o.selected=true; });
+    document.getElementById('fBranch').value = d.branch||'';
+    document.getElementById('fFullName').value = d.fullName||'';
+    document.getElementById('fRegion').value = d.region||'';
+    document.getElementById('fProvince').value = d.province||'';
+    document.getElementById('fLocation').value = d.location||'';
+    document.getElementById('fStartDate').value = d.startDate||'';
+    document.getElementById('fPhone').value = d.phone||'';
+    document.getElementById('fContactName').value = d.contactName||'';
+    document.getElementById('fEmail').value = d.email||'';
+    document.getElementById('fPosition').value = d.position||'';
+    document.getElementById('fNote').value = d.note||'';
+    updateDays();
+  } catch(e) { showToast('❌ โหลดข้อมูลไม่ได้', true); }
+}
+
+// ── PHOTOS ──
+let photoCount = 1;
+window.addPhotoInput = () => {
+  const wrap = document.getElementById('photoInputs');
+  const div = document.createElement('div');
+  div.className = 'store-feat-input-row';
+  div.style.marginBottom = '8px';
+  div.innerHTML = `<input type="text" class="field-input" id="fPhoto${photoCount}" placeholder="https://i.ibb.co/xxx/shop.jpg" style="flex:1;"><button class="btn-add-feat" onclick="previewPhoto(${photoCount})">👁️ ดู</button>`;
+  wrap.appendChild(div);
+  photoCount++;
+};
+window.previewPhoto = (idx) => {
+  const url = document.getElementById(`fPhoto${idx}`)?.value?.trim();
+  if (!url) return;
+  const prev = document.getElementById('photoPreviews');
+  if (!prev.querySelector(`img[src="${url}"]`)) {
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'width:100px;height:70px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;';
+    img.onclick = () => window.open(url,'_blank');
+    img.onerror = () => img.remove();
+    prev.appendChild(img);
+  }
+};
+function getPhotos() {
+  const photos = [];
+  for (let i = 0; i < photoCount; i++) {
+    const v = document.getElementById(`fPhoto${i}`)?.value?.trim();
+    if (v) photos.push(v);
+  }
+  return photos;
+}
+function loadPhotos(photos) {
+  if (!photos?.length) return;
+  photos.forEach((url, i) => {
+    if (i === 0) { document.getElementById('fPhoto0').value = url; }
+    else { addPhotoInput(); document.getElementById(`fPhoto${i}`).value = url; }
+    previewPhoto(i);
+  });
+}
+
+
+window.updateFullName = () => {
+  const sel = document.getElementById('fShortName');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  // extract full name after " — "
+  const parts = opt.text.split(' — ');
+  if (parts.length > 1) {
+    document.getElementById('fFullName').value = parts[1].trim();
+  }
+};
+
+window.updateMallOptions = () => {
+  // ตอนนี้แค่ placeholder สำหรับ future logic
+};
+
+window.selectType = (type) => {
+  currentType = type;
+  const d = document.getElementById('typeDealer');
+  const b = document.getElementById('typeBranch');
+  d.className = 'type-btn' + (type==='dealer'?' active-dealer':'');
+  b.className = 'type-btn' + (type==='branch'?' active-branch':'');
+  // แสดง hint
+  document.getElementById('codeHintDealer').style.display = type==='dealer'?'inline':'none';
+  document.getElementById('codeHintBranch').style.display = type==='branch'?'inline':'none';
+  // branch ใส่ prefix default
+  const prefix = document.getElementById('fCodePrefix');
+  prefix.value = ''; // clear เสมอ ให้ generateCode auto-detect จาก Firestore
+  if (!editingId) previewCode();
+};
+
+// ── CODE ──
+async function generateCode(type) {
+  const yearShort = String(new Date().getFullYear()).slice(-2);
+  const snap = await getDocs(query(collection(db,'dealers'), where('companyId','==',currentUser.uid)));
+  const allDocs = snap.docs.map(d => d.data());
+
+  if (type === 'dealer') {
+    // Dealer — ต้องเลือกห้างก่อน ใช้ตัวย่อห้างเป็น prefix
+    const shortName = document.getElementById('fShortName').value.trim();
+    const manualPrefix = document.getElementById('fCodePrefix').value.trim();
+    const prefix = shortName || manualPrefix;
+
+    if (!prefix) {
+      // ยังไม่ได้เลือกห้าง — แสดง placeholder รอ
+      return '— เลือกห้างก่อน —';
+    }
+
+    // หาเลขสูงสุดของ prefix+ปีนี้ แล้ว +1
+    let maxNum = 0;
+    allDocs.filter(d => d.type === 'dealer' && d.code).forEach(d => {
+      const match = d.code.match(/^([A-Za-z]+)(\d{2})(\d{4})$/);
+      if (match && match[2] === yearShort && match[1].toUpperCase() === prefix.toUpperCase()) {
+        const n = parseInt(match[3]);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    const nextNum = maxNum + 1;
+    return `${prefix}${yearShort}${String(nextNum).padStart(4,'0')}`;
+
+  } else {
+    // สาขาประจำ — หาเลขสูงสุดจากทุกสาขา (ไม่แยก prefix) แล้ว +1
+    const branches = allDocs.filter(d => d.type === 'branch' && d.code);
+    const manualPrefix = document.getElementById('fCodePrefix').value.trim();
+    let maxNum = 0;
+    let latestPrefix = '';
+    branches.forEach(d => {
+      const match = d.code.match(/^([A-Za-z]+)(\d{2})(\d{4})$/);
+      if (match && match[2] === yearShort) {
+        const n = parseInt(match[3]);
+        if (n > maxNum) { maxNum = n; latestPrefix = match[1]; }
+      }
+    });
+    const prefix = manualPrefix || latestPrefix || 'BR';
+    if (!manualPrefix && latestPrefix) document.getElementById('fCodePrefix').value = latestPrefix;
+    const nextNum = maxNum + 1;
+    return `${prefix}${yearShort}${String(nextNum).padStart(4,'0')}`;
+  }
+}
+
+window.previewCode = async () => {
+  if (editingId) return;
+  const display = document.getElementById('fCodeDisplay');
+  display.textContent = '⏳ กำลังสร้าง...';
+  const code = await generateCode(currentType);
+  document.getElementById('fCode').value = code;
+  display.textContent = code;
+};
+
+// ── DAYS ──
+window.updateDays = () => {
+  const d = document.getElementById('fStartDate').value;
+  if (!d) { document.getElementById('fDays').value=''; return; }
+  const diff = Math.floor((new Date()-new Date(d))/(1000*60*60*24));
+  document.getElementById('fDays').value = (diff>=0?diff:0)+' วัน';
+};
+
+// ── MAPS ──
+window.openMaps = () => {
+  const url = document.getElementById('fLocation').value.trim();
+  if (url) window.open(url,'_blank');
+  else window.open('https://maps.google.com','_blank');
+};
+
+// ── SAVE ──
+window.saveDealer = async () => {
+  const fullName = document.getElementById('fFullName').value.trim();
+  const shortName = document.getElementById('fShortName').value.trim();
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('submitMsg');
+
+  msg.className='submit-msg';
+  if (!fullName) { msg.className='submit-msg err'; msg.textContent='⚠️ กรุณากรอกชื่อเต็มห้าง'; return; }
+  if (!shortName) { msg.className='submit-msg err'; msg.textContent='⚠️ กรุณากรอกตัวย่อห้าง'; return; }
+
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span> กำลังบันทึก...';
+
+  const data = {
+    type: currentType,
+    code: document.getElementById('fCode').value,
+    status: document.getElementById('fStatus').value,
+    legalType: document.getElementById('fLegalType').value,
+    group: document.getElementById('fGroup').value.trim(),
+    subGroup: document.getElementById('fSubGroup').value.trim(),
+    mall: document.getElementById('fMall').value.trim(),
+    shortName, fullName,
+    branch: document.getElementById('fBranch').value.trim(),
+    region: document.getElementById('fRegion').value,
+    province: document.getElementById('fProvince').value,
+    location: document.getElementById('fLocation').value.trim(),
+    startDate: document.getElementById('fStartDate').value,
+    phone: document.getElementById('fPhone').value.trim(),
+    contactName: document.getElementById('fContactName').value.trim(),
+    email: document.getElementById('fEmail').value.trim(),
+    position: document.getElementById('fPosition').value.trim(),
+    note: document.getElementById('fNote').value.trim(),
+    photos: getPhotos(),
+    leaseUrl: document.getElementById('fLeaseUrl')?.value?.trim()||'',
+    leaseStart: document.getElementById('fLeaseStart')?.value||'',
+    leaseEnd: document.getElementById('fLeaseEnd')?.value||'',
+    updatedAt: serverTimestamp(),
+    updatedBy: currentUser.uid,
+    companyId: currentUser.uid,
+    companyName: currentCompanyName,
+  };
+
+  try {
+    if (editingId) {
+      await setDoc(doc(db,'dealers',editingId), data, { merge:true });
+      showToast('✅ อัปเดตข้อมูลสำเร็จแล้วค่ะ');
+    } else {
+      data.createdAt = serverTimestamp();
+      data.createdBy = currentUser.uid;
+      await addDoc(collection(db,'dealers'), data);
+      showToast('✅ บันทึกข้อมูล Dealer ใหม่แล้วค่ะ');
+    }
+    msg.className='submit-msg ok';
+    msg.textContent = editingId ? '✅ อัปเดตสำเร็จ!' : '✅ บันทึกสำเร็จ!';
+    setTimeout(() => window.location.href='event.html', 1500);
+  } catch(e) {
+    msg.className='submit-msg err';
+    msg.textContent='❌ '+e.message;
+    btn.disabled=false;
+    btn.textContent='💾 บันทึกข้อมูลเข้าระบบ';
+  }
+};
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className='toast'+(isErr?' error':'');
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500);
+}
+</script>
+</body>
+</html>

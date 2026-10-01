@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElitFlow — ข้อมูลบริษัท</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07050f;--surface:#0e0a1a;--surface2:#150f25;--border:#2a1a4a;
+  --accent:#c084fc;--accent2:#7c3aed;--accent3:#a855f7;
+  --teal:#2dd4bf;--green:#4ade80;--red:#f87171;--yellow:#fbbf24;
+  --text:#f3e8ff;--muted:#6b4fa0;--muted2:#9d7ec9;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;}
+.global-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 15% 30%,rgba(124,58,237,0.15) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at 85% 70%,rgba(45,212,191,0.06) 0%,transparent 60%),var(--bg);}
+.global-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(168,85,247,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(168,85,247,0.04) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 20%,transparent 80%);}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:20px;transition:opacity 0.4s;}
+.loading-brand{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;}
+.loading-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.loading-bar{width:180px;height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent3),var(--teal));animation:load 1s ease forwards;}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid rgba(74,222,128,0.4);border-radius:10px;padding:13px 18px;font-size:13px;color:var(--green);box-shadow:0 8px 24px rgba(0,0,0,0.4);transform:translateY(80px);opacity:0;transition:all 0.3s;z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:rgba(248,113,113,0.4);color:var(--red);}
+
+/* NAV */
+.top-nav{position:sticky;top:0;z-index:100;height:62px;background:rgba(7,5,15,0.95);border-bottom:1px solid rgba(168,85,247,0.15);backdrop-filter:blur(20px);display:flex;align-items:center;padding:0 28px;gap:16px;}
+.nav-logo{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:white;border:1px solid rgba(168,85,247,0.4);box-shadow:0 0 10px rgba(168,85,247,0.3);flex-shrink:0;position:relative;overflow:hidden;}
+.nav-logo img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;}
+.nav-brand{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}
+.nav-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-spacer{flex:1;}
+.nav-back{padding:7px 16px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;text-decoration:none;display:flex;align-items:center;gap:6px;}
+.nav-back:hover{border-color:var(--accent3);color:var(--accent3);}
+.nav-user{font-size:12px;color:var(--muted);}
+.nav-role{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;background:rgba(192,132,252,0.12);color:var(--accent);border:1px solid rgba(192,132,252,0.25);}
+.logout-btn{padding:7px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;}
+.logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* MAIN */
+.main-wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:32px 24px;}
+
+/* FACEBOOK-STYLE PROFILE HEADER */
+.profile-header{position:relative;border-radius:20px;overflow:hidden;margin-bottom:20px;animation:fadeUp 0.4s ease;background:var(--surface);border:1px solid var(--border);}
+
+/* COVER */
+.cover-wrap{position:relative;width:100%;height:200px;background:linear-gradient(135deg,rgba(124,58,237,0.4),rgba(45,212,191,0.2),rgba(168,85,247,0.15));overflow:hidden;cursor:pointer;}
+.cover-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;}
+.cover-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);transition:background 0.2s;display:flex;align-items:center;justify-content:center;}
+.cover-wrap:hover .cover-overlay{background:rgba(0,0,0,0.35);}
+.cover-edit-btn{opacity:0;transition:opacity 0.2s;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:9px;padding:8px 16px;color:white;font-size:13px;font-family:'Noto Sans Thai',sans-serif;cursor:pointer;backdrop-filter:blur(4px);}
+.cover-wrap:hover .cover-edit-btn{opacity:1;}
+.cover-grid-pattern{position:absolute;inset:0;background-image:linear-gradient(rgba(168,85,247,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(168,85,247,0.08) 1px,transparent 1px);background-size:40px 40px;}
+.cover-glow{position:absolute;top:-60px;left:10%;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,0.3) 0%,transparent 70%);}
+.cover-glow2{position:absolute;bottom:-80px;right:5%;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(45,212,191,0.15) 0%,transparent 70%);}
+
+/* PROFILE BOTTOM BAR */
+.profile-bottom{padding:0 28px 22px;position:relative;}
+.profile-avatar-wrap{position:relative;display:inline-block;margin-top:-44px;cursor:pointer;}
+.profile-avatar{width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:4px solid var(--bg);box-shadow:0 0 0 1px rgba(168,85,247,0.3),0 8px 24px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:white;overflow:hidden;transition:all 0.2s;position:relative;}
+.profile-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.profile-avatar-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,0);transition:background 0.2s;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.profile-avatar-wrap:hover .profile-avatar-overlay{background:rgba(0,0,0,0.45);}
+.avatar-edit-badge{position:absolute;bottom:2px;right:2px;width:24px;height:24px;border-radius:50%;background:var(--accent2);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;}
+
+.profile-info-row{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:10px;}
+.profile-name-block{}
+.profile-company-name{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1.2;}
+.profile-company-type{font-size:13px;color:var(--muted2);margin-top:3px;}
+
+/* COMPLETE PROGRESS */
+.complete-block{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.complete-labels{display:flex;align-items:center;gap:10px;}
+.complete-badge{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:0.5px;}
+.badge-complete{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.25);}
+.badge-incomplete{background:rgba(251,191,36,0.1);color:var(--yellow);border:1px solid rgba(251,191,36,0.2);}
+.complete-pct{font-size:12px;color:var(--muted2);}
+.progress-bar-wrap{width:180px;height:5px;background:rgba(42,26,74,0.8);border-radius:3px;overflow:hidden;}
+.progress-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent3),var(--teal));transition:width 0.6s ease;}
+
+/* URL INPUT PANELS */
+.url-panel{background:rgba(124,58,237,0.06);border:1px solid rgba(168,85,247,0.15);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+.url-panel-title{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'Syne',sans-serif;margin-bottom:8px;}
+
+
+
+/* TABS */
+.tabs-row{display:flex;gap:4px;margin-bottom:24px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:4px;}
+.tab-btn{flex:1;padding:10px 16px;border:none;background:transparent;color:var(--muted);font-family:'Noto Sans Thai',sans-serif;font-size:13px;border-radius:9px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+.tab-btn:hover{color:var(--text);background:rgba(168,85,247,0.06);}
+.tab-btn.active{background:linear-gradient(135deg,var(--accent2),var(--accent3));color:white;font-weight:600;box-shadow:0 4px 12px rgba(124,58,237,0.35);}
+.tab-content{display:none;}
+.tab-content.active{display:block;animation:fadeUp 0.25s ease;}
+
+/* SECTION CARD */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px;}
+.section-subtitle{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.section-subtitle::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.col-span-2{grid-column:span 2;}
+
+/* FIELD */
+.field-group{display:flex;flex-direction:column;gap:6px;margin-bottom:4px;}
+.field-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-family:'Syne',sans-serif;}
+.field-input,.field-select,.field-textarea{width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+.field-input:focus,.field-select:focus,.field-textarea:focus{border-color:var(--accent3);box-shadow:0 0 0 3px rgba(168,85,247,0.1);}
+.field-input::placeholder,.field-textarea::placeholder{color:rgba(107,79,160,0.4);}
+.field-select{cursor:pointer;appearance:none;}
+.field-textarea{resize:vertical;min-height:70px;}
+.field-prefix{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:9px;overflow:hidden;}
+.field-prefix span{padding:11px 12px;font-size:13px;color:var(--muted);border-right:1px solid var(--border);white-space:nowrap;}
+.field-prefix input{flex:1;padding:11px 14px;background:transparent;border:none;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+hr.divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+
+/* DOCUMENT CARD */
+.doc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.doc-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;transition:border-color 0.2s;}
+.doc-card:hover{border-color:rgba(168,85,247,0.3);}
+.doc-icon{font-size:28px;margin-bottom:8px;}
+.doc-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.doc-desc{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.doc-input{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:11px;outline:none;transition:border-color 0.2s;}
+.doc-input:focus{border-color:var(--accent3);}
+.doc-input::placeholder{color:rgba(107,79,160,0.4);}
+.doc-preview-btn{margin-top:8px;width:100%;padding:6px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:6px;color:var(--accent3);font-size:11px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;}
+.doc-preview-btn:hover{background:rgba(168,85,247,0.16);}
+.doc-status{display:flex;align-items:center;gap:4px;font-size:10px;margin-top:6px;}
+.doc-status.has-doc{color:var(--green);}
+.doc-status.no-doc{color:var(--muted);}
+
+/* SOCIAL */
+.social-item{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.social-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid var(--border);}
+
+/* LOGO URL */
+.logo-url-wrap{display:flex;gap:10px;align-items:center;}
+.logo-preview-box{width:60px;height:60px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0;}
+.logo-preview-box img{width:100%;height:100%;object-fit:cover;}
+
+/* BUTTONS */
+.btn-primary{padding:12px 28px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;border-radius:9px;color:white;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;box-shadow:0 4px 16px rgba(124,58,237,0.3);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,58,237,0.5);}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-preview{padding:12px 24px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.25);border-radius:9px;color:var(--teal);font-family:'Syne',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.btn-preview:hover{background:rgba(45,212,191,0.15);}
+.btn-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px;}
+.save-msg{font-size:13px;min-height:20px;}
+.save-msg.success{color:var(--green);}
+.save-msg.error{color:var(--red);}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;}
+
+/* PREVIEW MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
+.modal-overlay.open{display:flex;}
+.preview-modal{background:var(--surface);border:1px solid rgba(168,85,247,0.25);border-radius:20px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px rgba(0,0,0,0.6);animation:fadeUp 0.25s ease;}
+.preview-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.preview-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.preview-close{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.2s;}
+.preview-close:hover{border-color:var(--red);color:var(--red);}
+.preview-body{padding:24px;}
+
+/* BUSINESS CARD PREVIEW */
+.biz-card{background:linear-gradient(135deg,rgba(124,58,237,0.2),rgba(45,212,191,0.08));border:1px solid rgba(168,85,247,0.3);border-radius:16px;padding:24px;margin-bottom:20px;}
+.biz-card-top{display:flex;align-items:center;gap:16px;margin-bottom:16px;}
+.biz-card-logo{width:56px;height:56px;border-radius:12px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.3);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--accent3);overflow:hidden;flex-shrink:0;}
+.biz-card-logo img{width:100%;height:100%;object-fit:cover;}
+.biz-card-name{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}
+.biz-card-type{font-size:12px;color:var(--muted2);margin-top:3px;}
+.biz-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.biz-info-item{display:flex;align-items:flex-start;gap:8px;}
+.biz-info-icon{font-size:14px;margin-top:1px;flex-shrink:0;}
+.biz-info-text{font-size:12px;color:var(--muted2);line-height:1.5;}
+.biz-info-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px;}
+
+/* DOC PREVIEW */
+.doc-preview-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:16px;}
+.doc-preview-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+.doc-preview-icon{font-size:24px;margin-bottom:6px;}
+.doc-preview-name{font-size:11px;font-weight:600;margin-bottom:4px;}
+.doc-preview-status{font-size:10px;}
+.doc-preview-status.ok{color:var(--green);}
+.doc-preview-status.missing{color:var(--muted);}
+
+@media(max-width:768px){
+  .grid-2,.grid-3{grid-template-columns:1fr;}
+  .col-span-2{grid-column:span 1;}
+  .doc-grid{grid-template-columns:1fr;}
+  .doc-preview-grid{grid-template-columns:1fr 1fr;}
+  .biz-info-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="global-bg"></div>
+<div class="global-grid"></div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--teal));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:white;border:2px solid rgba(168,85,247,0.5);box-shadow:0 0 24px rgba(168,85,247,0.4);position:relative;overflow:hidden;">
+    EF<img src="logo.png" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
+  </div>
+  <div class="loading-brand">Elit<span>Flow</span></div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- NAV -->
+<nav class="top-nav" style="position:relative;z-index:10;">
+  <div class="nav-logo">EF<img src="logo.png" onerror="this.style.display='none'"></div>
+  <div class="nav-brand">Elit<span>Flow</span></div>
+  <div class="nav-spacer"></div>
+  <span class="nav-user" id="navUser"></span>
+  <span class="nav-role" id="navRole"></span>
+  <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
+</nav>
+
+<!-- MAIN -->
+<div class="main-wrap" style="position:relative;z-index:1;">
+
+  <!-- FACEBOOK-STYLE PROFILE HEADER -->
+  <div class="profile-header" id="companyBanner">
+
+    <!-- COVER PHOTO -->
+    <div class="cover-wrap" id="coverWrap" onclick="document.getElementById('coverUrlInput').focus();switchTab('info')">
+      <div class="cover-grid-pattern"></div>
+      <div class="cover-glow"></div>
+      <div class="cover-glow2"></div>
+      <img id="coverImgEl" src="" alt="cover">
+      <div class="cover-overlay">
+        <div class="cover-edit-btn">📷 เปลี่ยนรูปปก</div>
+      </div>
+    </div>
+
+    <!-- BOTTOM BAR: avatar + info -->
+    <div class="profile-bottom">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+
+        <!-- AVATAR -->
+        <div class="profile-avatar-wrap" onclick="document.getElementById('logoUrlInput').focus();switchTab('info')" title="เปลี่ยนโลโก้">
+          <div class="profile-avatar" id="logoWrap">
+            <span id="logoInitial">?</span>
+            <img id="logoPreviewNav" src="" alt="logo">
+            <div class="profile-avatar-overlay">✏️</div>
+          </div>
+          <div class="avatar-edit-badge">✏️</div>
+        </div>
+
+        <!-- COMPLETE BLOCK -->
+        <div class="complete-block" style="padding-bottom:4px;">
+          <div class="complete-labels">
+            <span class="complete-badge badge-incomplete" id="completeBadge">ไม่สมบูรณ์</span>
+            <span class="complete-pct" id="completePct">0% สมบูรณ์</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NAME & TYPE -->
+      <div class="profile-info-row">
+        <div class="profile-name-block">
+          <div class="profile-company-name" id="bannerName">ยังไม่ได้กรอกข้อมูลบริษัท</div>
+          <div class="profile-company-type" id="bannerType">กรุณากรอกข้อมูลด้านล่าง</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs-row">
+    <button class="tab-btn active" onclick="switchTab('info')">🏢 ข้อมูลหลัก</button>
+    <button class="tab-btn" onclick="switchTab('address')">📍 ที่อยู่</button>
+    <button class="tab-btn" onclick="switchTab('social')">🌐 Social & ติดต่อ</button>
+    <button class="tab-btn" onclick="switchTab('docs')">📄 เอกสาร</button>
+  </div>
+
+  <!-- TAB: ข้อมูลหลัก -->
+  <div class="tab-content active" id="tab-info">
+    <div class="section-card">
+      <div class="section-subtitle">รูปปกเพจ & โลโก้บริษัท</div>
+
+      <!-- COVER PHOTO -->
+      <div class="url-panel" style="margin-bottom:14px;">
+        <div class="url-panel-title">📷 รูปปกเพจ (Cover Photo)</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div style="width:80px;height:48px;border-radius:8px;background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(45,212,191,0.15));border:1px solid var(--border);overflow:hidden;flex-shrink:0;position:relative;">
+            <img id="coverPreviewThumb" src="" style="width:100%;height:100%;object-fit:cover;display:none;">
+            <div id="coverThumbPlaceholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;">🖼️</div>
+          </div>
+          <div style="flex:1;">
+            <input type="text" class="field-input" id="coverUrlInput" placeholder="https://i.ibb.co/xxx/cover.jpg" oninput="previewCover()" style="margin-bottom:4px;">
+            <div class="field-hint">ขนาดแนะนำ 1200×400px — อัปโหลดที่ imgbb.com แล้วก็อป Direct link</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOGO -->
+      <div class="url-panel">
+        <div class="url-panel-title">🏢 โลโก้บริษัท (Profile Logo)</div>
+        <div class="logo-url-wrap">
+          <div class="logo-preview-box" id="logoPreviewBox">🏢</div>
+          <div style="flex:1;">
+            <div class="field-group">
+              <label class="field-label">URL โลโก้บริษัท</label>
+              <input type="text" class="field-input" id="logoUrlInput" placeholder="https://i.ibb.co/xxx/logo.png" oninput="previewLogo()">
+            </div>
+            <div class="field-hint">รูปวงกลม แนะนำ 300×300px — อัปโหลดที่ imgbb.com</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-subtitle">ข้อมูลหลัก</div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label">ชื่อบริษัท / ร้านค้า *</label>
+          <input type="text" class="field-input" id="compName" placeholder="เช่น บริษัท ABC จำกัด" oninput="updateBanner()">
+        </div>
+        <div class="field-group">
+          <label class="field-label">ชื่อภาษาอังกฤษ</label>
+          <input type="text" class="field-input" id="compNameEn" placeholder="ABC Company Limited">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label">ประเภทธุรกิจ *</label>
+          <select class="field-select" id="compType" onchange="updateBanner()">
+            <option value="">-- เลือกประเภทธุรกิจ --</option>
+            <optgroup label="การค้าและบริการ">
+              <option value="retail">ค้าปลีก / ร้านค้า</option>
+              <option value="wholesale">ค้าส่ง</option>
+              <option value="ecommerce">อีคอมเมิร์ซ / ออนไลน์</option>
+              <option value="service">ธุรกิจบริการ</option>
+              <option value="restaurant">ร้านอาหาร / เครื่องดื่ม</option>
+            </optgroup>
+            <optgroup label="อุตสาหกรรมและผลิต">
+              <option value="manufacturing">โรงงาน / การผลิต</option>
+              <option value="construction">ก่อสร้าง</option>
+              <option value="logistics">โลจิสติกส์ / ขนส่ง</option>
+            </optgroup>
+            <optgroup label="เทคโนโลยีและมีเดีย">
+              <option value="tech">เทคโนโลยี / ซอฟต์แวร์</option>
+              <option value="media">สื่อ / โฆษณา / มีเดีย</option>
+              <option value="agency">เอเจนซี่</option>
+            </optgroup>
+            <optgroup label="อื่นๆ">
+              <option value="health">สุขภาพ / ความงาม</option>
+              <option value="education">การศึกษา</option>
+              <option value="realestate">อสังหาริมทรัพย์</option>
+              <option value="finance">การเงิน / ประกัน</option>
+              <option value="other">อื่นๆ</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">รูปแบบนิติบุคคล</label>
+          <select class="field-select" id="compLegal">
+            <option value="">-- เลือก --</option>
+            <option value="company">บริษัทจำกัด</option>
+            <option value="public">บริษัทมหาชน</option>
+            <option value="partnership">ห้างหุ้นส่วน</option>
+            <option value="sole">เจ้าของคนเดียว</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="field-group">
+          <label class="field-label">เลขประจำตัวผู้เสียภาษี (13 หลัก) *</label>
+          <input type="text" class="field-input" id="compTaxId" placeholder="0000000000000" maxlength="13">
+        </div>
+        <div class="field-group">
+          <label class="field-label">เลขทะเบียนบริษัท</label>
+          <input type="text" class="field-input" id="compRegId" placeholder="0000000000000">
+        </div>
+        <div class="field-group">
+          <label class="field-label">วันที่จดทะเบียน</label>
+          <input type="date" class="field-input" id="compRegDate">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label">ทุนจดทะเบียน (บาท)</label>
+          <input type="text" class="field-input" id="compCapital" placeholder="1,000,000">
+        </div>
+        <div class="field-group">
+          <label class="field-label">จำนวนพนักงาน</label>
+          <select class="field-select" id="compSize">
+            <option value="">-- เลือก --</option>
+            <option value="1-5">1-5 คน</option>
+            <option value="6-20">6-20 คน</option>
+            <option value="21-50">21-50 คน</option>
+            <option value="51-200">51-200 คน</option>
+            <option value="200+">200+ คน</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-subtitle">ข้อมูลติดต่อหลัก</div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label">เบอร์โทรศัพท์ *</label>
+          <input type="text" class="field-input" id="compPhone" placeholder="02-xxx-xxxx">
+        </div>
+        <div class="field-group">
+          <label class="field-label">เบอร์แฟกซ์</label>
+          <input type="text" class="field-input" id="compFax" placeholder="02-xxx-xxxx">
+        </div>
+        <div class="field-group">
+          <label class="field-label">อีเมลบริษัท</label>
+          <input type="email" class="field-input" id="compEmail" placeholder="contact@company.com">
+        </div>
+        <div class="field-group">
+          <label class="field-label">เว็บไซต์</label>
+          <input type="text" class="field-input" id="compWebsite" placeholder="https://www.company.com">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-preview" onclick="openPreview()">👁️ Preview ก่อนบันทึก</button>
+      <button class="btn-primary" id="saveBtn" onclick="saveProfile()">💾 บันทึกข้อมูล</button>
+      <span class="save-msg" id="saveMsg"></span>
+    </div>
+  </div>
+
+  <!-- TAB: ที่อยู่ -->
+  <div class="tab-content" id="tab-address">
+    <div class="section-card">
+      <div class="section-subtitle">ที่อยู่จดทะเบียน</div>
+      <div class="field-group" style="margin-bottom:14px;">
+        <label class="field-label">ที่อยู่ (บ้านเลขที่ ถนน ซอย)</label>
+        <textarea class="field-textarea" id="compAddress" placeholder="เลขที่ ถนน ซอย หมู่บ้าน"></textarea>
+      </div>
+      <div class="grid-3">
+        <div class="field-group">
+          <label class="field-label">แขวง / ตำบล</label>
+          <input type="text" class="field-input" id="compSubdistrict" placeholder="แขวง/ตำบล">
+        </div>
+        <div class="field-group">
+          <label class="field-label">เขต / อำเภอ</label>
+          <input type="text" class="field-input" id="compDistrict" placeholder="เขต/อำเภอ">
+        </div>
+        <div class="field-group">
+          <label class="field-label">จังหวัด</label>
+          <select class="field-select" id="compProvince">
+            <option value="">-- เลือกจังหวัด --</option>
+            <option>กรุงเทพมหานคร</option><option>กระบี่</option><option>กาญจนบุรี</option><option>กาฬสินธุ์</option><option>กำแพงเพชร</option><option>ขอนแก่น</option><option>จันทบุรี</option><option>ฉะเชิงเทรา</option><option>ชลบุรี</option><option>ชัยนาท</option><option>ชัยภูมิ</option><option>ชุมพร</option><option>เชียงราย</option><option>เชียงใหม่</option><option>ตรัง</option><option>ตราด</option><option>ตาก</option><option>นครนายก</option><option>นครปฐม</option><option>นครพนม</option><option>นครราชสีมา</option><option>นครศรีธรรมราช</option><option>นครสวรรค์</option><option>นนทบุรี</option><option>นราธิวาส</option><option>น่าน</option><option>บึงกาฬ</option><option>บุรีรัมย์</option><option>ปทุมธานี</option><option>ประจวบคีรีขันธ์</option><option>ปราจีนบุรี</option><option>ปัตตานี</option><option>พระนครศรีอยุธยา</option><option>พะเยา</option><option>พังงา</option><option>พัทลุง</option><option>พิจิตร</option><option>พิษณุโลก</option><option>เพชรบุรี</option><option>เพชรบูรณ์</option><option>แพร่</option><option>ภูเก็ต</option><option>มหาสารคาม</option><option>มุกดาหาร</option><option>แม่ฮ่องสอน</option><option>ยโสธร</option><option>ยะลา</option><option>ร้อยเอ็ด</option><option>ระนอง</option><option>ระยอง</option><option>ราชบุรี</option><option>ลพบุรี</option><option>ลำปาง</option><option>ลำพูน</option><option>เลย</option><option>ศรีสะเกษ</option><option>สกลนคร</option><option>สงขลา</option><option>สตูล</option><option>สมุทรปราการ</option><option>สมุทรสงคราม</option><option>สมุทรสาคร</option><option>สระแก้ว</option><option>สระบุรี</option><option>สิงห์บุรี</option><option>สุโขทัย</option><option>สุพรรณบุรี</option><option>สุราษฎร์ธานี</option><option>สุรินทร์</option><option>หนองคาย</option><option>หนองบัวลำภู</option><option>อ่างทอง</option><option>อำนาจเจริญ</option><option>อุดรธานี</option><option>อุตรดิตถ์</option><option>อุทัยธานี</option><option>อุบลราชธานี</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:14px;">
+        <div class="field-group">
+          <label class="field-label">รหัสไปรษณีย์</label>
+          <input type="text" class="field-input" id="compZip" placeholder="10110" maxlength="5">
+        </div>
+        <div class="field-group">
+          <label class="field-label">ประเทศ</label>
+          <input type="text" class="field-input" id="compCountry" value="ประเทศไทย">
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-subtitle">ที่อยู่สำหรับจัดส่งเอกสาร (ถ้าต่างจากที่จดทะเบียน)</div>
+      <div class="field-group" style="margin-bottom:8px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted2);cursor:pointer;">
+          <input type="checkbox" id="sameAddress" onchange="toggleSameAddress()" style="width:16px;height:16px;accent-color:var(--accent3);">
+          ใช้ที่อยู่เดียวกับที่จดทะเบียน
+        </label>
+      </div>
+      <div id="shippingAddressBlock">
+        <div class="field-group" style="margin-bottom:14px;">
+          <label class="field-label">ที่อยู่จัดส่ง</label>
+          <textarea class="field-textarea" id="compShipAddress" placeholder="เลขที่ ถนน ซอย หมู่บ้าน"></textarea>
+        </div>
+        <div class="grid-3">
+          <div class="field-group">
+            <label class="field-label">แขวง / ตำบล</label>
+            <input type="text" class="field-input" id="compShipSubdistrict" placeholder="แขวง/ตำบล">
+          </div>
+          <div class="field-group">
+            <label class="field-label">เขต / อำเภอ</label>
+            <input type="text" class="field-input" id="compShipDistrict" placeholder="เขต/อำเภอ">
+          </div>
+          <div class="field-group">
+            <label class="field-label">จังหวัด</label>
+            <input type="text" class="field-input" id="compShipProvince" placeholder="จังหวัด">
+          </div>
+        </div>
+        <div class="field-group" style="margin-top:14px;max-width:200px;">
+          <label class="field-label">รหัสไปรษณีย์</label>
+          <input type="text" class="field-input" id="compShipZip" placeholder="10110" maxlength="5">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-preview" onclick="openPreview()">👁️ Preview ก่อนบันทึก</button>
+      <button class="btn-primary" id="saveBtn2" onclick="saveProfile()">💾 บันทึกข้อมูล</button>
+      <span class="save-msg" id="saveMsg2"></span>
+    </div>
+  </div>
+
+  <!-- TAB: Social -->
+  <div class="tab-content" id="tab-social">
+    <div class="section-card">
+      <div class="section-subtitle">Social Media</div>
+      <div class="social-item">
+        <div class="social-icon" style="background:rgba(0,184,0,0.1);border-color:rgba(0,184,0,0.2);">💬</div>
+        <div class="field-group" style="flex:1;margin:0;">
+          <label class="field-label">Line Official / Line ID</label>
+          <div class="field-prefix">
+            <span>@</span>
+            <input type="text" id="compLine" placeholder="lineofficial">
+          </div>
+        </div>
+      </div>
+      <div class="social-item">
+        <div class="social-icon" style="background:rgba(24,119,242,0.1);border-color:rgba(24,119,242,0.2);">📘</div>
+        <div class="field-group" style="flex:1;margin:0;">
+          <label class="field-label">Facebook Page</label>
+          <div class="field-prefix">
+            <span>fb.com/</span>
+            <input type="text" id="compFacebook" placeholder="pagename">
+          </div>
+        </div>
+      </div>
+      <div class="social-item">
+        <div class="social-icon" style="background:rgba(225,48,108,0.1);border-color:rgba(225,48,108,0.2);">📸</div>
+        <div class="field-group" style="flex:1;margin:0;">
+          <label class="field-label">Instagram</label>
+          <div class="field-prefix">
+            <span>@</span>
+            <input type="text" id="compInstagram" placeholder="instagram_account">
+          </div>
+        </div>
+      </div>
+      <div class="social-item">
+        <div class="social-icon" style="background:rgba(255,0,0,0.08);border-color:rgba(255,0,0,0.15);">▶️</div>
+        <div class="field-group" style="flex:1;margin:0;">
+          <label class="field-label">YouTube Channel</label>
+          <input type="text" class="field-input" id="compYoutube" placeholder="https://youtube.com/c/...">
+        </div>
+      </div>
+      <div class="social-item">
+        <div class="social-icon" style="background:rgba(0,0,0,0.2);border-color:rgba(255,255,255,0.1);">🐦</div>
+        <div class="field-group" style="flex:1;margin:0;">
+          <label class="field-label">X (Twitter)</label>
+          <div class="field-prefix">
+            <span>@</span>
+            <input type="text" id="compTwitter" placeholder="twitter_handle">
+          </div>
+        </div>
+      </div>
+      <div class="social-item">
+        <div class="social-icon" style="background:rgba(0,119,181,0.1);border-color:rgba(0,119,181,0.2);">💼</div>
+        <div class="field-group" style="flex:1;margin:0;">
+          <label class="field-label">LinkedIn</label>
+          <input type="text" class="field-input" id="compLinkedin" placeholder="https://linkedin.com/company/...">
+        </div>
+      </div>
+      <div class="social-item">
+        <div class="social-icon" style="background:rgba(0,0,0,0.15);border-color:rgba(255,255,255,0.08);">🛒</div>
+        <div class="field-group" style="flex:1;margin:0;">
+          <label class="field-label">Shopee / Lazada Store URL</label>
+          <input type="text" class="field-input" id="compShop" placeholder="https://shopee.co.th/...">
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-subtitle">ข้อมูลเพิ่มเติม</div>
+      <div class="field-group">
+        <label class="field-label">คำอธิบายบริษัท / About Us</label>
+        <textarea class="field-textarea" id="compDesc" placeholder="อธิบายธุรกิจของคุณสั้นๆ..." style="min-height:100px;"></textarea>
+      </div>
+      <div class="field-group" style="margin-top:14px;">
+        <label class="field-label">Google Maps URL</label>
+        <input type="text" class="field-input" id="compMaps" placeholder="https://maps.google.com/...">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-preview" onclick="openPreview()">👁️ Preview ก่อนบันทึก</button>
+      <button class="btn-primary" id="saveBtn3" onclick="saveProfile()">💾 บันทึกข้อมูล</button>
+      <span class="save-msg" id="saveMsg3"></span>
+    </div>
+  </div>
+
+  <!-- TAB: เอกสาร -->
+  <div class="tab-content" id="tab-docs">
+    <div class="section-card">
+      <div class="section-subtitle">เอกสารสำคัญบริษัท</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">วาง URL ลิงก์เอกสาร (Google Drive, OneDrive, Dropbox ฯลฯ) — ต้องตั้งค่าให้ "Anyone with link" ก่อนค่ะ</p>
+      <div class="doc-grid">
+
+        <div class="doc-card">
+          <div class="doc-icon">📋</div>
+          <div class="doc-name">ภพ.20</div>
+          <div class="doc-desc">ใบทะเบียนภาษีมูลค่าเพิ่ม</div>
+          <input type="text" class="doc-input" id="docVat" placeholder="https://drive.google.com/..." oninput="updateDocStatus('docVat','vatStatus')">
+          <div class="doc-status no-doc" id="vatStatus">⚪ ยังไม่มีเอกสาร</div>
+          <button class="doc-preview-btn" onclick="openDocLink('docVat')">🔗 เปิดเอกสาร</button>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-icon">📜</div>
+          <div class="doc-name">หนังสือรับรองบริษัท</div>
+          <div class="doc-desc">DBD Certificate of Incorporation</div>
+          <input type="text" class="doc-input" id="docCert" placeholder="https://drive.google.com/..." oninput="updateDocStatus('docCert','certStatus')">
+          <div class="doc-status no-doc" id="certStatus">⚪ ยังไม่มีเอกสาร</div>
+          <button class="doc-preview-btn" onclick="openDocLink('docCert')">🔗 เปิดเอกสาร</button>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-icon">🪪</div>
+          <div class="doc-name">บัตรประชาชนกรรมการ</div>
+          <div class="doc-desc">สำเนาบัตรประชาชนผู้มีอำนาจ</div>
+          <input type="text" class="doc-input" id="docId" placeholder="https://drive.google.com/..." oninput="updateDocStatus('docId','idStatus')">
+          <div class="doc-status no-doc" id="idStatus">⚪ ยังไม่มีเอกสาร</div>
+          <button class="doc-preview-btn" onclick="openDocLink('docId')">🔗 เปิดเอกสาร</button>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-icon">🏦</div>
+          <div class="doc-name">หน้าสมุดบัญชีธนาคาร</div>
+          <div class="doc-desc">Book Bank หน้าแรกของบริษัท</div>
+          <input type="text" class="doc-input" id="docBank" placeholder="https://drive.google.com/..." oninput="updateDocStatus('docBank','bankStatus')">
+          <div class="doc-status no-doc" id="bankStatus">⚪ ยังไม่มีเอกสาร</div>
+          <button class="doc-preview-btn" onclick="openDocLink('docBank')">🔗 เปิดเอกสาร</button>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-icon">📑</div>
+          <div class="doc-name">บัญชีรายชื่อผู้ถือหุ้น (บอจ.5)</div>
+          <div class="doc-desc">Shareholder List</div>
+          <input type="text" class="doc-input" id="docShare" placeholder="https://drive.google.com/..." oninput="updateDocStatus('docShare','shareStatus')">
+          <div class="doc-status no-doc" id="shareStatus">⚪ ยังไม่มีเอกสาร</div>
+          <button class="doc-preview-btn" onclick="openDocLink('docShare')">🔗 เปิดเอกสาร</button>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-icon">📂</div>
+          <div class="doc-name">เอกสารอื่นๆ</div>
+          <div class="doc-desc">เอกสารสำคัญอื่น</div>
+          <input type="text" class="doc-input" id="docOther" placeholder="https://drive.google.com/..." oninput="updateDocStatus('docOther','otherStatus')">
+          <div class="doc-status no-doc" id="otherStatus">⚪ ยังไม่มีเอกสาร</div>
+          <button class="doc-preview-btn" onclick="openDocLink('docOther')">🔗 เปิดเอกสาร</button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-preview" onclick="openPreview()">👁️ Preview ก่อนบันทึก</button>
+      <button class="btn-primary" id="saveBtn4" onclick="saveProfile()">💾 บันทึกข้อมูล</button>
+      <span class="save-msg" id="saveMsg4"></span>
+    </div>
+  </div>
+
+</div><!-- end main-wrap -->
+
+<!-- PREVIEW MODAL -->
+<div class="modal-overlay" id="previewModal">
+  <div class="preview-modal">
+    <div class="preview-header">
+      <div class="preview-title">👁️ Preview ข้อมูลบริษัท</div>
+      <button class="preview-close" onclick="closePreview()">✕</button>
+    </div>
+    <div class="preview-body">
+
+      <!-- Business Card -->
+      <div class="biz-card">
+        <div class="biz-card-top">
+          <div class="biz-card-logo" id="previewLogo">?</div>
+          <div>
+            <div class="biz-card-name" id="previewName">—</div>
+            <div class="biz-card-type" id="previewType">—</div>
+          </div>
+        </div>
+        <div class="biz-info-grid">
+          <div class="biz-info-item">
+            <div class="biz-info-icon">📞</div>
+            <div class="biz-info-text"><span class="biz-info-label">โทรศัพท์</span><span id="previewPhone">—</span></div>
+          </div>
+          <div class="biz-info-item">
+            <div class="biz-info-icon">✉️</div>
+            <div class="biz-info-text"><span class="biz-info-label">อีเมล</span><span id="previewEmail">—</span></div>
+          </div>
+          <div class="biz-info-item">
+            <div class="biz-info-icon">🌐</div>
+            <div class="biz-info-text"><span class="biz-info-label">เว็บไซต์</span><span id="previewWeb">—</span></div>
+          </div>
+          <div class="biz-info-item">
+            <div class="biz-info-icon">📍</div>
+            <div class="biz-info-text"><span class="biz-info-label">ที่อยู่</span><span id="previewAddr">—</span></div>
+          </div>
+          <div class="biz-info-item">
+            <div class="biz-info-icon">🧾</div>
+            <div class="biz-info-text"><span class="biz-info-label">เลขภาษี</span><span id="previewTax">—</span></div>
+          </div>
+          <div class="biz-info-item">
+            <div class="biz-info-icon">💬</div>
+            <div class="biz-info-text"><span class="biz-info-label">Line</span><span id="previewLine">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- เอกสาร -->
+      <div style="font-family:'Syne',sans-serif;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;">สถานะเอกสาร</div>
+      <div class="doc-preview-grid">
+        <div class="doc-preview-item"><div class="doc-preview-icon">📋</div><div class="doc-preview-name">ภพ.20</div><div class="doc-preview-status" id="prev-vat">⚪ ยังไม่มี</div></div>
+        <div class="doc-preview-item"><div class="doc-preview-icon">📜</div><div class="doc-preview-name">หนังสือรับรอง</div><div class="doc-preview-status" id="prev-cert">⚪ ยังไม่มี</div></div>
+        <div class="doc-preview-item"><div class="doc-preview-icon">🪪</div><div class="doc-preview-name">บัตรประชาชน</div><div class="doc-preview-status" id="prev-id">⚪ ยังไม่มี</div></div>
+        <div class="doc-preview-item"><div class="doc-preview-icon">🏦</div><div class="doc-preview-name">Book Bank</div><div class="doc-preview-status" id="prev-bank">⚪ ยังไม่มี</div></div>
+        <div class="doc-preview-item"><div class="doc-preview-icon">📑</div><div class="doc-preview-name">บอจ.5</div><div class="doc-preview-status" id="prev-share">⚪ ยังไม่มี</div></div>
+        <div class="doc-preview-item"><div class="doc-preview-icon">📂</div><div class="doc-preview-name">อื่นๆ</div><div class="doc-preview-status" id="prev-other">⚪ ยังไม่มี</div></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn-preview" onclick="closePreview()">ปิด</button>
+        <button class="btn-primary" onclick="closePreview();saveProfile()">💾 บันทึกเลย</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"",
+  authDomain:"elitflow-38bc4.firebaseapp.com",
+  projectId:"elitflow-38bc4",
+  storageBucket:"elitflow-38bc4.firebasestorage.app",
+  messagingSenderId:"697101909670",
+  appId:"1:697101909670:web:afa2071ba0ca64dbba7e67"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let currentUser = null;
+
+const typeLabels = {
+  retail:'ค้าปลีก / ร้านค้า',wholesale:'ค้าส่ง',ecommerce:'อีคอมเมิร์ซ',
+  service:'ธุรกิจบริการ',restaurant:'ร้านอาหาร',manufacturing:'โรงงาน',
+  construction:'ก่อสร้าง',logistics:'โลจิสติกส์',tech:'เทคโนโลยี',
+  media:'สื่อ/มีเดีย',agency:'เอเจนซี่',health:'สุขภาพ/ความงาม',
+  education:'การศึกษา',realestate:'อสังหาริมทรัพย์',finance:'การเงิน',other:'อื่นๆ'
+};
+
+onAuthStateChanged(auth, async (user) => {
+  document.getElementById('loadingOverlay').style.opacity = '0';
+  setTimeout(() => document.getElementById('loadingOverlay').style.display='none', 400);
+  if (!user) { window.location.href = 'index.html'; return; }
+  currentUser = user;
+  const userDoc = await getDoc(doc(db,'users',user.uid));
+  const role = userDoc.exists() ? userDoc.data().role : 'staff';
+  document.getElementById('navUser').textContent = user.email.split('@')[0];
+  document.getElementById('navRole').textContent = { admin:'Admin', manager:'Manager', staff:'Staff' }[role] || 'Staff';
+
+  // แสดง banner ถ้ามาจาก setup=1
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('setup') === '1') {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:62px;left:0;right:0;z-index:199;background:linear-gradient(135deg,rgba(124,58,237,0.95),rgba(45,212,191,0.85));color:white;text-align:center;padding:12px 24px;font-family:Noto Sans Thai,sans-serif;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.3);';
+    banner.innerHTML = '🏢 ยินดีต้อนรับ! กรุณากรอก <strong>ชื่อบริษัท</strong> ให้ครบก่อนเริ่มใช้งานระบบ แล้วกด <strong>💾 บันทึกข้อมูล</strong>';
+    document.body.appendChild(banner);
+  }
+
+  loadProfile();
+});
+
+window.doLogout = async () => { await signOut(auth); window.location.href = 'index.html'; };
+
+// ── LOAD ──
+async function loadProfile() {
+  const snap = await getDoc(doc(db,'companies',currentUser.uid));
+  if (!snap.exists()) return;
+  const d = snap.data();
+  const fields = {
+    compName:d.name, compNameEn:d.nameEn, compType:d.type, compLegal:d.legal,
+    compTaxId:d.taxId, compRegId:d.regId, compRegDate:d.regDate, compCapital:d.capital,
+    compSize:d.size, compPhone:d.phone, compFax:d.fax, compEmail:d.email,
+    compWebsite:d.website, compAddress:d.address, compSubdistrict:d.subdistrict,
+    compDistrict:d.district, compProvince:d.province, compZip:d.zip,
+    compCountry:d.country, compShipAddress:d.shipAddress,
+    compShipSubdistrict:d.shipSubdistrict, compShipDistrict:d.shipDistrict,
+    compShipProvince:d.shipProvince, compShipZip:d.shipZip,
+    compLine:d.line, compFacebook:d.facebook, compInstagram:d.instagram,
+    compYoutube:d.youtube, compTwitter:d.twitter, compLinkedin:d.linkedin,
+    compShop:d.shop, compDesc:d.desc, compMaps:d.maps, logoUrlInput:d.logoUrl,
+    coverUrlInput:d.coverUrl,
+    docVat:d.docVat, docCert:d.docCert, docId:d.docId,
+    docBank:d.docBank, docShare:d.docShare, docOther:d.docOther,
+  };
+  Object.entries(fields).forEach(([id,val]) => {
+    const el = document.getElementById(id);
+    if (el && val) el.value = val;
+  });
+  if (d.logoUrl) previewLogo();
+  if (d.coverUrl) previewCover();
+  updateBanner();
+  updateAllDocStatus();
+  if (d.sameAddress) { document.getElementById('sameAddress').checked = true; toggleSameAddress(); }
+}
+
+// ── SAVE ──
+window.saveProfile = async () => {
+  const btns = ['saveBtn','saveBtn2','saveBtn3','saveBtn4'];
+  const msgs = ['saveMsg','saveMsg2','saveMsg3','saveMsg4'];
+  btns.forEach(id => { const el=document.getElementById(id); if(el){el.disabled=true;el.innerHTML='<span class="spinner"></span> กำลังบันทึก...';} });
+
+  const g = id => document.getElementById(id)?.value?.trim() || '';
+
+  // ต้องมีชื่อบริษัทก่อนบันทึก
+  if (!g('compName')) {
+    msgs.forEach(id => { const el=document.getElementById(id); if(el){el.textContent='⚠️ กรุณากรอกชื่อบริษัทก่อน';el.className='save-msg error';} });
+    btns.forEach(id => { const el=document.getElementById(id); if(el){el.disabled=false;el.textContent='💾 บันทึกข้อมูล';} });
+    return;
+  }
+
+  const data = {
+    name:g('compName'), nameEn:g('compNameEn'), type:g('compType'), legal:g('compLegal'),
+    taxId:g('compTaxId'), regId:g('compRegId'), regDate:g('compRegDate'), capital:g('compCapital'),
+    size:g('compSize'), phone:g('compPhone'), fax:g('compFax'), email:g('compEmail'),
+    website:g('compWebsite'), address:g('compAddress'), subdistrict:g('compSubdistrict'),
+    district:g('compDistrict'), province:g('compProvince'), zip:g('compZip'),
+    country:g('compCountry'), shipAddress:g('compShipAddress'),
+    shipSubdistrict:g('compShipSubdistrict'), shipDistrict:g('compShipDistrict'),
+    shipProvince:g('compShipProvince'), shipZip:g('compShipZip'),
+    line:g('compLine'), facebook:g('compFacebook'), instagram:g('compInstagram'),
+    youtube:g('compYoutube'), twitter:g('compTwitter'), linkedin:g('compLinkedin'),
+    shop:g('compShop'), desc:g('compDesc'), maps:g('compMaps'), logoUrl:g('logoUrlInput'),
+    coverUrl:g('coverUrlInput'),
+    docVat:g('docVat'), docCert:g('docCert'), docId:g('docId'),
+    docBank:g('docBank'), docShare:g('docShare'), docOther:g('docOther'),
+    sameAddress:document.getElementById('sameAddress')?.checked || false,
+    updatedAt:serverTimestamp(), ownerUid:currentUser.uid
+  };
+
+  try {
+    await setDoc(doc(db,'companies',currentUser.uid), data, { merge:true });
+    msgs.forEach(id => { const el=document.getElementById(id); if(el){el.textContent='✅ บันทึกสำเร็จ!';el.className='save-msg success';} });
+    showToast('✅ บันทึกข้อมูลบริษัทแล้ว');
+    updateBanner();
+    // ถ้ามาจาก setup=1 (user ใหม่) ให้ redirect กลับ app.html
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('setup') === '1') {
+      setTimeout(() => window.location.href = 'app.html', 1200);
+    }
+  } catch(e) {
+    msgs.forEach(id => { const el=document.getElementById(id); if(el){el.textContent='❌ '+e.message;el.className='save-msg error';} });
+  }
+  btns.forEach(id => { const el=document.getElementById(id); if(el){el.disabled=false;el.textContent='💾 บันทึกข้อมูล';} });
+};
+
+// ── HELPERS ──
+window.updateBanner = () => {
+  const name = document.getElementById('compName')?.value || 'ยังไม่ได้กรอกข้อมูลบริษัท';
+  const type = document.getElementById('compType')?.value || '';
+  document.getElementById('bannerName').textContent = name;
+  document.getElementById('bannerType').textContent = typeLabels[type] || 'กรุณากรอกข้อมูลด้านล่าง';
+  document.getElementById('logoInitial').textContent = name[0]?.toUpperCase() || '?';
+
+  // คำนวณ %
+  const required = ['compName','compType','compTaxId','compPhone','compAddress','compProvince'];
+  const filled = required.filter(id => document.getElementById(id)?.value?.trim()).length;
+  const pct = Math.round((filled / required.length) * 100);
+  document.getElementById('completePct').textContent = `${pct}% สมบูรณ์`;
+  document.getElementById('progressFill').style.width = pct + '%';
+  const badge = document.getElementById('completeBadge');
+  if (pct === 100) { badge.textContent='ข้อมูลครบ'; badge.className='complete-badge badge-complete'; }
+  else { badge.textContent='ไม่สมบูรณ์'; badge.className='complete-badge badge-incomplete'; }
+};
+
+window.previewCover = () => {
+  const url = document.getElementById('coverUrlInput')?.value?.trim();
+  const img = document.getElementById('coverImgEl');
+  const thumb = document.getElementById('coverPreviewThumb');
+  const placeholder = document.getElementById('coverThumbPlaceholder');
+  if (!url) {
+    img.style.display = 'none';
+    thumb.style.display = 'none';
+    if(placeholder) placeholder.style.display = 'flex';
+    return;
+  }
+  const testImg = new Image();
+  testImg.onload = () => {
+    img.src = url; img.style.display = 'block';
+    thumb.src = url; thumb.style.display = 'block';
+    if(placeholder) placeholder.style.display = 'none';
+  };
+  testImg.onerror = () => { img.style.display='none'; };
+  testImg.src = url;
+};
+
+window.previewLogo = () => {
+  const url = document.getElementById('logoUrlInput')?.value?.trim();
+  const box = document.getElementById('logoPreviewBox');
+  const nav = document.getElementById('logoPreviewNav');
+  const init = document.getElementById('logoInitial');
+  if (!url) { box.innerHTML='🏢'; nav.style.display='none'; if(init)init.style.display=''; return; }
+  const img = document.createElement('img');
+  img.onload = () => {
+    box.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`;
+    nav.src = url; nav.style.display = 'block';
+    if(init) init.style.display = 'none';
+  };
+  img.onerror = () => { box.innerHTML='🏢'; };
+  img.src = url;
+};
+
+window.toggleSameAddress = () => {
+  const checked = document.getElementById('sameAddress').checked;
+  document.getElementById('shippingAddressBlock').style.opacity = checked ? '0.4' : '1';
+  document.getElementById('shippingAddressBlock').style.pointerEvents = checked ? 'none' : 'auto';
+};
+
+window.updateDocStatus = (inputId, statusId) => {
+  const val = document.getElementById(inputId)?.value?.trim();
+  const el = document.getElementById(statusId);
+  if (!el) return;
+  if (val) { el.textContent='✅ มีเอกสารแล้ว'; el.className='doc-status has-doc'; }
+  else { el.textContent='⚪ ยังไม่มีเอกสาร'; el.className='doc-status no-doc'; }
+};
+
+function updateAllDocStatus() {
+  const pairs = [['docVat','vatStatus'],['docCert','certStatus'],['docId','idStatus'],['docBank','bankStatus'],['docShare','shareStatus'],['docOther','otherStatus']];
+  pairs.forEach(([a,b]) => updateDocStatus(a,b));
+}
+
+window.openDocLink = (inputId) => {
+  const url = document.getElementById(inputId)?.value?.trim();
+  if (url) window.open(url,'_blank');
+  else showToast('⚠️ ยังไม่ได้ใส่ URL เอกสาร', true);
+};
+
+// ── PREVIEW MODAL ──
+window.openPreview = () => {
+  const g = id => document.getElementById(id)?.value?.trim() || '—';
+  const logoUrl = g('logoUrlInput');
+  const logoEl = document.getElementById('previewLogo');
+  if (logoUrl && logoUrl !== '—') {
+    logoEl.innerHTML = `<img src="${logoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" onerror="this.parentElement.textContent='?'">`;
+  } else {
+    logoEl.textContent = (g('compName')[0] || '?').toUpperCase();
+  }
+  document.getElementById('previewName').textContent = g('compName');
+  document.getElementById('previewType').textContent = typeLabels[g('compType')] || g('compType');
+  document.getElementById('previewPhone').textContent = g('compPhone');
+  document.getElementById('previewEmail').textContent = g('compEmail');
+  document.getElementById('previewWeb').textContent = g('compWebsite');
+  document.getElementById('previewTax').textContent = g('compTaxId');
+  document.getElementById('previewLine').textContent = g('compLine') !== '—' ? '@'+g('compLine') : '—';
+  const addr = [g('compAddress'), g('compSubdistrict'), g('compDistrict'), g('compProvince'), g('compZip')].filter(v=>v&&v!=='—').join(' ');
+  document.getElementById('previewAddr').textContent = addr || '—';
+
+  // docs
+  const docMap = [['docVat','prev-vat'],['docCert','prev-cert'],['docId','prev-id'],['docBank','prev-bank'],['docShare','prev-share'],['docOther','prev-other']];
+  docMap.forEach(([inp,prev]) => {
+    const val = document.getElementById(inp)?.value?.trim();
+    const el = document.getElementById(prev);
+    if (val) { el.textContent='✅ มีเอกสาร'; el.className='doc-preview-status ok'; }
+    else { el.textContent='⚪ ยังไม่มี'; el.className='doc-preview-status missing'; }
+  });
+  document.getElementById('previewModal').classList.add('open');
+};
+
+window.closePreview = () => document.getElementById('previewModal').classList.remove('open');
+document.getElementById('previewModal').addEventListener('click', e => { if(e.target===document.getElementById('previewModal')) closePreview(); });
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isErr?' error':'');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+</script>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['info','address','social','docs'];
+    b.classList.toggle('active', tabs[i]===name);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+</script>
+</body>
+</html>
