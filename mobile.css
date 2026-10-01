@@ -1,0 +1,38 @@
+/* ══════════════════════════════════════════
+   EliteFlow — ปรับหน้าเว็บให้ดูดีบนมือถือ
+   ไฟล์นี้ใช้ร่วมกันทุกหน้า (ยกเว้น index.html, app.html ที่มีของตัวเอง)
+   ทำงานเฉพาะจอกว้างไม่เกิน 768px — หน้าจอคอมไม่เปลี่ยน
+   ══════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ---------- แถบเมนูบน ---------- */
+  .top-nav, .nav {
+    padding-left: 12px !important; padding-right: 12px !important;
+    gap: 8px !important; height: auto !important; min-height: 56px;
+  }
+  .top-nav .nav-brand, .nav .nav-brand,
+  .nav-div, .nav-divider, .nav-badge-store,
+  #navUser, .nav-user, .nav-role, .coin-label { display: none !important; }
+  .nav-crumb, .nav-breadcrumb, .nav-title, .nav-page-title {
+    flex: 1 1 auto; min-width: 0; font-size: 13px !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .nav-breadcrumb { display: flex; gap: 4px; }
+  .nav-breadcrumb > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-spacer { flex: 1 1 0; min-width: 0; }
+  .nav-back, .nav-back-btn, .nav-btn, .logout-btn, .coin-topup-btn {
+    white-space: nowrap; flex-shrink: 0;
+    padding: 6px 10px !important; font-size: 12px !important;
+  }
+  .coin-display { padding: 4px 8px !important; flex-shrink: 0; }
+
+  /* ---------- เนื้อหา ---------- */
+  img, video, canvas, iframe { max-width: 100%; }
+  table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  /* กันมือถือ (iPhone) ซูมเข้าเองตอนแตะช่องกรอก */
+  input, select, textarea { font-size: 16px !important; }
+  /* กล่องป๊อปอัปให้พอดีจอ */
+  .modal, .modal-box, .modal-card, .modal-content {
+    max-width: calc(100vw - 24px) !important; max-height: calc(100vh - 40px); overflow-y: auto;
+  }
+}

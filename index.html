@@ -593,6 +593,45 @@ tr:hover td{background:rgba(168,85,247,0.03);}
   .hero-headline{font-size:32px;}
   .land-footer{padding:20px;}
 }
+
+/* ══ MOBILE (มือถือ) ══ */
+@media(max-width:768px){
+  /* landing nav */
+  .land-nav{padding:0 14px;gap:8px;}
+  .nav-tagline{display:none;}
+  .nav-brand{font-size:18px;}
+  .nav-btn-ghost,.nav-btn-solid{padding:8px 12px;font-size:12px;white-space:nowrap;}
+  .hero-slideshow{height:62vh;min-height:320px;}
+  .slide-arrow.prev{left:12px;}
+  .slide-arrow.next{right:12px;}
+  .promo-side{padding:32px 0;gap:24px;}
+  .stats-row{gap:12px;padding:16px;}
+  .stat-num-big{font-size:20px;}
+  .stat-lbl{font-size:10px;letter-spacing:.5px;}
+
+  /* app floating nav → แถบเต็มความกว้าง 2 แถว */
+  .top-nav{top:8px;left:8px;right:8px;transform:none;flex-wrap:wrap;justify-content:space-between;
+    border-radius:18px;padding:8px 10px;row-gap:6px;white-space:normal;}
+  .nav-pill-divider,.nav-pill-divider-r,.user-name-nav{display:none;}
+  .nav-links{order:3;width:100%;overflow-x:auto;scrollbar-width:none;gap:4px;}
+  .nav-links::-webkit-scrollbar{display:none;}
+  .nav-link,.nav-dropdown-btn{padding:6px 10px;}
+  .nav-right{margin-left:auto;gap:6px;}
+  .dropdown-menu{top:106px;padding:14px;max-height:calc(100vh - 116px);overflow-y:auto;border-radius:16px;
+    left:8px !important;right:8px !important;width:auto !important;}
+  .mega-grid{grid-template-columns:1fr 1fr;}
+  .mega-section-label,.dropdown-divider{grid-column:1/-1;}
+  .dropdown-item{padding:10px;}
+  .dropdown-item-desc{display:none;}
+  .dropdown-item-name{font-size:12px;}
+  .page-content{padding:120px 14px 32px;}
+  .page-title{font-size:22px;}
+
+  /* ตาราง & ฟอร์ม */
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+  .profile-grid{grid-template-columns:1fr;}
+  input,select,textarea{font-size:16px !important;}
+}
 </style>
 </head>
 <body>

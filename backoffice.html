@@ -1684,5 +1684,21 @@ window.saveStoreModule = async (id) => {
 
 
 </script>
+<style id="mobile-fix">
+@media(max-width:768px){
+  .app-body{flex-direction:column;}
+  .sidebar{width:100%;height:auto;position:sticky;top:56px;z-index:50;display:flex;gap:6px;overflow-x:auto;
+    padding:8px 10px;border-right:none;border-bottom:1px solid rgba(168,85,247,0.1);scrollbar-width:none;}
+  .sidebar::-webkit-scrollbar{display:none;}
+  .sidebar-section{display:none;}
+  .sidebar-btn{width:auto;flex-shrink:0;white-space:nowrap;padding:8px 12px;}
+  .main-content{padding:16px 14px;}
+  .stats-row{grid-template-columns:repeat(2,1fr) !important;gap:10px;}
+  .stat-box{padding:14px 10px;}
+  .store-grid{grid-template-columns:1fr;}
+  [style*="grid-template-columns:280px 1fr"]{grid-template-columns:1fr !important;height:auto !important;}
+}
+</style>
+<link rel="stylesheet" href="mobile.css">
 </body>
 </html>

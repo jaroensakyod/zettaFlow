@@ -450,7 +450,10 @@ window.openRoom = async (roomId) => {
   renderRooms();
   renderChatArea();
   loadMessages(roomId);
+  document.querySelector('.chat-wrap').classList.add('room-open');
 };
+// มือถือ: กลับไปหน้ารายชื่อห้องแชท
+window.closeRoomMobile = () => document.querySelector('.chat-wrap').classList.remove('room-open');
 
 function renderChatArea() {
   const main = document.getElementById('chatMain');
@@ -460,6 +463,7 @@ function renderChatArea() {
 
   main.innerHTML = `
     <div class="chat-header">
+      <button class="icon-btn chat-back-btn" onclick="closeRoomMobile()" title="กลับ">←</button>
       <div class="chat-header-avatar${isGroup?' group':''}" style="background:${getRoomColor(currentRoom)};font-size:18px;">${avatar}</div>
       <div class="chat-header-info">
         <div class="chat-header-name">${esc(name)}</div>
@@ -705,5 +709,16 @@ function showToast(msg) {
   document.getElementById(id).addEventListener('click', function(e) { if(e.target===this) this.classList.remove('open'); });
 });
 </script>
+<style id="mobile-fix">
+.chat-back-btn{display:none;}
+@media(max-width:768px){
+  .sidebar{width:100%;border-right:none;}
+  .chat-main{display:none;}
+  .chat-wrap.room-open .sidebar{display:none;}
+  .chat-wrap.room-open .chat-main{display:flex;}
+  .chat-back-btn{display:flex;}
+}
+</style>
+<link rel="stylesheet" href="mobile.css">
 </body>
 </html>
