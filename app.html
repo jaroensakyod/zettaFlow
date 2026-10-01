@@ -1500,4 +1500,41 @@ function openTlDetail(ev){
 }
 window.closeTlDetail=()=>document.getElementById('tlDetail').classList.remove('open');
 </script>
+<style id="mobile-fix">
+/* ══ MOBILE (มือถือ) ══ */
+@media(max-width:768px){
+  .top-nav{height:auto;flex-wrap:wrap;padding:8px 12px;row-gap:6px;}
+  .nav-pill-divider,.nav-pill-divider-r,.nav-profile-info{display:none;}
+  .nav-right{margin-left:auto;gap:6px;}
+  .nav-profile-btn{padding:3px;}
+  .logout-btn{padding:5px 10px;}
+  .nav-links{order:3;flex:0 0 100%;overflow-x:auto;scrollbar-width:none;}
+  .nav-links::-webkit-scrollbar{display:none;}
+  .nav-link,.nav-dropdown-btn{padding:6px 10px;}
+  .dropdown-menu{top:96px;left:8px;right:8px;width:auto;padding:14px !important;border-radius:16px;
+    max-height:calc(100vh - 106px);overflow-y:auto;}
+  .mega-grid{grid-template-columns:1fr 1fr !important;}
+  .mega-section-label,.dropdown-divider{grid-column:1/-1;}
+  .dropdown-item{padding:10px;}
+  .dropdown-item-desc{display:none;}
+  .dropdown-item-name{font-size:12px;}
+  .page-content{padding:110px 14px 32px;}
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+  input,select,textarea{font-size:16px !important;}
+
+  /* ปฏิทิน: เรียงเป็นแนวตั้ง เลื่อนดูได้ */
+  .cal-topbar{height:auto;flex-wrap:wrap;padding:10px 12px;gap:8px;}
+  .cal-topbar{position:relative;}
+  .cal-topbar-title{flex:1 1 100%;order:-1;padding-right:44px;}
+  .cal-close-fs{position:absolute;top:10px;right:12px;}
+  .cal-main{grid-template-columns:1fr;overflow-y:auto;}
+  .cal-sidebar-left{border-right:none;border-bottom:1px solid rgba(42,26,74,0.6);}
+  .cal-sidebar-right{border-left:none;border-top:1px solid rgba(42,26,74,0.6);overflow:visible;}
+  .cal-center{padding:14px 10px;overflow:visible;}
+  .cal-big-grid{gap:2px;}
+  .cal-big-day{min-height:54px;padding:4px;border-radius:8px;}
+  .cal-big-ev{font-size:9px;padding:1px 3px;}
+}
+</style>
+</body>
 </html>

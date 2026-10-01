@@ -701,5 +701,6 @@ window.submitForm=async()=>{
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function showToast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
 </script>
+<link rel="stylesheet" href="mobile.css">
 </body>
 </html>
