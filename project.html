@@ -472,6 +472,11 @@ function loadProjects() {
     allProjects = snap.docs.map(d => ({id:d.id,...d.data()}));
     renderBoard();
     updateStats();
+    // เปิดรายละเอียดโปรเจกต์อัตโนมัติ เมื่อกดมาจากหน้า Dashboard (project.html?id=...)
+    const openId = new URLSearchParams(location.search).get('id');
+    if (openId && !window._openedFromDash && allProjects.some(p => p.id === openId)) {
+      window._openedFromDash = true; openDetailModal(openId);
+    }
   });
 }
 
