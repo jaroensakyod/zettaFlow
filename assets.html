@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EliteFlow — ทรัพย์สินบริษัท</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07050f;--surface:#0e0a1a;--surface2:#150f25;--border:#2a1a4a;
+  --accent:#c084fc;--accent2:#7c3aed;--accent3:#a855f7;
+  --teal:#2dd4bf;--green:#4ade80;--red:#f87171;--yellow:#fbbf24;--orange:#fb923c;
+  --text:#f3e8ff;--muted:#6b4fa0;--muted2:#9d7ec9;
+  --col-pending:#2a1a4a;--col-progress:#1a2a4a;--col-review:#2a2a1a;--col-done:#1a2a1a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;}
+.global-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 15% 30%,rgba(124,58,237,0.15) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at 85% 70%,rgba(45,212,191,0.06) 0%,transparent 60%),var(--bg);}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:20px;transition:opacity 0.4s;}
+.loading-brand{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;}
+.loading-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.loading-bar{width:180px;height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent3),var(--teal));animation:load 1s ease forwards;}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid rgba(74,222,128,0.4);border-radius:10px;padding:13px 18px;font-size:13px;color:var(--green);box-shadow:0 8px 24px rgba(0,0,0,0.4);transform:translateY(80px);opacity:0;transition:all 0.3s;z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:rgba(248,113,113,0.4);color:var(--red);}
+
+/* NAV */
+.top-nav{position:fixed;top:0;left:0;right:0;z-index:200;height:56px;display:flex;align-items:center;gap:0;background:rgba(10,7,20,0.92);border-bottom:1px solid rgba(168,85,247,0.2);padding:0 24px;backdrop-filter:blur(24px);box-shadow:0 4px 24px rgba(0,0,0,0.3);}
+.nav-logo{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:white;border:1px solid rgba(168,85,247,0.4);position:relative;overflow:hidden;flex-shrink:0;margin-right:8px;}
+.nav-logo img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;}
+.nav-brand{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-right:16px;}
+.nav-brand span{background:linear-gradient(135deg,var(--accent3),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-divider{width:1px;height:20px;background:rgba(168,85,247,0.2);margin:0 12px;}
+.nav-page-title{font-size:14px;color:var(--muted2);font-family:'Syne',sans-serif;font-weight:600;}
+.nav-spacer{flex:1;}
+.nav-back{padding:6px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;text-decoration:none;display:flex;align-items:center;gap:6px;}
+.nav-back:hover{border-color:var(--accent3);color:var(--accent3);}
+.nav-user{font-size:12px;color:var(--muted);}
+.logout-btn{padding:5px 12px;border-radius:8px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);font-size:11px;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans Thai',sans-serif;margin-left:8px;}
+.logout-btn:hover{background:rgba(248,113,113,0.18);}
+
+/* MAIN */
+.main-wrap{position:relative;z-index:1;padding:72px 24px 32px;}
+
+/* HEADER */
+
+/* BUTTONS */
+.btn-primary{padding:9px 20px;background:linear-gradient(135deg,var(--accent2),var(--accent3));border:none;border-radius:9px;color:white;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 16px rgba(124,58,237,0.3);display:flex;align-items:center;gap:6px;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,58,237,0.5);}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;vertical-align:middle;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid rgba(168,85,247,0.25);border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px rgba(0,0,0,0.6);animation:fadeUp 0.25s ease;}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--text),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.modal-close{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.2s;}
+.modal-close:hover{border-color:var(--red);color:var(--red);}
+.modal-body{padding:24px;}
+.field-group{margin-bottom:16px;}
+.field-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;font-family:'Syne',sans-serif;}
+.field-input,.field-select,.field-textarea{width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;}
+.field-input:focus,.field-select:focus,.field-textarea:focus{border-color:var(--accent3);box-shadow:0 0 0 3px rgba(168,85,247,0.1);}
+.field-input::placeholder,.field-textarea::placeholder{color:rgba(107,79,160,0.4);}
+.field-textarea{resize:vertical;min-height:70px;}
+/* MODAL ACTIONS */
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.btn-cancel{flex:1;padding:11px;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--muted);font-family:'Noto Sans Thai',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.btn-cancel:hover{border-color:var(--text);color:var(--text);}
+.page-sub{font-size:13px;color:var(--muted2);margin-top:4px;}
+.as-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+.as-stat{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 20px;}
+.as-stat-lbl{font-size:12px;color:var(--muted2);margin-bottom:8px;}
+.as-stat-num{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;}
+.as-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.as-search{flex:1;min-width:200px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Noto Sans Thai',sans-serif;font-size:13px;outline:none;}
+.as-search:focus{border-color:var(--accent3);}
+.as-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.as-chip{padding:7px 13px;border-radius:50px;border:1px solid var(--border);background:var(--surface);color:var(--muted2);font-size:12px;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;}
+.as-chip.active{background:linear-gradient(135deg,var(--accent2),var(--accent3));color:white;border-color:transparent;}
+.as-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;}
+.as-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .2s;animation:fadeUp .3s ease;}
+.as-card:hover{border-color:var(--accent3);transform:translateY(-2px);}
+.as-thumb{height:150px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:42px;overflow:hidden;}
+.as-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.as-card-body{padding:14px 16px;}
+.as-card-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.as-card-meta{font-size:12px;color:var(--muted2);margin-top:4px;display:flex;justify-content:space-between;gap:8px;}
+.as-card-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid rgba(42,26,74,0.6);font-size:12px;color:var(--muted);}
+.as-card-foot b{font-family:'Syne',sans-serif;color:var(--text);font-size:14px;}
+.as-badge{padding:3px 9px;border-radius:50px;font-size:10px;font-weight:600;white-space:nowrap;}
+.as-badge.use{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+.as-badge.fix{background:rgba(251,191,36,0.1);color:var(--yellow);border:1px solid rgba(251,191,36,0.2);}
+.as-badge.off{background:rgba(107,79,160,0.15);color:var(--muted2);border:1px solid rgba(107,79,160,0.25);}
+.as-empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);background:var(--surface);border:1px dashed var(--border);border-radius:16px;}
+.modal.wide{max-width:720px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.as-total{font-size:12px;color:var(--muted2);margin:-6px 0 16px;text-align:right;}
+.as-total b{color:var(--accent);font-family:'Syne',sans-serif;font-size:15px;}
+.as-drop{border:1.5px dashed rgba(168,85,247,0.3);border-radius:12px;padding:18px;text-align:center;cursor:pointer;color:var(--muted2);font-size:13px;transition:all .2s;background:rgba(168,85,247,0.03);}
+.as-drop:hover,.as-drop.drag{border-color:var(--accent3);background:rgba(168,85,247,0.08);}
+.as-drop small{display:block;color:var(--muted);font-size:11px;margin-top:4px;}
+.as-files{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px;}
+.as-file{position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface2);aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;color:var(--text);}
+.as-file img{width:100%;height:100%;object-fit:cover;}
+.as-file .ic{font-size:28px;}
+.as-file .nm{font-size:10px;color:var(--muted2);padding:4px 6px;width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.as-file .del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,0.7);color:white;cursor:pointer;font-size:11px;}
+.as-file.img .nm{position:absolute;bottom:0;background:rgba(0,0,0,0.6);}
+.as-detail-hero{height:220px;background:var(--surface2);border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:56px;margin-bottom:16px;}
+.as-detail-hero img{width:100%;height:100%;object-fit:contain;background:#000;}
+.as-kv{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+.as-kv div{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.as-kv small{display:block;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;}
+.as-kv span{font-size:14px;}
+.btn-danger{padding:11px 16px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:9px;color:var(--red);cursor:pointer;font-family:'Noto Sans Thai',sans-serif;font-size:13px;}
+.as-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:400;display:none;align-items:center;justify-content:center;padding:20px;cursor:zoom-out;}
+.as-lightbox.open{display:flex;}
+.as-lightbox img{max-width:100%;max-height:100%;border-radius:8px;}
+@media(max-width:768px){
+  .main-wrap{padding:72px 14px 32px;}
+  .as-stats{grid-template-columns:1fr 1fr;gap:10px;}
+  .as-stats .as-stat:first-child{grid-column:1/-1;}
+  .as-stat-num{font-size:20px;}
+  .grid-2,.grid-3{grid-template-columns:1fr;}
+  .as-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .as-thumb{height:110px;}
+  .as-card-body{padding:10px 12px;}
+  .as-card-meta{flex-direction:column;gap:2px;}
+  .modal-overlay{padding:10px;}
+  .as-chips{flex-wrap:nowrap;overflow-x:auto;width:100%;scrollbar-width:none;}
+  .as-chip{flex-shrink:0;}
+}
+
+</style>
+</head>
+<body>
+<div class="global-bg"></div>
+<div class="loading-overlay" id="loadingOverlay">
+  <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--teal));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:white;border:2px solid rgba(168,85,247,0.5);position:relative;overflow:hidden;">
+    EF<img src="logo.png" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
+  </div>
+  <div class="loading-brand">Elite<span>Flow</span></div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+<div class="toast" id="toast"></div>
+
+<nav class="top-nav">
+  <div class="nav-logo">EF<img src="logo.png" onerror="this.style.display='none'"></div>
+  <div class="nav-brand">Elite<span>Flow</span></div>
+  <div class="nav-divider"></div>
+  <div class="nav-page-title">🏷️ ทรัพย์สินบริษัท</div>
+  <div class="nav-spacer"></div>
+  <span class="nav-user" id="navUser"></span>
+  <a class="nav-back" href="app.html">← กลับหน้าหลัก</a>
+  <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
+</nav>
+
+<div class="main-wrap">
+  <div class="page-header">
+    <div>
+      <div class="page-title">🏷️ ทรัพย์สินบริษัท</div>
+      <div class="page-sub">บันทึกว่ามีอะไรบ้าง ซื้อที่ไหน ราคาเท่าไหร่ ใครดูแล พร้อมรูปและเอกสาร</div>
+    </div>
+    <div class="header-actions"><button class="btn-primary" onclick="openForm()">＋ เพิ่มทรัพย์สิน</button></div>
+  </div>
+
+  <div class="as-stats">
+    <div class="as-stat"><div class="as-stat-lbl">💰 มูลค่ารวม</div><div class="as-stat-num" id="stValue" style="color:var(--accent);">—</div></div>
+    <div class="as-stat"><div class="as-stat-lbl">📦 จำนวนรายการ</div><div class="as-stat-num" id="stItems">—</div></div>
+    <div class="as-stat"><div class="as-stat-lbl">🔢 จำนวนชิ้นรวม</div><div class="as-stat-num" id="stQty">—</div></div>
+  </div>
+
+  <div class="as-toolbar">
+    <input class="as-search" id="search" placeholder="🔍 ค้นหาชื่อ ร้านที่ซื้อ หรือผู้ดูแล..." oninput="render()">
+    <div class="as-chips" id="chips"></div>
+  </div>
+  <div class="as-grid" id="grid"><div class="as-empty">กำลังโหลด...</div></div>
+</div>
+
+<!-- ฟอร์มเพิ่ม/แก้ไข -->
+<div class="modal-overlay" id="formModal">
+  <div class="modal wide">
+    <div class="modal-header"><div class="modal-title" id="formTitle">เพิ่มทรัพย์สิน</div><button class="modal-close" onclick="closeModal('formModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="field-group"><label class="field-label">ชื่อทรัพย์สิน *</label><input class="field-input" id="fName" placeholder="เช่น MacBook Air M3, โต๊ะพับ, บูธ Pop-up"></div>
+      <div class="grid-2">
+        <div class="field-group"><label class="field-label">หมวดหมู่</label><select class="field-select" id="fCat"></select></div>
+        <div class="field-group"><label class="field-label">สถานะ</label><select class="field-select" id="fStatus"><option value="use">✅ ใช้งานอยู่</option><option value="fix">🔧 ส่งซ่อม</option><option value="off">⛔ เลิกใช้ / จำหน่ายแล้ว</option></select></div>
+      </div>
+      <div class="grid-2">
+        <div class="field-group"><label class="field-label">ซื้อที่ไหน (ร้าน / ผู้ขาย)</label><input class="field-input" id="fShop" placeholder="เช่น Power Buy เซ็นทรัลเวิลด์, Shopee"></div>
+        <div class="field-group"><label class="field-label">วันที่ซื้อ</label><input class="field-input" type="date" id="fDate"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field-group"><label class="field-label">ราคาต่อชิ้น (บาท)</label><input class="field-input" type="number" min="0" step="0.01" id="fPrice" placeholder="0" oninput="calcTotal()"></div>
+        <div class="field-group"><label class="field-label">จำนวน (ชิ้น)</label><input class="field-input" type="number" min="1" step="1" id="fQty" value="1" oninput="calcTotal()"></div>
+      </div>
+      <div class="as-total">มูลค่ารวม <b id="fTotal">฿0</b></div>
+      <div class="grid-2">
+        <div class="field-group"><label class="field-label">ผู้ดูแล</label><input class="field-input" id="fOwner" placeholder="ชื่อพนักงานที่รับผิดชอบ"></div>
+        <div class="field-group"><label class="field-label">เก็บไว้ที่ไหน</label><input class="field-input" id="fPlace" placeholder="เช่น ออฟฟิศชั้น 2, โกดัง"></div>
+      </div>
+      <div class="field-group"><label class="field-label">หมายเหตุ</label><textarea class="field-textarea" id="fNote" placeholder="เลขซีเรียล, ระยะประกัน, รายละเอียดอื่นๆ"></textarea></div>
+      <div class="field-group">
+        <label class="field-label">รูปภาพ & ไฟล์แนบ</label>
+        <div class="as-drop" id="drop" onclick="document.getElementById('fFiles').click()">📎 กดเพื่อเลือก หรือลากไฟล์มาวางตรงนี้
+          <small>รูปภาพ (ย่อขนาดให้อัตโนมัติ) · PDF, Word, Excel ไม่เกิน 700KB ต่อไฟล์</small></div>
+        <input type="file" id="fFiles" multiple hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" onchange="addFiles(this.files);this.value=''">
+        <div class="as-files" id="fFileList"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('formModal')">ยกเลิก</button>
+        <button class="btn-primary" id="saveBtn" style="flex:2;" onclick="saveAsset()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- รายละเอียด -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal wide">
+    <div class="modal-header"><div class="modal-title" id="dTitle">—</div><button class="modal-close" onclick="closeModal('detailModal')">✕</button></div>
+    <div class="modal-body" id="dBody"></div>
+  </div>
+</div>
+
+<div class="as-lightbox" id="lightbox" onclick="this.classList.remove('open')"><img id="lightboxImg" alt=""></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, getDocs, query, where, onSnapshot, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"",
+  authDomain:"elitflow-38bc4.firebaseapp.com",
+  projectId:"elitflow-38bc4",
+  storageBucket:"elitflow-38bc4.firebasestorage.app",
+  messagingSenderId:"697101909670",
+  appId:"1:697101909670:web:afa2071ba0ca64dbba7e67"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+// ══ ทรัพย์สินบริษัท ══
+// ข้อมูลหลักเก็บใน companyAssets/{id}  ·  รูปและไฟล์แนบเก็บแยกใน companyAssets/{id}/files/{fileId}
+// (เก็บไฟล์ใน Firestore โดยตรง ไม่ต้องเปิด Firebase Storage — จำกัดไฟล์ละไม่เกิน ~700KB)
+const CATS = [
+  {k:'it',ic:'💻',n:'ไอที / อิเล็กทรอนิกส์'},{k:'furniture',ic:'🪑',n:'เฟอร์นิเจอร์'},
+  {k:'event',ic:'🎪',n:'อุปกรณ์งานอีเวนต์ / บูธ'},{k:'office',ic:'🖨️',n:'อุปกรณ์สำนักงาน'},
+  {k:'vehicle',ic:'🚚',n:'ยานพาหนะ'},{k:'tool',ic:'🛠️',n:'เครื่องมือ'},{k:'other',ic:'📦',n:'อื่นๆ'}
+];
+const CAT = Object.fromEntries(CATS.map(c=>[c.k,c]));
+const STATUS = {use:'✅ ใช้งานอยู่',fix:'🔧 ส่งซ่อม',off:'⛔ เลิกใช้'};
+const MAX_FILE = 700*1024;
+let currentUser=null, assets=[], catFilter='all', editingId=null, formFiles=[], removedFileIds=[];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const money = n => '฿'+(Math.round((+n||0)*100)/100).toLocaleString('th-TH',{maximumFractionDigits:2});
+const thDate = s => { if(!s) return '—'; const d=new Date(s+'T00:00:00'); return isNaN(d)?'—':d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'}); };
+const fileIcon = (t,n) => /pdf/.test(t)||/\.pdf$/i.test(n)?'📕':/sheet|excel|csv/.test(t)||/\.(xlsx?|csv)$/i.test(n)?'📊':/word|document/.test(t)||/\.docx?$/i.test(n)?'📝':'📄';
+function showToast(msg,err=false){const t=$('toast');t.textContent=msg;t.className='toast'+(err?' error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+window.closeModal = id => $(id).classList.remove('open');
+
+onAuthStateChanged(auth, user => {
+  $('loadingOverlay').style.opacity='0';
+  setTimeout(()=>$('loadingOverlay').style.display='none',400);
+  if(!user){ location.href='index.html'; return; }
+  currentUser=user;
+  $('navUser').textContent=user.email.split('@')[0];
+  $('fCat').innerHTML=CATS.map(c=>`<option value="${c.k}">${c.ic} ${c.n}</option>`).join('');
+  renderChips();
+  onSnapshot(query(collection(db,'companyAssets'),where('companyId','==',user.uid)), snap=>{
+    const ts=a=>a.createdAt?.toMillis?.()||Date.now();
+    assets=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>ts(b)-ts(a));
+    render();
+  }, err=>{
+    console.error(err);
+    $('grid').innerHTML=`<div class="as-empty">โหลดข้อมูลไม่สำเร็จ (${esc(err.code||err.message)})${err.code==='permission-denied'?'<br><small>ต้องเพิ่มสิทธิ์ companyAssets ใน Firestore Rules ก่อน</small>':''}</div>`;
+  });
+});
+window.doLogout = async()=>{ await signOut(auth); location.href='index.html'; };
+
+// ── รายการ ──
+function renderChips(){
+  const used=['all',...CATS.map(c=>c.k)];
+  $('chips').innerHTML=used.map(k=>`<button class="as-chip${catFilter===k?' active':''}" onclick="setCat('${k}')">${k==='all'?'ทั้งหมด':CAT[k].ic+' '+CAT[k].n}</button>`).join('');
+}
+window.setCat = k => { catFilter=k; renderChips(); render(); };
+window.render = () => {
+  const q=$('search').value.trim().toLowerCase();
+  const active=assets.filter(a=>a.status!=='off');
+  $('stValue').textContent=money(active.reduce((s,a)=>s+(+a.price||0)*(+a.qty||0),0));
+  $('stItems').textContent=assets.length.toLocaleString('th-TH');
+  $('stQty').textContent=active.reduce((s,a)=>s+(+a.qty||0),0).toLocaleString('th-TH');
+  const list=assets.filter(a=>(catFilter==='all'||a.category===catFilter)&&(!q||[a.name,a.shop,a.owner,a.place,a.note].some(v=>String(v||'').toLowerCase().includes(q))));
+  if(!assets.length){ $('grid').innerHTML='<div class="as-empty">ยังไม่มีทรัพย์สิน<br><br><button class="btn-primary" onclick="openForm()">＋ เพิ่มทรัพย์สินชิ้นแรก</button></div>'; return; }
+  if(!list.length){ $('grid').innerHTML='<div class="as-empty">ไม่พบรายการที่ค้นหา</div>'; return; }
+  $('grid').innerHTML=list.map(a=>{const c=CAT[a.category]||CAT.other;const st=STATUS[a.status]?a.status:'use';return `
+    <div class="as-card" onclick="openDetail('${a.id}')">
+      <div class="as-thumb">${a.thumb?`<img src="${a.thumb}" alt="">`:c.ic}</div>
+      <div class="as-card-body">
+        <div class="as-card-name">${esc(a.name)}</div>
+        <div class="as-card-meta"><span>${c.ic} ${esc(c.n)}</span><span>👤 ${esc(a.owner||'ยังไม่ระบุผู้ดูแล')}</span></div>
+        <div class="as-card-foot"><span>${(+a.qty||0).toLocaleString('th-TH')} ชิ้น · <b>${money((+a.price||0)*(+a.qty||0))}</b></span><span class="as-badge ${st}">${STATUS[st]}</span></div>
+      </div>
+    </div>`;}).join('');
+};
+
+// ── รายละเอียด ──
+window.openDetail = async id => {
+  const a=assets.find(x=>x.id===id); if(!a) return;
+  const c=CAT[a.category]||CAT.other, st=STATUS[a.status]?a.status:'use';
+  $('dTitle').textContent=a.name;
+  $('dBody').innerHTML=`
+    <div class="as-detail-hero" id="dHero">${a.thumb?`<img src="${a.thumb}" alt="">`:c.ic}</div>
+    <div class="as-kv">
+      <div><small>หมวดหมู่</small><span>${c.ic} ${esc(c.n)}</span></div>
+      <div><small>สถานะ</small><span class="as-badge ${st}">${STATUS[st]}</span></div>
+      <div><small>ซื้อที่</small><span>${esc(a.shop||'—')}</span></div>
+      <div><small>วันที่ซื้อ</small><span>${thDate(a.buyDate)}</span></div>
+      <div><small>ราคาต่อชิ้น</small><span>${money(a.price)}</span></div>
+      <div><small>จำนวน</small><span>${(+a.qty||0).toLocaleString('th-TH')} ชิ้น</span></div>
+      <div><small>มูลค่ารวม</small><span style="color:var(--accent);font-weight:700;">${money((+a.price||0)*(+a.qty||0))}</span></div>
+      <div><small>ผู้ดูแล</small><span>${esc(a.owner||'—')}</span></div>
+      <div style="grid-column:1/-1;"><small>เก็บไว้ที่</small><span>${esc(a.place||'—')}</span></div>
+      ${a.note?`<div style="grid-column:1/-1;"><small>หมายเหตุ</small><span style="white-space:pre-wrap;">${esc(a.note)}</span></div>`:''}
+    </div>
+    <label class="field-label">รูปภาพ & ไฟล์แนบ</label>
+    <div class="as-files" id="dFiles"><div style="grid-column:1/-1;color:var(--muted);font-size:12px;">กำลังโหลดไฟล์...</div></div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="deleteAsset('${a.id}')">🗑️ ลบ</button>
+      <button class="btn-cancel" onclick="closeModal('detailModal')">ปิด</button>
+      <button class="btn-primary" style="flex:2;" onclick="closeModal('detailModal');openForm('${a.id}')">✏️ แก้ไข</button>
+    </div>`;
+  $('detailModal').classList.add('open');
+  try{
+    const files=await loadFiles(id);
+    $('dFiles').innerHTML=files.length?files.map(f=>fileTile(f,false)).join(''):'<div style="grid-column:1/-1;color:var(--muted);font-size:12px;">ไม่มีไฟล์แนบ</div>';
+  }catch(e){ $('dFiles').innerHTML=`<div style="grid-column:1/-1;color:var(--red);font-size:12px;">โหลดไฟล์ไม่สำเร็จ (${esc(e.code||e.message)})</div>`; }
+};
+async function loadFiles(id){
+  const snap=await getDocs(collection(db,'companyAssets',id,'files'));
+  return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??0)-(b.order??0));
+}
+function fileTile(f,editable,idx){
+  const del=editable?`<button class="del" title="ลบไฟล์" onclick="event.preventDefault();event.stopPropagation();removeFormFile(${idx})">✕</button>`:'';
+  if(f.isImage) return `<a class="as-file img" href="#" onclick="event.preventDefault();openLightbox(this.querySelector('img').src)"><img src="${f.data}" alt="">${del}<div class="nm">${esc(f.name)}</div></a>`;
+  return `<a class="as-file" href="${f.data}" download="${esc(f.name)}" title="ดาวน์โหลด ${esc(f.name)}"><div class="ic">${fileIcon(f.type||'',f.name||'')}</div><div class="nm">${esc(f.name)}</div>${del}</a>`;
+}
+window.openLightbox = src => { $('lightboxImg').src=src; $('lightbox').classList.add('open'); };
+
+// ── ฟอร์ม ──
+window.openForm = async (id=null) => {
+  editingId=id; formFiles=[]; removedFileIds=[];
+  const a=id?assets.find(x=>x.id===id):{};
+  $('formTitle').textContent=id?'แก้ไขทรัพย์สิน':'เพิ่มทรัพย์สิน';
+  $('fName').value=a.name||''; $('fCat').value=a.category||'it'; $('fStatus').value=a.status||'use';
+  $('fShop').value=a.shop||''; $('fDate').value=a.buyDate||''; $('fPrice').value=a.price??'';
+  $('fQty').value=a.qty??1; $('fOwner').value=a.owner||''; $('fPlace').value=a.place||''; $('fNote').value=a.note||'';
+  calcTotal(); renderFormFiles();
+  $('formModal').classList.add('open');
+  if(id){ try{ formFiles=(await loadFiles(id)).map(f=>({...f,existing:true})); renderFormFiles(); }catch(e){} }
+};
+window.calcTotal = () => { $('fTotal').textContent=money((parseFloat($('fPrice').value)||0)*(parseInt($('fQty').value)||0)); };
+function renderFormFiles(){ $('fFileList').innerHTML=formFiles.map((f,i)=>fileTile(f,true,i)).join(''); }
+window.removeFormFile = i => { const f=formFiles[i]; if(f?.existing) removedFileIds.push(f.id); formFiles.splice(i,1); renderFormFiles(); };
+
+const readAsDataURL = file => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
+async function shrinkImage(src,maxSide,quality){
+  const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src;});
+  const s=Math.min(1,maxSide/Math.max(img.width,img.height));
+  const cv=document.createElement('canvas');cv.width=Math.round(img.width*s);cv.height=Math.round(img.height*s);
+  cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+  return cv.toDataURL('image/jpeg',quality);
+}
+window.addFiles = async list => {
+  for(const file of [...list]){
+    try{
+      if(file.type.startsWith('image/')){
+        let data=await readAsDataURL(file);
+        for(const [side,q] of [[1600,0.82],[1200,0.75],[900,0.68]]){ data=await shrinkImage(data,side,q); if(data.length<900*1024) break; }
+        const name=file.name.replace(/\.(heic|png|webp|gif|jpe?g)$/i,'')+'.jpg';
+        formFiles.push({name,type:'image/jpeg',isImage:true,data,size:Math.round(data.length*0.75)});
+      }else{
+        if(file.size>MAX_FILE){ showToast(`⚠️ ${file.name} ใหญ่เกิน 700KB`,true); continue; }
+        formFiles.push({name:file.name,type:file.type,isImage:false,data:await readAsDataURL(file),size:file.size});
+      }
+    }catch(e){ showToast(`⚠️ เปิดไฟล์ ${file.name} ไม่ได้`,true); }
+  }
+  renderFormFiles();
+};
+const drop=$('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag');}));
+drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+
+window.saveAsset = async () => {
+  const name=$('fName').value.trim();
+  if(!name){ showToast('⚠️ กรุณาใส่ชื่อทรัพย์สิน',true); $('fName').focus(); return; }
+  const btn=$('saveBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> กำลังบันทึก...';
+  try{
+    const firstImg=formFiles.find(f=>f.isImage);
+    const data={
+      name, category:$('fCat').value, status:$('fStatus').value, shop:$('fShop').value.trim(), buyDate:$('fDate').value,
+      price:parseFloat($('fPrice').value)||0, qty:parseInt($('fQty').value)||0, owner:$('fOwner').value.trim(),
+      place:$('fPlace').value.trim(), note:$('fNote').value.trim(),
+      thumb:firstImg?await shrinkImage(firstImg.data,480,0.72):'', fileCount:formFiles.length,
+      companyId:currentUser.uid, updatedAt:serverTimestamp()
+    };
+    let id=editingId;
+    if(id) await setDoc(doc(db,'companyAssets',id),data,{merge:true});
+    else { data.createdAt=serverTimestamp(); data.createdBy=currentUser.uid; id=(await addDoc(collection(db,'companyAssets'),data)).id; }
+    for(const fid of removedFileIds) await deleteDoc(doc(db,'companyAssets',id,'files',fid));
+    let order=0;
+    for(const f of formFiles){
+      if(f.existing){ if(f.order!==order) await setDoc(doc(db,'companyAssets',id,'files',f.id),{order},{merge:true}); }
+      else await addDoc(collection(db,'companyAssets',id,'files'),{name:f.name,type:f.type,isImage:f.isImage,data:f.data,size:f.size,order,createdAt:serverTimestamp()});
+      order++;
+    }
+    closeModal('formModal'); showToast(editingId?'✅ แก้ไขแล้ว':'✅ เพิ่มทรัพย์สินแล้ว');
+  }catch(e){ console.error(e); showToast('❌ บันทึกไม่สำเร็จ: '+(e.code||e.message),true); }
+  btn.disabled=false; btn.innerHTML='💾 บันทึก';
+};
+
+window.deleteAsset = async id => {
+  const a=assets.find(x=>x.id===id);
+  if(!confirm(`ลบ "${a?.name||''}" และไฟล์แนบทั้งหมด?`)) return;
+  try{
+    const snap=await getDocs(collection(db,'companyAssets',id,'files'));
+    for(const d of snap.docs) await deleteDoc(d.ref);
+    await deleteDoc(doc(db,'companyAssets',id));
+    closeModal('detailModal'); showToast('🗑️ ลบแล้ว');
+  }catch(e){ showToast('❌ ลบไม่สำเร็จ: '+(e.code||e.message),true); }
+};
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ ['formModal','detailModal'].forEach(closeModal); $('lightbox').classList.remove('open'); } });
+
+</script>
+<link rel="stylesheet" href="mobile.css">
+</body>
+</html>
