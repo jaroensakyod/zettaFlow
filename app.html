@@ -448,17 +448,8 @@ onAuthStateChanged(auth, async (user) => {
     currentRole = 'staff';
   }
 
-  // ── เช็คว่ากรอกข้อมูลบริษัทหรือยัง (ยกเว้น admin) ──
-  if (currentRole !== 'admin') {
-    try {
-      const compDoc = await getDoc(doc(db,'companies',user.uid));
-      if (!compDoc.exists() || !compDoc.data().name) {
-        // ยังไม่มีข้อมูลบริษัท → redirect ไปกรอกก่อน
-        window.location.href = 'profilecompany.html?setup=1';
-        return;
-      }
-    } catch(e) {}
-  }
+  // (ปิดไว้) เดิมบังคับ user ใหม่ให้กรอกข้อมูลบริษัทก่อนเข้าใช้งาน
+  // ตอนนี้ไม่บังคับแล้ว — กรอกทีหลังได้ที่เมนู 🏢 บริษัท
 
   setupUI();
 });
