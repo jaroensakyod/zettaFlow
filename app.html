@@ -186,6 +186,40 @@ tr:hover td{background:rgba(168,85,247,0.03);}
 .btn-del{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
 .btn-del:hover{background:rgba(248,113,113,0.2);}
 .empty-state{padding:48px;text-align:center;color:var(--muted);font-size:14px;}
+.pj-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:20px 0 24px;}
+.pj-stat{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;text-decoration:none;color:inherit;transition:border-color .2s,transform .2s;display:block;}
+.pj-stat:hover{border-color:var(--accent3);transform:translateY(-2px);}
+.pj-stat-lbl{font-size:12px;color:var(--muted2);margin-bottom:10px;white-space:nowrap;}
+.pj-stat-num{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;line-height:1;}
+.pj-stat.all .pj-stat-num{color:var(--accent3);}
+.pj-stat.pending .pj-stat-num{color:var(--muted2);}
+.pj-stat.progress .pj-stat-num{color:#fbbf24;}
+.pj-stat.review .pj-stat-num{color:#60a5fa;}
+.pj-stat.done .pj-stat-num{color:var(--green);}
+.pj-dash-grid{display:grid;grid-template-columns:3fr 2fr;gap:20px;align-items:start;}
+.pj-dash-grid .section-card{margin-bottom:0;}
+.pj-see-all{font-size:12px;color:var(--accent3);text-decoration:none;}
+.pj-hint{font-size:11px;color:var(--muted);}
+.pj-row{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid rgba(42,26,74,0.5);text-decoration:none;color:inherit;transition:background .15s;}
+.pj-row:last-child{border-bottom:none;}
+.pj-row:hover{background:rgba(168,85,247,0.05);}
+.pj-row-main{flex:1;min-width:0;}
+.pj-row-title{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pj-row-sub{font-size:11px;color:var(--muted);margin-top:3px;}
+.pj-badge{padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;}
+.pj-badge.pending{background:rgba(107,79,160,0.15);color:var(--muted2);border:1px solid rgba(107,79,160,0.25);}
+.pj-badge.progress{background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.2);}
+.pj-badge.review{background:rgba(96,165,250,0.1);color:#60a5fa;border:1px solid rgba(96,165,250,0.2);}
+.pj-badge.done{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+.pj-date{flex-shrink:0;text-align:center;width:46px;padding:6px 0;border-radius:10px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.15);}
+.pj-date-d{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;line-height:1;}
+.pj-date-m{font-size:10px;color:var(--muted2);margin-top:2px;}
+.pj-when{font-size:11px;font-weight:600;flex-shrink:0;white-space:nowrap;}
+.pj-when.late{color:var(--red);}
+.pj-when.soon{color:#fbbf24;}
+.pj-when.later{color:var(--muted2);}
+@media(max-width:1000px){.pj-stats{grid-template-columns:repeat(3,1fr);}.pj-dash-grid{grid-template-columns:1fr;}}
+@media(max-width:768px){.pj-stats{grid-template-columns:repeat(2,1fr);gap:10px;}.pj-stat.all{grid-column:1/-1;}.pj-stat{padding:14px 16px;}.pj-stat-num{font-size:26px;}.pj-row{padding:12px 16px;}}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:200;}
@@ -361,16 +395,30 @@ tr:hover td{background:rgba(168,85,247,0.03);}
 <div class="page-content active" id="page-dashboard">
   <div class="page-title">Dashboard</div>
   <div class="page-sub" id="dashGreeting"></div>
-  <div class="stats-grid">
-    <div class="stat-card c1"><div class="stat-label">ลูกค้าทั้งหมด</div><div class="stat-num" id="statTotal">—</div><div class="stat-desc">รายการในระบบ</div></div>
-    <div class="stat-card c2"><div class="stat-label">เพิ่มวันนี้</div><div class="stat-num" id="statToday">—</div><div class="stat-desc">รายการใหม่</div></div>
-    <div class="stat-card c3"><div class="stat-label">ผู้ใช้ในระบบ</div><div class="stat-num" id="statUsers">—</div><div class="stat-desc">บัญชีที่สมัคร</div></div>
-    <div class="stat-card c4"><div class="stat-label">Bangkok Node</div><div class="stat-num" style="font-size:20px;padding-top:8px;">🟢 LIVE</div><div class="stat-desc">Firebase Connected</div></div>
+  <!-- สรุปโปรเจกต์ -->
+  <div class="pj-stats">
+    <a class="pj-stat all" href="project.html"><div class="pj-stat-lbl">📁 โปรเจกต์ทั้งหมด</div><div class="pj-stat-num" id="pjCntAll">—</div></a>
+    <a class="pj-stat pending" href="project.html"><div class="pj-stat-lbl">⏳ รอดำเนินการ</div><div class="pj-stat-num" id="pjCntPending">—</div></a>
+    <a class="pj-stat progress" href="project.html"><div class="pj-stat-lbl">🔄 กำลังดำเนินการ</div><div class="pj-stat-num" id="pjCntProgress">—</div></a>
+    <a class="pj-stat review" href="project.html"><div class="pj-stat-lbl">🔍 รอตรวจสอบ</div><div class="pj-stat-num" id="pjCntReview">—</div></a>
+    <a class="pj-stat done" href="project.html"><div class="pj-stat-lbl">✅ เสร็จแล้ว</div><div class="pj-stat-num" id="pjCntDone">—</div></a>
   </div>
-  <div class="section-card">
-    <div class="section-header"><div class="section-title">รายการลูกค้าล่าสุด</div></div>
-    <table><thead><tr><th>รหัส</th><th>ชื่อลูกค้า</th><th>เวลา</th></tr></thead>
-    <tbody id="recentTable"><tr><td colspan="3" class="empty-state">กำลังโหลด...</td></tr></tbody></table>
+
+  <div class="pj-dash-grid">
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">📋 โปรเจกต์ล่าสุด</div>
+        <a class="pj-see-all" href="project.html">ดูทั้งหมด →</a>
+      </div>
+      <div id="pjRecentList"><div class="empty-state">กำลังโหลด...</div></div>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">📅 กำลังมาถึง</div>
+        <span class="pj-hint">ยังไม่เสร็จ · เรียงตามวันที่ใกล้สุด</span>
+      </div>
+      <div id="pjUpcomingList"><div class="empty-state">กำลังโหลด...</div></div>
+    </div>
   </div>
 </div>
 
@@ -417,7 +465,7 @@ tr:hover td{background:rgba(168,85,247,0.03);}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, query, orderBy, onSnapshot, getDoc, setDoc, getDocs, serverTimestamp, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, query, orderBy, where, onSnapshot, getDoc, setDoc, getDocs, serverTimestamp, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey:"AIzaSyCcNc3DQ_iw0fcTyvgrXQcj3S15CNlyHGU",
@@ -576,10 +624,6 @@ function loadCustomers() {
   onSnapshot(q, (snap) => {
     allCustomers = snap.docs.map(d => ({id:d.id,...d.data()})).filter(c => c.companyId === currentUser.uid);
     renderTable(allCustomers);
-    updateDashRecent();
-    document.getElementById('statTotal').textContent = allCustomers.length;
-    const today = new Date().toDateString();
-    document.getElementById('statToday').textContent = allCustomers.filter(c => c.timestamp?.toDate?.()?.toDateString() === today).length;
   });
 }
 
@@ -597,16 +641,64 @@ function renderTable(data) {
 
 function canDelete() { return currentRole==='admin'||currentRole==='manager'; }
 
-function updateDashRecent() {
-  const tb = document.getElementById('recentTable');
-  const recent = allCustomers.slice(0,5);
-  if (!recent.length) { tb.innerHTML = '<tr><td colspan="3" class="empty-state">ยังไม่มีข้อมูล</td></tr>'; return; }
-  tb.innerHTML = recent.map(c => `
-    <tr>
-      <td><span class="cust-id">${esc(c.cust_id)}</span></td>
-      <td>${esc(c.cust_name)}</td>
-      <td style="color:var(--muted);font-size:12px;">${c.timestamp?.toDate?.()?.toLocaleString('th-TH')||'—'}</td>
-    </tr>`).join('');
+// ── DASHBOARD: สรุปโปรเจกต์ ──
+const PJ_STATUS = { pending:'⏳ รอดำเนินการ', progress:'🔄 กำลังดำเนินการ', review:'🔍 รอตรวจสอบ', done:'✅ เสร็จแล้ว' };
+const TH_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function pjDay(str){ if(!str) return null; const d=new Date(str+'T00:00:00'); return isNaN(d)?null:d; }
+function pjDaysFrom(d){ const t=new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
+function loadProjectsDash() {
+  const q = query(collection(db,'projects'), where('companyId','==',currentUser.uid), orderBy('createdAt','desc'));
+  onSnapshot(q, (snap) => {
+    renderProjectsDash(snap.docs.map(d => ({id:d.id,...d.data()})));
+  }, (err) => {
+    console.error(err);
+    document.getElementById('pjRecentList').innerHTML = '<div class="empty-state">โหลดข้อมูลโปรเจกต์ไม่สำเร็จ</div>';
+    document.getElementById('pjUpcomingList').innerHTML = '';
+  });
+}
+function renderProjectsDash(list) {
+  const cnt = { pending:0, progress:0, review:0, done:0 };
+  list.forEach(p => { const st = cnt[p.status]!==undefined ? p.status : 'pending'; cnt[st]++; });
+  document.getElementById('pjCntAll').textContent = list.length;
+  document.getElementById('pjCntPending').textContent = cnt.pending;
+  document.getElementById('pjCntProgress').textContent = cnt.progress;
+  document.getElementById('pjCntReview').textContent = cnt.review;
+  document.getElementById('pjCntDone').textContent = cnt.done;
+
+  // โปรเจกต์ล่าสุด 6 รายการ
+  const rec = document.getElementById('pjRecentList');
+  if (!list.length) {
+    rec.innerHTML = '<div class="empty-state">ยังไม่มีโปรเจกต์<br><a href="project.html" class="pj-see-all">＋ สร้างโปรเจกต์แรก</a></div>';
+  } else {
+    rec.innerHTML = list.slice(0,6).map(p => {
+      const st = PJ_STATUS[p.status] ? p.status : 'pending';
+      const dl = pjDay(p.deadline);
+      const sub = [ (p.depts||[]).length ? (p.depts.length+' แผนก') : '', dl ? ('กำหนดเสร็จ '+dl.getDate()+' '+TH_MON[dl.getMonth()]+' '+(dl.getFullYear()+543)) : '' ].filter(Boolean).join(' · ') || '—';
+      return `<a class="pj-row" href="project.html?id=${encodeURIComponent(p.id)}">
+        <div class="pj-row-main"><div class="pj-row-title">${esc(p.title||'(ไม่มีชื่อ)')}</div><div class="pj-row-sub">${esc(sub)}</div></div>
+        <span class="pj-badge ${st}">${PJ_STATUS[st]}</span></a>`;
+    }).join('');
+  }
+
+  // กำลังมาถึง: ยังไม่เสร็จ — ใช้วันเริ่มถ้ายังไม่ถึง ไม่งั้นใช้วันกำหนดเสร็จ
+  const up = list.filter(p => p.status !== 'done').map(p => {
+    const sd = pjDay(p.startDate), dl = pjDay(p.deadline);
+    if (sd && pjDaysFrom(sd) > 0 && (p.status||'pending')==='pending') return {p, d:sd, kind:'เริ่ม'};
+    if (dl) return {p, d:dl, kind:'ส่ง'};
+    return null;
+  }).filter(Boolean).sort((a,b) => a.d-b.d).slice(0,6);
+  const upEl = document.getElementById('pjUpcomingList');
+  if (!up.length) { upEl.innerHTML = '<div class="empty-state">ไม่มีโปรเจกต์ที่กำลังมาถึง</div>'; return; }
+  upEl.innerHTML = up.map(({p,d,kind}) => {
+    const n = pjDaysFrom(d);
+    const when = n<0 ? `เลยกำหนด ${-n} วัน` : n===0 ? `${kind}วันนี้` : n===1 ? `${kind}พรุ่งนี้` : `${kind}ในอีก ${n} วัน`;
+    const cls = n<0 ? 'late' : n<=7 ? 'soon' : 'later';
+    const st = PJ_STATUS[p.status] ? p.status : 'pending';
+    return `<a class="pj-row" href="project.html?id=${encodeURIComponent(p.id)}">
+      <div class="pj-date"><div class="pj-date-d">${d.getDate()}</div><div class="pj-date-m">${TH_MON[d.getMonth()]}</div></div>
+      <div class="pj-row-main"><div class="pj-row-title">${esc(p.title||'(ไม่มีชื่อ)')}</div><div class="pj-row-sub">${PJ_STATUS[st]}</div></div>
+      <span class="pj-when ${cls}">${when}</span></a>`;
+  }).join('');
 }
 
 window.filterTable = () => {
@@ -639,10 +731,7 @@ window.deleteCust = async (docId) => {
   showToast('🗑️ ลบข้อมูลแล้ว', true);
 };
 
-async function loadDashStats() {
-  const snap = await getDocs(collection(db,'users'));
-  document.getElementById('statUsers').textContent = snap.size;
-}
+async function loadDashStats() { loadProjectsDash(); }
 
 async function loadAdmin() {
   const content = document.getElementById('adminContent');
