@@ -1,70 +1,100 @@
-# ZettaFlow AI
+# EliteFlow 2 — Next.js + Supabase
 
-พัฒนาแกนกลาง ZettaFlow จาก repo EliteFlow เดิม และแนวคิดใน Canva **ZettaFlow AI Version TH**
+ระบบ EliteFlow และ ZettaFlow AI ในโปรเจกต์เดียว พร้อมนำไป deploy บน Vercel
 
-## เริ่มใช้งานบนเครื่อง
+## เริ่มบนเครื่อง
 
-ต้องใช้ Node.js 24 ขึ้นไป
+ต้องใช้ Node.js 22 ขึ้นไป
 
 ```powershell
 npm ci
+$env:ELITEFLOW_DEMO_MODE='true'
+npm run dev
+```
+
+เปิด http://127.0.0.1:3000 โหมด Demo มีข้อมูลทดสอบที่ระบุชัดในหน้าเว็บ และบันทึกการทดสอบใน .data/eliteflow-demo.json ไม่ใช่ข้อมูล Firebase เดิม Demo ถูกปิดเสมอเมื่อรันบน Vercel
+
+สำหรับ Supabase จริง คัดลอก .env.example เป็น .env.local เติมค่าแล้วปิด ELITEFLOW_DEMO_MODE
+
+```powershell
+npm run typecheck
+npm test
+npm run build
 npm start
 ```
 
-เปิด http://127.0.0.1:3000 แล้วสร้างบัญชี โหมด local บันทึกบัญชีและข้อมูลใน `.data/zettaflow.sqlite` และเก็บไฟล์ใน `.data/files` ฐานข้อมูลนี้ไม่ใช่ข้อมูล Firebase เดิมและไม่ถูกส่งเข้า Git
+## โมดูลธุรกิจ
 
-```powershell
-npm test
-```
+- ลูกค้า, Dealer/สาขา, ซัพพลายเออร์ และโปรไฟล์บริษัท
+- พนักงาน, ฟรีแลนซ์, การลา และค่าจ้างสุทธิ
+- ดีลพื้นที่ขาย, โครงการ, อีเวนต์, งาน และบอร์ด Workflow
+- ทรัพย์สิน, ไฟล์แนบ และคลังเอกสาร
+- สินค้า, SKU, จุดแจ้งเตือนสต็อก และรายการรับ–จ่าย
+- ใบสั่งซื้อ: อนุมัติ → รับสินค้า → เพิ่มสต็อกได้ครั้งเดียว
+- ยอดขาย, ค่าใช้จ่าย, ใบแจ้งหนี้ และการบันทึกรับ–จ่าย
+- ใบแจ้งหนี้คำนวณ VAT และยอดค้างจากรายการรับชำระ; ป้องกันยอดรับเกิน
+- แผนก Marketing, IT/Customer Service และทะเบียนสัญญา
+- Dashboard, Calendar, แชทแผนก, รายงาน CSV, Module Library และการเลือกธีม
 
-## ทดลองเส้นทางหลัก
+รายการทั่วไปเพิ่ม แก้ไข ค้นหา แบ่งหน้า เก็บเข้าคลัง และคืนจากคลังได้ตามสิทธิ์ ข้อมูลที่เป็น ledger เช่นการรับสินค้าและรายการชำระเงินมีข้อจำกัดเพิ่มเติมเพื่อรักษายอด
 
-1. สร้างบัญชีและ workspace
-2. กด **รับข้อมูลใหม่** เลือก **อนุมัติพื้นที่ขาย**
-3. ส่งข้อความด้านล่าง (ไม่ใช้ AI ก็อ่านฟิลด์ตรงได้)
-4. เข้า Data Inbox เปิดรายละเอียด ตรวจทาน และอนุมัติ
-5. Workflow สร้างงาน Design, Purchasing, Warehouse, Marketing และ Sales
-6. เปลี่ยนสถานะงาน ดู Calendar, Dashboard และ Export CSV
+## ZettaFlow AI
 
-```text
-โครงการ: The Promenade
-สถานที่: เดอะพรอมานาด
-พื้นที่: 33
-ค่าเช่า: 55000
-วันเริ่ม: 2026-10-16
-วันสิ้นสุด: 2026-10-28
-```
+สร้าง/แก้ไข Data Template, รับข้อความหรือภาพ/PDF, ตรวจทาน, อนุมัติและสร้างงานแผนก, แสดงการ์ดตัวเลขตาม Template, LINE group/user pairing, อนุมัติผ่านคำสั่งจากบัญชีที่เชื่อมแล้ว, notification outbox และ AI Assistant แบบอ่านข้อมูล
 
-Templates กำหนดฟิลด์ข้อความ ตัวเลข วันที่ ข้อมูลบังคับ และรายการงานหลังอนุมัติได้เอง แก้ไข Template ได้โดยข้อมูลเก่าคง schema ณ เวลาส่ง ข้อมูลตัวเลขที่อนุมัติแล้วสร้างการ์ด Dashboard ตาม Template
+ถ้าไม่มี AI key ระบบจะอ่านเฉพาะข้อความ **ชื่อฟิลด์: ค่า** และแสดงว่าเป็นโหมดพื้นฐาน ผู้ช่วยจะสรุปจากฐานข้อมูล ไม่แสร้งว่าเรียก AI แล้ว
 
-## Backend ที่มีให้
+## Supabase / Vercel
 
-- SQLite สำหรับ local / Firestore สำหรับ Cloud; Firebase Authentication ใน production
-- Server ตรวจ tenant และแผนกทุกคำขอ ไม่เชื่อ role หรือ tenant ที่ส่งจาก browser
-- Owner จัดการบริษัท, Template และสมาชิก; Manager อนุมัติแผนกที่ได้รับสิทธิ์; Staff ส่งข้อมูลและอัปเดตงาน; Viewer ดูและส่งออก
-- คำเชิญมีอายุ 7 วัน สมาชิกต้องสมัครด้วยอีเมลที่ตรงกัน; ยังไม่ส่งอีเมลคำเชิญ
-- Queue รับข้อมูลก่อนประมวลผล; บันทึกงานและ lease เพื่อกู้คืนหลัง process หยุด
-- AI อ่านข้อความ รูปภาพ และ PDF ผ่าน server; ปิด AI แล้วใช้เฉพาะ key-value extraction ไม่แสร้งเป็น AI
-- เก็บเอกสารต้นฉบับในไฟล์ local หรือ Cloud Storage; ดาวน์โหลดผ่าน API ที่ตรวจสิทธิ์
-- LINE ตรวจ HMAC จาก raw request, รับข้อความ/ภาพ/PDF, ป้องกัน redelivery ซ้ำ, จับคู่กลุ่มและบัญชีด้วย token อายุสั้น
-- อนุมัติผ่าน LINE ด้วยคำสั่งชัดเจนจากบัญชีที่เชื่อมและมีสิทธิ์; ไม่อนุมัติจากการตีความ AI
-- Notification outbox ส่งผลรับข้อมูลและแจ้งข้อมูลที่ขาดกลับกลุ่ม LINE เมื่อมี access token
-- Audit log, CSV export ป้องกันสูตรที่ฝังใน spreadsheet, Origin checking, HttpOnly local sessions
+1. สร้าง Supabase project ใหม่
+2. รัน [supabase/schema.sql](supabase/schema.sql) ครั้งเดียวใน SQL Editor
+3. ตั้ง Supabase URL, publishable key และ service-role key เป็น environment variables
+4. ตั้ง Auth Site URL / Redirect URLs ให้ตรงโดเมน Vercel และ /auth/callback
+5. Import repo บน Vercel เลือก Next.js และ deploy จาก root ของ repo
 
-รายละเอียด deploy และสิ่งที่ต้องตั้งค่าจริงอยู่ใน [DEPLOYMENT.md](DEPLOYMENT.md)
-การเทียบ Canva กับสถานะ repo อยู่ใน [ANALYSIS.md](ANALYSIS.md)
+รายละเอียดทั้งหมดอยู่ใน [DEPLOYMENT.md](DEPLOYMENT.md)
+
+## สิทธิ์และฐานข้อมูล
+
+Owner / Manager / Staff / Viewer แยกสิทธิ์ตามบริษัทและแผนก มีทั้งการตรวจใน API และ Postgres RLS สมาชิกไม่สามารถแก้ role, company หรือยอดสต็อกด้วยการยิง update เข้า table โดยตรง การเขียนใช้ RPC ที่ตรวจสิทธิ์และบันทึก audit
+
+Stock movement, การรับสินค้า, การรับชำระ และการอนุมัติใช้ transaction ใน Postgres มี optimistic version checking และป้องกันเลขอ้างอิงซ้ำ
+
+บัญชีสร้างบริษัทเพิ่มหรือรับคำเชิญหลายบริษัทได้ ผ่านตัวเลือกบริษัทด้านซ้าย คำเชิญอายุ 7 วัน ผู้รับต้องใช้ email เดียวกัน **ยังไม่ส่งอีเมลคำเชิญอัตโนมัติ**
 
 ## โครงสร้าง
 
 ```text
-public/            หน้า ZettaFlow ใหม่ (Firebase Hosting deploy เฉพาะโฟลเดอร์นี้)
-server/            API, สิทธิ์, queue, AI และฐานข้อมูล
-tests/             integration / domain tests
-*.html เดิม         source EliteFlow เก็บไว้ ไม่มีการย้ายหรือลบข้อมูลเดิม
+src/app/               Next.js pages / API routes / auth callback
+src/components/        EliteFlow และ ZettaFlow UI
+src/lib/               validation, permissions, Supabase, queue, file handling
+supabase/migrations/   schema, RLS และ transaction functions
+supabase/schema.sql    SQL รวมสำหรับ project ใหม่
+scripts/               schema generation / Firebase JSON import
+ tests/                domain และ Postgres/RLS tests
+archive/               implementation Node/Firebase จากรุ่นแรก เก็บอ้างอิง
+*.html เดิม             source EliteFlow เดิม ไม่ได้เผยแพร่โดย Next.js
 ```
 
-## ขอบเขตที่ต้องทราบ
+## การย้ายข้อมูลเดิม
 
-นี่เป็นแกนระบบรุ่นแรกที่ทดสอบบน local แล้ว ไม่ใช่การรับรองว่าฟีเจอร์ทุกหน้าใน Canva พร้อม production ทั้งหมด ยังต้องตั้งค่า cloud, ทดสอบ LINE/AI ด้วยบัญชีจริง, ย้ายข้อมูล legacy อย่างตรวจสอบได้ และทำงานต่อในส่วน billing, ERP/Sheets, dashboard share, widget permissions/layout และระบบ stock/POS ที่เชื่อมรายการจริงตาม [ANALYSIS.md](ANALYSIS.md)
+มี [scripts/import-firebase.ts](scripts/import-firebase.ts) สำหรับ JSON export ที่ผู้ดูแลเตรียมเอง ค่าเริ่มต้นเป็น dry-run ต้องระบุ Firebase owner UID และ Supabase company UUID ใช้ --apply เพื่อเขียนจริง ไม่มีการย้ายหรือลบข้อมูล Firebase โดยอัตโนมัติ
 
-Cloud store รุ่นแรกเก็บ state บริษัทในเอกสาร Firestore หนึ่งฉบับ จำกัด 500 records และ serialized state 700 KB; audit ล่าสุด 300 รายการ ก่อนใช้กับบริษัทขนาดใหญ่ต้องแยก records/tasks/audit เป็น collections, ทำ pagination และ retention jobs ก่อน ห้ามสื่อสารว่า Unlimited หรือมี SLA/มาตรฐานรับรองที่ยังไม่ได้ตรวจจริง
+ฟิลด์เดิมเก็บใน legacy_data เพื่อไม่หายเมื่อแก้ข้อมูลผ่านฟอร์มใหม่ ยังต้อง export บัญชี/ข้อมูล/ไฟล์จากบริการเดิมและตรวจยอดจริงก่อนย้าย ผู้ใช้ Firebase ต้องสมัครหรือ reset บัญชี Supabase ไม่ได้นำรหัสผ่านเข้าระบบนี้
+
+## ข้อจำกัดที่ต้องตั้งค่าหรือเชื่อมเพิ่มเติม
+
+- ยังไม่ได้ deploy หรือทดสอบกับ Supabase/LINE/AI ของบัญชีจริง ไม่มี credentials เหล่านี้ใน repo
+- ไฟล์ผ่าน Vercel route สูงสุด 4 MB; AI อ่านเฉพาะภาพ/PDF
+- แชท polling 5 วินาที, ภาพรวม polling 30 วินาที, queue ใช้ Next after() พร้อม lease และ cron recovery
+- Cron ที่แนบใช้วันละครั้งเพื่อรองรับ Vercel Hobby; งานปกติเริ่มทันทีหลังส่งข้อมูล หากต้องการ recovery ถี่ให้ปรับ cron ตาม plan
+- CSV ส่งออกสูงสุด 10,000 รายการต่อครั้ง และ dropdown อ้างอิงโหลดสูงสุด 1,000 รายการ
+- หน้าแพ็กเกจเป็นแผนราคา ยังไม่เชื่อม billing gateway/automatic subscription; การชำระเงินใน EliteFlow คือบันทึกบัญชีรับ–จ่าย
+- ยังไม่เชื่อม ERP/Sheets/POS ภายนอก, ตรวจสลิปธนาคาร, dashboard shared links หรือรับรองมาตรฐาน ISO/SOC2
+- ค่าจ้างเป็น base + allowance - deduction; ไม่ใช่เครื่องยนต์คำนวณภาษีและประกันสังคมอัตโนมัติ
+
+อ่านสถานะการย้ายและการทดสอบใน [ANALYSIS.md](ANALYSIS.md)
+
+### การเชื่อมข้อมูลที่อนุมัติ
+
+Template ที่มีขั้นตอน Workflow และฟิลด์ project จะจับคู่ชื่อโครงการที่ตรงกันแบบไม่สนตัวพิมพ์ หรือสร้างโครงการใหม่ ชื่อซ้ำจะถูกปฏิเสธจนระบุ project_id ใน Template ฟิลด์ project/location/rent ในแผนก Business Development สร้างดีลพื้นที่ที่อนุมัติแล้วและเชื่อมกับโครงการ งานทุกแผนกผูก projectId และ ingestionId เพื่อย้อนดูต้นทางได้
