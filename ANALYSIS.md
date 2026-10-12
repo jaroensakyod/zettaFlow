@@ -1,67 +1,58 @@
-# วิเคราะห์ repo / Canva / เว็บเดิม
+# สถานะ EliteFlow 2 / ZettaFlow
 
-ตรวจเมื่อ 12 ตุลาคม 2026 (Asia/Bangkok)
+อัปเดต 12 ตุลาคม 2026 หลังเปลี่ยน stack ตามผู้ใช้เป็น Next.js + Supabase สำหรับ Vercel
 
-แหล่งอ้างอิง:
+## ผลวิเคราะห์ source เดิม
 
-- https://github.com/sirisoaa-Git/dist
-- https://www.canva.com/design/DAHKdPxZ7oQ/CeuICvT0VLLL6led5eDFHg/edit — 32 หน้า, ชื่อ ZettaFlow AI Version TH
-- https://elitflow-38bc4.web.app/ — หน้า landing EliteFlow Enterprise
+Repo เดิมเป็น HTML + Firebase client SDK หลายโมดูลมี CRUD แล้ว แต่พนักงาน สต็อก Supplier Task แผนกต่างๆ Payment Pricing และ AI Assistant เป็นไฟล์ว่าง ไม่มี backend หรือ database rules ใน checkout ที่ตรวจได้ ลิงก์ freelance.html/event.html ไม่ตรงชื่อไฟล์จริง และ chat มีสอง schemas
 
-## สิ่งที่ repo เดิมมี
+Canva ZettaFlow AI ต้องการ Dynamic Templates, LINE ingestion, AI/OCR, review/approval, department workflow, dashboard, multi-tenant roles, integrations และแผนรายเดือน เว็บจริงยังเป็น EliteFlow Firebase
 
-หน้า HTML/JS และ Firebase client SDK สำหรับลูกค้า บริษัท พื้นที่ขาย โครงการ ทรัพย์สิน ฟรีแลนซ์ store และ chat หลายโมดูลมี CRUD อยู่แล้ว มี query ของ projects/dealAreas ที่ใช้ `companyId = currentUser.uid`
+## สิ่งที่เปลี่ยน
 
-ไม่มี package/build/deploy configuration, backend, rules หรือ automated tests อยู่ใน checkout เดิม จึงตรวจไม่ได้ว่า Firebase rules ที่ deploy อยู่บังคับสิทธิ์และแยกบริษัทอย่างไร การเห็นปุ่ม Admin เฉพาะบางบัญชีไม่พิสูจน์ว่าฐานข้อมูลปลอดภัย
+เปลี่ยน entry point เป็น Next.js App Router + TypeScript และใช้ Supabase Auth/Postgres/Storage ใน production การติดตั้ง Firebase/Node server รุ่นแรกถูกถอดออกจาก runtime และเก็บ reference ใน archive
 
-ไฟล์ที่ว่าง: ai-assistant.html, ai_assistant.glb, dept-accounting.html, dept-cs.html, dept-data.html, dept-it.html, dept-legal.html, dept-marketing.html, employees.html, freelance(1).html, payment.html, pricing.html, stock.html, supplier.html, task.html, theme-store.html
+Data model ใช้ company/memberships/entities/stock ledger/messages/attachments/audit/templates/ingestions/outbox แยกรายการ แทน state บริษัททั้งก้อน ไม่ใช้ข้อจำกัดเดิม 500 records ต่อบริษัท
 
-ลิงก์บางหน้าใน index เดิมชี้ `freelance.html` และ `event.html` แต่ source ที่มีใช้ชื่อ `freelance(2..4).html` และ `event(17).html` ต้องเลือกฉบับที่เป็น canonical ก่อนแก้หรือย้ายจริง
+## ฟังก์ชัน EliteFlow ที่มี
 
-มี chat สอง schema: ห้องทีมใช้ `lastMsgAt` ส่วน support chat ใช้ `lastMessageAt` จึงห้ามรวมโดยเปลี่ยน field ทันทีโดยไม่มี migration
+22 โมดูลข้อมูลธุรกิจ พร้อม schema validation, CRUD, search, pagination, archive/restore และไฟล์แนบตามสิทธิ์: ลูกค้า, Dealer, Supplier, พนักงาน, ฟรีแลนซ์, โครงการ, ดีล, อีเวนต์, งาน, ทรัพย์สิน, สินค้า, จัดซื้อ, ยอดขาย, ค่าใช้จ่าย, ใบแจ้งหนี้, รับ–จ่าย, Marketing, IT/CS Ticket, สัญญา, การลา, ค่าจ้าง และคลังเอกสาร
 
-## Canva ต้องการอะไร
+มี Dashboard, Calendar, Project/Task board, แชทแผนก, CSV reports, บริษัท/ธีม/ชื่อแบรนด์, invitation/access control, company switcher และ Module Library
 
-- หน้า 4–5: LINE → AI → Dynamic Form → Workflow → Dashboard, flexible role mapping และปลายทาง ERP/Sheets
-- หน้า 7, 9, 12: อนุมัติพื้นที่ขาย สร้างงานแผนก ติดตามยอดขาย/ค่าใช้จ่ายและโครงการ
-- หน้า 19, 21–24: จับคู่ LINE Group ID กับแผนก/Template, OCR/NLP, completeness/deduplication, notify/nudge, multi-tenant และ archive
-- หน้า 25–26: Owner/Department Manager/Viewer, share dashboard, แก้ไขฟอร์ม, สร้าง widgets ตาม field, จัด layout และสิทธิ์ widget
-- หน้า 29: แพ็กเกจ 1,190 / 3,490 / 8,900 บาท, quota, overage และ onboarding
-- หลายหน้าเป็นภาพ screenshot จึงตรวจจากภาพและข้อความที่ Canva เปิดเผยได้ ยังไม่ใช่ functional specification ของ API
-- ยังมีข้อความ placeholder, `reallygreatsite.com`, ตัวเลขตัวอย่าง และชื่อ EliteFlow/ZettaFlow ที่ไม่สม่ำเสมอ ห้ามใช้ตัวเลขตัวอย่างเป็นสถิติจริง
+Stock และการรับ PO เป็น transaction ไม่สามารถจ่ายเกินคงเหลือหรือรับซ้ำ Invoice/VAT/รับชำระคำนวณยอดใน SQL โดยรวมจาก payment ledger และ rollback ถ้าเกินยอด ดีลที่อนุมัติสร้างโครงการและงาน Design/Purchasing/Warehouse/Marketing/Sales ครั้งเดียว
 
-## สิ่งที่พัฒนาในครั้งนี้
+## ZettaFlow
 
-| งาน                                                          | สถานะ                                                  |
-| ------------------------------------------------------------ | ------------------------------------------------------ |
-| Portal ภาษาไทย responsive / ZettaFlow branding               | ทำแล้วและทดสอบ browser                                 |
-| Workspace, สมาชิก, role และสิทธิ์แผนก                        | ทำแล้ว ทดสอบ tenant isolation และ viewer restrictions  |
-| Template create/edit / text-number-date / required fields    | ทำแล้ว เก็บ schema snapshot ของข้อมูลเก่า              |
-| รับข้อความ / ตรวจทาน / อนุมัติ / ไม่อนุมัติ                  | ทำแล้ว ทดสอบ end-to-end                                |
-| งานหลังอนุมัติ / Kanban / Calendar                           | ทำแล้ว ทดสอบสร้าง 5 งานจากพื้นที่ขาย                   |
-| Dashboard ข้อมูลจริง / dynamic numeric cards / CSV           | ทำแล้ว ไม่ใช้ยอดขายสมมติ                               |
-| Durable queue / idempotency / audit                          | ทำแล้ว ทดสอบไม่เกิดงานซ้ำ                              |
-| AI + image/PDF extraction                                    | โค้ดพร้อมตั้งค่า ยังไม่ทดสอบด้วย AI key จริง           |
-| Cloud Storage / secure original-file download                | โค้ดพร้อมตั้งค่า ยังไม่ทดสอบกับ bucket จริง            |
-| LINE raw signature / group pairing / user linking / approval | โค้ดแล้ว ทดสอบ signed synthetic webhook และ redelivery |
-| LINE notifications / retries                                 | โค้ดแล้ว ต้องทดสอบกับ OA จริงและโควตาข้อความ           |
-| Firebase cloud auth/store และ Cloud Run hosting config       | เตรียมแล้ว ยังไม่ deploy หรือทดสอบ credential จริง     |
+มี Template create/edit และ schema snapshot, Web/LINE text-image-PDF ingestion, queue leases, review/approve/reject, task generation ที่ผูกโครงการ/ดีล, dynamic numeric widgets, read-only assistant, group/user pairing, LINE explicit approval และ notification outbox
 
-## งานที่ยังต้องทำเพื่อให้ตรง Canva ครบและพร้อมขาย
+ถ้าไม่ได้ตั้งค่า AI key จะใช้ explicit field parsing และ database summary โดยแสดงโหมดจริงบน UI
 
-1. ตั้งค่า Cloud และบัญชี LINE/AI จริง พร้อม end-to-end acceptance test โดยผู้ใช้แต่ละ role
-2. แยก Firestore state เป็น collections เพื่อรองรับข้อมูลจำนวนมาก, pagination, bounded queries, distributed notification leases, rate limit กลาง และ cleanup ของ sessions/jobs/tokens
-3. ตรวจ rules ที่ deploy อยู่จริง และวางแผนย้ายข้อมูล EliteFlow: Firebase UID เดิม → สมาชิก → บริษัทจริง; ห้ามถือว่าแต่ละ UID คือบริษัทเดียวเสมอ
-4. เชื่อม ERP/Sheets/POS ที่ผู้ใช้เลือก; จัดซื้อ/สต็อกแบบ ledger จริง, ใบสั่งซื้อ, movement และ reconciliation; Template/Workflow ที่มีไม่ใช่ stock accounting engine
-5. กำหนด billing provider, สมัครแพ็กเกจ, quota/usage ledger, overage, invoice และ webhook ยืนยันการชำระเงินจริง
-6. Dashboard widget layout/visibility permissions, shared link แบบหมดอายุและกำหนดรหัส, custom field charts เพิ่มเติม
-7. Project matching ข้ามข้อความด้วยบริบทที่ตรวจสอบได้, เอกสาร revision/approval history, human confidence review และ OCR acceptance dataset
-8. QR/slip verification ต้องใช้ผู้ให้บริการตรวจธุรกรรมจริง ไม่ถือว่าอ่านข้อความด้วย OCR คือยืนยันการโอน
-9. Backup/restore drill, retention, monitoring, alerting และตรวจ PDPA ตามการใช้งานจริง; ไม่มีการรับรอง ISO/SOC2 หรือ SLA ในโค้ดนี้
-10. Email invitations/reset-password ใน portal ใหม่, subscription onboarding, dashboard AI chat และรายการ legacy CRUD ที่ตัดสินใจจะเก็บ
+## การทดสอบ
 
-## เกณฑ์รับงานจริง
+- TypeScript / production build
+- Domain tests: ครบทุก module create schema, date/number validation, role/dept, stock, missing fields และ CSV formula protection
+- PostgreSQL tests ผ่าน PGlite: รัน migrations, tenant/RLS, raw writes denied, stock ledger, duplicate movement, PO receive once, invoice partial/full/overpay, deal workflow once, calendar และ ingestion approval และ workflow linking
+- Browser local Demo: เพิ่มลูกค้า/เก็บเข้าคลัง/คืน, PO approve/receive และตรวจ stock 80 → 180, navigation และ responsive QA
 
-ข้อมูลจากกลุ่ม LINE ที่เชื่อมเข้าบริษัทที่ถูกต้องเพียงครั้งเดียว, AI ไม่เติมข้อมูลที่ไม่มีหลักฐาน, รายการไม่ครบไม่อนุมัติ, Staff/Viewer เปลี่ยนสิทธิ์ไม่ได้, Manager เห็นเฉพาะแผนก, อนุมัติครั้งเดียวสร้างงานครั้งเดียว, เอกสารดาวน์โหลดโดยผู้มีสิทธิ์เท่านั้น, dashboard ตรงกับข้อมูลที่อนุมัติ และกู้คืนข้อมูลหลัง server restart ได้
+PGlite จำลอง auth/storage infrastructure เพื่อทดสอบ SQL ไม่ได้ทดสอบ session/email/storage/network บน Supabase Cloud จริง ยังต้องตรวจหลัง deploy
 
-เกณฑ์ core ส่วนที่ทดสอบ local ผ่านแล้ว เกณฑ์ cloud, integrations และ recovery บนบริการจริงยังไม่ได้ตรวจ
+## สิ่งที่ยังขึ้นกับบริการจริงหรืออยู่นอกการจัดการธุรกิจรุ่นนี้
+
+- Supabase project/env, Auth redirect/SMTP, LINE channel, AI provider keys และ Vercel deployment — ผู้ใช้จะ deploy เอง
+- Firebase user/data/file migration ต้อง export และตรวจยอดก่อน ยังไม่ได้อ่านหรือย้ายข้อมูล private บน Firebase
+- Payment gateway สำหรับ SaaS/coins/subscription, quota enforcement, ERP/Sheets/POS outbound, bank-slip transaction verification, dashboard shared links และ ISO/SOC2 certification ไม่ได้เปิดใช้งาน
+- แชทใช้ polling; ไฟล์ API จำกัด 4 MB; export 10,000 records; relation dropdown 1,000 records; board แสดง page ของรายการที่โหลด
+- HR/payroll เป็นทะเบียนและค่าจ้างสุทธิ ไม่คำนวณภาษี/ประกันสังคมอัตโนมัติ
+
+ฟอร์มใหม่ครอบคลุมข้อมูลการทำงานหลัก ไม่ใช่สำเนาทุก field ใน freelance เวอร์ชันเก่า ฟิลด์ที่ไม่ได้แสดงยังเก็บใน legacy_data เมื่อนำเข้าผ่าน script จึงไม่หายเมื่อแก้ข้อมูลผ่านฟอร์มใหม่
+
+## ไฟล์สำหรับส่งมอบ
+
+- README.md: เริ่มใช้งานและขอบเขต
+- DEPLOYMENT.md: Supabase/Vercel/LINE และ migration
+- supabase/schema.sql: SQL รวมสำหรับ project ใหม่
+- .env.example: ชื่อ environment variables โดยไม่มี secrets
+- scripts/import-firebase.ts: dry-run / import ที่เลือกบริษัทชัดเจน
+
+Source และข้อมูลเดิมบน Firebase ยังไม่ได้เปลี่ยน เว็บไซต์ Vercel จะใช้เส้นทางใหม่ มี redirects สำหรับ URL HTML เดิมที่สำคัญ

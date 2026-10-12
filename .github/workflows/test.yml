@@ -1,4 +1,4 @@
-name: ZettaFlow checks
+name: EliteFlow checks
 on:
   pull_request:
   push:
@@ -13,5 +13,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run typecheck
       - run: npm test
-      - run: node --check public/app.js
+      - run: npm run build
