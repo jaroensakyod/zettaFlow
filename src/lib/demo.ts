@@ -10,11 +10,15 @@ import type {
   Message,
   Attachment,
   Context,
+  DesignRevision,
+  DesignComment,
 } from "./types";
 import { AppError, assert, stockDelta, validateValues } from "./domain";
 export const demoEnabled = () =>
   process.env.ELITEFLOW_DEMO_MODE === "true" && !process.env.VERCEL;
 export type DemoState = {
+  designs?: DesignRevision[];
+  designComments?: DesignComment[];
   company: Company;
   members: Member[];
   entities: Entity[];

@@ -13,10 +13,12 @@ export function Auth({
   demo,
   configured,
   onLogin,
+  product = "elite",
 }: {
   demo: boolean;
   configured: boolean;
   onLogin: () => void;
+  product?: "elite" | "zetta";
 }) {
   const [mode, setMode] = useState<"login" | "register" | "reset">("login"),
     [error, setError] = useState(() =>
@@ -60,9 +62,9 @@ export function Auth({
           <span className="brand-mark">
             <Layers size={24} />
           </span>
-          Elite<span>Flow</span>
+          {product === "zetta" ? <>Zetta<span>Flow AI</span></> : <>Elite<span>Flow</span></>}
         </div>
-        <div className="auth-eyebrow">YOUR BUSINESS. ONE WORKSPACE.</div>
+        <div className="auth-eyebrow">{product === "zetta" ? "AI THAT MOVES YOUR BUSINESS FORWARD" : "YOUR BUSINESS. ONE WORKSPACE."}</div>
         <h1>
           จัดการทุกงาน
           <br />
@@ -91,12 +93,12 @@ export function Auth({
         </div>
         <div className="auth-bottom">
           <ShieldCheck size={16} />
-          Next.js · Supabase · พร้อม deploy บน Vercel
+          จัดการสิทธิ์ผู้ใช้และแยกข้อมูลแต่ละบริษัท
         </div>
       </section>
       <section className="auth-panel">
         <form onSubmit={submit}>
-          <span className="eyebrow">WELCOME TO ELITEFLOW</span>
+          <span className="eyebrow">WELCOME TO {product === "zetta" ? "ZETTAFLOW AI" : "ELITEFLOW"}</span>
           <h2>
             {mode === "register"
               ? "สร้างบัญชีของคุณ"

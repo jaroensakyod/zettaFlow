@@ -55,12 +55,7 @@ export type Ingestion = {
   values: Record<string, unknown>;
   missing: string[];
   status:
-    | "queued"
-    | "processing"
-    | "review"
-    | "approved"
-    | "rejected"
-    | "failed";
+    "queued" | "processing" | "review" | "approved" | "rejected" | "failed";
   source: string;
   created_at: string;
   error?: string;
@@ -80,6 +75,32 @@ export type Attachment = {
   mime: string;
   size: number;
   path: string;
+  created_at: string;
+};
+export type DesignRevision = {
+  id: string;
+  company_id: string;
+  project_id: string;
+  attachment_id: string;
+  category: "layout" | "perspective" | "site";
+  version: number;
+  status: "submitted" | "revision" | "approved";
+  notes: string;
+  created_by: string;
+  created_name: string;
+  created_at: string;
+  reviewed_by?: string;
+  reviewed_name?: string;
+  reviewed_at?: string;
+  review_note?: string;
+};
+export type DesignComment = {
+  id: string;
+  revision_id: string;
+  company_id: string;
+  user_id: string;
+  name: string;
+  body: string;
   created_at: string;
 };
 export type Message = {

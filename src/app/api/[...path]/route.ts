@@ -34,6 +34,7 @@ import {
 import { catalog, companyFields } from "@/lib/catalog";
 import { submit, processJobs, processNotifications, tokenHash } from "@/lib/ai";
 import { upload, files, download } from "@/lib/files";
+import { designData, designAction } from "@/lib/design";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -655,6 +656,10 @@ async function handle(req: NextRequest) {
         .parse(await body(req));
       await decide(ctx, z.uuid().parse(path[1]), input);
       return response({ ok: true });
+    }
+    if (path[0] === "design") {
+      if (method === "GET") return response(await designData(ctx, z.uuid().parse(req.nextUrl.searchParams.get("project"))));
+      return response(await designAction(ctx, await body(req)));
     }
     if (path[0] === "files") {
       if (method === "GET" && path[1]) {
