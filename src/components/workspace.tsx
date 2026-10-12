@@ -59,6 +59,7 @@ import { api, Empty, Loading, money, displayDate, Modal } from "./shared";
 import { Auth, Onboarding } from "./auth";
 import { Records } from "./records";
 import { AiWorkspace } from "./ai-workspace";
+import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
 import {
   Chat,
@@ -231,8 +232,10 @@ type WorkspaceData = {
 };
 export function Workspace({
   initialView = "dashboard",
+  product = "elite",
 }: {
   initialView?: string;
+  product?: "elite" | "zetta";
 }) {
   const router = useRouter();
   const requestEpoch = useRef(0);
@@ -325,7 +328,7 @@ export function Workspace({
   if (onboarding) return <Onboarding onComplete={load} />;
   if (auth && config)
     return (
-      <Auth demo={config.demo} configured={config.configured} onLogin={load} />
+      <Auth demo={config.demo} configured={config.configured} onLogin={load} product={product} />
     );
   if (!data)
     return (
@@ -340,6 +343,20 @@ export function Workspace({
     meta = details(view),
     brand = String(ctx.company.settings.brand || "EliteFlow"),
     theme = String(ctx.company.settings.theme || "violet");
+  if (product === "zetta")
+    return (
+      <ZettaWorkspace
+        ctx={ctx}
+        view={initialView}
+        changed={load}
+        onLogout={async () => {
+          await api("/auth/logout", { method: "POST" });
+          requestEpoch.current++;
+          setData(null);
+          setAuth(true);
+        }}
+      />
+    );
   const visible = (key: string) =>
     key === "team"
       ? ctx.member.role === "owner"
@@ -430,6 +447,14 @@ export function Workspace({
           })}
         </nav>
         <div className="sidebar-footer">
+          <button
+            className="nav-item"
+            onClick={() => router.push("/zetta/dashboard")}
+          >
+            <Sparkles size={18} />
+            เปิด ZettaFlow AI
+            <ArrowRight size={15} />
+          </button>
           <span className="live-dot" />
           <span>
             {ctx.demo ? "Local demo workspace" : "Supabase workspace"}

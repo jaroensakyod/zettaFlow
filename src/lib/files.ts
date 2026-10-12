@@ -69,7 +69,13 @@ export async function upload(
       assert(
         (await demoRead()).entities.some(
           (e) =>
-            e.id === entityId && e.department === department && !e.archived_at,
+            e.id === entityId &&
+            e.company_id === ctx.company.id &&
+            !e.archived_at &&
+            (e.department === department ||
+              (e.kind === "projects" &&
+                department === "Design" &&
+                canRead(ctx, e.department))),
         ),
         "ไม่พบรายการอ้างอิง",
       );

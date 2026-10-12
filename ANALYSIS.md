@@ -1,5 +1,7 @@
 # สถานะ EliteFlow 2 / ZettaFlow
 
+13 ตุลาคม 2026: เพิ่มหน้าจอ ZettaFlow แยกจาก EliteFlow ตามโครงหน้า Canva 7/10/11 และเพิ่ม design revision/review/comment หลังบ้าน (migration 0009) ดู `CANVA-PARITY.md` สำหรับข้อแตกต่างและฟีเจอร์ที่ยังไม่ครบตามคำขอ 100%
+
 อัปเดต 12 ตุลาคม 2026 หลังเปลี่ยน stack ตามผู้ใช้เป็น Next.js + Supabase สำหรับ Vercel
 
 ## ผลวิเคราะห์ source เดิม

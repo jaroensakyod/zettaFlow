@@ -2,6 +2,8 @@
 
 ระบบ EliteFlow และ ZettaFlow AI ในโปรเจกต์เดียว พร้อมนำไป deploy บน Vercel
 
+ZettaFlow มีหน้าจอแยกที่ `/zetta/dashboard` และ `/zetta/spaces` พร้อมหน้ารายละเอียดโครงการ ระบบเวอร์ชัน Layout/Perspective, comments และ approval อ่าน [รายการเทียบกับ Canva](CANVA-PARITY.md) สำหรับส่วนที่ทำแล้วและยังต้องทำต่อ ไม่อ้างว่าครบหรือเหมือนต้นฉบับ 100% ในรุ่นนี้
+
 ## เริ่มบนเครื่อง
 
 ต้องใช้ Node.js 22 ขึ้นไป

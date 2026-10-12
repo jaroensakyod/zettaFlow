@@ -39,6 +39,9 @@ test("SQL migrations enforce tenant isolation, permissions and inventory transac
     await db.exec(
       await readFile("supabase/migrations/0008_workflow_links.sql", "utf8"),
     );
+    await db.exec(
+      await readFile("supabase/migrations/0009_design_reviews.sql", "utf8"),
+    );
     const login = async (id: string, email: string) => {
       await db.exec("reset role;");
       await db.query(
@@ -362,12 +365,115 @@ test("SQL migrations enforce tenant isolation, permissions and inventory transac
         .length,
       2,
     );
+    await db.exec("reset role;set role service_role;");
+    const fileIds = [];
+    for (let index = 0; index < 3; index++) {
+      fileIds.push(
+        (
+          await db.query<{ id: string }>(
+            `insert into attachments(company_id,entity_id,department,name,mime,size,path) values($1,$2,'Design','Layout.png','image/png',100,$3) returning id`,
+            [c, linkedDeal.data.projectId, `design-file-${index}`],
+          )
+        ).rows[0].id,
+      );
+    }
+    await db.exec("reset role;set role authenticated;");
+    const attachmentId = "10000000-0000-4000-8000-000000000099";
+    await db.query(
+      "select add_attachment($1,$2,$3,'Design','Version.pdf','application/pdf',100,$4)",
+      [
+        c,
+        attachmentId,
+        linkedDeal.data.projectId,
+        `${c}/Design/${attachmentId}`,
+      ],
+    );
+    const revision = (
+      await db.query<{ id: string; version: number }>(
+        "select * from create_design_revision($1,$2,$3,'layout','Initial')",
+        [c, linkedDeal.data.projectId, fileIds[0]],
+      )
+    ).rows[0];
+    assert.equal(revision.version, 1);
+    await assert.rejects(
+      db.query("select create_design_revision($1,$2,$3,'layout','Duplicate')", [
+        c,
+        linkedDeal.data.projectId,
+        fileIds[0],
+      ]),
+    );
+    const v2 = (
+      await db.query<{ id: string; version: number }>(
+        "select * from create_design_revision($1,$2,$3,'layout','Updated')",
+        [c, linkedDeal.data.projectId, fileIds[1]],
+      )
+    ).rows[0];
+    assert.equal(v2.version, 2);
+    await assert.rejects(
+      db.query("select review_design_revision($1,$2,'approved','')", [
+        c,
+        revision.id,
+      ]),
+    );
+    await assert.rejects(
+      db.query("select review_design_revision($1,$2,'revision','')", [
+        c,
+        v2.id,
+      ]),
+    );
+    await db.query(
+      "select comment_design_revision($1,$2,'Please increase the logo size')",
+      [c, v2.id],
+    );
+    await db.query(
+      "select review_design_revision($1,$2,'revision','Increase logo size')",
+      [c, v2.id],
+    );
+    await assert.rejects(
+      db.query("select review_design_revision($1,$2,'approved','')", [
+        c,
+        v2.id,
+      ]),
+    );
+    const v3 = (
+      await db.query<{ id: string }>(
+        "select (create_design_revision($1,$2,$3,'layout','Logo fixed')).id",
+        [c, linkedDeal.data.projectId, fileIds[2]],
+      )
+    ).rows[0];
+    await db.query(
+      "select review_design_revision($1,$2,'approved','Accepted')",
+      [c, v3.id],
+    );
+    assert.equal(
+      (await db.query("select * from design_revisions")).rows.length,
+      3,
+    );
+    await assert.rejects(
+      db.query("update design_revisions set status='approved' where id=$1", [
+        revision.id,
+      ]),
+    );
     await db.query(
       `select invite_member($1,'viewer@test.local','viewer',array['Warehouse'])`,
       [c],
     );
     await login("10000000-0000-4000-8000-000000000003", "viewer@test.local");
     await db.query("select accept_invitations()");
+    assert.equal(
+      (await db.query("select * from design_revisions")).rows.length,
+      0,
+    );
+    assert.equal(
+      (await db.query("select * from design_comments")).rows.length,
+      0,
+    );
+    await assert.rejects(
+      db.query("select review_design_revision($1,$2,'approved','')", [
+        c,
+        v3.id,
+      ]),
+    );
     const visible = (
       await db.query<{ department: string }>("select * from entities")
     ).rows;
@@ -387,6 +493,16 @@ test("SQL migrations enforce tenant isolation, permissions and inventory transac
     ).rows[0].id;
     assert.notEqual(c, c2);
     assert.equal((await db.query("select * from entities")).rows.length, 0);
+    assert.equal(
+      (await db.query("select * from design_revisions")).rows.length,
+      0,
+    );
+    await assert.rejects(
+      db.query("select comment_design_revision($1,$2,'Cross tenant')", [
+        c,
+        v3.id,
+      ]),
+    );
     await assert.rejects(
       db.query(`select post_stock_movement($1,$2,'in',1,'CROSS-TENANT','')`, [
         c,

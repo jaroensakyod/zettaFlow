@@ -2,7 +2,11 @@
 
 ## 1. เตรียม Supabase
 
-สร้าง **project ใหม่** สำหรับ EliteFlow เลือก region ใกล้ Vercel sin1 (Singapore) แล้วเปิด SQL Editor รัน **supabase/schema.sql** ครั้งเดียว ไฟล์นี้รวม migrations 0001–0008 แล้ว หากใช้ Supabase CLI ให้ใช้ migrations แทน ห้ามรัน SQL รวมซ้ำหลัง migration ไปแล้ว
+สร้าง **project ใหม่** สำหรับ EliteFlow เลือก region ใกล้ Vercel sin1 (Singapore) แล้วเปิด SQL Editor รัน **supabase/schema.sql** ครั้งเดียว ไฟล์นี้รวม migrations 0001–0009 แล้ว หากใช้ Supabase CLI ให้ใช้ migrations แทน ห้ามรัน SQL รวมซ้ำหลัง migration ไปแล้ว
+
+หากรัน 0001–0008 ไปแล้ว ให้รันเฉพาะ `supabase/migrations/0009_design_reviews.sql` เพื่อเพิ่มระบบตรวจแบบ อย่ารัน SQL รวมซ้ำ
+
+ZettaFlow เข้าได้ที่ `/zetta/dashboard` มีทางเข้าใน sidebar ของ EliteFlow ผู้ใช้ Design ต้องมีสิทธิ์ Design และสิทธิ์อ่าน Operations เพื่อเปิดโครงการ; ผู้อนุมัติต้องเป็น Owner หรือ Manager ที่มีสิทธิ์ Design ไฟล์ Design ผูกกับโครงการโดยยังเก็บสิทธิ์แผนก Design
 
 Schema สร้างบริษัท สมาชิก คำเชิญ records สต็อก chat เอกสาร Templates jobs LINE mapping และ audit พร้อม RLS และ RPC สำหรับ transaction
 
