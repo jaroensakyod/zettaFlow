@@ -35,6 +35,8 @@ import { catalog, companyFields } from "@/lib/catalog";
 import { submit, processJobs, processNotifications, tokenHash } from "@/lib/ai";
 import { upload, files, download } from "@/lib/files";
 import { designData, designAction } from "@/lib/design";
+import { stageData, changeStage } from "@/lib/project-stages";
+import { transferData, transferStock } from "@/lib/transfers";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -347,7 +349,17 @@ async function handle(req: NextRequest) {
       await purchaseAction(
         ctx,
         z.uuid().parse(path[1]),
-        z.enum(["approve", "receive"]).parse(input.action),
+        z
+          .enum([
+            "approve",
+            "receive",
+            "request_vendor",
+            "vendor_confirm",
+            "dispatch",
+            "deliver",
+            "cancel",
+          ])
+          .parse(input.action),
       );
       return response({ ok: true });
     }
@@ -657,8 +669,28 @@ async function handle(req: NextRequest) {
       await decide(ctx, z.uuid().parse(path[1]), input);
       return response({ ok: true });
     }
+    if (path[0] === "transfers") {
+      if (method === "GET") return response(await transferData(ctx));
+      return response(await transferStock(ctx, await body(req)));
+    }
+    if (path[0] === "project-stages") {
+      if (method === "GET")
+        return response(
+          await stageData(
+            ctx,
+            z.uuid().parse(req.nextUrl.searchParams.get("project")),
+          ),
+        );
+      return response(await changeStage(ctx, await body(req)));
+    }
     if (path[0] === "design") {
-      if (method === "GET") return response(await designData(ctx, z.uuid().parse(req.nextUrl.searchParams.get("project"))));
+      if (method === "GET")
+        return response(
+          await designData(
+            ctx,
+            z.uuid().parse(req.nextUrl.searchParams.get("project")),
+          ),
+        );
       return response(await designAction(ctx, await body(req)));
     }
     if (path[0] === "files") {

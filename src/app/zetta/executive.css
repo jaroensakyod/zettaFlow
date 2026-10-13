@@ -1,0 +1,638 @@
+.zec-six {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.zec-chart-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.4fr 1.2fr;
+  gap: 15px;
+}
+.zec-six .zd-number-icon {
+  display: none;
+}
+.zec-six .zd-number strong {
+  font-size: 23px;
+}
+.zec-six .zd-number {
+  padding: 16px 12px;
+}
+.zec-chart-grid .z-card {
+  padding: 16px 13px;
+}
+.zec-chart-grid .z-ai-summary {
+  background: #eeeaff;
+  border-color: #e1dbfd;
+}
+.zec-chart-grid .z-ai-summary ul {
+  font-size: 10px;
+  padding-left: 18px;
+  margin: 14px 0;
+}
+.zec-active {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.zec-active-card {
+  display: block;
+  text-align: left;
+  border: 1px solid #d4caf2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px 9px;
+  color: #27203f;
+  min-width: 0;
+}
+.zec-active-card > div:first-child {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 53px;
+}
+.zec-active-card img {
+  width: 27px;
+  height: 27px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.zec-active-card strong {
+  font-size: 10px;
+  display: block;
+}
+.zec-active-card small {
+  font-size: 8px;
+  color: #91869d;
+  display: block;
+  margin-top: 4px;
+}
+.zec-active-card em {
+  color: #1ab26c;
+  font-style: normal;
+  font-size: 9px;
+  display: block;
+  margin-top: 4px;
+}
+.zec-active-values {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  font-size: 8px;
+  color: #8a7b9b;
+  margin: 15px 0 9px;
+}
+.zec-active-values strong {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #2e214b;
+}
+.zec-active-card footer {
+  display: flex;
+  gap: 13px;
+  font-size: 8px;
+  color: #9b8bac;
+  margin-top: 10px;
+}
+.zec-active-card footer span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.zec-dashboard .z-card-heading select {
+  max-width: 190px;
+  font-size: 9px;
+  min-height: 26px;
+  padding: 4px 8px;
+}
+.zec-mobile-overview,
+.zec-mobile-insights,
+.zec-mobile-branches,
+.zec-mobile-nav {
+  display: none;
+}
+.zec-health {
+  position: relative;
+  padding: 24px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(110deg, #5030f4, #a82de5, #e71ade);
+  margin-bottom: 16px;
+  min-height: 150px;
+}
+.zec-health > span {
+  font-size: 10px;
+}
+.zec-health h2 {
+  font-size: 24px;
+  margin: 12px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.zec-health i {
+  background: #3aeea1;
+  display: inline-block;
+  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+}
+.zec-health p {
+  font-size: 11px;
+  max-width: 80%;
+}
+.zec-health > div {
+  position: absolute;
+  right: 25px;
+  top: 22px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 6px solid #42f4a5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+.zec-health strong {
+  font-size: 27px;
+}
+.zec-health > div > span {
+  font-size: 8px;
+}
+.zec-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.zec-branches {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+.zec-branches > button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 5px;
+  border: 1px solid #e9e3f4;
+  background: white;
+  border-radius: 7px;
+  overflow: hidden;
+  padding: 0 0 12px;
+  color: #2c2343;
+}
+.zec-branches img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+.zec-branches > button > span {
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #a394b2;
+}
+.zec-branches > button > strong {
+  padding: 7px 12px 0;
+  font-size: 12px;
+}
+.zec-branches > button > small {
+  padding: 0 12px;
+  color: #9a8aaa;
+  font-size: 9px;
+}
+.z-brand-pptx {
+  height: 44px;
+  width: 154px;
+  overflow: hidden;
+  display: block;
+  position: relative;
+}
+.z-brand-pptx img {
+  position: absolute;
+  width: 246px;
+  max-width: none;
+  left: -45px;
+  top: -58px;
+}
+.z-stage-steps {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  padding: 18px 0 9px;
+  gap: 4px;
+}
+.z-stage-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+.z-stage-wrap > svg {
+  color: #dcad2e;
+  flex-shrink: 0;
+  margin-top: 17px;
+  width: 12px;
+}
+.z-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: none;
+  border: 0;
+  color: #6946b6;
+  padding: 0;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+.z-stage > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #c9b3ef;
+  background: #fcfaff;
+  border-radius: 50%;
+}
+.z-stage.done > span {
+  border-color: #c1e8d3;
+  color: #27af6b;
+  background: #f0fff6;
+}
+.z-stage.progress > span {
+  color: #327be8;
+  border-color: #bed5fb;
+  background: #f0f6ff;
+}
+.z-stage.review > span {
+  color: #d99728;
+  border-color: #f5d7a3;
+  background: #fffaf0;
+}
+.z-stage strong {
+  font-size: 9px;
+  color: #564376;
+}
+.z-stage small {
+  font-size: 8px;
+  color: #9b8daa;
+}
+.z-stage em {
+  font-style: normal;
+  font-size: 8px;
+  color: #a58cad;
+}
+.z-stage-history {
+  margin-top: 12px;
+  border-top: 1px solid #eee7f7;
+  padding: 15px 0;
+}
+.z-stage-history h3 {
+  font-size: 12px;
+}
+.z-stage-history > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f1eef7;
+  color: #876a9f;
+  font-size: 10px;
+}
+.z-stage-history svg {
+  color: #8760d1;
+}
+.z-stage-history small {
+  font-size: 9px;
+}
+.z-full-workflow.compact .z-stage strong {
+  font-size: 8px;
+}
+.z-full-workflow.compact .z-stage > span {
+  height: 35px;
+  width: 35px;
+}
+.z-full-workflow.compact .z-stage > span > svg {
+  width: 18px;
+  height: 18px;
+}
+.z-location-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 7px;
+}
+.z-project-images img {
+  max-height: 210px;
+}
+@media (max-width: 1200px) {
+  .zec-six {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .zec-active {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .zec-chart-grid {
+    grid-template-columns: 1fr 1.5fr;
+  }
+  .zec-chart-grid > .z-card:last-child {
+    grid-column: 1/-1;
+  }
+  .z-stage-steps {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding-bottom: 18px;
+  }
+  .z-stage-wrap {
+    min-width: 66px;
+    flex: 1;
+  }
+  .z-full-workflow.compact .z-stage-wrap {
+    min-width: 62px;
+  }
+  .zec-health > div {
+    width: 80px;
+    height: 80px;
+    right: 20px;
+    top: 30px;
+  }
+  .zec-branches img {
+    height: 120px;
+  }
+}
+@media (max-width: 700px) {
+  .zec-dashboard {
+    padding-bottom: 70px;
+  }
+  .zec-dashboard > .z-heading h1 {
+    font-size: 18px;
+  }
+  .zec-dashboard > .z-heading p {
+    font-size: 8px;
+  }
+  .zec-report-toggle {
+    font-size: 8px;
+  }
+  .zec-six,
+  .zec-chart-grid,
+  .zec-active,
+  .zec-dashboard:not(:has(.zec-health))
+    > .z-card:not(.zec-mobile-insights):not(.zec-mobile-branches) {
+    display: none;
+  }
+  .zec-dashboard > .z-heading {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .zec-mobile-overview {
+    display: block;
+  }
+  .zec-mobile-overview h2 {
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #23224a;
+  }
+  .zec-mobile-overview h2 small {
+    font-size: 8px;
+    font-weight: 400;
+    color: #8f82a5;
+  }
+  .zec-mobile-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .zec-mobile-metric {
+    background: #fff;
+    border: 1px solid #ebe6f3;
+    border-radius: 9px;
+    padding: 13px 11px;
+    min-height: 145px;
+    color: #26223e;
+  }
+  .zec-mobile-metric > span {
+    font-size: 9px;
+  }
+  .zec-mobile-metric > strong {
+    display: block;
+    font-size: 20px;
+    margin: 8px 0;
+    letter-spacing: -0.5px;
+  }
+  .zec-mobile-metric > small {
+    font-size: 8px;
+    color: #aba0b8;
+    display: block;
+    margin-top: 18px;
+  }
+  .zec-mobile-metric .zd-line {
+    height: 65px;
+    overflow: hidden;
+  }
+  .zec-mobile-metric .zd-line > small {
+    display: none;
+  }
+  .zec-mobile-metric svg {
+    height: 80px;
+  }
+  .zec-mobile-metric svg text {
+    display: none;
+  }
+  .zec-mobile-insights,
+  .zec-mobile-branches {
+    display: block;
+    margin-top: 17px;
+  }
+  .zec-mobile-insights h2,
+  .zec-mobile-branches h2 {
+    font-size: 11px;
+    color: #241c50;
+  }
+  .zec-mobile-insights p {
+    font-size: 9px;
+    color: #95829f;
+  }
+  .zec-mobile-insights p i {
+    display: inline-block;
+    background: #bb63ee;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .zec-mobile-insights .text-button,
+  .zec-mobile-branches .text-button {
+    font-size: 8px;
+  }
+  .zec-branches {
+    gap: 8px;
+  }
+  .zec-branches > .zec-active-card {
+    padding: 0 0 9px;
+    display: block;
+  }
+  .zec-branches > .zec-active-card > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .zec-branches > .zec-active-card img {
+    width: 100%;
+    height: 80px;
+    border-radius: 0;
+    object-fit: cover;
+  }
+  .zec-branches > .zec-active-card > div:first-child > span {
+    padding: 7px 6px;
+  }
+  .zec-branches > .zec-active-card strong {
+    font-size: 8px;
+  }
+  .zec-branches > .zec-active-card small {
+    font-size: 6px;
+  }
+  .zec-branches > .zec-active-card em {
+    font-size: 7px;
+  }
+  .zec-branches > .zec-active-card .zec-active-values {
+    padding: 0 6px;
+    margin: 9px 0;
+    font-size: 6px;
+  }
+  .zec-branches > .zec-active-card .zec-active-values strong {
+    font-size: 7px;
+  }
+  .zec-branches > .zec-active-card .z-progress {
+    margin: 0 6px;
+  }
+  .zec-branches > .zec-active-card footer {
+    padding: 0 6px;
+    font-size: 6px;
+    gap: 4px;
+  }
+  .zec-mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 65px;
+    background: #fff;
+    border-top: 1px solid #eae4f4;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 30;
+    padding: 5px 8px;
+  }
+  .zec-mobile-nav button {
+    display: flex;
+    flex-direction: column;
+    color: #9b87b7;
+    font-size: 8px;
+    background: none;
+    border: 0;
+    gap: 5px;
+  }
+  .zec-mobile-nav button.active {
+    color: #7d22e9;
+  }
+  .zec-mobile-nav .zec-mobile-plus {
+    background: linear-gradient(135deg, #bb29ed, #681cef);
+    color: #fff;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    box-shadow: 0 3px 10px #8e2fd235;
+  }
+  .zec-dashboard:has(.zec-health) .zec-mobile-overview {
+    display: none;
+  }
+  .zec-health {
+    padding: 18px;
+    min-height: 130px;
+  }
+  .zec-health h2 {
+    font-size: 17px;
+  }
+  .zec-health p {
+    font-size: 9px;
+    max-width: 72%;
+  }
+  .zec-health > div {
+    width: 68px;
+    height: 68px;
+    border-width: 4px;
+    right: 12px;
+    top: 30px;
+  }
+  .zec-health strong {
+    font-size: 22px;
+  }
+  .zec-health > div > span {
+    font-size: 6px;
+  }
+  .zec-report-metrics {
+    gap: 6px;
+  }
+  .zec-report-metrics .zd-number {
+    padding: 10px 7px;
+    min-height: 100px;
+  }
+  .zec-report-metrics .zd-number strong {
+    font-size: 13px;
+  }
+  .zec-report-metrics .zd-number span {
+    font-size: 7px;
+  }
+  .zec-dashboard:has(.zec-health) .z-card {
+    display: block;
+  }
+  .zec-dashboard:has(.zec-health) .zec-mobile-insights,
+  .zec-dashboard:has(.zec-health) .zec-mobile-branches {
+    display: none;
+  }
+  .zec-dashboard:has(.zec-health) table {
+    font-size: 8px;
+  }
+  .zec-dashboard:has(.zec-health) td,
+  .zec-dashboard:has(.zec-health) th {
+    font-size: 8px;
+    padding: 8px 5px;
+  }
+  .zec-branches > button > strong {
+    padding: 5px 5px;
+    font-size: 8px;
+  }
+  .zec-branches > button > small {
+    padding: 0 5px;
+    font-size: 7px;
+  }
+  .zec-branches img {
+    height: 85px;
+  }
+  .z-stage-history > div {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .z-stage-wrap {
+    min-width: 72px;
+  }
+  .z-full-workflow.compact .z-stage-wrap {
+    min-width: 65px;
+  }
+}

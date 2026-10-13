@@ -94,6 +94,51 @@ export type DesignRevision = {
   reviewed_at?: string;
   review_note?: string;
 };
+export type ProjectStage = {
+  company_id: string;
+  project_id: string;
+  key: string;
+  ordinal: number;
+  department: string;
+  label: string;
+  english: string;
+  status: "pending" | "progress" | "review" | "done";
+  version: number;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at: string;
+  updated_by?: string | null;
+};
+export type StockTransfer = {
+  id: string;
+  company_id: string;
+  product_id: string;
+  from_project: string | null;
+  to_project: string | null;
+  quantity: number;
+  reference: string;
+  reason: string;
+  created_by: string;
+  created_name: string;
+  created_at: string;
+};
+export type ProjectInventory = {
+  company_id: string;
+  product_id: string;
+  project_id: string;
+  quantity: number;
+  updated_at: string;
+};
+export type StageHistory = {
+  id: string;
+  company_id: string;
+  project_id: string;
+  key: string;
+  department: string;
+  status: ProjectStage["status"];
+  actor?: string;
+  created_at: string;
+};
 export type DesignComment = {
   id: string;
   revision_id: string;

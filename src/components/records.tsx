@@ -122,11 +122,13 @@ export function Records({
   ctx,
   notify,
   changed,
+  refresh = 0,
 }: {
   kind: string;
   ctx: Context;
   notify: (s: string) => void;
   changed: () => void;
+  refresh?: number;
 }) {
   const module = catalog[kind];
   const [rows, setRows] = useState<Entity[]>([]),
@@ -168,7 +170,7 @@ export function Records({
   }, [kind, page, debounced, archived]);
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refresh]);
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebounced(search);

@@ -1,4 +1,1 @@
-import { Workspace } from "@/components/workspace";
-export default function Page() {
-  return <Workspace />;
-}
+export {default,metadata} from "./zetta/page";

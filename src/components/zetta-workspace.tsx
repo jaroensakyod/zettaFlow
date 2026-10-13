@@ -7,6 +7,7 @@ import {
   CalendarDays,
   FolderKanban,
   PenTool,
+  Megaphone,
   ShoppingCart,
   Warehouse,
   TrendingUp,
@@ -44,6 +45,12 @@ import { catalog } from "@/lib/catalog";
 import { api, Loading, Empty, Modal, money } from "./shared";
 import { Records, FieldControl } from "./records";
 import { DesignPanel } from "./design-panel";
+import { DepartmentDashboard } from "./department-dashboard";
+import { ExecutiveDashboard } from "./executive-dashboard";
+import { ProjectStages } from "./project-stages";
+import { ProjectStock } from "./stock-transfers";
+import { canRead, canWrite } from "@/lib/domain";
+import { ReferencePhoto } from "./reference-photo";
 import { AiWorkspace } from "./ai-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
 import { Calendar, Reports, Assistant, Pricing } from "./tools";
@@ -52,6 +59,8 @@ import {
   projectNumbers,
   periodDays,
   workflowDepartments,
+  projectWorkflow,
+  referenceImages,
 } from "@/lib/zetta";
 
 const navigation = [
@@ -63,6 +72,8 @@ const navigation = [
   ["purchasing", "Purchasing", ShoppingCart],
   ["warehouse", "Warehouse", Warehouse],
   ["sales", "Sales", TrendingUp],
+  ["marketing", "Marketing & Event", Megaphone],
+  ["crm", "CRM / Customers", Users],
   ["finance", "Finance", Wallet],
   ["documents", "Document", Files],
   ["reports", "Report", ChartNoAxesCombined],
@@ -99,6 +110,14 @@ const relatedKinds = [
   "products",
   "documents",
   "payments",
+  "suppliers",
+  "customers",
+  "leads",
+  "invoices",
+  "events",
+  "campaigns",
+  "contracts",
+  "employees",
 ];
 type Business = {
   entities: Entity[];
@@ -139,28 +158,11 @@ function Badge({ value }: { value: unknown }) {
 }
 function ZettaLogo() {
   return (
-    <span className="z-brand">
-      <svg viewBox="0 0 50 50" aria-hidden="true">
-        <defs>
-          <linearGradient id="zetta-logo" x1="0" y1="0" x2="1" y2="1">
-            <stop stopColor="#70efff" />
-            <stop offset=".45" stopColor="#a453ff" />
-            <stop offset="1" stopColor="#5528ee" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M6 5h33c7 0 9 7 4 12L15 36h27v10H9c-8 0-10-8-4-13l28-18H6z"
-          fill="url(#zetta-logo)"
-        />
-      </svg>
-      <span>
-        <strong>Zetta Flow AI</strong>
-        <small>
-          AI That Moves
-          <br />
-          Your Business Forward
-        </small>
-      </span>
+    <span className="z-brand-pptx">
+      <img
+        src="/zetta/zetta-logo.png"
+        alt="Zetta Flow AI — AI That Moves Your Business Forward"
+      />
     </span>
   );
 }
@@ -370,11 +372,15 @@ export function ZettaWorkspace({
   useEffect(() => {
     setMobile(false);
   }, [view, selectedId]);
-  const navigate = (next: string, project?: string) =>
+  const navigate = (next: string, project?: string, tab?: string) =>
     router.push(
       "/zetta/" +
         next +
-        (project ? "?project=" + encodeURIComponent(project) : ""),
+        (project
+          ? "?project=" +
+            encodeURIComponent(project) +
+            (tab ? "&tab=" + encodeURIComponent(tab) : "")
+          : ""),
     );
   const update = () => {
     load();
@@ -443,7 +449,10 @@ export function ZettaWorkspace({
               </small>
             </span>
           </button>
-          <button className="z-elite-link" onClick={() => router.push("/")}>
+          <button
+            className="z-elite-link"
+            onClick={() => router.push("/eliteflow")}
+          >
             EliteFlow Workspace
             <ArrowRight size={14} />
           </button>
@@ -517,7 +526,13 @@ export function ZettaWorkspace({
           ) : (
             <>
               {view === "dashboard" && (
-                <Executive business={business} navigate={navigate} />
+                <ExecutiveDashboard
+                  entities={business.entities}
+                  summary={business.summary}
+                  navigate={navigate}
+                  ctx={ctx}
+                  changed={update}
+                />
               )}
               {view === "spaces" && (
                 <Spaces
@@ -604,204 +619,34 @@ export function ZettaWorkspace({
                   />
                 </>
               ) : null}
-              {view === "design" && (
-                <>
-                  <PageHeading
-                    title="Layout & Design"
-                    subtitle="เขียนแบบ / Perspective และติดตามการอนุมัติ"
-                  />
-                  <div className="z-project-grid">
-                    {rows("projects").map((p) => (
-                      <ProjectCard
-                        key={p.id}
-                        project={p}
-                        business={business}
-                        open={() => navigate("projects", p.id)}
-                      />
-                    ))}
-                  </div>
-                  <h2 className="z-section-title">Design Workflow</h2>
-                  <section className="z-card">
-                    {rows("tasks")
-                      .filter((t) => t.department === "Design")
-                      .map((t) => (
-                        <div className="z-requirement" key={t.id}>
-                          <div>
-                            <strong>{text(t, "name")}</strong>
-                            <small>
-                              {text(t, "assignee")} ·{" "}
-                              {displayDate(t.data.dueDate)}
-                            </small>
-                          </div>
-                          <Badge value={t.data.status} />
-                          {ctx.member.role !== "viewer" && (
-                            <button
-                              className="z-small-button"
-                              onClick={() =>
-                                setEditor({ kind: "tasks", row: t })
-                              }
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    {!rows("tasks").some((t) => t.department === "Design") && (
-                      <Empty title="ยังไม่มีงานของ Design Team" />
-                    )}
-                  </section>
-                </>
-              )}
-              {view === "purchasing" && (
-                <>
-                  <PageHeading
-                    title="Purchasing"
-                    subtitle="ขอใบเสนอราคา / Spec และรับสินค้าเข้าคลัง"
-                  />
-                  <div className="z-stats">
-                    <Metric
-                      label="Purchase Orders"
-                      value={rows("purchases").length}
-                    />
-                    <Metric
-                      label="Pending Approval"
-                      value={
-                        rows("purchases").filter(
-                          (e) => e.data.status === "draft",
-                        ).length
-                      }
-                      color="amber"
-                    />
-                    <Metric
-                      label="Approved"
-                      value={
-                        rows("purchases").filter(
-                          (e) => e.data.status === "approved",
-                        ).length
-                      }
-                      color="blue"
-                    />
-                    <Metric
-                      label="Received"
-                      value={
-                        rows("purchases").filter(
-                          (e) => e.data.status === "received",
-                        ).length
-                      }
-                      color="green"
-                    />
-                  </div>
-                  <Records
-                    kind="purchases"
-                    ctx={ctx}
-                    notify={notify}
-                    changed={update}
-                  />
-                </>
-              )}
-              {view === "warehouse" && (
-                <>
-                  <PageHeading
-                    title="Warehouse"
-                    subtitle="เตรียมสินค้า / สต็อก และรายการรับ–จ่าย"
-                  />
-                  <div className="z-stats">
-                    <Metric
-                      label="Total Products"
-                      value={rows("products").length}
-                    />
-                    <Metric
-                      label="Stock Quantity"
-                      value={rows("products").reduce(
-                        (s, e) => s + Number(e.data.stock || 0),
-                        0,
-                      )}
-                      color="blue"
-                    />
-                    <Metric
-                      label="Low Stock"
-                      value={business.summary.lowStock.length}
-                      color="amber"
-                    />
-                    <Metric
-                      label="Received POs"
-                      value={
-                        rows("purchases").filter(
-                          (e) => e.data.status === "received",
-                        ).length
-                      }
-                      color="green"
-                    />
-                  </div>
-                  <Records
-                    kind="products"
-                    ctx={ctx}
-                    notify={notify}
-                    changed={update}
-                  />
-                </>
-              )}
-              {view === "sales" && (
-                <>
-                  <PageHeading
-                    title="Sales"
-                    subtitle="รายงานยอดขายและติดตามเป้าหมาย"
-                  />
-                  <div className="z-stats">
-                    <Metric
-                      label="Confirmed Sales (THB)"
-                      value={business.summary.sales}
-                      color="green"
-                    />
-                    <Metric
-                      label="Sales Reports"
-                      value={rows("sales").length}
-                    />
-                    <Metric
-                      label="Sales Target (THB)"
-                      value={rows("deals").reduce(
-                        (s, e) => s + Number(e.data.targetSales || 0),
-                        0,
-                      )}
-                      color="blue"
-                    />
-                  </div>
-                  <section className="z-card">
-                    <h2>Daily Sales (THB)</h2>
-                    <SalesChart rows={rows("sales")} />
-                  </section>
-                  <Records
-                    kind="sales"
-                    ctx={ctx}
-                    notify={notify}
-                    changed={update}
-                  />
-                </>
-              )}
-              {view === "finance" && (
-                <>
-                  <PageHeading
-                    title="Finance"
-                    subtitle="ค่าใช้จ่าย การรับชำระ และเอกสารการเงิน"
-                  />
-                  <div className="z-stats">
-                    <Metric
-                      label="Total Sales (THB)"
-                      value={business.summary.sales}
-                      color="green"
-                    />
-                    <Metric
-                      label="Total Expenses (THB)"
-                      value={business.summary.expenses}
-                      color="rose"
-                    />
-                    <Metric
-                      label="Sales − Expenses (THB)"
-                      value={business.summary.sales - business.summary.expenses}
-                    />
-                  </div>
-                  <Finance ctx={ctx} notify={notify} changed={update} />
-                </>
+              {[
+                "design",
+                "purchasing",
+                "warehouse",
+                "sales",
+                "finance",
+                "marketing",
+                "crm",
+              ].includes(view) && (
+                <DepartmentDashboard
+                  key={view}
+                  view={
+                    view as
+                      | "design"
+                      | "purchasing"
+                      | "warehouse"
+                      | "sales"
+                      | "finance"
+                      | "marketing"
+                      | "crm"
+                  }
+                  entities={business.entities}
+                  ctx={ctx}
+                  notify={notify}
+                  changed={update}
+                  navigate={navigate}
+                  edit={(kind, row) => setEditor({ kind, row })}
+                />
               )}
               {view === "documents" && (
                 <>
@@ -917,171 +762,6 @@ function PageHeading({
       </div>
       {action}
     </div>
-  );
-}
-function Executive({
-  business,
-  navigate,
-}: {
-  business: Business;
-  navigate: (v: string, p?: string) => void;
-}) {
-  const s = business.summary,
-    projects = business.entities.filter((e) => e.kind === "projects"),
-    tasks = business.entities.filter((e) => e.kind === "tasks"),
-    due = tasks.filter(
-      (e) =>
-        e.data.status !== "done" &&
-        e.data.dueDate &&
-        Number(new Date(String(e.data.dueDate))) <= Date.now() + 3 * 86400000,
-    ),
-    sales = business.entities.filter((e) => e.kind === "sales"),
-    complete = tasks.filter((t) => t.data.status === "done").length;
-  return (
-    <>
-      <PageHeading
-        title="Executive Dashboard"
-        subtitle={"ข้อมูลอัปเดตล่าสุด " + new Date().toLocaleString("th-TH")}
-      />
-      <div className="z-executive-metrics">
-        <Metric label="ยอดขายรวมทั้งหมด" value={s.sales} icon={TrendingUp} />
-        <Metric label="ค่าใช้จ่ายรวม" value={s.expenses} icon={Wallet} />
-        <Metric
-          label="โครงการที่กำลังดำเนินการ"
-          value={s.projects}
-          icon={FolderKanban}
-        />
-        <Metric
-          label="งานรออนุมัติ"
-          value={
-            s.pendingDeals +
-            tasks.filter((t) => t.data.status === "review").length
-          }
-          color="amber"
-          icon={Clock3}
-        />
-        <Metric
-          label="งานใกล้ครบกำหนด"
-          value={due.length}
-          color="rose"
-          icon={CalendarDays}
-        />
-        <Metric
-          label="งานที่ต้องติดตาม"
-          value={s.tasks}
-          color="blue"
-          icon={FileText}
-        />
-      </div>
-      <div className="z-dashboard-charts">
-        <section className="z-card z-ai-summary">
-          <h2>
-            <Sparkles size={18} />
-            AI Executive Summary
-          </h2>
-          <ul>
-            <li>มี {s.pendingDeals} พื้นที่รออนุมัติ</li>
-            <li>มี {due.length} งานใกล้ครบกำหนด</li>
-            <li>Stock ถึงจุดสั่งซื้อ {s.lowStock.length} รายการ</li>
-            <li>ยอดขายที่ยืนยัน {money(s.sales)} บาท</li>
-            <li>ค่าใช้จ่ายที่อนุมัติ {money(s.expenses)} บาท</li>
-          </ul>
-          <small>สรุปจากข้อมูลธุรกิจ · ไม่ใช่ผลวิเคราะห์จาก AI</small>
-          <button
-            className="z-small-button"
-            onClick={() => navigate("assistant")}
-          >
-            ดูรายละเอียดเพิ่มเติม
-            <ArrowRight size={13} />
-          </button>
-        </section>
-        <section className="z-card">
-          <h2>ยอดขาย & ค่าใช้จ่าย</h2>
-          <SalesChart rows={sales} />
-        </section>
-        <section className="z-card">
-          <h2>สถานะงานทั้งหมด</h2>
-          <div
-            className="z-donut"
-            style={{
-              background: `conic-gradient(#24bb70 0 ${tasks.length ? (complete / tasks.length) * 100 : 0}%,#7844e8 0 100%)`,
-            }}
-          >
-            <span>
-              <strong>{tasks.length}</strong>
-              <small>Tasks</small>
-            </span>
-          </div>
-          <div className="z-donut-legend">
-            <span>
-              <i style={{ background: "#24bb70" }} />
-              เสร็จแล้ว {complete}
-            </span>
-            <span>
-              <i style={{ background: "#7844e8" }} />
-              ติดตาม {tasks.length - complete}
-            </span>
-          </div>
-        </section>
-      </div>
-      <section className="z-card">
-        <div className="z-card-heading">
-          <h2>งานที่กำลังดำเนินการ (Active Projects)</h2>
-          <button className="text-button" onClick={() => navigate("projects")}>
-            ดูทั้งหมด
-            <ArrowRight size={14} />
-          </button>
-        </div>
-        <div className="z-active-projects">
-          {projects
-            .filter(
-              (p) => !["completed", "cancelled"].includes(text(p, "status")),
-            )
-            .map((p) => (
-              <ProjectCard
-                key={p.id}
-                project={p}
-                business={business}
-                open={() => navigate("projects", p.id)}
-              />
-            ))}
-          {!projects.length && <Empty title="ยังไม่มีโครงการ" />}
-        </div>
-      </section>
-      <section className="z-card">
-        <h2>ภาพรวมทุกขั้นตอนของโครงการ (Workflow Overview)</h2>
-        <Workflow
-          tasks={tasks}
-          onOpen={(d) =>
-            navigate(
-              d === "Design"
-                ? "design"
-                : d === "Purchasing"
-                  ? "purchasing"
-                  : d === "Warehouse"
-                    ? "warehouse"
-                    : d === "Sales"
-                      ? "sales"
-                      : "projects",
-            )
-          }
-        />
-      </section>
-      {!!s.widgets?.length && (
-        <section className="z-card">
-          <h2>Auto-Generated Dashboard · Data Templates</h2>
-          <div className="z-stats">
-            {s.widgets.map((w) => (
-              <Metric
-                key={w.key}
-                label={w.name + " · " + w.label}
-                value={w.total}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-    </>
   );
 }
 function ProjectCard({
@@ -1242,7 +922,14 @@ function Spaces({
               >
                 <span className="z-space-name">
                   <span className="z-location-icon">
-                    <Store size={24} />
+                    {ctx.demo && referenceImages(text(r, "name")) ? (
+                      <img
+                        src={referenceImages(text(r, "name"))!.location}
+                        alt="ภาพพื้นที่จาก PPTX"
+                      />
+                    ) : (
+                      <Store size={24} />
+                    )}
                   </span>
                   <span>
                     <strong>{text(r, "name")}</strong>
@@ -1304,7 +991,7 @@ function Spaces({
                 </div>
                 <Badge value={current.data.status} />
               </div>
-              <ProjectImages entity={current} />
+              <ProjectImages entity={current} demo={ctx.demo} />
               <dl className="z-details">
                 <div>
                   <dt>Period</dt>
@@ -1498,7 +1185,13 @@ function RecordEditor({
     </Modal>
   );
 }
-function ProjectImages({ entity }: { entity: Entity }) {
+function ProjectImages({
+  entity,
+  demo = false,
+}: {
+  entity: Entity;
+  demo?: boolean;
+}) {
   const [attachments, setAttachments] = useState<Attachment[]>([]),
     [error, setError] = useState("");
   useEffect(() => {
@@ -1526,6 +1219,17 @@ function ProjectImages({ entity }: { entity: Entity }) {
             <figcaption>{f.name}</figcaption>
           </figure>
         ))
+      ) : demo && referenceImages(text(entity, "name")) ? (
+        <>
+          <figure>
+            <ReferencePhoto name={text(entity, "name")} kind="site" />
+            <figcaption>ภาพพื้นที่ · ตัวอย่างจาก PPTX</figcaption>
+          </figure>
+          <figure>
+            <ReferencePhoto name={text(entity, "name")} kind="perspective" />
+            <figcaption>Layout / Perspective · ตัวอย่างจาก PPTX</figcaption>
+          </figure>
+        </>
       ) : (
         <div className="z-image-empty">
           <PenTool size={29} />
@@ -1592,6 +1296,7 @@ function ProjectDetail({
   notify: (s: string) => void;
   changed: () => void;
 }) {
+  const requestedTab = useSearchParams().get("tab");
   const [tab, setTab] = useState("Overview"),
     [attachments, setAttachments] = useState<Attachment[]>([]),
     [fileError, setFileError] = useState("");
@@ -1605,6 +1310,26 @@ function ProjectDetail({
     sales = business.entities.filter(
       (e) => e.kind === "sales" && e.data.projectId === project.id,
     );
+  const contractSigned = business.entities.some(
+    (e) =>
+      e.kind === "contracts" &&
+      e.data.projectId === project.id &&
+      e.data.status === "signed",
+  );
+  const paidExpense = (category: string) =>
+    expenses.some(
+      (e) => e.data.category === category && e.data.status === "paid",
+    );
+  const milestones = [
+    ["Contract Signed", contractSigned],
+    ["Deposit Paid", paidExpense("ค่ามัดจำ")],
+    ["Rental Paid", paidExpense("ค่าเช่า")],
+    [
+      "In Progress",
+      project.data.status === "active" || project.data.status === "completed",
+    ],
+    ["Complete", project.data.status === "completed"],
+  ] as const;
   const loadFiles = useCallback(() => {
     setFileError("");
     api("/files?entity=" + project.id)
@@ -1613,12 +1338,36 @@ function ProjectDetail({
   }, [project.id]);
   useEffect(() => {
     setAttachments([]);
-    setTab("Overview");
+    setTab(
+      [
+        "Overview",
+        "Timeline",
+        "Purchase",
+        "Warehouse",
+        "Sales",
+        "Comment",
+        "Activity",
+        "Layout Plan",
+        "Perspective 3D",
+        "Requirements",
+        "ภาพหน้างานจริง",
+        "เอกสารไฟล์",
+        "การเงิน",
+      ].includes(requestedTab || "")
+        ? requestedTab!
+        : "Overview",
+    );
     loadFiles();
-  }, [loadFiles]);
-  const writable = ctx.member.role !== "viewer";
+  }, [loadFiles, requestedTab]);
+  const writable = canWrite(ctx, project.department);
   const tabs = [
     "Overview",
+    "Timeline",
+    "Purchase",
+    "Warehouse",
+    "Sales",
+    "Comment",
+    "Activity",
     "Layout Plan",
     "Perspective 3D",
     "Requirements",
@@ -1640,7 +1389,7 @@ function ProjectDetail({
         subtitle={text(project, "code") + " · " + text(deal, "location")}
         action={
           <div className="z-heading-actions">
-            <Badge value={deal?.data.status || project.data.status} />
+            <Badge value={project.data.status} />
             {writable && (
               <>
                 <button
@@ -1696,7 +1445,7 @@ function ProjectDetail({
           <div className="z-project-overview">
             <section className="z-card">
               <h2>{text(project, "name")}</h2>
-              <ProjectImages entity={project} />
+              <ProjectImages entity={project} demo={ctx.demo} />
               <dl className="z-details">
                 <div>
                   <dt>Period</dt>
@@ -1709,7 +1458,11 @@ function ProjectDetail({
                 </div>
                 <div>
                   <dt>Floor / Zone</dt>
-                  <dd>{text(deal, "zone")}</dd>
+                  <dd>
+                    {deal?.data.zone
+                      ? text(deal, "zone")
+                      : text(deal, "location")}
+                  </dd>
                 </div>
                 <div>
                   <dt>Area Size</dt>
@@ -1734,7 +1487,27 @@ function ProjectDetail({
             </section>
             <section className="z-card">
               <h2>Status & Progress</h2>
-              <Workflow tasks={n.tasks} onOpen={() => setTab("Requirements")} />
+              <ol className="z-rental-milestones">
+                {milestones.map(([label, done]) => (
+                  <li key={label} className={done ? "done" : ""}>
+                    <CheckCircle2 size={20} />
+                    <span>{label}</span>
+                    <small>
+                      {done ? "ยืนยันจากข้อมูล" : "ยังไม่พบรายการยืนยัน"}
+                    </small>
+                  </li>
+                ))}
+              </ol>
+              <small className="muted">
+                อ้างอิงสัญญาที่ลงนาม ค่าใช้จ่ายสถานะ paid
+                และโครงการที่อ่านได้ตามสิทธิ์
+              </small>
+              <button
+                className="z-small-button"
+                onClick={() => setTab("Timeline")}
+              >
+                ดู Workflow 10 ขั้นตอน
+              </button>
               <div className="z-project-summary">
                 <h3>Project Summary</h3>
                 <p>
@@ -1763,6 +1536,20 @@ function ProjectDetail({
               <span>Total Sales</span>
               <strong className="z-big-number">{money(n.sales)}</strong>
               <SalesChart rows={sales} />
+              <div className="z-sales-achievement">
+                <span>Sales Achievement</span>
+                <strong>
+                  {n.target
+                    ? ((n.sales / n.target) * 100).toFixed(2) + "%"
+                    : "ยังไม่กำหนดเป้าหมาย"}
+                </strong>
+                <progress
+                  value={
+                    n.target ? Math.min(100, (n.sales / n.target) * 100) : 0
+                  }
+                  max={100}
+                />
+              </div>
               <div className="z-project-values">
                 <span>
                   Daily Average
@@ -1882,6 +1669,97 @@ function ProjectDetail({
             </section>
           </div>
         </>
+      ) : tab === "Timeline" ? (
+        <section className="z-card">
+          <h2>Timeline / Workflow Overview</h2>
+          <ProjectStages projectId={project.id} ctx={ctx} changed={changed} />
+        </section>
+      ) : ["Purchase", "Warehouse", "Sales"].includes(tab) ? (
+        <section className="z-card">
+          <h2>{tab}</h2>
+          {tab === "Warehouse" && canRead(ctx, "Warehouse") && (
+            <>
+              <ProjectStock
+                projectId={project.id}
+                entities={business.entities}
+              />
+              <button
+                className="z-small-button"
+                onClick={() => navigate("warehouse")}
+              >
+                ดูการโอนสินค้า / Transfer
+              </button>
+            </>
+          )}
+          <div className="z-project-linked-records">
+            {business.entities
+              .filter(
+                (e) =>
+                  e.data.projectId === project.id &&
+                  e.kind ===
+                    (tab === "Purchase"
+                      ? "purchases"
+                      : tab === "Sales"
+                        ? "sales"
+                        : "tasks") &&
+                  (tab !== "Warehouse" || e.department === "Warehouse"),
+              )
+              .map((e) => (
+                <div className="z-requirement" key={e.id}>
+                  <div>
+                    <strong>{text(e, "name")}</strong>
+                    <small>
+                      {money(e.data.amount || e.data.total || 0)} บาท
+                    </small>
+                  </div>
+                  <Badge value={e.data.status} />
+                  {canWrite(ctx, e.department) && (
+                    <button
+                      className="z-small-button"
+                      onClick={() => edit(e.kind, e)}
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+              ))}
+          </div>
+          {tab !== "Warehouse" &&
+            canWrite(ctx, tab === "Purchase" ? "Purchasing" : "Sales") && (
+              <button
+                className="primary"
+                onClick={() => edit(tab === "Purchase" ? "purchases" : "sales")}
+              >
+                <Plus size={14} />
+                Add {tab}
+              </button>
+            )}
+        </section>
+      ) : tab === "Activity" ? (
+        <section className="z-card">
+          <h2>Activity Log</h2>
+          {business.audit
+            .filter((a) =>
+              [project.id, ...n.tasks.map((t) => t.id)].includes(a.target),
+            )
+            .map((a) => (
+              <div className="z-timeline" key={a.id}>
+                <CheckCircle2 size={17} />
+                <div>
+                  <small>{displayDate(a.created_at)}</small>
+                  <p>{a.action.replaceAll("_", " ")}</p>
+                </div>
+              </div>
+            ))}
+        </section>
+      ) : tab === "Comment" ? (
+        <DesignPanel
+          project={project}
+          ctx={ctx}
+          category="layout"
+          changed={changed}
+          notify={notify}
+        />
       ) : ["Layout Plan", "Perspective 3D", "ภาพหน้างานจริง"].includes(tab) ? (
         <DesignPanel
           project={project}
@@ -1977,7 +1855,9 @@ function ProjectDetail({
               {fileError}
             </p>
           )}
-          {tab !== "เอกสารไฟล์" && <ProjectImages entity={project} />}
+          {tab !== "เอกสารไฟล์" && (
+            <ProjectImages entity={project} demo={ctx.demo} />
+          )}
           <FileList attachments={attachments} />
         </section>
       )}

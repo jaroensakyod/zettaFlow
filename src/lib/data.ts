@@ -363,7 +363,18 @@ export async function movement(
 }
 export async function purchaseAction(ctx: Context, id: string, action: string) {
   assert(canWrite(ctx, "Purchasing"), "ไม่มีสิทธิ์จัดซื้อ", 403);
-  assert(["approve", "receive"].includes(action), "คำสั่งไม่ถูกต้อง");
+  assert(
+    [
+      "approve",
+      "receive",
+      "request_vendor",
+      "vendor_confirm",
+      "dispatch",
+      "deliver",
+      "cancel",
+    ].includes(action),
+    "คำสั่งไม่ถูกต้อง",
+  );
   if (ctx.demo)
     return demoMutate((s) => {
       const r = s.entities.find(
@@ -378,10 +389,18 @@ export async function purchaseAction(ctx: Context, id: string, action: string) {
         );
         assert(r.data.status === "draft", "รายการนี้อนุมัติแล้ว", 409);
         r.data.status = "approved";
-      } else {
+        r.data.poNumber ||=
+          "PO-" + r.id.replaceAll("-", "").slice(0, 12).toUpperCase();
+      } else if (action === "receive") {
         assert(canWrite(ctx, "Warehouse"), "ไม่มีสิทธิ์คลังสินค้า", 403);
         assert(
-          r.data.status === "approved",
+          [
+            "approved",
+            "pending_vendor",
+            "in_progress",
+            "pending_delivery",
+            "delivered",
+          ].includes(String(r.data.status)),
           "ต้องอนุมัติก่อนรับ หรือรับสินค้าไปแล้ว",
           409,
         );
@@ -393,6 +412,33 @@ export async function purchaseAction(ctx: Context, id: string, action: string) {
           "PO:" + id,
         );
         r.data.status = "received";
+      } else if (action === "cancel") {
+        assert(
+          !["received", "cancelled"].includes(String(r.data.status)),
+          "รายการนี้รับแล้วหรือยกเลิกแล้ว",
+          409,
+        );
+        assert(
+          r.data.status === "draft" ||
+            ["owner", "manager"].includes(ctx.member.role),
+          "ให้หัวหน้างานยกเลิกใบสั่งซื้อที่อนุมัติแล้ว",
+          403,
+        );
+        r.data.status = "cancelled";
+      } else {
+        const transitions: Record<string, [string, string]> = {
+          request_vendor: ["approved", "pending_vendor"],
+          vendor_confirm: ["pending_vendor", "in_progress"],
+          dispatch: ["in_progress", "pending_delivery"],
+          deliver: ["pending_delivery", "delivered"],
+        };
+        const [previous, next] = transitions[action];
+        assert(
+          r.data.status === previous,
+          "ขั้นตอนนี้ไม่สอดคล้องกับสถานะปัจจุบัน",
+          409,
+        );
+        r.data.status = next;
       }
       r.version++;
       r.updated_at = new Date().toISOString();

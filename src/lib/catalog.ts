@@ -63,6 +63,9 @@ export const modules: Module[] = [
       f("name", "ชื่อลูกค้า", "text", true),
       f("code", "รหัสลูกค้า"),
       f("company", "บริษัท"),
+      f("segment", "กลุ่มลูกค้า", "select", false, {
+        options: ["standard", "vip"],
+      }),
       status(["active", "inactive"]),
       ...contact,
     ],
@@ -319,6 +322,13 @@ export const modules: Module[] = [
       f("unitCost", "ราคาต่อหน่วย", "number", true, { min: 0 }),
       f("orderDate", "วันที่สั่งซื้อ", "date", true),
       f("dueDate", "กำหนดรับ", "date"),
+      project,
+      f("category", "หมวดหมู่สินค้า"),
+      f("requestor", "ผู้ขอจัดซื้อ"),
+      f("usagePurpose", "งาน / โปรโมชั่นที่ใช้"),
+      ...dates,
+      f("deliveryLocation", "สถานที่จัดส่ง"),
+      f("poNumber", "เลขที่ใบสั่งซื้อ PO"),
       f("notes", "หมายเหตุ", "textarea"),
     ],
   },
@@ -351,7 +361,18 @@ export const modules: Module[] = [
       f("name", "รายการค่าใช้จ่าย", "text", true),
       project,
       f("category", "หมวดหมู่", "select", true, {
-        options: ["ค่าเช่า", "บุคลากร", "จัดซื้อ", "ขนส่ง", "การตลาด", "อื่นๆ"],
+        options: [
+          "ค่ามัดจำ",
+          "ค่าเช่า",
+          "ค่าไฟฟ้า",
+          "ค่าบริการ",
+          "ค่าพรม",
+          "บุคลากร",
+          "จัดซื้อ",
+          "ขนส่ง",
+          "การตลาด",
+          "อื่นๆ",
+        ],
       }),
       f("payee", "ผู้รับเงิน"),
       f("date", "วันที่", "date", true),
@@ -519,6 +540,34 @@ export const modules: Module[] = [
     ],
   },
 ];
+modules.push({
+  key: "leads",
+  label: "CRM / Sales Pipeline",
+  description: "ติดตาม Lead, Contact, Meeting, Proposal, Negotiation และ Won",
+  department: "Sales",
+  icon: "Users",
+  columns: ["name", "customerId", "stage", "amount", "assignee"],
+  fields: [
+    f("name", "ชื่อโอกาสขาย", "text", true),
+    f("customerId", "ลูกค้า", "relation", false, { resource: "customers" }),
+    f("stage", "ขั้นตอน", "select", true, {
+      options: [
+        "lead",
+        "contact",
+        "meeting",
+        "proposal",
+        "negotiation",
+        "won",
+        "lost",
+      ],
+    }),
+    f("amount", "มูลค่าโอกาสขาย", "number", true, { min: 0 }),
+    f("assignee", "ผู้รับผิดชอบ"),
+    f("nextDate", "นัดติดตามครั้งถัดไป", "date"),
+    f("activity", "กิจกรรมล่าสุด", "textarea"),
+    f("notes", "หมายเหตุ", "textarea"),
+  ],
+});
 export const catalog = Object.fromEntries(modules.map((m) => [m.key, m]));
 export const departmentNames = [
   "Operations",

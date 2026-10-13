@@ -42,6 +42,12 @@ test("SQL migrations enforce tenant isolation, permissions and inventory transac
     await db.exec(
       await readFile("supabase/migrations/0009_design_reviews.sql", "utf8"),
     );
+    for (const file of [
+      "0010_pptx_fields.sql",
+      "0011_project_stages.sql",
+      "0012_procurement_and_transfers.sql",
+    ])
+      await db.exec(await readFile("supabase/migrations/" + file, "utf8"));
     const login = async (id: string, email: string) => {
       await db.exec("reset role;");
       await db.query(
@@ -454,12 +460,166 @@ test("SQL migrations enforce tenant isolation, permissions and inventory transac
         revision.id,
       ]),
     );
+    const projectId = linkedDeal.data.projectId;
+    assert.equal(
+      (
+        await db.query("select * from project_stages where project_id=$1", [
+          projectId,
+        ])
+      ).rows.length,
+      10,
+    );
+    await assert.rejects(
+      db.query("select update_project_stage($1,$2,'close','done',1)", [
+        c,
+        projectId,
+      ]),
+    );
+    await assert.rejects(
+      db.query("select update_project_stage($1,$2,'location','done',null)", [
+        c,
+        projectId,
+      ]),
+    );
+    await db.query("select update_project_stage($1,$2,'location','done',1)", [
+      c,
+      projectId,
+    ]);
+    await assert.rejects(
+      db.query("select update_project_stage($1,$2,'location','progress',1)", [
+        c,
+        projectId,
+      ]),
+    );
+    const initialStock = (
+      await db.query<{ stock: number }>(
+        "select (data->>'stock')::int as stock from entities where id=$1",
+        [p],
+      )
+    ).rows[0].stock;
+    await db.query(
+      "select transfer_project_stock($1,$2,null,$3,5,'TEST-TX-1','ส่งไปโครงการ')",
+      [c, p, projectId],
+    );
+    await assert.rejects(
+      db.query(
+        "select transfer_project_stock($1,$2,null,$3,5,'TEST-TX-1','ซ้ำ')",
+        [c, p, projectId],
+      ),
+    );
+    await assert.rejects(
+      db.query(
+        "select transfer_project_stock($1,$2,$3,null,6,'TEST-TX-OVER','เกินคงเหลือ')",
+        [c, p, projectId],
+      ),
+    );
+    await db.query(
+      "select transfer_project_stock($1,$2,$3,null,2,'TEST-TX-RETURN','ขายไม่หมด โอนกลับคลัง')",
+      [c, p, projectId],
+    );
+    const destination = await save("projects", {
+      name: "Destination",
+      priority: "normal",
+      status: "active",
+    });
+    await db.query(
+      "select transfer_project_stock($1,$2,$3,$4,1,'TEST-TX-2','โอนไปงานอื่น')",
+      [c, p, projectId, destination],
+    );
+    const central = (
+      await db.query<{ stock: number }>(
+        "select (data->>'stock')::int as stock from entities where id=$1",
+        [p],
+      )
+    ).rows[0].stock;
+    const allocated = (
+      await db.query<{ quantity: number }>(
+        "select sum(quantity)::int as quantity from project_inventory where product_id=$1",
+        [p],
+      )
+    ).rows[0].quantity;
+    assert.equal(central, initialStock - 3);
+    assert.equal(central + allocated, initialStock);
+    assert.equal(
+      (await db.query("select * from stock_transfers")).rows.length,
+      3,
+    );
+    const fullPurchase = await save("purchases", {
+      name: "PR-2026-002",
+      supplierId: supplier,
+      productId: p,
+      quantity: 2,
+      unitCost: 120,
+      orderDate: "2026-10-13",
+      projectId,
+      category: "เสื้อผ้า",
+      requestor: "Marketing Team",
+      usagePurpose: "Promotion",
+      startDate: "2026-10-16",
+      endDate: "2026-10-28",
+      deliveryLocation: "The Promenade",
+      dueDate: "2026-10-15",
+    });
+    await assert.rejects(
+      db.query("select purchase_action($1,$2,'dispatch')", [c, fullPurchase]),
+    );
+    for (const action of [
+      "approve",
+      "request_vendor",
+      "vendor_confirm",
+      "dispatch",
+      "deliver",
+      "receive",
+    ])
+      await db.query("select purchase_action($1,$2,$3)", [
+        c,
+        fullPurchase,
+        action,
+      ]);
+    await assert.rejects(
+      db.query("select purchase_action($1,$2,'receive')", [c, fullPurchase]),
+    );
+    const pr = (
+      await db.query<{ data: { status: string; poNumber: string } }>(
+        "select data from entities where id=$1",
+        [fullPurchase],
+      )
+    ).rows[0];
+    assert.equal(pr.data.status, "received");
+    assert.match(pr.data.poNumber, /^PO-/);
+    await save("leads", {
+      name: "Example opportunity",
+      customerId: customer,
+      stage: "proposal",
+      amount: 25000,
+      assignee: "Sales Team",
+    });
     await db.query(
       `select invite_member($1,'viewer@test.local','viewer',array['Warehouse'])`,
       [c],
     );
     await login("10000000-0000-4000-8000-000000000003", "viewer@test.local");
     await db.query("select accept_invitations()");
+    assert.equal(
+      (await db.query("select * from project_stages")).rows.length,
+      0,
+    );
+    assert.equal(
+      (await db.query("select * from project_inventory")).rows.length,
+      0,
+    );
+    await assert.rejects(
+      db.query(
+        "select transfer_project_stock($1,$2,null,$3,1,'VIEWER-TX','No permission')",
+        [c, p, projectId],
+      ),
+    );
+    await assert.rejects(
+      db.query("select update_project_stage($1,$2,'warehouse','done',1)", [
+        c,
+        projectId,
+      ]),
+    );
     assert.equal(
       (await db.query("select * from design_revisions")).rows.length,
       0,
@@ -492,6 +652,16 @@ test("SQL migrations enforce tenant isolation, permissions and inventory transac
       ])
     ).rows[0].id;
     assert.notEqual(c, c2);
+    assert.equal(
+      (await db.query("select * from stock_transfers")).rows.length,
+      0,
+    );
+    await assert.rejects(
+      db.query(
+        "select transfer_project_stock($1,$2,null,$3,1,'CROSS-TX','Cross tenant')",
+        [c, p, projectId],
+      ),
+    );
     assert.equal((await db.query("select * from entities")).rows.length, 0);
     assert.equal(
       (await db.query("select * from design_revisions")).rows.length,

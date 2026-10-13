@@ -12,11 +12,19 @@ import type {
   Context,
   DesignRevision,
   DesignComment,
+  ProjectStage,
+  StageHistory,
+  StockTransfer,
+  ProjectInventory,
 } from "./types";
 import { AppError, assert, stockDelta, validateValues } from "./domain";
 export const demoEnabled = () =>
   process.env.ELITEFLOW_DEMO_MODE === "true" && !process.env.VERCEL;
 export type DemoState = {
+  transfers?: StockTransfer[];
+  projectInventory?: ProjectInventory[];
+  stages?: ProjectStage[];
+  stageHistory?: StageHistory[];
   designs?: DesignRevision[];
   designComments?: DesignComment[];
   company: Company;
@@ -39,6 +47,7 @@ export type DemoState = {
     type: string;
     quantity: number;
     reference: string;
+    notes?: string;
     created_at: string;
   }[];
   invites: Record<string, unknown>[];
@@ -292,6 +301,7 @@ export function demoMovement(
   type: string,
   quantity: number,
   reference: string,
+  notes = "",
 ) {
   const product = s.entities.find(
     (e) => e.id === productId && e.kind === "products" && !e.archived_at,
@@ -316,6 +326,7 @@ export function demoMovement(
     type,
     quantity,
     reference,
+    notes,
     created_at: timestamp(),
   });
   demoAudit(s, "stock_" + type, productId);
