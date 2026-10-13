@@ -9,7 +9,7 @@ import { dbError } from "./data";
 import { download } from "./files";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { hashPassword, shareHash, shareToken, verifyPassword, shareState, type Share } from "./share";
-import { overage, planById, planPrice, plans, subscriptionActive, type Subscription, type Usage } from "./billing";
+import { overage, planById, planPrice, plans, subscriptionActive, hasAddon, addons, type AddonId, type Subscription, type Usage } from "./billing";
 import type { Context, Role, Template } from "./types";
 
 // ---------- Dashboard widgets ----------
@@ -124,7 +124,17 @@ export type Payment = {
   status: "pending" | "verified" | "rejected";
   note?: string | null;
   created_at: string;
+  addons?: string[];
+  extra_users?: number;
 };
+/** Whether the company may use a paid add-on (trial and Enterprise include the AI ones). */
+export async function entitled(ctx: Context, id: AddonId) {
+  if (ctx.demo) return hasAddon(demoSub((await demoRead()) as DemoState & DemoBilling), id);
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("has_addon", { c: ctx.company.id, a: id });
+  dbError(error);
+  return !!data;
+}
 const demoSub = (s: DemoState & DemoBilling): Subscription =>
   (s.subscription ??= {
     plan: "growth",
@@ -159,6 +169,8 @@ export async function billing(ctx: Context) {
       limits: { workflows: plan.workflows, documents: plan.documents, line_groups: plan.line_groups, users: plan.users === null ? null : plan.users + subscription.extra_users },
       overage: overage(plan.id, usage),
       payments: ctx.member.role === "owner" ? s.payments || [] : [],
+      addons,
+      entitlements: Object.fromEntries(addons.map((a) => [a.id, hasAddon(subscription, a.id)])),
     };
   }
   const sb = await supabaseServer();
@@ -170,13 +182,27 @@ export async function billing(ctx: Context) {
       ? await sb.from("billing_payments").select("*").eq("company_id", ctx.company.id).order("created_at", { ascending: false }).limit(20)
       : { data: [] };
   const usage = data.usage as Usage;
-  return { ...data, plan: planById(data.subscription.plan), plans, overage: overage(data.subscription.plan, usage), payments: payments || [] };
+  return {
+    ...data,
+    plan: planById(data.subscription.plan),
+    plans,
+    overage: overage(data.subscription.plan, usage),
+    payments: payments || [],
+    addons,
+    entitlements: Object.fromEntries(addons.map((a) => [a.id, hasAddon(data.subscription, a.id)])),
+  };
 }
 /** Owner submits a transfer slip for a plan; the QR reference is checked and must be unused. */
 export async function requestPayment(ctx: Context, input: unknown) {
   requireOwner(ctx);
-  const { plan, cycle, attachmentId } = z
-    .object({ plan: z.enum(["starter", "growth", "enterprise"]), cycle: z.enum(["monthly", "yearly"]), attachmentId: z.uuid() })
+  const { plan, cycle, attachmentId, addons: chosen, extraUsers } = z
+    .object({
+      plan: z.enum(["starter", "growth", "enterprise"]),
+      cycle: z.enum(["monthly", "yearly"]),
+      attachmentId: z.uuid(),
+      addons: z.array(z.enum(["ocr_plus", "exec_dashboard", "erp", "custom_workflow", "custom_form"])).max(5).default([]),
+      extraUsers: z.number().int().min(0).max(1000).default(0),
+    })
     .parse(input);
   const { file, bytes } = await download(ctx, attachmentId);
   let text: string | null = null;
@@ -187,13 +213,13 @@ export async function requestPayment(ctx: Context, input: unknown) {
   }
   const qr = text ? parseSlipQr(text) : null;
   assert(qr, "อ่าน QR บนสลิปไม่ได้ กรุณาอัปโหลดรูปสลิป (PNG/JPEG) ที่ไม่ถูกครอป");
-  const price = planPrice(plan, cycle);
+  const price = planPrice(plan, cycle, { addons: chosen, extraUsers });
   const slip = { transRef: qr.transRef, bank: qr.bankName, file: file.name };
   if (ctx.demo)
     return demoMutate((s: DemoState & DemoBilling) => {
       s.payments ??= [];
       assert(!s.payments.some((p) => p.slip_ref === qr.transRef), "สลิปนี้ถูกใช้แล้ว");
-      const p: Payment = { id: randomUUID(), plan, cycle, amount: price.total, slip, slip_ref: qr.transRef, status: "pending", created_at: new Date().toISOString() };
+      const p: Payment = { id: randomUUID(), plan, cycle, amount: price.total, slip, slip_ref: qr.transRef, status: "pending", created_at: new Date().toISOString(), addons: chosen, extra_users: extraUsers };
       s.payments.unshift(p);
       demoAudit(s, "payment_requested", p.id);
       return p;
@@ -206,6 +232,8 @@ export async function requestPayment(ctx: Context, input: unknown) {
     p_attachment: attachmentId,
     p_slip: slip,
     p_ref: qr.transRef,
+    p_addons: chosen,
+    p_extra_users: extraUsers,
   });
   dbError(error);
   return data;
@@ -236,7 +264,7 @@ export async function confirmPayment(ctx: Context, id: string, status: "verified
         const end = new Date(from);
         if (p.cycle === "yearly") end.setFullYear(end.getFullYear() + 1);
         else end.setMonth(end.getMonth() + 1);
-        Object.assign(sub, { plan: p.plan, cycle: p.cycle, status: "active", current_period_end: end.toISOString() });
+        Object.assign(sub, { plan: p.plan, cycle: p.cycle, status: "active", current_period_end: end.toISOString(), addons: p.addons || [], extra_users: p.extra_users || 0 });
       }
       demoAudit(s, "payment_" + status, id);
     });
@@ -417,7 +445,7 @@ const presets: { match: RegExp; name: string; department: string; fields: Templa
 export async function draftTemplate(ctx: Context, input: unknown) {
   requireOwner(ctx);
   const { description } = z.object({ description: z.string().trim().min(3).max(2000) }).parse(input);
-  if (process.env.OPENAI_API_KEY) {
+  if (process.env.OPENAI_API_KEY && (await entitled(ctx, "custom_form"))) {
     const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       signal: AbortSignal.timeout(30000),

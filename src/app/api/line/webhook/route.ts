@@ -177,6 +177,7 @@ export async function POST(req: Request) {
         group_id: groupId,
         attachment_id: attachmentId,
         source_user: userId || null,
+        reply_token: event.replyToken || null,
       });
       if (error && /แพ็กเกจหมดอายุ/.test(error.message)) {
         await lineReply(event.replyToken, "⚠️ แพ็กเกจ ZettaFlow ของบริษัทหมดอายุ กรุณาให้เจ้าของบริษัทต่ออายุในเว็บ");

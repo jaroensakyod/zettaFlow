@@ -2,11 +2,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { addons } from "@/lib/billing";
 
 const plans = [
   { name: "Starter", for: "ร้านค้า / ธุรกิจขนาดเล็ก", monthly: 1190, yearly: 11900, rows: ["5 AI Workflows", "1,000 เอกสาร/เดือน", "2 กลุ่ม LINE", "2 ผู้ใช้ Dashboard", "Email support"] },
   { name: "Growth", for: "ธุรกิจหลายแผนก", monthly: 3490, yearly: 34900, popular: true, rows: ["20 AI Workflows", "4,000 เอกสาร/เดือน", "10 กลุ่ม LINE", "10 ผู้ใช้ Dashboard", "API Integration (เสริม)", "Priority support"] },
-  { name: "Enterprise", for: "องค์กร / หลายบริษัท", monthly: 8900, yearly: 89000, rows: ["Workflows ไม่จำกัด", "เอกสารไม่จำกัด", "กลุ่ม LINE ไม่จำกัด", "ผู้ใช้ไม่จำกัด", "API Integration", "Dedicated support"] },
+  { name: "Enterprise", for: "องค์กร / หลายบริษัท", monthly: 8900, yearly: 89000, rows: ["Workflows ไม่จำกัด", "20,000 เอกสาร/เดือน (Fair use)", "รวม AI OCR Plus + AI Insight", "กลุ่ม LINE ไม่จำกัด", "ผู้ใช้ไม่จำกัด", "API Integration", "Dedicated support"] },
 ];
 
 export function PricingCards() {
@@ -45,6 +46,28 @@ export function PricingCards() {
         ))}
       </div>
       <p className="lp-fine">ราคายังไม่รวม VAT 7% · ไม่ต้องใช้บัตรเครดิต · ยกเลิกได้ทุกเมื่อ · Setup &amp; Onboarding ครั้งเดียว ฿3,000–10,000</p>
+      <h3 className="lp-addon-title">Premium Add-ons</h3>
+      <div className="lp-addons">
+        {addons.map((a) => (
+          <article key={a.id}>
+            <div>
+              <h4>{a.name}</h4>
+              <p>{a.detail}</p>
+            </div>
+            <strong>
+              ฿{(yearly && a.id !== "extra_user" ? a.price * 10 : a.price).toLocaleString("th-TH")}
+              <span>/{yearly && a.id !== "extra_user" ? "ปี" : a.unit}</span>
+            </strong>
+          </article>
+        ))}
+      </div>
+      <div className="lp-overage">
+        <b>ใช้เกินโควตา ระบบไม่หยุด — คิดรอบถัดไป</b>
+        <span>เอกสารเพิ่ม ฿1/รายการ</span>
+        <span>AI อ่านรูป (OCR) ฿1.50/รูป</span>
+        <span>AI วิเคราะห์ PDF ฿2/ไฟล์ (สูงสุด 10 หน้า)</span>
+      </div>
+      <p className="lp-fine">ช่วงทดลอง 14 วันเปิด Add-on ด้าน AI ให้ลองครบ</p>
     </>
   );
 }
