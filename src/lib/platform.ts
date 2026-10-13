@@ -3,7 +3,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "./supabase/server";
-import { demoRead, demoMutate, demoAudit, type DemoState } from "./demo";
+import { demoRead, demoMutate, demoAudit, demoEnabled, type DemoState } from "./demo";
 import { assert, requireOwner, canRead, templateSchema } from "./domain";
 import { dbError } from "./data";
 import { download } from "./files";
@@ -241,7 +241,7 @@ export async function requestPayment(ctx: Context, input: unknown) {
 /** Platform operators (PLATFORM_ADMIN_EMAILS) confirm transfers and activate plans. */
 export function platformAdmin(ctx: Context) {
   const admins = (process.env.PLATFORM_ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return ctx.demo ? ctx.member.role === "owner" : admins.includes(ctx.user.email.toLowerCase());
+  return ctx.demo ? demoEnabled() && ctx.member.role === "owner" : admins.includes(ctx.user.email.toLowerCase());
 }
 export async function pendingPayments(ctx: Context) {
   assert(platformAdmin(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);

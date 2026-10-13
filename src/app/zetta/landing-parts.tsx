@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { addons } from "@/lib/billing";
@@ -92,6 +92,45 @@ export function Faq() {
           <p>{a}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+type PromoItem = { id: string; title: string; body: string; cta_label: string; cta_url: string; tone: string };
+/** Live promotions managed in the Admin Console. Renders nothing when there are none. */
+export function PromoStrip() {
+  const [items, setItems] = useState<PromoItem[]>([]);
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    fetch("/api/public-content", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { promos: [] }))
+      .then((d) => setItems(d.promos || []))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (items.length < 2) return;
+    const t = setInterval(() => setI((n) => (n + 1) % items.length), 6000);
+    return () => clearInterval(t);
+  }, [items.length]);
+  if (!items.length) return null;
+  const p = items[i % items.length];
+  return (
+    <div className={"lp-promo " + p.tone} role="region" aria-label="โปรโมชัน">
+      <span className="lp-promo-tag">โปรโมชัน</span>
+      <b>{p.title}</b>
+      {p.body && <span className="lp-promo-body">{p.body}</span>}
+      {p.cta_label && p.cta_url && (
+        <a href={p.cta_url} className="lp-promo-cta">
+          {p.cta_label} <ArrowRight size={14} />
+        </a>
+      )}
+      {items.length > 1 && (
+        <span className="lp-promo-dots" aria-hidden>
+          {items.map((x, n) => (
+            <i key={x.id} className={n === i % items.length ? "on" : ""} />
+          ))}
+        </span>
+      )}
     </div>
   );
 }

@@ -220,6 +220,29 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
     await db.exec("reset role;");
     assert.equal((await one<{ l: number }>(db, "select plan_limit($1,'users')as l", [c])).l, 12);
     assert.equal((await one<{ d: number }>(db, "select documents d from plans where id='enterprise'")).d, 20000);
+    // support chat: owner sends, other tenants cannot read, operator replies via service role
+    await login(owner, "owner@test.local");
+    await db.query("select support_send($1,'ช่วยตั้งค่า LINE หน่อย')", [c]);
+    await assert.rejects(db.query("select support_reply($1,'x','hi')", [c]));
+    await login(other, "other@test.local");
+    assert.equal((await db.query("select * from support_messages")).rows.length, 0);
+    await assert.rejects(db.query("select support_send($1,'hack')", [c]));
+    await login(null);
+    await db.query("select support_reply($1,'ทีมงาน','ได้เลยครับ')", [c]);
+    const th = await one<{ unread_admin: number; unread_customer: number }>(db, "select * from support_threads where company_id=$1", [c]);
+    assert.equal(th.unread_admin, 0);
+    assert.equal(th.unread_customer, 1);
+    await login(owner, "owner@test.local");
+    assert.equal((await db.query("select * from support_messages")).rows.length, 2);
+    await db.query("select support_seen($1)", [c]);
+    assert.equal((await one<{ unread_customer: number }>(db, "select unread_customer from support_threads where company_id=$1", [c])).unread_customer, 0);
+    // promos: only active, in-window rows are public; anon cannot write
+    await login(null);
+    await db.query("insert into promos(title,active)values('A',true),('B',false)");
+    await db.query("insert into promos(title,ends_at)values('C',now()-interval '1 day')");
+    await db.exec("reset role;set role anon;");
+    assert.deepEqual((await db.query<{ title: string }>("select title from promos")).rows.map((r) => r.title), ["A"]);
+    await assert.rejects(db.query("insert into promos(title)values('X')"));
   } finally {
     await db.close();
   }
