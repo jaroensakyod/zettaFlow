@@ -86,3 +86,16 @@ test("dynamic forms: choice fields, auto widgets, layout and per-widget roles", 
   assert.deepEqual(arrangeWidgets(ws, layout, "owner", true).map((w) => w.key), ["c", "a", "b"]);
   assert.deepEqual(arrangeWidgets(ws, layout, "manager").map((w) => w.key), ["c"]);
 });
+import { memoryLockout, memoryFail } from "../src/lib/platform";
+test("share password rate limit: per link+client, per link, per client", () => {
+  const store = new Map<string, number[]>();
+  const t = 1_000_000_000;
+  for (let i = 0; i < 4; i++) memoryFail(store, "L", "A", t);
+  assert.equal(memoryLockout(store, "L", "A", t), 0);
+  memoryFail(store, "L", "A", t);
+  assert.equal(memoryLockout(store, "L", "A", t), 900);
+  assert.equal(memoryLockout(store, "L", "B", t), 0);
+  assert.equal(memoryLockout(store, "L", "A", t + 901000), 0);
+  for (let i = 0; i < 20; i++) memoryFail(store, "M", "C" + i, t);
+  assert.equal(memoryLockout(store, "M", "new", t), 900);
+});

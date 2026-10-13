@@ -193,7 +193,14 @@ async function handle(req: NextRequest) {
       const input = method === "POST" ? await body(req) : {};
       const password = z.string().max(100).default("").parse(input.password);
       return response(
-        await openShare(z.string().max(80).parse(path[1]), password, demoEnabled()),
+        await openShare(
+          z.string().max(80).parse(path[1]),
+          password,
+          demoEnabled(),
+          req.headers.get("x-real-ip") ||
+            req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+            "unknown",
+        ),
       );
     }
     const ctx = await context();

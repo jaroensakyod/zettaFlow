@@ -1,6 +1,6 @@
 // Platform features: subscription & billing, dashboard layout + per-widget visibility,
 // shared dashboard links, slip checks and AI form drafting. Works in demo mode and on Supabase.
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "./supabase/server";
 import { demoRead, demoMutate, demoAudit, type DemoState } from "./demo";
@@ -317,31 +317,66 @@ export async function revokeShare(ctx: Context, id: string) {
   const { error } = await sb.rpc("revoke_share", { p_company: ctx.company.id, p_id: id });
   dbError(error);
 }
-/** Public, unauthenticated: resolve a share token (+ password) to its read-only widgets. */
-export async function openShare(token: string, password: string, demo: boolean) {
+// Demo-mode lockout memory (production uses the share_attempts table so it works across serverless instances).
+const demoAttempts = new Map<string, number[]>();
+/** In-memory sliding-window limiter; same policy as share_lockout() in SQL. */
+export function memoryLockout(store: Map<string, number[]>, tokenHash: string, client: string, now = Date.now()) {
+  const recent = (k: string, ms: number) => (store.get(k) || []).filter((t) => t > now - ms);
+  return recent(tokenHash + "|" + client, 900000).length >= 5 ||
+    recent(tokenHash, 900000).length >= 20 ||
+    recent("|" + client, 3600000).length >= 30
+    ? 900
+    : 0;
+}
+export function memoryFail(store: Map<string, number[]>, tokenHash: string, client: string, now = Date.now()) {
+  for (const k of [tokenHash + "|" + client, tokenHash, "|" + client])
+    store.set(k, [...(store.get(k) || []).filter((t) => t > now - 3600000), now]);
+}
+/** Public, unauthenticated: resolve a share token (+ password) to its read-only widgets. Wrong passwords are rate limited per link and per client. */
+export async function openShare(token: string, password: string, demo: boolean, client = "unknown") {
   assert(/^[A-Za-z0-9_-]{20,64}$/.test(token), "ลิงก์ไม่ถูกต้อง", 404);
-  let share: Share | undefined, company = "", widgets: Widget[] = [];
+  const hash = shareHash(token);
+  const clientHash = createHash("sha256").update("client:" + client).digest("hex").slice(0, 32);
+  const admin = demo ? null : supabaseAdmin();
+  let share: Share | undefined, company = "";
   if (demo) {
     const s = (await demoRead()) as DemoState & DemoBilling;
-    share = s.shares?.find((x) => x.token_hash === shareHash(token));
+    share = s.shares?.find((x) => x.token_hash === hash);
     company = s.company.name;
-    if (share) widgets = computeWidgets(s.templates, s.ingestions, () => true).filter((w) => share!.widget_keys.includes(w.key));
   } else {
-    const admin = supabaseAdmin();
-    const { data } = await admin.from("dashboard_shares").select("*, companies(name)").eq("token_hash", shareHash(token)).maybeSingle();
+    const { data } = await admin!.from("dashboard_shares").select("*, companies(name)").eq("token_hash", hash).maybeSingle();
     share = data || undefined;
     company = (data?.companies as { name?: string } | null)?.name || "";
-    if (share && shareState(share) === "ok" && verifyPassword(password, share.password_hash)) {
-      const { data: m, error } = await admin.rpc("share_metrics", { p_company: share.company_id, p_keys: share.widget_keys });
-      dbError(error);
-      widgets = ((m || []) as Widget[]).map((w) => ({ ...w, total: Number(w.total), count: Number(w.count) }));
-    }
   }
   const state = shareState(share);
   assert(state !== "missing", "ไม่พบลิงก์", 404);
   assert(state === "ok", state === "expired" ? "ลิงก์หมดอายุแล้ว" : "ลิงก์ถูกยกเลิกแล้ว", 410);
-  if (!verifyPassword(password, share!.password_hash))
+  if (share!.password_hash && password) {
+    let wait: number;
+    if (demo) wait = memoryLockout(demoAttempts, hash, clientHash);
+    else {
+      const { data, error } = await admin!.rpc("share_lockout", { p_token: hash, p_client: clientHash });
+      dbError(error);
+      wait = Number(data || 0);
+    }
+    assert(!wait, `ใส่รหัสผิดหลายครั้งเกินไป กรุณาลองใหม่ใน ${Math.ceil(wait / 60)} นาที`, 429);
+  }
+  if (!verifyPassword(password, share!.password_hash)) {
+    if (password) {
+      if (demo) memoryFail(demoAttempts, hash, clientHash);
+      else await admin!.rpc("share_failed", { p_token: hash, p_client: clientHash });
+    }
     return { needsPassword: true, label: share!.label, company, wrong: !!password };
+  }
+  let widgets: Widget[];
+  if (demo) {
+    const s = await demoRead();
+    widgets = computeWidgets(s.templates, s.ingestions, () => true).filter((w) => share!.widget_keys.includes(w.key));
+  } else {
+    const { data: m, error } = await admin!.rpc("share_metrics", { p_company: share!.company_id, p_keys: share!.widget_keys });
+    dbError(error);
+    widgets = ((m || []) as Widget[]).map((w) => ({ ...w, total: Number(w.total), count: Number(w.count) }));
+  }
   const order = share!.widget_keys;
   return { needsPassword: false, label: share!.label, company, expires_at: share!.expires_at, widgets: widgets.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key)) };
 }
