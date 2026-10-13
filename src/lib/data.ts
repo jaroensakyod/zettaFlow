@@ -9,6 +9,8 @@ import {
   demoAudit,
   demoMovement,
   demoApprove,
+  publicDemoAllowed,
+  PUBLIC_DEMO_COOKIE,
 } from "./demo";
 import {
   assert,
@@ -36,7 +38,12 @@ export function dbError(error: { message: string; code?: string } | null) {
   if (error) throw new AppError(error.message, 400);
 }
 export async function context(): Promise<Context> {
-  if (demoEnabled()) return demoContext();
+  if (
+    demoEnabled() ||
+    (publicDemoAllowed() &&
+      (await cookies()).get(PUBLIC_DEMO_COOKIE)?.value === "1")
+  )
+    return demoContext();
   assert(configured(), "ตั้งค่า Supabase ก่อนใช้งาน", 503);
   const sb = await supabaseServer();
   const {

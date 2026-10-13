@@ -2566,3 +2566,9 @@ td strong {
     grid-template-columns: 1fr;
   }
 }
+.z-demo .z-demo-cta {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}

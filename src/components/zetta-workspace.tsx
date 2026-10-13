@@ -512,8 +512,22 @@ export function ZettaWorkspace({
         </header>
         {ctx.demo && (
           <div className="z-demo">
-            <span>DEMO</span>ข้อมูลตัวอย่าง · บริการ LINE / AI
-            จริงต้องตั้งค่าก่อนใช้งาน
+            <span>DEMO</span>ระบบตัวอย่าง อ่านอย่างเดียว · ข้อมูลสมมติ
+            <a
+              className="z-demo-cta"
+              href="/eliteflow"
+              onClick={async (e) => {
+                e.preventDefault();
+                await fetch("/api/auth", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "logout" }),
+                }).catch(() => {});
+                location.href = "/eliteflow";
+              }}
+            >
+              สมัครใช้งานจริงฟรี →
+            </a>
           </div>
         )}
         <main className="z-main">

@@ -20,6 +20,22 @@ import type {
 import { AppError, assert, stockDelta, validateValues } from "./domain";
 export const demoEnabled = () =>
   process.env.ELITEFLOW_DEMO_MODE === "true" && !process.env.VERCEL;
+/** Public read-only showcase (/demo). Same sample data, held in memory, never written. */
+export const publicDemoAllowed = () => process.env.PUBLIC_DEMO !== "false";
+export const PUBLIC_DEMO_COOKIE = "ef_demo";
+let showcase: DemoState | null = null;
+function showcaseState(): DemoState {
+  if (!showcase) {
+    // Deterministic ids so every serverless instance serves identical records.
+    let n = 0;
+    showcase = seedDemo(
+      () => "20000000-0000-4000-8000-" + String(++n).padStart(12, "0"),
+    );
+  }
+  return structuredClone(showcase);
+}
+export const READ_ONLY_DEMO =
+  "นี่คือระบบตัวอย่าง (อ่านอย่างเดียว) — สมัครใช้งานฟรีเพื่อบันทึกข้อมูลจริง";
 export type DemoState = {
   transfers?: StockTransfer[];
   projectInventory?: ProjectInventory[];
@@ -56,14 +72,14 @@ const companyId = "10000000-0000-4000-8000-000000000001",
   userId = "10000000-0000-4000-8000-000000000002";
 const timestamp = () => new Date().toISOString();
 const uid = () => randomUUID();
-export function seedDemo(): DemoState {
+export function seedDemo(makeId: () => string = uid): DemoState {
   const entities: Entity[] = [];
   const add = (
     kind: string,
     department: string,
     data: Record<string, unknown>,
   ) => {
-    const id = uid();
+    const id = makeId();
     entities.push({
       id,
       kind,
@@ -183,7 +199,7 @@ export function seedDemo(): DemoState {
     status: "active",
   });
   const template: Template = {
-    id: uid(),
+    id: makeId(),
     company_id: companyId,
     name: "อนุมัติพื้นที่ขาย",
     department: "Business Development",
@@ -204,7 +220,7 @@ export function seedDemo(): DemoState {
     ],
   };
   const delivery: Template = {
-    id: uid(),
+    id: makeId(),
     company_id: companyId,
     name: "ฟอร์มตรวจคลัง",
     department: "Warehouse",
@@ -222,7 +238,7 @@ export function seedDemo(): DemoState {
     ["Mannequin TH", 9600, "กระบะ"],
     ["Label Co.", 1200, "มอเตอร์ไซค์"],
   ].map(([supplier, total, vehicle]) => ({
-    id: uid(),
+    id: makeId(),
     company_id: companyId,
     template: delivery,
     raw: `ซัพพลายเออร์: ${supplier}
@@ -244,7 +260,7 @@ export function seedDemo(): DemoState {
     },
     members: [
       {
-        id: uid(),
+        id: makeId(),
         company_id: companyId,
         user_id: userId,
         name: "Siri (Demo)",
@@ -282,7 +298,10 @@ async function saveFile(s: DemoState) {
   await rename(temporary, target);
 }
 export async function demoRead(): Promise<DemoState> {
-  assert(demoEnabled(), "โหมด demo ใช้ได้เฉพาะเครื่อง local", 403);
+  if (!demoEnabled()) {
+    assert(publicDemoAllowed(), "โหมด demo ใช้ได้เฉพาะเครื่อง local", 403);
+    return showcaseState();
+  }
   try {
     return JSON.parse(await readFile(file(), "utf8"));
   } catch (e) {
@@ -299,6 +318,7 @@ export async function demoRead(): Promise<DemoState> {
   }
 }
 export function demoMutate<T>(fn: (s: DemoState) => T): Promise<T> {
+  if (!demoEnabled()) return Promise.reject(new AppError(READ_ONLY_DEMO, 403));
   const task = chain.then(async () => {
     const s = await demoRead();
     const result = fn(s);

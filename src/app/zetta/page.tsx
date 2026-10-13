@@ -205,7 +205,8 @@ export default function ZettaHome() {
           <a href="#faq">FAQ</a>
         </nav>
         <div className="lp-header-cta">
-          <Link href="/zetta/dashboard" className="lp-link">เข้าสู่ระบบ</Link>
+          <a href="/demo" className="lp-link">ดูตัวอย่าง</a>
+          <Link href="/eliteflow" className="lp-link">เข้าสู่ระบบ</Link>
           <Link href="/zetta/dashboard" className="lp-btn primary sm">ทดลองฟรี</Link>
         </div>
       </header>
@@ -225,7 +226,7 @@ export default function ZettaHome() {
               <Link href="/zetta/dashboard" className="lp-btn primary">
                 เริ่มทดลองฟรี 14 วัน <ArrowRight size={18} />
               </Link>
-              <a href="#how" className="lp-btn ghost">ดูวิธีทำงาน</a>
+              <a href="/demo" className="lp-btn ghost">ดูระบบตัวอย่าง</a>
             </div>
             <ul className="lp-proof">
               <li><CircleCheck size={16} /> ไม่ต้องใช้บัตรเครดิต</li>
