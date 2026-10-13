@@ -22,7 +22,14 @@ import {
   supabaseAdmin,
   configured,
 } from "@/lib/supabase/server";
-import { demoEnabled, demoRead, demoMutate, demoAudit } from "@/lib/demo";
+import {
+  demoEnabled,
+  demoRead,
+  demoMutate,
+  demoAudit,
+  PUBLIC_DEMO_COOKIE,
+  READ_ONLY_DEMO,
+} from "@/lib/demo";
 import {
   assert,
   AppError,
@@ -90,7 +97,9 @@ async function handle(req: NextRequest) {
     if (path[0] === "config")
       return response({
         configured: configured(),
-        demo: demoEnabled(),
+        demo:
+          demoEnabled() ||
+          (await cookies()).get(PUBLIC_DEMO_COOKIE)?.value === "1",
         ai: !!process.env.OPENAI_API_KEY,
         line: !!process.env.LINE_CHANNEL_SECRET,
         worker: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -98,6 +107,7 @@ async function handle(req: NextRequest) {
     if (path[0] === "auth") {
       const input = await body(req);
       const action = input.action;
+      (await cookies()).delete(PUBLIC_DEMO_COOKIE);
       if (demoEnabled()) {
         assert(
           action === "logout",
@@ -204,6 +214,14 @@ async function handle(req: NextRequest) {
       );
     }
     const ctx = await context();
+    // Public showcase is read-only: only reads and side-effect-free helpers.
+    if (
+      ctx.demo &&
+      !demoEnabled() &&
+      method !== "GET" &&
+      !(path[0] === "assistant" || (path[0] === "templates" && path[1] === "draft"))
+    )
+      throw new AppError(READ_ONLY_DEMO, 403);
     if (path[0] === "companies") {
       if (ctx.demo)
         return response([
