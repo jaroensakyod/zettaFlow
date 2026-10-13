@@ -17,7 +17,7 @@ import { api, Empty, Loading, Modal, money, displayDate } from "./shared";
 import { Donut } from "./dashboard-charts";
 import type { Context, Role } from "@/lib/types";
 import type { Widget, Layout } from "@/lib/platform";
-import { addons, type Plan, type Subscription, type Usage } from "@/lib/billing";
+import { addons, planPrice, type Plan, type Subscription, type Usage } from "@/lib/billing";
 
 const roleNames: Record<Role, string> = {
   owner: "Owner",
@@ -393,6 +393,7 @@ type BillingData = {
     created_at: string;
   }[];
   platformAdmin: boolean;
+  entitlements: Record<string, boolean>;
 };
 const usageLabels: [keyof Usage, string][] = [
   ["workflows", "AI Workflows (Template)"],
@@ -411,6 +412,8 @@ export function SubscriptionPanel({
   const [data, setData] = useState<BillingData | null>(null),
     [error, setError] = useState(""),
     [pay, setPay] = useState<{ plan: string; cycle: "monthly" | "yearly" } | null>(null),
+    [chosen, setChosen] = useState<string[]>([]),
+    [extraUsers, setExtraUsers] = useState(0),
     [busy, setBusy] = useState(false);
   const load = useCallback(
     () =>
@@ -476,6 +479,10 @@ export function SubscriptionPanel({
             );
           })}
         </div>
+        <p className="note">
+          AI เดือนนี้: อ่านรูป (OCR) {data.usage.ocr.toLocaleString("th-TH")} รูป · วิเคราะห์ PDF {data.usage.ai_runs.toLocaleString("th-TH")} ไฟล์
+          {" "}({(data.usage as Usage & { pages?: number }).pages ?? 0} หน้า, สูงสุด 10 หน้า/ไฟล์)
+        </p>
         {data.overage.total > 0 && (
           <p className="note">
             เกินโควตาเดือนนี้ (เรียกเก็บรอบถัดไป, ระบบยังทำงานต่อ): เอกสาร ฿{money(data.overage.documents)} · OCR ฿
@@ -511,15 +518,26 @@ export function SubscriptionPanel({
       </div>
       <section className="z-card">
         <h2>Premium Add-ons</h2>
-        <ul>
+        <div className="usage-grid">
           {addons.map((a) => (
-            <li key={a.id}>
-              {a.name} · ฿{money(a.price)}/{a.unit}
-            </li>
+            <div className="widget-card" key={a.id}>
+              <small>฿{money(a.price)}/{a.unit}</small>
+              <b>{a.name}</b>
+              <p className="note">{a.detail}</p>
+              {a.id !== "extra_user" && (
+                <span className={"status-pill " + (data.entitlements?.[a.id] ? "good" : "")}>
+                  {data.entitlements?.[a.id]
+                    ? s.status === "trial"
+                      ? "เปิดให้ลองช่วงทดลอง"
+                      : "เปิดใช้งานแล้ว"
+                    : "ยังไม่ได้เปิด"}
+                </span>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
         <p className="note">
-          ส่วนเกินโควตา: เอกสาร ฿1/รายการ · OCR รูปภาพ ฿1.50/รูป · AI วิเคราะห์เอกสาร ฿2/ครั้ง · Setup &amp; Onboarding ครั้งเดียว ฿3,000–10,000 · ราคายังไม่รวม VAT 7% · ติดต่อทีมงานเพื่อเปิด Add-on
+          ส่วนเกินโควตา: เอกสาร ฿1/รายการ · OCR รูปภาพ ฿1.50/รูป · AI วิเคราะห์เอกสาร ฿2/ครั้ง · Setup &amp; Onboarding ครั้งเดียว ฿3,000–10,000 · ราคายังไม่รวม VAT 7% · เลือก Add-on ได้ตอนชำระแพ็กเกจ (รายปีได้ส่วนลด 2 เดือนเช่นกัน)
         </p>
       </section>
       {owner && !!data.payments.length && (
@@ -566,7 +584,10 @@ export function SubscriptionPanel({
               setError("");
               try {
                 const attachmentId = await uploadFile(file, "Finance");
-                await api("/billing", { method: "POST", body: { ...pay, attachmentId } });
+                await api("/billing", {
+                  method: "POST",
+                  body: { ...pay, attachmentId, addons: chosen, extraUsers },
+                });
                 setPay(null);
                 await load();
                 notify("ส่งสลิปแล้ว ระบบจะเปิดใช้งานเมื่อทีมงานยืนยันยอด");
@@ -579,12 +600,39 @@ export function SubscriptionPanel({
           >
             {(() => {
               const p = data.plans.find((x) => x.id === pay.plan)!;
-              const base = pay.cycle === "yearly" ? p.yearly : p.monthly;
+              const price = planPrice(p.id, pay.cycle, { addons: chosen, extraUsers });
               return (
-                <p>
-                  {p.name} ({pay.cycle === "yearly" ? "รายปี" : "รายเดือน"}) ฿{money(base)} + VAT 7% ={" "}
-                  <b>฿{money(Math.round(base * 107) / 100)}</b>
-                </p>
+                <>
+                  <h3 className="form-section-title">Add-on (ไม่บังคับ)</h3>
+                  {addons
+                    .filter((a) => a.id !== "extra_user")
+                    .map((a) => (
+                      <label key={a.id} className="check-row">
+                        <input
+                          type="checkbox"
+                          checked={chosen.includes(a.id)}
+                          onChange={(e) =>
+                            setChosen((c) => (e.target.checked ? [...c, a.id] : c.filter((x) => x !== a.id)))
+                          }
+                        />
+                        {a.name} · ฿{money(a.price)}/เดือน
+                      </label>
+                    ))}
+                  <label>
+                    ผู้ใช้ Dashboard เพิ่ม (฿150/คน/เดือน)
+                    <input
+                      type="number"
+                      min={0}
+                      max={1000}
+                      value={extraUsers}
+                      onChange={(e) => setExtraUsers(Math.max(0, Math.min(1000, Number(e.target.value) || 0)))}
+                    />
+                  </label>
+                  <p>
+                    {p.name} ({pay.cycle === "yearly" ? "รายปี" : "รายเดือน"}) ฿{money(price.base)} + VAT 7% ={" "}
+                    <b>฿{money(price.total)}</b>
+                  </p>
+                </>
               );
             })()}
             <p className="note">

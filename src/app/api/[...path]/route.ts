@@ -58,6 +58,7 @@ import {
   revokeShare,
   openShare,
   draftTemplate,
+  entitled,
 } from "@/lib/platform";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -343,6 +344,14 @@ async function handle(req: NextRequest) {
       const prompt = z.string().trim().min(1).max(1500).parse(input.prompt);
       const report = await summary(ctx);
       const base = `ข้อมูลที่บัญชีนี้มีสิทธิ์ดู: ยอดขายที่ยืนยัน ฿${report.summary.sales.toLocaleString("th-TH")} ค่าใช้จ่ายที่อนุมัติ ฿${report.summary.expenses.toLocaleString("th-TH")} โครงการที่ดำเนินการ ${report.summary.projects} งานค้าง ${report.summary.tasks} ดีลรออนุมัติ ${report.summary.pendingDeals} สินค้าถึงจุดสั่งซื้อ ${report.summary.lowStock.length} รายการ`;
+      if (!(await entitled(ctx, "exec_dashboard")))
+        return response({
+          answer:
+            base +
+            "\n\nAI ตอบคำถามอิสระและสรุปเชิงลึกอยู่ใน Add-on “Executive Dashboard + AI Insight” (฿990/เดือน) — เปิดได้ที่หน้า Subscription",
+          engine: "database-summary",
+          upsell: "exec_dashboard",
+        });
       if (!process.env.OPENAI_API_KEY)
         return response({
           answer:

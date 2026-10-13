@@ -203,6 +203,23 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
     );
     assert.equal(sub.status, "active");
     assert.equal(sub.plan, "starter");
+    // add-ons: trial includes everything; paid plan only what was bought; payment with add-ons activates them
+    assert.equal((await one<{ h: boolean }>(db, "select has_addon($1,'exec_dashboard')as h", [c])).h, false);
+    await login(owner, "owner@test.local");
+    const pay2 = await one<{ id: string; amount: string }>(
+      db,
+      "select * from request_payment($1,'growth','monthly',null,'{}','REF2',array['exec_dashboard'],2)",
+      [c],
+    );
+    assert.equal(Number(pay2.amount), Math.round((3490 + 990 + 300) * 107) / 100);
+    await assert.rejects(db.query("select request_payment($1,'growth','monthly',null,'{}','REF3',array['hack'])", [c]));
+    await login(null);
+    await db.query("select confirm_payment($1,'verified')", [pay2.id]);
+    assert.equal((await one<{ h: boolean }>(db, "select has_addon($1,'exec_dashboard')as h", [c])).h, true);
+    assert.equal((await one<{ h: boolean }>(db, "select has_addon($1,'custom_form')as h", [c])).h, false);
+    await db.exec("reset role;");
+    assert.equal((await one<{ l: number }>(db, "select plan_limit($1,'users')as l", [c])).l, 12);
+    assert.equal((await one<{ d: number }>(db, "select documents d from plans where id='enterprise'")).d, 20000);
   } finally {
     await db.close();
   }

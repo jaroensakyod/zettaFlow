@@ -43,21 +43,38 @@ export const plans: Plan[] = [
     monthly: 8900,
     yearly: 89000,
     workflows: null,
-    documents: null,
+    documents: 20000, // fair use; overage billed beyond this
     line_groups: null,
     users: null,
     support: "Dedicated",
     api: "Yes",
   },
 ];
-export const addons = [
-  { id: "ocr_plus", name: "AI OCR Plus", price: 599, unit: "เดือน" },
-  { id: "exec_dashboard", name: "Executive Dashboard + AI Insight", price: 990, unit: "เดือน" },
-  { id: "extra_user", name: "Additional Dashboard User", price: 150, unit: "ผู้ใช้/เดือน" },
-  { id: "erp", name: "ERP / Accounting Integration", price: 1000, unit: "เดือน" },
-  { id: "custom_workflow", name: "AI Custom Workflow", price: 3000, unit: "เดือน" },
-  { id: "custom_form", name: "AI Custom Form Designer", price: 2500, unit: "เดือน" },
+export type AddonId = "ocr_plus" | "exec_dashboard" | "extra_user" | "erp" | "custom_workflow" | "custom_form";
+export const addons: { id: AddonId; name: string; price: number; unit: string; detail: string }[] = [
+  { id: "ocr_plus", name: "AI OCR Plus", price: 599, unit: "เดือน", detail: "AI รุ่นแม่นยำสูงสำหรับใบกำกับภาษี ใบเสร็จ สัญญา และเอกสารค่าใช้จ่าย" },
+  { id: "exec_dashboard", name: "Executive Dashboard + AI Insight", price: 990, unit: "เดือน", detail: "CEO Dashboard พร้อม AI ตอบคำถามและสรุปเชิงลึกจากข้อมูลจริง" },
+  { id: "extra_user", name: "Additional Dashboard User", price: 150, unit: "ผู้ใช้/เดือน", detail: "เพิ่มผู้ใช้ Dashboard เกินโควตาแพ็กเกจ" },
+  { id: "erp", name: "ERP / Accounting Integration", price: 1000, unit: "เดือน", detail: "เชื่อม Express, SAP, Dynamics (ติดตั้งโดยทีมงาน)" },
+  { id: "custom_workflow", name: "AI Custom Workflow", price: 3000, unit: "เดือน", detail: "ทีมงานออกแบบ Workflow อัตโนมัติเฉพาะธุรกิจ" },
+  { id: "custom_form", name: "AI Custom Form Designer", price: 2500, unit: "เดือน", detail: "ให้ AI ร่างฟอร์มจากคำอธิบาย และ Template เฉพาะธุรกิจ" },
 ];
+/** Trial and Enterprise include the AI add-ons so prospects can evaluate them. */
+export function hasAddon(s: Pick<Subscription, "status" | "plan" | "addons"> | null | undefined, id: AddonId) {
+  if (!s) return false;
+  if (s.status === "trial") return true;
+  if (s.plan === "enterprise" && (id === "ocr_plus" || id === "exec_dashboard")) return true;
+  return s.addons.includes(id);
+}
+/** PDF pages analysed per AI run. Longer files must be split (or are billed per page by the team). */
+export const MAX_PDF_PAGES = 10;
+export function pdfPages(bytes: Buffer) {
+  const text = bytes.toString("latin1");
+  const pages = text.match(/\/Type\s*\/Page(?!s)\b/g)?.length || 0;
+  if (pages) return pages;
+  const count = text.match(/\/Type\s*\/Pages\b[\s\S]{0,200}?\/Count\s+(\d+)/);
+  return count ? Number(count[1]) : 1;
+}
 export const overageRates = { documents: 1, ocr: 1.5, ai_runs: 2 };
 export const VAT = 0.07;
 export type Usage = {
@@ -81,9 +98,20 @@ export function planById(id: string) {
   return plans.find((p) => p.id === id) || plans[1];
 }
 /** Price of a plan for a billing cycle, including VAT, rounded to satang. */
-export function planPrice(id: string, cycle: "monthly" | "yearly") {
+export function planPrice(
+  id: string,
+  cycle: "monthly" | "yearly",
+  extras: { addons?: string[]; extraUsers?: number } = {},
+) {
   const p = planById(id);
-  const base = cycle === "yearly" ? p.yearly : p.monthly;
+  const months = cycle === "yearly" ? 10 : 1; // yearly: 2 months free, add-ons included
+  const base =
+    (cycle === "yearly" ? p.yearly : p.monthly) +
+    addons
+      .filter((a) => a.id !== "extra_user" && extras.addons?.includes(a.id))
+      .reduce((s, a) => s + a.price, 0) *
+      months +
+    150 * (extras.extraUsers || 0) * months;
   return { base, vat: round(base * VAT), total: round(base * (1 + VAT)) };
 }
 const round = (n: number) => Math.round(n * 100) / 100;

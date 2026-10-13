@@ -1040,3 +1040,73 @@
     padding: 32px 16px;
   }
 }
+
+/* Add-ons on pricing */
+.lp-addon-title {
+  text-align: center;
+  font-size: 22px;
+  margin: 56px 0 18px;
+}
+.lp-addons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.lp-addons article {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+}
+.lp-addons h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.lp-addons p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.lp-addons strong {
+  white-space: nowrap;
+  font-size: 18px;
+  font-family: var(--lp-display), var(--lp-thai), sans-serif;
+}
+.lp-addons strong span {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  text-align: right;
+}
+.lp-overage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 18px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px dashed rgba(124, 92, 255, 0.45);
+  font-size: 14px;
+  color: var(--muted);
+}
+.lp-overage b {
+  color: var(--text);
+}
+@media (max-width: 1024px) {
+  .lp-addons {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 680px) {
+  .lp-addons {
+    grid-template-columns: 1fr;
+  }
+}

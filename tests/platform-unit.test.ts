@@ -37,7 +37,7 @@ test("billing: VAT, overage and active status", () => {
   assert.equal(o.ocr, 150);
   assert.equal(o.ai_runs, 400);
   assert.equal(o.total, 750);
-  assert.equal(overage("enterprise", { workflows: 1, documents: 1e6, ocr: 0, ai_runs: 0, line_groups: 1, users: 1 }).total, 0);
+  assert.equal(overage("enterprise", { workflows: 1, documents: 25000, ocr: 0, ai_runs: 0, line_groups: 1, users: 1 }).total, 5000);
   const now = Date.parse("2026-10-13T00:00:00Z");
   const sub = { plan: "growth" as const, cycle: "monthly" as const, status: "trial" as const, trial_ends_at: "2026-10-20T00:00:00Z", current_period_end: null, addons: [], extra_users: 0 };
   assert.equal(subscriptionActive(sub, now), true);
@@ -98,4 +98,19 @@ test("share password rate limit: per link+client, per link, per client", () => {
   assert.equal(memoryLockout(store, "L", "A", t + 901000), 0);
   for (let i = 0; i < 20; i++) memoryFail(store, "M", "C" + i, t);
   assert.equal(memoryLockout(store, "M", "new", t), 900);
+});
+import { hasAddon, pdfPages, planById } from "../src/lib/billing";
+test("add-ons: pricing, entitlements, enterprise fair use, PDF pages", () => {
+  assert.equal(planById("enterprise").documents, 20000);
+  assert.equal(planPrice("growth", "monthly", { addons: ["exec_dashboard"] }).base, 3490 + 990);
+  assert.equal(planPrice("starter", "yearly", { addons: ["ocr_plus"], extraUsers: 2 }).base, 11900 + 5990 + 3000);
+  const base = { status: "active" as const, plan: "growth" as const, addons: [] as string[] };
+  assert.equal(hasAddon(base, "exec_dashboard"), false);
+  assert.equal(hasAddon({ ...base, addons: ["exec_dashboard"] }, "exec_dashboard"), true);
+  assert.equal(hasAddon({ ...base, status: "trial" as never }, "custom_form"), true);
+  assert.equal(hasAddon({ ...base, plan: "enterprise" as const }, "ocr_plus"), true);
+  assert.equal(hasAddon({ ...base, plan: "enterprise" as const }, "custom_form"), false);
+  const pdf = (n: number) => Buffer.from("%PDF-1.4\n<< /Type /Pages /Count " + n + " >>\n" + "<< /Type /Page >>\n".repeat(n));
+  assert.equal(pdfPages(pdf(3)), 3);
+  assert.equal(pdfPages(Buffer.from("%PDF-1.4 << /Type /Pages /Kids [] /Count 12 >>")), 12);
 });
