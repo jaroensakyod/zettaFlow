@@ -657,7 +657,7 @@ export function SubscriptionPanel({
   );
 }
 
-function PlatformPayments({ notify, changed }: { notify: (s: string) => void; changed: () => void }) {
+export function PlatformPayments({ notify, changed }: { notify: (s: string) => void; changed: () => void }) {
   const [rows, setRows] = useState<{ id: string; plan: string; cycle: string; amount: number; slip_ref: string; created_at: string; companies?: { name: string } }[]>([]);
   const load = useCallback(() => api("/billing/admin").then(setRows).catch(() => {}), []);
   useEffect(() => {

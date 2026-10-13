@@ -24,6 +24,7 @@ const views = [
   "pricing",
   "marketing",
   "crm",
+  "admin",
 ];
 export default async function Page({
   params,

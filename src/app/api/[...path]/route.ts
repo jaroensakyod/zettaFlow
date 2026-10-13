@@ -60,6 +60,18 @@ import {
   draftTemplate,
   entitled,
 } from "@/lib/platform";
+import {
+  publicContent,
+  supportThread,
+  supportSeen,
+  supportSend,
+  adminInbox,
+  adminThread,
+  adminReply,
+  adminList,
+  adminSave,
+  adminDelete,
+} from "@/lib/engage";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -200,6 +212,8 @@ async function handle(req: NextRequest) {
       });
       return response({ ok: true });
     }
+    if (path[0] === "public-content")
+      return response(await publicContent(demoEnabled()));
     if (path[0] === "public-share") {
       const input = method === "POST" ? await body(req) : {};
       const password = z.string().max(100).default("").parse(input.password);
@@ -269,6 +283,7 @@ async function handle(req: NextRequest) {
         context: ctx,
         ...result,
         summary: { ...result.summary, widgets },
+        platformAdmin: platformAdmin(ctx),
       });
     }
     if (path[0] === "dashboard") {
@@ -297,6 +312,30 @@ async function handle(req: NextRequest) {
       if (method === "GET")
         return response({ ...(await billing(ctx)), platformAdmin: platformAdmin(ctx) });
       return response(await requestPayment(ctx, await body(req)), 201);
+    }
+    if (path[0] === "support") {
+      if (method === "GET") {
+        const thread = await supportThread(ctx);
+        if (req.nextUrl.searchParams.get("seen") === "true") await supportSeen(ctx);
+        return response(thread);
+      }
+      return response(await supportSend(ctx, await body(req)), 201);
+    }
+    if (path[0] === "admin") {
+      if (path[1] === "support") {
+        if (!path[2]) return response(await adminInbox(ctx));
+        if (method === "GET") return response(await adminThread(ctx, path[2]));
+        return response(await adminReply(ctx, path[2], await body(req)), 201);
+      }
+      if (path[1] === "promos" || path[1] === "announcements") {
+        if (method === "GET") return response(await adminList(ctx, path[1]));
+        if (method === "DELETE") {
+          await adminDelete(ctx, path[1], z.string().min(1).max(64).parse(path[2]));
+          return response({ ok: true });
+        }
+        await adminSave(ctx, path[1], await body(req), path[2]);
+        return response({ ok: true });
+      }
     }
     if (path[0] === "slips") return response(await checkSlip(ctx, await body(req)));
     if (path[0] === "shares") {

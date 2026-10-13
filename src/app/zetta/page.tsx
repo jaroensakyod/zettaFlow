@@ -25,7 +25,7 @@ import {
   FolderKanban,
   MoreHorizontal,
 } from "lucide-react";
-import { PricingCards, Faq } from "./landing-parts";
+import { PricingCards, Faq, PromoStrip } from "./landing-parts";
 import "./landing.css";
 
 const thai = IBM_Plex_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "500", "600", "700"], variable: "--lp-thai" });
@@ -212,6 +212,7 @@ export default function ZettaHome() {
       </header>
 
       <main>
+        <PromoStrip />
         <section className="lp-hero">
           <div className="lp-hero-copy">
             <span className="lp-chip"><Sparkles size={14} /> AI-Powered Executive Dashboard</span>

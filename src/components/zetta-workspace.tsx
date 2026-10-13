@@ -39,7 +39,9 @@ import {
   Plug,
   PanelsTopLeft,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
+import { AnnouncementPopup, SupportChat, AdminConsole } from "./engage";
 import type { Context, Entity, Attachment } from "@/lib/types";
 import { catalog } from "@/lib/catalog";
 import { api, Loading, Empty, Modal, money } from "./shared";
@@ -328,7 +330,8 @@ export function ZettaWorkspace({
       row?: Entity;
       projectId?: string;
     } | null>(null),
-    [refreshing, setRefreshing] = useState(false);
+    [refreshing, setRefreshing] = useState(false),
+    [operator, setOperator] = useState(false);
   const notify = useCallback((message: string) => {
     setToast(message);
     setTimeout(() => setToast(""), 4000);
@@ -352,6 +355,7 @@ export function ZettaWorkspace({
         summary: workspace.summary,
         audit: workspace.audit,
       });
+      setOperator(!!workspace.platformAdmin);
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -437,6 +441,15 @@ export function ZettaWorkspace({
               {label}
             </button>
           ))}
+          {operator && (
+            <button
+              className={"z-nav " + (view === "admin" ? "active" : "")}
+              onClick={() => navigate("admin")}
+            >
+              <ShieldCheck size={17} />
+              Admin Console
+            </button>
+          )}
         </div>
         <div className="z-side-bottom">
           <button className="z-profile" onClick={() => navigate("settings")}>
@@ -724,6 +737,15 @@ export function ZettaWorkspace({
                   <Assistant />
                 </>
               )}
+              {view === "admin" && operator && (
+                <>
+                  <PageHeading
+                    title="Admin Console"
+                    subtitle="แชทลูกค้า · โปรโมชัน · ประกาศ · ยืนยันการชำระเงิน"
+                  />
+                  <AdminConsole notify={notify} />
+                </>
+              )}
               {view === "pricing" && (
                 <>
                   <PageHeading
@@ -736,6 +758,8 @@ export function ZettaWorkspace({
             </>
           )}
         </main>
+        <AnnouncementPopup />
+        <SupportChat ctx={ctx} />
         <footer className="z-footer">
           Zetta Flow AI · One AI Platform. Unlimited Business Workflows.
           <span>ข้อมูลตามสิทธิ์ของบัญชีนี้</span>
