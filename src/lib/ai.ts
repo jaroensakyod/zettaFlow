@@ -16,6 +16,7 @@ import {
 import type { Context, Template, Ingestion, Attachment } from "./types";
 import { templates, dbError } from "./data";
 import { supabaseServer } from "./supabase/server";
+import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 export const tokenHash = (s: string) =>
   createHash("sha256").update(s).digest("hex");
 export function validLineSignature(raw: Buffer, signature: string | null) {
@@ -62,11 +63,17 @@ export async function extract(
   const properties = Object.fromEntries(
     t.fields.map((f) => [
       f.key,
-      {
-        type: [f.type === "number" ? "number" : "string", "null"],
-        description:
-          f.label + (f.type === "date" ? " Gregorian YYYY-MM-DD" : ""),
-      },
+      f.type === "choice"
+        ? {
+            type: ["string", "null"],
+            enum: [...(f.options || []), null],
+            description: f.label + " (pick exactly one listed option)",
+          }
+        : {
+            type: [f.type === "number" ? "number" : "string", "null"],
+            description:
+              f.label + (f.type === "date" ? " Gregorian YYYY-MM-DD" : ""),
+          },
     ]),
   );
   const r = await fetch("https://api.openai.com/v1/responses", {
@@ -170,7 +177,7 @@ export async function processJobs(id?: string) {
   dbError(error);
   for (const job of jobs || []) {
     try {
-      let attachment;
+      let attachment: { mime: string; name: string; bytes: Buffer } | undefined;
       if (job.attachment_id) {
         const { data: file, error: e } = await sb
           .from("attachments")
@@ -192,6 +199,11 @@ export async function processJobs(id?: string) {
         };
       }
       const result = await extract(job.template, job.raw, attachment);
+      if (
+        attachment &&
+        (job.template as Template).fields.some((f) => f.key === "slip_ref")
+      )
+        await verifySlipJob(sb, job, attachment, result);
       const { error: e } = await sb.rpc("complete_ingestion", {
         p_id: job.id,
         p_lease: job.lease_id,
@@ -217,6 +229,58 @@ export async function processJobs(id?: string) {
     }
   }
   return jobs?.length || 0;
+}
+/**
+ * Finance "ฟอร์มตรวจสลิป": templates with a `slip_ref` field get the slip QR decoded and
+ * checked against the company's slip ledger. Invalid or re-used slips leave `slip_ref`
+ * empty so the item stays in review and the sender is nudged.
+ */
+async function verifySlipJob(
+  sb: ReturnType<typeof supabaseAdmin>,
+  job: Ingestion & { attachment_id: string },
+  attachment: { mime: string; bytes: Buffer },
+  result: { values: Record<string, unknown>; missing: string[] },
+) {
+  const field = job.template.fields.find((f) => f.key === "slip_ref")!;
+  let qr = null;
+  try {
+    const text = decodeQr(attachment.bytes, attachment.mime);
+    qr = text ? parseSlipQr(text) : null;
+  } catch {
+    qr = null;
+  }
+  const { data: used } = qr
+    ? await sb
+        .from("payment_slips")
+        .select("id")
+        .eq("company_id", job.company_id)
+        .eq("trans_ref", qr.transRef)
+        .maybeSingle()
+    : { data: null };
+  const amount =
+    typeof result.values.amount === "number" ? result.values.amount : null;
+  const expected =
+    typeof result.values.expected_amount === "number"
+      ? result.values.expected_amount
+      : null;
+  const check = judgeSlip(qr, amount, expected, !!used);
+  if (qr && !used)
+    await sb.from("payment_slips").insert({
+      company_id: job.company_id,
+      ingestion_id: job.id,
+      attachment_id: job.attachment_id,
+      trans_ref: qr.transRef,
+      sending_bank: qr.sendingBank,
+      amount,
+      expected_amount: expected,
+      status: check.status,
+    });
+  if (check.status === "verified") result.values.slip_ref = qr!.transRef;
+  else {
+    result.values.slip_ref = null;
+    const label = `${field.label} (${check.message})`;
+    result.missing = [...result.missing.filter((m) => m !== field.label), label];
+  }
 }
 export async function processNotifications() {
   if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return 0;

@@ -203,6 +203,38 @@ export function seedDemo(): DemoState {
       { name: "วางแผนการขาย", department: "Sales" },
     ],
   };
+  const delivery: Template = {
+    id: uid(),
+    company_id: companyId,
+    name: "ฟอร์มตรวจคลัง",
+    department: "Warehouse",
+    version: 1,
+    fields: [
+      { key: "supplier", label: "ซัพพลายเออร์", type: "text", required: true },
+      { key: "total", label: "ยอดรวม", type: "number", required: true },
+      { key: "vehicle", label: "ประเภทรถ", type: "choice", required: false, options: ["6 ล้อ", "กระบะ", "มอเตอร์ไซค์"] },
+    ],
+    steps: [],
+  };
+  const deliveries: Ingestion[] = [
+    ["Siam Display", 18500, "6 ล้อ"],
+    ["Hanger Pro", 4200, "กระบะ"],
+    ["Mannequin TH", 9600, "กระบะ"],
+    ["Label Co.", 1200, "มอเตอร์ไซค์"],
+  ].map(([supplier, total, vehicle]) => ({
+    id: uid(),
+    company_id: companyId,
+    template: delivery,
+    raw: `ซัพพลายเออร์: ${supplier}
+ยอดรวม: ${total}
+ประเภทรถ: ${vehicle}`,
+    values: { supplier, total, vehicle },
+    missing: [],
+    status: "approved",
+    source: "LINE",
+    engine: "explicit-fields",
+    created_at: timestamp(),
+  }));
   return {
     company: {
       id: companyId,
@@ -223,8 +255,8 @@ export function seedDemo(): DemoState {
       },
     ],
     entities,
-    templates: [template],
-    ingestions: [],
+    templates: [template, delivery],
+    ingestions: deliveries,
     messages: [],
     attachments: [],
     audit: [],

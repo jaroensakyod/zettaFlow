@@ -53,7 +53,8 @@ import { canRead, canWrite } from "@/lib/domain";
 import { ReferencePhoto } from "./reference-photo";
 import { AiWorkspace } from "./ai-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
-import { Calendar, Reports, Assistant, Pricing } from "./tools";
+import { Calendar, Reports, Assistant } from "./tools";
+import { SubscriptionPanel, SlipChecker } from "./platform";
 import {
   spaceStatistics,
   projectNumbers,
@@ -532,6 +533,7 @@ export function ZettaWorkspace({
                   navigate={navigate}
                   ctx={ctx}
                   changed={update}
+                  notify={notify}
                 />
               )}
               {view === "spaces" && (
@@ -648,6 +650,7 @@ export function ZettaWorkspace({
                   edit={(kind, row) => setEditor({ kind, row })}
                 />
               )}
+              {view === "finance" && <SlipChecker />}
               {view === "documents" && (
                 <>
                   <PageHeading
@@ -711,9 +714,9 @@ export function ZettaWorkspace({
                 <>
                   <PageHeading
                     title="ZettaFlow AI Subscription"
-                    subtitle="แพ็กเกจรายเดือน / รายปี"
+                    subtitle="แพ็กเกจ โควตา การใช้งาน และการชำระเงิน"
                   />
-                  <Pricing />
+                  <SubscriptionPanel ctx={ctx} notify={notify} />
                 </>
               )}
             </>

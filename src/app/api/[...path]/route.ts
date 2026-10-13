@@ -37,6 +37,21 @@ import { upload, files, download } from "@/lib/files";
 import { designData, designAction } from "@/lib/design";
 import { stageData, changeStage } from "@/lib/project-stages";
 import { transferData, transferStock } from "@/lib/transfers";
+import {
+  dashboardWidgets,
+  saveLayout,
+  billing,
+  requestPayment,
+  pendingPayments,
+  confirmPayment,
+  platformAdmin,
+  checkSlip,
+  listShares,
+  createShare,
+  revokeShare,
+  openShare,
+  draftTemplate,
+} from "@/lib/platform";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -174,6 +189,13 @@ async function handle(req: NextRequest) {
       });
       return response({ ok: true });
     }
+    if (path[0] === "public-share") {
+      const input = method === "POST" ? await body(req) : {};
+      const password = z.string().max(100).default("").parse(input.password);
+      return response(
+        await openShare(z.string().max(80).parse(path[1]), password, demoEnabled()),
+      );
+    }
     const ctx = await context();
     if (path[0] === "companies") {
       if (ctx.demo)
@@ -214,8 +236,58 @@ async function handle(req: NextRequest) {
       });
       return response({ ok: true });
     }
-    if (path[0] === "workspace")
-      return response({ context: ctx, ...(await summary(ctx)) });
+    if (path[0] === "workspace") {
+      const result = await summary(ctx);
+      const { widgets } = await dashboardWidgets(ctx);
+      return response({
+        context: ctx,
+        ...result,
+        summary: { ...result.summary, widgets },
+      });
+    }
+    if (path[0] === "dashboard") {
+      if (method === "GET")
+        return response(
+          await dashboardWidgets(
+            ctx,
+            req.nextUrl.searchParams.get("edit") === "true",
+          ),
+        );
+      await saveLayout(ctx, await body(req));
+      return response({ ok: true });
+    }
+    if (path[0] === "billing") {
+      if (path[1] === "admin") {
+        if (method === "GET") return response(await pendingPayments(ctx));
+        const input = z
+          .object({
+            status: z.enum(["verified", "rejected"]),
+            note: z.string().max(500).optional(),
+          })
+          .parse(await body(req));
+        await confirmPayment(ctx, z.uuid().parse(path[2]), input.status, input.note);
+        return response({ ok: true });
+      }
+      if (method === "GET")
+        return response({ ...(await billing(ctx)), platformAdmin: platformAdmin(ctx) });
+      return response(await requestPayment(ctx, await body(req)), 201);
+    }
+    if (path[0] === "slips") return response(await checkSlip(ctx, await body(req)));
+    if (path[0] === "shares") {
+      if (method === "GET") return response(await listShares(ctx));
+      if (method === "DELETE") {
+        await revokeShare(ctx, z.uuid().parse(path[1]));
+        return response({ ok: true });
+      }
+      return response(
+        await createShare(
+          ctx,
+          await body(req),
+          process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin,
+        ),
+        201,
+      );
+    }
     if (path[0] === "calendar") {
       const month = z
         .string()
@@ -600,6 +672,8 @@ async function handle(req: NextRequest) {
     }
     if (path[0] === "templates") {
       if (method === "GET") return response(await templates(ctx));
+      if (path[1] === "draft")
+        return response(await draftTemplate(ctx, await body(req)));
       return response(await saveTemplate(ctx, await body(req), path[1]));
     }
     if (path[0] === "ingestions") {
@@ -756,7 +830,12 @@ async function handle(req: NextRequest) {
     }
     if (path[0] === "integrations") {
       if (method === "GET") {
-        if (ctx.demo) return response({ groups: [], notifications: [] });
+        if (ctx.demo)
+          return response({
+            groups: [],
+            notifications: [],
+            configured: false,
+          });
         requireOwner(ctx);
         const sb = await supabaseServer();
         const [{ data: groups }, { data: notifications }] = await Promise.all([
@@ -768,7 +847,41 @@ async function handle(req: NextRequest) {
             .order("created_at", { ascending: false })
             .limit(20),
         ]);
-        return response({ groups, notifications });
+        return response({
+          groups,
+          notifications,
+          configured: !!process.env.LINE_CHANNEL_ACCESS_TOKEN,
+        });
+      }
+      if (method === "PATCH" || method === "DELETE") {
+        requireOwner(ctx);
+        assert(!ctx.demo, "เชื่อม LINE จริงก่อนจึงตั้งค่ากลุ่มได้", 503);
+        const sb = await supabaseServer();
+        const group = z.string().min(1).max(100).parse(path[1]);
+        if (method === "DELETE") {
+          const { error } = await sb.rpc("unlink_line_group", {
+            p_company: ctx.company.id,
+            p_group: group,
+          });
+          dbError(error);
+          return response({ ok: true });
+        }
+        const input = z
+          .object({
+            templateId: z.uuid(),
+            name: z.string().max(100).default(""),
+            keywords: z.array(z.string().trim().min(2).max(50)).min(1).max(10),
+          })
+          .parse(await body(req));
+        const { error } = await sb.rpc("update_line_group", {
+          p_company: ctx.company.id,
+          p_group: group,
+          p_template: input.templateId,
+          p_name: input.name,
+          p_keywords: input.keywords,
+        });
+        dbError(error);
+        return response({ ok: true });
       }
       assert(
         !ctx.demo &&

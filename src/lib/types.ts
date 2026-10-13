@@ -41,8 +41,9 @@ export type Template = {
   fields: {
     key: string;
     label: string;
-    type: "text" | "number" | "date";
+    type: "text" | "number" | "date" | "choice";
     required: boolean;
+    options?: string[];
   }[];
   steps: { name: string; department: string }[];
   version: number;
