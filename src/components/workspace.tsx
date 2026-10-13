@@ -73,7 +73,7 @@ const groups = [
   { label: "ภาพรวม", items: ["dashboard", "calendar", "chat"] },
   {
     label: "ธุรกิจ & ลูกค้า",
-    items: ["customers", "dealers", "deals", "projects", "tasks", "events"],
+    items: ["customers", "leads", "dealers", "deals", "projects", "tasks", "events"],
   },
   {
     label: "บุคลากร",
@@ -321,7 +321,7 @@ export function Workspace({
     (next: string) => {
       setMobile(false);
       setSearchOpen(false);
-      router.push(next === "dashboard" ? "/" : "/workspace/" + next);
+      router.push(next === "dashboard" ? "/eliteflow" : "/workspace/" + next);
     },
     [router],
   );

@@ -2,9 +2,9 @@
 
 ## 1. เตรียม Supabase
 
-สร้าง **project ใหม่** สำหรับ EliteFlow เลือก region ใกล้ Vercel sin1 (Singapore) แล้วเปิด SQL Editor รัน **supabase/schema.sql** ครั้งเดียว ไฟล์นี้รวม migrations 0001–0009 แล้ว หากใช้ Supabase CLI ให้ใช้ migrations แทน ห้ามรัน SQL รวมซ้ำหลัง migration ไปแล้ว
+สร้าง **project ใหม่** สำหรับ EliteFlow / ZettaFlow เลือก region ใกล้ Vercel sin1 (Singapore) แล้วเปิด SQL Editor รัน **supabase/schema.sql** ครั้งเดียว ไฟล์นี้รวม migrations 0001–0012 แล้ว หากใช้ Supabase CLI ให้ใช้ migrations แทน ห้ามรัน SQL รวมซ้ำหลัง migration ไปแล้ว
 
-หากรัน 0001–0008 ไปแล้ว ให้รันเฉพาะ `supabase/migrations/0009_design_reviews.sql` เพื่อเพิ่มระบบตรวจแบบ อย่ารัน SQL รวมซ้ำ
+หากรันถึง 0008 ให้รัน 0009–0012 ตามลำดับ. หากถึง 0009 แล้วให้รันเฉพาะ 0010–0012: fields/CRM, project stages, procurement/stock transfers. อย่ารัน SQL รวมซ้ำ
 
 ZettaFlow เข้าได้ที่ `/zetta/dashboard` มีทางเข้าใน sidebar ของ EliteFlow ผู้ใช้ Design ต้องมีสิทธิ์ Design และสิทธิ์อ่าน Operations เพื่อเปิดโครงการ; ผู้อนุมัติต้องเป็น Owner หรือ Manager ที่มีสิทธิ์ Design ไฟล์ Design ผูกกับโครงการโดยยังเก็บสิทธิ์แผนก Design
 
@@ -131,3 +131,13 @@ ID นำเข้าสร้างแบบ deterministic rerun ไม่ท�
 ยังไม่ได้รันทดสอบกับ Supabase, LINE หรือ AI account จริงในงานนี้ ต้องทำ acceptance checks เหล่านี้หลังตั้งค่า project
 
 อ้างอิง: [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Next after()](https://nextjs.org/docs/app/api-reference/functions/after), [Vercel limits](https://vercel.com/docs/functions/limitations), [LINE signatures](https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/)
+
+## Workflow และคลังสินค้าเพิ่มเติม
+
+หน้า public `/` และ `/zetta`; ระบบ `/zetta/dashboard`; EliteFlow `/eliteflow`. Dashboard แผนก: purchasing, warehouse, finance, sales, marketing, design, crm.
+
+โครงการอยู่ในแผนก Operations. ผู้ใช้ที่ดู/แก้ stages หรือโอนสินค้าให้โครงการต้องมีสิทธิ์อ่าน Operations และสิทธิ์แผนกของ stage / Warehouse ด้วย. Owner อ่านและเขียนทุกแผนก; Viewer เปลี่ยนสถานะไม่ได้. Contract/payment/layout/close ที่เสร็จแล้วต้องยืนยันโดย Owner/Manager. Layout ต้องมีเวอร์ชันล่าสุด approved ก่อนจบ; Close ต้องจบอีก 9 ขั้นก่อน.
+
+`products.data.stock` เป็นยอดคลังกลาง. `project_inventory` เป็นยอดที่จัดไปโครงการ. ยอดบริษัท = คลังกลาง + ยอดโครงการ; transfer เปลี่ยนตำแหน่งสินค้าโดยไม่เปลี่ยนยอดรวม. การขายเดิมยังออกจากคลังกลาง ไม่หัก project allocation อัตโนมัติ. ทดสอบ workflow ของการขายจริงก่อนใช้งานร่วมกันใน production.
+
+ตรวจหลัง upgrade: สร้างโครงการได้ 10 stages, stale version ถูกปฏิเสธ, รับ PO ไม่ได้ซ้ำ, โอนไม่เกินต้นทาง, reference ซ้ำถูกปฏิเสธ และบัญชีต่างบริษัทไม่อ่าน stock ledger/allocations/stages ได้.

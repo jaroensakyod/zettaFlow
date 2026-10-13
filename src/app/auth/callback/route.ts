@@ -13,9 +13,9 @@ export async function GET(req: NextRequest) {
       const next =
         req.nextUrl.searchParams.get("next") === "/reset-password"
           ? "/reset-password"
-          : "/";
+          : "/zetta/dashboard";
       return NextResponse.redirect(new URL(next, origin));
     }
   }
-  return NextResponse.redirect(new URL("/?auth_error=1", origin));
+  return NextResponse.redirect(new URL("/zetta/dashboard?auth_error=1", origin));
 }

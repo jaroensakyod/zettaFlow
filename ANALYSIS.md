@@ -1,6 +1,6 @@
 # สถานะ EliteFlow 2 / ZettaFlow
 
-13 ตุลาคม 2026: เพิ่มหน้าจอ ZettaFlow แยกจาก EliteFlow ตามโครงหน้า Canva 7/10/11 และเพิ่ม design revision/review/comment หลังบ้าน (migration 0009) ดู `CANVA-PARITY.md` สำหรับข้อแตกต่างและฟีเจอร์ที่ยังไม่ครบตามคำขอ 100%
+13 ตุลาคม 2026: อ่าน PowerPoint 32 หน้าทั้งข้อความและภาพแล้ว แก้ข้อวิเคราะห์เดิมที่มองข้ามรายละเอียดในภาพ. เพิ่ม CEO landing/mobile หน้า 3, Executive หน้า 8, แดชบอร์ด 6 แผนกหน้า 16, CRM, PO 12 กลุ่มข้อมูล/8 สถานะ และโอนสต็อกหน้า 17–18. Workflow โครงการ 10 ขั้นมีประวัติ/สิทธิ์/version checking. Migrations 0010–0012. ดู `CANVA-PARITY.md` สำหรับข้อกำหนดทุกหน้าและความต่างที่ยังเหลือ
 
 อัปเดต 12 ตุลาคม 2026 หลังเปลี่ยน stack ตามผู้ใช้เป็น Next.js + Supabase สำหรับ Vercel
 
@@ -18,7 +18,7 @@ Data model ใช้ company/memberships/entities/stock ledger/messages/attachme
 
 ## ฟังก์ชัน EliteFlow ที่มี
 
-22 โมดูลข้อมูลธุรกิจ พร้อม schema validation, CRUD, search, pagination, archive/restore และไฟล์แนบตามสิทธิ์: ลูกค้า, Dealer, Supplier, พนักงาน, ฟรีแลนซ์, โครงการ, ดีล, อีเวนต์, งาน, ทรัพย์สิน, สินค้า, จัดซื้อ, ยอดขาย, ค่าใช้จ่าย, ใบแจ้งหนี้, รับ–จ่าย, Marketing, IT/CS Ticket, สัญญา, การลา, ค่าจ้าง และคลังเอกสาร
+23 โมดูลข้อมูลธุรกิจ พร้อม schema validation, CRUD, search, pagination, archive/restore และไฟล์แนบตามสิทธิ์: ลูกค้า, Dealer, Supplier, พนักงาน, ฟรีแลนซ์, โครงการ, ดีล, อีเวนต์, งาน, ทรัพย์สิน, สินค้า, จัดซื้อ, ยอดขาย, ค่าใช้จ่าย, ใบแจ้งหนี้, รับ–จ่าย, Marketing, IT/CS Ticket, สัญญา, การลา, ค่าจ้าง, คลังเอกสาร และ CRM Pipeline
 
 มี Dashboard, Calendar, Project/Task board, แชทแผนก, CSV reports, บริษัท/ธีม/ชื่อแบรนด์, invitation/access control, company switcher และ Module Library
 

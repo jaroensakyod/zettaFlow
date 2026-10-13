@@ -4,6 +4,12 @@ import {
   Warehouse,
   Megaphone,
   Users,
+  MapPin,
+  FileSignature,
+  Wallet,
+  PackageCheck,
+  Flag,
+  BarChart3,
 } from "lucide-react";
 import type { Entity } from "./types";
 export const workflowDepartments = [
@@ -43,6 +49,101 @@ export const workflowDepartments = [
     icon: Users,
   },
 ];
+export const projectWorkflow = [
+  {
+    key: "location",
+    label: "หา Location",
+    english: "Location",
+    department: "Business Development",
+    icon: MapPin,
+  },
+  {
+    key: "contract",
+    label: "ทำสัญญา",
+    english: "Contract",
+    department: "Legal",
+    icon: FileSignature,
+  },
+  {
+    key: "payment",
+    label: "ชำระเงิน",
+    english: "Payment",
+    department: "Finance",
+    icon: Wallet,
+  },
+  {
+    key: "layout",
+    label: "เขียนแบบ",
+    english: "Layout",
+    department: "Design",
+    icon: PenTool,
+  },
+  {
+    key: "procurement",
+    label: "จัดซื้อ",
+    english: "Procurement",
+    department: "Purchasing",
+    icon: ShoppingCart,
+  },
+  {
+    key: "warehouse",
+    label: "คลังสินค้า",
+    english: "Warehouse",
+    department: "Warehouse",
+    icon: Warehouse,
+  },
+  {
+    key: "setup",
+    label: "เตรียมงาน",
+    english: "Setup",
+    department: "Operations",
+    icon: PackageCheck,
+  },
+  {
+    key: "selling",
+    label: "PC ขายของ",
+    english: "Selling",
+    department: "Sales",
+    icon: Users,
+  },
+  {
+    key: "summary",
+    label: "สรุปผล",
+    english: "Summary",
+    department: "Marketing",
+    icon: BarChart3,
+  },
+  {
+    key: "close",
+    label: "ปิดงาน",
+    english: "Close",
+    department: "Operations",
+    icon: Flag,
+  },
+];
+export const referenceImages = (name: string) => {
+  const lower = name.toLowerCase();
+  const location = lower.includes("fashion island")
+    ? "fashion-island"
+    : lower.includes("promenade")
+      ? "the-promenade"
+      : lower.includes("central world")
+        ? "central-world"
+        : lower.includes("mega bangna")
+          ? "mega-bangna"
+          : lower.includes("rbs") || lower.includes("rangsit")
+            ? "rbs-rangsit"
+            : null;
+  if (!location) return null;
+  return {
+    location: `/zetta/${location}.png`,
+    site: lower.includes("fashion island")
+      ? "/zetta/fashion-island-interior.png"
+      : `/zetta/${location}.png`,
+    layout: "/zetta/fashion-island-layout.png",
+    perspective: "/zetta/perspective-plan.png",
+  };
+};
 export function periodDays(start: unknown, end: unknown) {
   if (!start || !end) return "—";
   const days =

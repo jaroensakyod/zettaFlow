@@ -382,3 +382,129 @@ begin
 end$$;
 revoke all on function create_design_revision(uuid,uuid,uuid,text,text),review_design_revision(uuid,uuid,text,text),comment_design_revision(uuid,uuid,text) from public,anon;
 grant execute on function create_design_revision(uuid,uuid,uuid,text,text),review_design_revision(uuid,uuid,text,text),comment_design_revision(uuid,uuid,text) to authenticated;
+
+-- PPTX pages 10 / 12 / 16 / 17 / 18: rental expenses, CRM and procurement fields.
+insert into public.entity_schemas(kind,department,fields)values('leads','Sales','[{"key":"name","label":"ชื่อโอกาสขาย","type":"text","required":true},{"key":"customerId","label":"ลูกค้า","type":"relation","required":false,"resource":"customers"},{"key":"stage","label":"ขั้นตอน","type":"select","required":true,"options":["lead","contact","meeting","proposal","negotiation","won","lost"]},{"key":"amount","label":"มูลค่าโอกาสขาย","type":"number","required":true,"min":0},{"key":"assignee","label":"ผู้รับผิดชอบ","type":"text","required":false},{"key":"nextDate","label":"นัดติดตามครั้งถัดไป","type":"date","required":false},{"key":"activity","label":"กิจกรรมล่าสุด","type":"textarea","required":false},{"key":"notes","label":"หมายเหตุ","type":"textarea","required":false}]'::jsonb)on conflict(kind)do update set department=excluded.department,fields=excluded.fields;
+insert into public.entity_schemas(kind,department,fields)values('purchases','Purchasing','[{"key":"name","label":"เลขที่ใบสั่งซื้อ","type":"text","required":true},{"key":"supplierId","label":"ซัพพลายเออร์","type":"relation","required":true,"resource":"suppliers"},{"key":"productId","label":"สินค้า","type":"relation","required":true,"resource":"products"},{"key":"quantity","label":"จำนวน","type":"number","required":true,"min":1},{"key":"unitCost","label":"ราคาต่อหน่วย","type":"number","required":true,"min":0},{"key":"orderDate","label":"วันที่สั่งซื้อ","type":"date","required":true},{"key":"dueDate","label":"กำหนดรับ","type":"date","required":false},{"key":"projectId","label":"โครงการ","type":"relation","required":false,"resource":"projects"},{"key":"category","label":"หมวดหมู่สินค้า","type":"text","required":false},{"key":"requestor","label":"ผู้ขอจัดซื้อ","type":"text","required":false},{"key":"usagePurpose","label":"งาน / โปรโมชั่นที่ใช้","type":"text","required":false},{"key":"startDate","label":"วันเริ่ม","type":"date","required":false},{"key":"endDate","label":"วันสิ้นสุด","type":"date","required":false},{"key":"deliveryLocation","label":"สถานที่จัดส่ง","type":"text","required":false},{"key":"poNumber","label":"เลขที่ใบสั่งซื้อ PO","type":"text","required":false},{"key":"notes","label":"หมายเหตุ","type":"textarea","required":false}]'::jsonb)on conflict(kind)do update set department=excluded.department,fields=excluded.fields;
+insert into public.entity_schemas(kind,department,fields)values('expenses','Finance','[{"key":"name","label":"รายการค่าใช้จ่าย","type":"text","required":true},{"key":"projectId","label":"โครงการ","type":"relation","required":false,"resource":"projects"},{"key":"category","label":"หมวดหมู่","type":"select","required":true,"options":["ค่ามัดจำ","ค่าเช่า","ค่าไฟฟ้า","ค่าบริการ","ค่าพรม","บุคลากร","จัดซื้อ","ขนส่ง","การตลาด","อื่นๆ"]},{"key":"payee","label":"ผู้รับเงิน","type":"text","required":false},{"key":"date","label":"วันที่","type":"date","required":true},{"key":"amount","label":"จำนวนเงิน","type":"number","required":true,"min":0},{"key":"status","label":"สถานะ","type":"select","required":true,"options":["pending","approved","paid","rejected"]},{"key":"notes","label":"หมายเหตุ","type":"textarea","required":false}]'::jsonb)on conflict(kind)do update set department=excluded.department,fields=excluded.fields;
+insert into public.entity_schemas(kind,department,fields)values('customers','Sales','[{"key":"name","label":"ชื่อลูกค้า","type":"text","required":true},{"key":"code","label":"รหัสลูกค้า","type":"text","required":false},{"key":"company","label":"บริษัท","type":"text","required":false},{"key":"segment","label":"กลุ่มลูกค้า","type":"select","required":false,"options":["standard","vip"]},{"key":"status","label":"สถานะ","type":"select","required":true,"options":["active","inactive"]},{"key":"contact","label":"ผู้ติดต่อ","type":"text","required":false},{"key":"phone","label":"โทรศัพท์","type":"tel","required":false},{"key":"email","label":"อีเมล","type":"email","required":false},{"key":"line","label":"LINE ID","type":"text","required":false},{"key":"address","label":"ที่อยู่","type":"textarea","required":false},{"key":"notes","label":"หมายเหตุ","type":"textarea","required":false}]'::jsonb)on conflict(kind)do update set department=excluded.department,fields=excluded.fields;
+
+-- PPTX slide 8: ten project lifecycle stages, independently versioned and tenant scoped.
+create table public.project_stages (
+ company_id uuid not null references companies(id),project_id uuid not null references entities(id),
+ key text not null,ordinal int not null,department text not null,label text not null,english text not null,
+ status text not null default 'pending' check(status in ('pending','progress','review','done')),
+ version int not null default 1,started_at timestamptz,completed_at timestamptz,
+ updated_at timestamptz not null default now(),updated_by uuid references auth.users(id),
+ primary key(project_id,key)
+);
+create table public.project_stage_history (
+ id uuid primary key default gen_random_uuid(),company_id uuid not null references companies(id),project_id uuid not null references entities(id),
+ key text not null,department text not null,status text not null,actor uuid,created_at timestamptz not null default now()
+);
+alter table project_stages enable row level security;alter table project_stage_history enable row level security;
+create policy stage_read on project_stages for select to authenticated using(can_read_dept(company_id,department) and exists(select 1 from entities e where e.id=project_id and e.company_id=project_stages.company_id and e.archived_at is null));
+create policy stage_history_read on project_stage_history for select to authenticated using(can_read_dept(company_id,department) and exists(select 1 from entities e where e.id=project_id and e.company_id=project_stage_history.company_id and e.archived_at is null));
+grant select on project_stages,project_stage_history to authenticated;grant all on project_stages,project_stage_history to service_role;
+create function public.init_project_stages(p_project uuid) returns void language plpgsql security definer set search_path=public as $$
+declare p entities;
+begin
+ select * into p from entities where id=p_project and kind='projects';if p.id is null then return;end if;
+ insert into project_stages(company_id,project_id,key,ordinal,department,label,english)
+ select p.company_id,p.id,v.key,v.ordinal,v.department,v.label,v.english from (values
+ ('location',0,'Business Development','หา Location','Location'),('contract',1,'Legal','ทำสัญญา','Contract'),
+ ('payment',2,'Finance','ชำระเงิน','Payment'),('layout',3,'Design','เขียนแบบ','Layout'),
+ ('procurement',4,'Purchasing','จัดซื้อ','Procurement'),('warehouse',5,'Warehouse','คลังสินค้า','Warehouse'),
+ ('setup',6,'Operations','เตรียมงาน','Setup'),('selling',7,'Sales','PC ขายของ','Selling'),
+ ('summary',8,'Marketing','สรุปผล','Summary'),('close',9,'Operations','ปิดงาน','Close')
+ ) v(key,ordinal,department,label,english) on conflict(project_id,key)do nothing;
+end$$;
+revoke all on function init_project_stages(uuid) from public,anon,authenticated;
+create function public.project_stage_init_trigger() returns trigger language plpgsql security definer set search_path=public as $$begin perform init_project_stages(new.id);return new;end$$;
+revoke all on function project_stage_init_trigger() from public,anon,authenticated;
+create trigger create_project_stages after insert on entities for each row when(new.kind='projects')execute function project_stage_init_trigger();
+do $$declare p uuid;begin for p in select id from entities where kind='projects' loop perform init_project_stages(p);end loop;end$$;
+create function public.update_project_stage(p_company uuid,p_project uuid,p_key text,p_status text,p_version int)returns project_stages language plpgsql security definer set search_path=public as $$
+declare r project_stages;p entities;
+begin
+ select * into p from entities where id=p_project and company_id=p_company and kind='projects' and archived_at is null for update;
+ if p.id is null or not can_read_dept(p_company,p.department) then raise exception 'ไม่พบโครงการ';end if;
+ select * into r from project_stages where company_id=p_company and project_id=p_project and key=p_key for update;
+ if r.project_id is null or not can_write_dept(p_company,r.department) then raise exception 'ไม่มีสิทธิ์แก้ไขขั้นตอนนี้';end if;
+ if p_version is null or r.version<>p_version then raise exception 'ขั้นตอนนี้เปลี่ยนแล้ว กรุณารีเฟรช';end if;
+ if p_status not in ('pending','progress','review','done') then raise exception 'สถานะไม่ถูกต้อง';end if;
+ if p_status='done' and p_key in ('contract','payment','layout','close') and member_role(p_company)not in ('owner','manager') then raise exception 'ต้องให้ผู้มีสิทธิ์อนุมัติ';end if;
+ if p_key='close' and p_status='done' and exists(select 1 from project_stages where project_id=p_project and key<>'close' and status<>'done')then raise exception 'ทำขั้นตอนก่อนหน้าให้เสร็จก่อนปิดโครงการ';end if;
+ if p_key='layout' and p_status='done' and exists(select 1 from design_revisions dv where dv.project_id=p_project and dv.category='layout' and dv.version=(select max(version)from design_revisions where project_id=p_project and category='layout')and dv.status<>'approved')then raise exception 'แบบเวอร์ชันล่าสุดยังไม่ได้อนุมัติ';end if;
+ update project_stages set status=p_status,version=version+1,started_at=case when p_status in ('progress','review','done')then coalesce(started_at,now())else started_at end,completed_at=case when p_status='done'then now()else null end,updated_at=now(),updated_by=auth.uid()where project_id=p_project and key=p_key returning * into r;
+ insert into project_stage_history(company_id,project_id,key,department,status,actor)values(p_company,p_project,p_key,r.department,p_status,auth.uid());
+ if p_key='close' and p_status='done' then update entities set data=jsonb_set(data,'{status}','"completed"'),version=version+1,updated_at=now()where id=p_project;end if;
+ perform log_action(p_company,'project_stage_'||p_key||'_'||p_status,p_project::text);return r;
+end$$;
+revoke all on function update_project_stage(uuid,uuid,text,text,int) from public,anon;
+grant execute on function update_project_stage(uuid,uuid,text,text,int) to authenticated;
+
+-- PPTX pages 17-18: purchase lifecycle and stock transfers between warehouse/projects.
+create or replace function public.purchase_action(p_company uuid,p_id uuid,p_action text) returns void language plpgsql security definer set search_path=public as $$
+declare r entities;next_status text;
+begin
+ if not can_write_dept(p_company,'Purchasing')then raise exception 'ไม่มีสิทธิ์จัดซื้อ';end if;
+ select * into r from entities where id=p_id and company_id=p_company and kind='purchases' and archived_at is null for update;
+ if r.id is null then raise exception 'ไม่พบใบขอซื้อ';end if;
+ if p_action='approve'then
+  if member_role(p_company)not in ('owner','manager')or r.data->>'status'<>'draft'then raise exception 'ไม่มีสิทธิ์ หรือรายการนี้อนุมัติแล้ว';end if;
+  next_status:='approved';
+  r.data:=jsonb_set(r.data,'{poNumber}',to_jsonb(coalesce(nullif(r.data->>'poNumber',''),'PO-'||upper(left(replace(r.id::text,'-',''),12)))));
+ elsif p_action='receive'then
+  if not can_write_dept(p_company,'Warehouse')or r.data->>'status'not in ('approved','pending_vendor','in_progress','pending_delivery','delivered')then raise exception 'ต้องอนุมัติก่อนรับ หรือรับสินค้าไปแล้ว';end if;
+  perform post_stock_movement(p_company,(r.data->>'productId')::uuid,'in',(r.data->>'quantity')::bigint,'PO:'||p_id::text,'รับตามใบสั่งซื้อ');next_status:='received';
+ elsif p_action='request_vendor'and r.data->>'status'='approved'then next_status:='pending_vendor';
+ elsif p_action='vendor_confirm'and r.data->>'status'='pending_vendor'then next_status:='in_progress';
+ elsif p_action='dispatch'and r.data->>'status'='in_progress'then next_status:='pending_delivery';
+ elsif p_action='deliver'and r.data->>'status'='pending_delivery'then next_status:='delivered';
+ elsif p_action='cancel'and r.data->>'status'not in ('received','cancelled')then
+  if r.data->>'status'<>'draft'and member_role(p_company)not in ('owner','manager')then raise exception 'ให้หัวหน้างานยกเลิกใบสั่งซื้อที่อนุมัติแล้ว';end if;next_status:='cancelled';
+ else raise exception 'ขั้นตอนนี้ไม่สอดคล้องกับสถานะปัจจุบัน';end if;
+ update entities set data=jsonb_set(r.data,'{status}',to_jsonb(next_status)),version=version+1,updated_at=now()where id=p_id;
+ perform log_action(p_company,'purchase_'||p_action,p_id::text);
+end$$;
+create table public.project_inventory (
+ company_id uuid not null references companies(id),product_id uuid not null references entities(id),project_id uuid not null references entities(id),
+ quantity bigint not null default 0 check(quantity>=0),updated_at timestamptz not null default now(),primary key(product_id,project_id)
+);
+create table public.stock_transfers (
+ id uuid primary key default gen_random_uuid(),company_id uuid not null references companies(id),product_id uuid not null references entities(id),
+ from_project uuid references entities(id),to_project uuid references entities(id),quantity bigint not null check(quantity>0),
+ reason text not null,reference text not null,created_by uuid references auth.users(id),created_name text not null,
+ created_at timestamptz not null default now(),unique(company_id,reference),check(from_project is distinct from to_project)
+);
+alter table project_inventory enable row level security;alter table stock_transfers enable row level security;
+create policy inventory_read on project_inventory for select to authenticated using(can_read_dept(company_id,'Warehouse') and exists(select 1 from entities e where e.id=project_id and e.company_id=project_inventory.company_id and e.archived_at is null));
+create policy transfer_read on stock_transfers for select to authenticated using(can_read_dept(company_id,'Warehouse') and (from_project is null or exists(select 1 from entities e where e.id=from_project and e.company_id=stock_transfers.company_id)) and (to_project is null or exists(select 1 from entities e where e.id=to_project and e.company_id=stock_transfers.company_id)));
+grant select on project_inventory,stock_transfers to authenticated;grant all on project_inventory,stock_transfers to service_role;
+create function public.transfer_project_stock(p_company uuid,p_product uuid,p_from uuid,p_to uuid,p_quantity bigint,p_reference text,p_reason text)returns stock_transfers language plpgsql security definer set search_path=public as $$
+declare p entities;project entities;current_qty bigint;name text;r stock_transfers;
+begin
+ if not can_write_dept(p_company,'Warehouse')then raise exception 'ไม่มีสิทธิ์โอนสินค้า';end if;
+ if p_quantity is null or p_quantity<=0 or p_from is not distinct from p_to or length(trim(coalesce(p_reference,'')))not between 1 and 200 or length(trim(coalesce(p_reason,'')))not between 1 and 4000 then raise exception 'ข้อมูลการโอนไม่ถูกต้อง';end if;
+ select * into p from entities where id=p_product and company_id=p_company and kind='products'and archived_at is null for update;
+ if p.id is null then raise exception 'ไม่พบสินค้า';end if;
+ if p_from is not null then select * into project from entities where id=p_from and company_id=p_company and kind='projects' and archived_at is null;if project.id is null or not can_read_dept(p_company,project.department)then raise exception 'ไม่มีสิทธิ์โครงการต้นทาง';end if;end if;
+ if p_to is not null then select * into project from entities where id=p_to and company_id=p_company and kind='projects' and archived_at is null;if project.id is null or not can_read_dept(p_company,project.department)then raise exception 'ไม่มีสิทธิ์โครงการปลายทาง';end if;end if;
+ if exists(select 1 from stock_transfers where company_id=p_company and reference=p_reference)then raise exception 'รายการโอนนี้บันทึกแล้ว';end if;
+ if p_from is null then
+  current_qty:=coalesce((p.data->>'stock')::bigint,0);if current_qty<p_quantity then raise exception 'สต็อกคลังกลางไม่เพียงพอ';end if;
+  perform post_stock_movement(p_company,p_product,'out',p_quantity,'TRANSFER:'||p_reference||':out',p_reason);
+ else
+  select quantity into current_qty from project_inventory where product_id=p_product and project_id=p_from for update;
+  if coalesce(current_qty,0)<p_quantity then raise exception 'สต็อกโครงการไม่เพียงพอ';end if;
+  update project_inventory set quantity=quantity-p_quantity,updated_at=now()where product_id=p_product and project_id=p_from;
+ end if;
+ if p_to is null then perform post_stock_movement(p_company,p_product,'in',p_quantity,'TRANSFER:'||p_reference||':in',p_reason);
+ else insert into project_inventory(company_id,product_id,project_id,quantity)values(p_company,p_product,p_to,p_quantity)on conflict(product_id,project_id)do update set quantity=project_inventory.quantity+excluded.quantity,updated_at=now();end if;
+ select m.name into name from memberships m where m.company_id=p_company and m.user_id=auth.uid() and not m.disabled;
+ insert into stock_transfers(company_id,product_id,from_project,to_project,quantity,reference,reason,created_by,created_name)values(p_company,p_product,p_from,p_to,p_quantity,p_reference,p_reason,auth.uid(),coalesce(name,''))returning * into r;
+ perform log_action(p_company,'stock_transfer',r.id::text);return r;
+end$$;
+revoke all on function transfer_project_stock(uuid,uuid,uuid,uuid,bigint,text,text)from public,anon;
+grant execute on function transfer_project_stock(uuid,uuid,uuid,uuid,bigint,text,text)to authenticated;

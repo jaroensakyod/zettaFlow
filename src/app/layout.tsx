@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./zetta/zetta.css";
+import "./zetta/departments.css";
+import "./zetta/executive.css";
 export const metadata: Metadata = {
   title: "EliteFlow — Business Workspace",
   description: "ระบบจัดการธุรกิจ ลูกค้า บุคลากร โครงการ สต็อก และ ZettaFlow AI",

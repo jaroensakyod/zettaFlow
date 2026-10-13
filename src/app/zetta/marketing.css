@@ -1,0 +1,452 @@
+.zetta-home {
+  color: white;
+  background:
+    radial-gradient(ellipse at 25% 0, #070226 0, transparent 44%),
+    radial-gradient(ellipse at 100% 100%, #012d79 0, transparent 55%), #01021f;
+  font-family: Manrope, "Noto Sans Thai", sans-serif;
+}
+.zetta-home a {
+  color: inherit;
+  text-decoration: none;
+}
+.zh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1700px;
+  margin: auto;
+  padding: 6px 20px;
+  gap: 24px;
+}
+.zh-logo-crop {
+  display: block;
+  width: 280px;
+  height: 58px;
+  overflow: hidden;
+  position: relative;
+}
+.zh-logo-crop img {
+  position: absolute;
+  mix-blend-mode: lighten;
+  width: 440px;
+  max-width: none;
+  left: -74px;
+  top: -86px;
+}
+.zh-header nav {
+  display: flex;
+  gap: 38px;
+  font-size: clamp(15px, 1.2vw, 20px);
+  font-weight: 700;
+}
+.zh-header nav a:hover {
+  color: #d641ff;
+}
+.zh-hero {
+  max-width: 1700px;
+  padding: 14px 0 32px clamp(38px, 3vw, 50px);
+  margin: auto;
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: clamp(20px, 1.78vw, 30px);
+  align-items: start;
+}
+.zh-eyebrow {
+  font-size: clamp(15px, 1.2vw, 20px);
+  font-weight: 650;
+  margin: 12px 0;
+}
+.zh-copy h1 {
+  font-size: clamp(45px, 5vw, 85px);
+  line-height: 0.98;
+  letter-spacing: -2px;
+  margin: 0 0 13px;
+}
+.zh-copy h1 > span {
+  display: block;
+  font-size: clamp(34px, 4.45vw, 75px);
+  background: linear-gradient(105deg, #f42bea, #a12ef1, #187cff);
+  color: transparent;
+  background-clip: text;
+  letter-spacing: -1.7px;
+  white-space: nowrap;
+}
+.zh-subtitle {
+  font-size: 17px;
+  color: #e0dae9;
+  margin: 13px 0 24px;
+}
+.zh-features {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+.zh-features article {
+  display: flex;
+  align-items: flex-start;
+  gap: 19px;
+}
+.zh-feature-icon {
+  width: 53px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, #f53af2, #7235ff, #4c6cff);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 10px #fff4;
+}
+.zh-features h2 {
+  color: #e228f1;
+  font-size: clamp(19px, 1.43vw, 24px);
+  margin: 0 0 4px;
+  font-weight: 650;
+}
+.zh-features h3 {
+  font-size: clamp(14px, 1.07vw, 18px);
+  margin: 0 0 4px;
+  color: #f9f7ff;
+  font-weight: 500;
+}
+.zh-features p {
+  font-size: clamp(12px, 0.96vw, 16px);
+  line-height: 1.5;
+  color: #c2bdd4;
+  margin: 0;
+  max-width: clamp(295px, 24vw, 405px);
+}
+.zh-phone-preview {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 960/878;
+  align-self: start;
+  margin-top: -30px;
+  border-radius: 22px;
+}
+.zh-phone-preview > img {
+  position: absolute;
+  max-width: none;
+  width: 175%;
+  left: -75%;
+  top: -6.85%;
+}
+.zh-reference-note {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 7px;
+  background: #03061fa8;
+  color: #ccc9e5;
+  text-align: center;
+  font-size: 8px;
+}
+.zh-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 26px;
+}
+.zh-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(110deg, #e932ee, #9034fa, #087fff);
+  border-radius: 8px;
+  padding: 13px 19px;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.zh-cta:hover {
+  filter: brightness(1.15);
+}
+.zh-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  color: #dfd5f1;
+}
+.zh-actions > div svg {
+  color: #ce52f8;
+  width: 24px;
+  flex-shrink: 0;
+}
+.zh-actions > div:first-of-type {
+  padding-left: 17px;
+  border-left: 1px solid #847394;
+}
+.zh-section {
+  max-width: 1500px;
+  margin: auto;
+  padding: 80px 50px;
+  border-top: 1px solid #272043;
+}
+.zh-section-kicker {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #b384fc;
+}
+.zh-section h2 {
+  font-size: 36px;
+  line-height: 1.4;
+  margin: 13px 0 20px;
+  font-weight: 700;
+}
+.zh-section > p:not(.zh-section-kicker) {
+  color: #bbb3d6;
+  font-size: 15px;
+  line-height: 1.8;
+  max-width: 890px;
+}
+.zh-section > img {
+  width: 100%;
+  border: 1px solid #35255b;
+  border-radius: 14px;
+  margin: 26px 0;
+  box-shadow: 0 20px 70px #0006;
+}
+.zh-product-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 25px;
+}
+.zh-product-links a {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid #463367;
+  background: #ffffff08;
+  padding: 13px 18px;
+  border-radius: 8px;
+  color: #dfd0f4;
+  font-size: 13px;
+}
+.zh-product-links a:hover {
+  background: #8a40ef30;
+  border-color: #a462fa;
+}
+.zh-plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin: 35px 0;
+}
+.zh-plans article {
+  padding: 26px;
+  border: 1px solid #4e2b78;
+  background: linear-gradient(130deg, #42127688, #0a103dcc);
+  border-radius: 14px;
+}
+.zh-plans h3 {
+  font-size: 23px;
+  margin: 0 0 17px;
+  color: #ecddff;
+}
+.zh-plans strong {
+  font-size: 39px;
+}
+.zh-plans p {
+  font-size: 12px;
+  color: #bfb0d4;
+}
+.zh-plans ul {
+  list-style: none;
+  padding: 0;
+  line-height: 2.3;
+  color: #d1c1e4;
+  font-size: 13px;
+}
+.zh-plans a {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: #ba88ff;
+  font-size: 12px;
+  margin-top: 20px;
+}
+.zh-contact {
+  text-align: center;
+}
+.zh-contact > .zh-cta {
+  margin: 5px 0 30px;
+}
+.zh-contact > div {
+  display: flex;
+  gap: 26px;
+  justify-content: center;
+  flex-wrap: wrap;
+  color: #b6a5ce;
+  font-size: 14px;
+}
+.zh-footer {
+  padding: 22px 35px;
+  border-top: 1px solid #332344;
+  color: #8c7caa;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.zh-footer a {
+  color: #ba88fc;
+}
+@media (max-width: 1200px) {
+  .zh-header {
+    padding: 15px 24px;
+  }
+  .zh-header nav {
+    gap: 25px;
+    font-size: 12px;
+  }
+  .zh-hero {
+    padding: 20px 26px 32px;
+    gap: 25px;
+    grid-template-columns: 1fr 1.2fr;
+  }
+  .zh-eyebrow {
+    font-size: 16px;
+  }
+  .zh-subtitle {
+    font-size: 13px;
+  }
+  .zh-features {
+    gap: 20px;
+  }
+  .zh-features h2 {
+    font-size: 16px;
+  }
+  .zh-features h3 {
+    font-size: 13px;
+  }
+  .zh-features p {
+    font-size: 10px;
+  }
+  .zh-feature-icon {
+    width: 44px;
+    height: 49px;
+  }
+  .zh-actions {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .zh-actions > div {
+    font-size: 9px;
+  }
+  .zh-logo-crop {
+    width: 240px;
+    height: 52px;
+  }
+  .zh-logo-crop img {
+    width: 380px;
+    left: -63px;
+    top: -74px;
+  }
+  .zh-phone-preview {
+    align-self: start;
+    margin-top: 24px;
+  }
+}
+@media (max-width: 800px) {
+  .zh-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 20px;
+  }
+  .zh-header nav {
+    gap: 20px;
+    font-size: 11px;
+    width: 100%;
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+  .zh-hero {
+    grid-template-columns: 1fr;
+    padding: 24px 22px;
+    gap: 20px;
+  }
+  .zh-copy h1 {
+    font-size: 61px;
+  }
+  .zh-copy h1 > span {
+    font-size: 42px;
+    white-space: normal;
+  }
+  .zh-subtitle {
+    font-size: 14px;
+  }
+  .zh-features h2 {
+    font-size: 18px;
+  }
+  .zh-features h3 {
+    font-size: 14px;
+  }
+  .zh-features p {
+    font-size: 12px;
+    max-width: 100%;
+  }
+  .zh-phone-preview {
+    width: 100%;
+    max-width: 650px;
+    margin: 15px auto 0;
+  }
+  .zh-eyebrow {
+    font-size: 16px;
+  }
+  .zh-actions > div {
+    font-size: 10px;
+  }
+  .zh-actions {
+    gap: 18px;
+  }
+  .zh-actions > div:first-of-type {
+    border: 0;
+    padding-left: 0;
+  }
+  .zh-section {
+    padding: 50px 23px;
+  }
+  .zh-section h2 {
+    font-size: 27px;
+  }
+  .zh-section > p:not(.zh-section-kicker) {
+    font-size: 13px;
+  }
+  .zh-plans {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .zh-footer {
+    flex-direction: column;
+    padding: 20px;
+    font-size: 9px;
+  }
+  .zh-contact > div {
+    gap: 15px;
+    font-size: 12px;
+  }
+}
+.zh-logo-crop img {
+  width: clamp(1248px, 100vw, 1680px);
+  left: -14px;
+  top: -7px;
+}
+.zh-logo-crop {
+  height: clamp(48px, 4vw, 65px);
+  width: clamp(240px, 20vw, 330px);
+}
+@media (max-width: 1200px) {
+  .zh-logo-crop {
+    width: 240px;
+    height: 48px;
+  }
+  .zh-logo-crop img {
+    width: 1248px;
+    left: -14px;
+    top: -7px;
+  }
+}

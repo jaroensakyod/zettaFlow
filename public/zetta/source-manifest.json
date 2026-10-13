@@ -1,0 +1,180 @@
+{
+  "source": "ZettaFlow AI Version TH.pptx",
+  "sourcePageCount": 32,
+  "note": "Original embedded media bytes retained. Demo/reference usage is labeled; production project images come from tenant attachments.",
+  "assets": [
+    {
+      "file": "central-world.png",
+      "originalMedia": "ppt/media/image28.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "895ffe007cc24f3d4d97428d6fd7dfe5b5c9c1b9ad2b3d5ee091b97568d01040",
+      "bytes": 383273
+    },
+    {
+      "file": "ceo-command-center.png",
+      "originalMedia": "ppt/media/image15.png",
+      "sourceSlides": [
+        3
+      ],
+      "sha256": "d42e487e5cbb79d919c5b9998f02192cd8895d8f32e4d7217ae8fc2fe877223b",
+      "bytes": 1585915
+    },
+    {
+      "file": "department-dashboards-reference.png",
+      "originalMedia": "ppt/media/image103.png",
+      "sourceSlides": [
+        16
+      ],
+      "sha256": "8f9ae76f559986fd98cc3f1e741a18970c358403282431722e1b9c30340ab4c7",
+      "bytes": 1732184
+    },
+    {
+      "file": "design-review-reference.png",
+      "originalMedia": "ppt/media/image92.png",
+      "sourceSlides": [
+        11
+      ],
+      "sha256": "438d2c3e7841c56c746cee8a180c649997ba614bd64df78d3e6cdb141ee2d206",
+      "bytes": 1547576
+    },
+    {
+      "file": "fashion-island-interior.png",
+      "originalMedia": "ppt/media/image26.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "17e9add4c2c0b26536b629af01b5f26c51f5f4bbe33cf687c1b0476ea7a7954c",
+      "bytes": 297956
+    },
+    {
+      "file": "fashion-island-layout.png",
+      "originalMedia": "ppt/media/image99.png",
+      "sourceSlides": [
+        12
+      ],
+      "sha256": "cde58f59b8247047a8596b1528e6afc0eb98aab2c54097c5e75da515e9ef6341",
+      "bytes": 456735
+    },
+    {
+      "file": "fashion-island.png",
+      "originalMedia": "ppt/media/image41.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "f1e7bc593629709a1b84c6b16ae77cd36ef266bdd8bbed3191d459049b3f4646",
+      "bytes": 293109
+    },
+    {
+      "file": "line-connect-reference.png",
+      "originalMedia": "ppt/media/image100.png",
+      "sourceSlides": [
+        13
+      ],
+      "sha256": "eac7b912ad38d687ae398d88a1759804bbbb55538cd78338da6ebda0f474aa00",
+      "bytes": 2007527
+    },
+    {
+      "file": "line-workflow-reference.png",
+      "originalMedia": "ppt/media/image101.png",
+      "sourceSlides": [
+        14
+      ],
+      "sha256": "0895473d4b661e3c820ae70764126600fa5de7bdb98ec467772b0a2ee5a0b010",
+      "bytes": 1619689
+    },
+    {
+      "file": "mega-bangna.png",
+      "originalMedia": "ppt/media/image30.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "e79ee0a933bd85a1f3e3ad02f2effb6e6dd4e8f85a675989d55872a2eab4af54",
+      "bytes": 78705
+    },
+    {
+      "file": "perspective-plan.png",
+      "originalMedia": "ppt/media/image35.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "84cd1e6bf46e65d2fc533ec3d08f804aafc4d4de406325d384c89873f76d0851",
+      "bytes": 168304
+    },
+    {
+      "file": "procurement-dashboard-reference.png",
+      "originalMedia": "ppt/media/image105.png",
+      "sourceSlides": [
+        17,
+        18
+      ],
+      "sha256": "373f4cebafb4eff87f939225d3bebcf94446d49ea1c20f579912805bcc23a1c9",
+      "bytes": 1160157
+    },
+    {
+      "file": "procurement-template-reference.png",
+      "originalMedia": "ppt/media/image104.png",
+      "sourceSlides": [
+        17,
+        18
+      ],
+      "sha256": "0f6f4fca22de379d0d714ff88cbbf6ed550f020608dbea580d4db1984ca14cfa",
+      "bytes": 1319143
+    },
+    {
+      "file": "rbs-rangsit.png",
+      "originalMedia": "ppt/media/image31.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "dfb4952b06e7142368c3a05d10c87757033eb3d1d992d80cd14dd644264802d1",
+      "bytes": 83997
+    },
+    {
+      "file": "setup-reference.png",
+      "originalMedia": "ppt/media/image102.png",
+      "sourceSlides": [
+        15
+      ],
+      "sha256": "a8e5fa29228380bc9c808e71486c1ba427017f338801bfff78f4c18d5ddb0151",
+      "bytes": 1580788
+    },
+    {
+      "file": "space-detail-reference.png",
+      "originalMedia": "ppt/media/image91.png",
+      "sourceSlides": [
+        10
+      ],
+      "sha256": "de27f22f79a5a1f9033b771150c34b8336ce92f378723225c9218cb679b1af7c",
+      "bytes": 1259486
+    },
+    {
+      "file": "system-overview-reference.png",
+      "originalMedia": "ppt/media/image90.png",
+      "sourceSlides": [
+        8
+      ],
+      "sha256": "f6dc53d4aad7c8da6a7dbf6a8809ccd4ecb0528b8d1b7d969850cef2960b143f",
+      "bytes": 1542495
+    },
+    {
+      "file": "the-promenade.png",
+      "originalMedia": "ppt/media/image29.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "0a374fd1bc54f5ce252046c08ccda78231e135ec0db6736502f05660d4ab3c8c",
+      "bytes": 252426
+    },
+    {
+      "file": "zetta-logo.png",
+      "originalMedia": "ppt/media/image25.png",
+      "sourceSlides": [
+        7
+      ],
+      "sha256": "b539f6fb92a915e5d438a301b7c45a8d948828561d471440fb0d6f9cdf32f2a6",
+      "bytes": 43091
+    }
+  ]
+}
