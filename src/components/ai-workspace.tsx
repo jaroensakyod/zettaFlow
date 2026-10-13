@@ -9,6 +9,10 @@ import {
   CheckCircle2,
   FileText,
   Edit3,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+  Wand2,
 } from "lucide-react";
 import { api, Modal, Empty, Loading, displayDate, money } from "./shared";
 import { FieldControl } from "./records";
@@ -38,7 +42,39 @@ export function AiWorkspace({
     [values, setValues] = useState<Record<string, unknown>>({}),
     [selected, setSelected] = useState(""),
     [aiReady, setAiReady] = useState(false),
-    [formError, setFormError] = useState("");
+    [formError, setFormError] = useState(""),
+    [meta, setMeta] = useState({ name: "", department: "Operations" }),
+    [brief, setBrief] = useState(""),
+    [drag, setDrag] = useState<number | null>(null);
+  const move = (from: number, to: number) =>
+    setFields((s) => {
+      if (to < 0 || to >= s.length || from === to) return s;
+      const next = [...s];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  async function draft() {
+    setBusy(true);
+    setFormError("");
+    try {
+      const d = await api("/templates/draft", {
+        method: "POST",
+        body: { description: brief },
+      });
+      setMeta({ name: d.name, department: d.department });
+      setFields(d.fields);
+      notify(
+        d.engine === "ai"
+          ? "AI ร่างฟอร์มให้แล้ว ตรวจและปรับได้ก่อนบันทึก"
+          : "ใช้แม่แบบที่ใกล้เคียงที่สุด (ยังไม่ได้ตั้งค่า AI)",
+      );
+    } catch (err) {
+      setFormError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const load = useCallback(async () => {
     try {
       const [t, i, c] = await Promise.all([
@@ -72,6 +108,8 @@ export function AiWorkspace({
       ],
     );
     setSteps(t?.steps.map((s) => ({ ...s })) || []);
+    setMeta({ name: t?.name || "", department: t?.department || "Operations" });
+    setBrief("");
     setModal("template");
     setFormError("");
   }
@@ -245,7 +283,11 @@ export function AiWorkspace({
                   body: {
                     name: form.get("name"),
                     department: form.get("department"),
-                    fields,
+                    fields: fields.map((f) =>
+                      f.type === "choice"
+                        ? f
+                        : { ...f, options: undefined },
+                    ),
                     steps,
                   },
                 });
@@ -259,16 +301,45 @@ export function AiWorkspace({
               }
             }}
           >
+            <div className="ai-draft">
+              <label>
+                <span>
+                  <Wand2 size={14} /> บอก AI ว่าอยากเก็บข้อมูลอะไร
+                </span>
+                <textarea
+                  rows={2}
+                  value={brief}
+                  placeholder="เช่น ฝ่ายคลังส่งรูปใบส่งของ อยากได้ ซัพพลายเออร์ เลขที่บิล ยอดรวม และประเภทรถ"
+                  onChange={(e) => setBrief(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || brief.trim().length < 3}
+                onClick={draft}
+              >
+                <Sparkles size={14} /> ร่างฟอร์มอัตโนมัติ
+              </button>
+            </div>
             <div className="form-grid">
               <label>
                 ชื่อ Template
-                <input name="name" defaultValue={current?.name} required />
+                <input
+                  name="name"
+                  value={meta.name}
+                  onChange={(e) => setMeta((m) => ({ ...m, name: e.target.value }))}
+                  required
+                />
               </label>
               <label>
                 แผนก
                 <select
                   name="department"
-                  defaultValue={current?.department || "Operations"}
+                  value={meta.department}
+                  onChange={(e) =>
+                    setMeta((m) => ({ ...m, department: e.target.value }))
+                  }
                 >
                   {departmentNames.map((d) => (
                     <option key={d}>{d}</option>
@@ -278,10 +349,24 @@ export function AiWorkspace({
             </div>
             <h3 className="form-section-title">ฟิลด์ข้อมูล</h3>
             <div className="field-legend">
-              รหัสฟิลด์ / ชื่อที่แสดง / ประเภท / บังคับ
+              ลาก ⋮⋮ เพื่อเรียง · รหัสฟิลด์ / ชื่อที่แสดง / ประเภท / บังคับ
             </div>
             {fields.map((f, index) => (
-              <div className="template-field" key={index}>
+              <div
+                className={"template-field draggable" + (drag === index ? " dragging" : "")}
+                key={index}
+                draggable
+                onDragStart={() => setDrag(index)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (drag !== null) move(drag, index);
+                  setDrag(null);
+                }}
+                onDragEnd={() => setDrag(null)}
+              >
+                <span className="drag-handle" aria-hidden>
+                  <GripVertical size={15} />
+                </span>
                 <input
                   aria-label={"รหัสฟิลด์ " + (index + 1)}
                   placeholder="sales"
@@ -325,6 +410,7 @@ export function AiWorkspace({
                   <option value="text">ข้อความ</option>
                   <option value="number">ตัวเลข</option>
                   <option value="date">วันที่</option>
+                  <option value="choice">ตัวเลือก (กราฟวงกลม)</option>
                 </select>
                 <input
                   type="checkbox"
@@ -341,6 +427,24 @@ export function AiWorkspace({
                 <button
                   type="button"
                   className="icon-button"
+                  aria-label="เลื่อนขึ้น"
+                  disabled={index === 0}
+                  onClick={() => move(index, index - 1)}
+                >
+                  <ArrowUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="เลื่อนลง"
+                  disabled={index === fields.length - 1}
+                  onClick={() => move(index, index + 1)}
+                >
+                  <ArrowDown size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
                   aria-label="ลบฟิลด์"
                   onClick={() =>
                     setFields((s) => s.filter((_, i) => i !== index))
@@ -348,8 +452,44 @@ export function AiWorkspace({
                 >
                   <Trash2 size={15} />
                 </button>
+                {f.type === "choice" && (
+                  <input
+                    className="choice-options"
+                    aria-label={"ตัวเลือกของฟิลด์ " + (index + 1)}
+                    placeholder="ตัวเลือก คั่นด้วยจุลภาค เช่น 6 ล้อ, กระบะ"
+                    required
+                    value={(f.options || []).join(", ")}
+                    onChange={(e) =>
+                      setFields((s) =>
+                        s.map((v, i) =>
+                          i === index
+                            ? {
+                                ...v,
+                                options: e.target.value
+                                  .split(",")
+                                  .map((o) => o.trimStart())
+                                  .filter((o, n, a) => o || n === a.length - 1),
+                              }
+                            : v,
+                        ),
+                      )
+                    }
+                    onBlur={() =>
+                      setFields((s) =>
+                        s.map((v, i) =>
+                          i === index
+                            ? { ...v, options: (v.options || []).map((o) => o.trim()).filter(Boolean) }
+                            : v,
+                        ),
+                      )
+                    }
+                  />
+                )}
               </div>
             ))}
+            <div className="note">
+              ฟิลด์ตัวเลขสร้างการ์ดยอดรวม · ฟิลด์ตัวเลือกสร้างกราฟวงกลมบน Dashboard อัตโนมัติ
+            </div>
             <button
               type="button"
               className="secondary"
@@ -505,7 +645,7 @@ export function AiWorkspace({
                   .find((t) => t.id === selected)
                   ?.fields.map(
                     (f) =>
-                      `${f.label}: ${f.type === "date" ? "2026-10-16" : f.type === "number" ? "55000" : "The Promenade"}`,
+                      `${f.label}: ${f.type === "date" ? "2026-10-16" : f.type === "number" ? "55000" : f.type === "choice" ? f.options?.[0] || "" : "The Promenade"}`,
                   )
                   .join("\n")}
               />
@@ -618,7 +758,11 @@ export function AiWorkspace({
                 {record.template.fields.map((f) => (
                   <FieldControl
                     key={f.key}
-                    field={{ ...f, type: f.type } as Field}
+                    field={
+                      (f.type === "choice"
+                        ? { ...f, type: "select" }
+                        : { ...f, type: f.type }) as Field
+                    }
                     value={values[f.key]}
                     set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
                     options={[]}

@@ -140,8 +140,13 @@ export const templateSchema = z
         z.object({
           key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
           label: z.string().min(1).max(200),
-          type: z.enum(["text", "number", "date"]),
+          type: z.enum(["text", "number", "date", "choice"]),
           required: z.boolean(),
+          options: z
+            .array(z.string().trim().min(1).max(100))
+            .min(2)
+            .max(20)
+            .optional(),
         }),
       )
       .min(1)
@@ -158,7 +163,22 @@ export const templateSchema = z
   .refine(
     (t) => new Set(t.fields.map((f) => f.key)).size === t.fields.length,
     "รหัสฟิลด์ซ้ำกัน",
-  );
+  )
+  .refine(
+    (t) =>
+      t.fields.every(
+        (f) =>
+          f.type !== "choice" ||
+          (f.options && new Set(f.options).size === f.options.length),
+      ),
+    "ฟิลด์ตัวเลือกต้องมีอย่างน้อย 2 ตัวเลือกที่ไม่ซ้ำ",
+  )
+  .transform((t) => ({
+    ...t,
+    fields: t.fields.map(({ options, ...f }) =>
+      f.type === "choice" ? { ...f, options } : f,
+    ),
+  }));
 export function validateValues(
   t: Template,
   input: Record<string, unknown>,
@@ -178,7 +198,9 @@ export function validateValues(
         ? typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= 1e12
         : f.type === "date"
           ? typeof v === "string" && validDate(v)
-          : typeof v === "string" && v.length <= 10000,
+          : f.type === "choice"
+            ? typeof v === "string" && !!f.options?.includes(v)
+            : typeof v === "string" && v.length <= 10000,
       `รูปแบบ ${f.label} ไม่ถูกต้อง`,
     );
     values[f.key] = v;
@@ -206,6 +228,11 @@ export function explicitExtract(t: Template, raw: string) {
       !Number.isFinite(values[f.key])
     )
       values[f.key] = null;
+    if (f.type === "choice" && values[f.key] !== null)
+      values[f.key] =
+        f.options?.find(
+          (o) => o.toLowerCase() === String(values[f.key]).toLowerCase(),
+        ) ?? null;
   }
   return validateValues(t, values);
 }

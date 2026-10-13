@@ -13,6 +13,7 @@ import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { FieldControl } from "./records";
 import { companyFields, departmentNames } from "@/lib/catalog";
 import type { Context, Member, Template } from "@/lib/types";
+import { LineGroupSettings } from "./platform";
 export function CompanySettings({
   ctx,
   notify,
@@ -350,9 +351,15 @@ export function Integrations({
       worker: boolean;
     } | null>(null),
     [templates, setTemplates] = useState<Template[]>([]),
-    [groups, setGroups] = useState<{ group_id: string; template_id: string }[]>(
-      [],
-    ),
+    [groups, setGroups] = useState<
+      {
+        group_id: string;
+        template_id: string;
+        name: string;
+        approve_keywords: string[];
+      }[]
+    >([]),
+    [reload, setReload] = useState(0),
     [notifications, setNotifications] = useState<
       { id: string; status: string; attempts: number }[]
     >([]),
@@ -376,7 +383,7 @@ export function Integrations({
         setNotifications(i.notifications);
       })
       .catch((e) => setError(e.message));
-  }, [ctx.member.role]);
+  }, [ctx.member.role, reload]);
   async function pair(action: string) {
     setBusy(true);
     try {
@@ -451,13 +458,16 @@ export function Integrations({
           {error}
         </p>
         <h3 className="form-section-title">กลุ่มที่เชื่อมแล้ว</h3>
-        {groups.map((g) => (
-          <div className="integration-group" key={g.group_id}>
-            {g.group_id}
-            <small>{templates.find((t) => t.id === g.template_id)?.name}</small>
-          </div>
-        ))}
-        {!groups.length && <p className="muted">ยังไม่มีกลุ่มที่เชื่อมต่อ</p>}
+        <p className="note">
+          แต่ละกลุ่มใช้ฟอร์มของแผนกตัวเอง ผู้จัดการพิมพ์คีย์เวิร์ด (เช่น "อนุมัติปล่อยของ") เพื่ออนุมัติรายการล่าสุด
+          และถามบอทได้ เช่น "มีงานรออนุมัติกี่งาน?"
+        </p>
+        <LineGroupSettings
+          templates={templates}
+          groups={groups}
+          notify={notify}
+          changed={() => setReload((n) => n + 1)}
+        />
       </section>
       <section className="card">
         <div className="card-heading">

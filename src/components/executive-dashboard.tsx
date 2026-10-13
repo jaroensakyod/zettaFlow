@@ -20,6 +20,7 @@ import { api, Empty, money } from "./shared";
 import { NumberCard, LineChart, Donut, amountSeries } from "./dashboard-charts";
 import { projectNumbers, referenceImages } from "@/lib/zetta";
 import { ProjectStages } from "./project-stages";
+import { WidgetBoard } from "./platform";
 type Summary = {
   sales: number;
   expenses: number;
@@ -41,12 +42,14 @@ export function ExecutiveDashboard({
   ctx,
   navigate,
   changed,
+  notify = () => {},
 }: {
   entities: Entity[];
   summary: Summary;
   ctx: Context;
   navigate: (v: string, id?: string) => void;
   changed: () => void;
+  notify?: (s: string) => void;
 }) {
   const [report, setReport] = useState(false),
     [selected, setSelected] = useState("");
@@ -525,21 +528,7 @@ export function ExecutiveDashboard({
           ))}
         </div>
       </section>
-      {!report && !!s.widgets?.length && (
-        <section className="z-card">
-          <h2>Data Templates · Auto-Generated Dashboard</h2>
-          <div className="z-stats">
-            {s.widgets.map((w) => (
-              <NumberCard
-                key={w.key}
-                label={w.name + " · " + w.label}
-                value={w.total}
-                note={w.count + " รายการที่อนุมัติ"}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {!report && <WidgetBoard ctx={ctx} notify={notify} />}
       <nav className="zec-mobile-nav" aria-label="เมนูมือถือ">
         <button
           className={!report ? "active" : ""}

@@ -9,6 +9,7 @@ import {
 } from "@/lib/ai";
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
+import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -39,26 +40,62 @@ export async function POST(req: Request) {
           p_hash: tokenHash(message.text.slice(9).trim()),
           p_group: groupId,
         });
-        if (error) continue;
+        await lineReply(
+          event.replyToken,
+          error
+            ? "เชื่อมกลุ่มไม่สำเร็จ: " + error.message
+            : "✅ เชื่อมกลุ่มนี้กับ ZettaFlow แล้ว ส่งข้อความ รูป หรือ PDF เพื่อบันทึกข้อมูลได้เลย",
+        );
         continue;
       }
       if (message.type === "text" && message.text.startsWith("#user ")) {
         if (!userId) continue;
-        await sb.rpc("pair_line_user", {
+        const { error } = await sb.rpc("pair_line_user", {
           p_hash: tokenHash(message.text.slice(6).trim()),
           p_group: groupId,
           p_line_user: userId,
         });
+        await lineReply(
+          event.replyToken,
+          error ? "ผูกบัญชีไม่สำเร็จ: " + error.message : "✅ ผูกบัญชี LINE กับผู้ใช้ ZettaFlow แล้ว",
+        );
         continue;
       }
       if (message.type === "text" && message.text.startsWith("#approve ")) {
         if (!userId) continue;
-        await sb.rpc("line_approve", {
+        const { error } = await sb.rpc("line_approve", {
           p_group: groupId,
           p_user: userId,
           p_id: message.text.slice(9).trim(),
         });
+        await lineReply(
+          event.replyToken,
+          error ? "อนุมัติไม่สำเร็จ: " + error.message : "✅ อนุมัติแล้ว ระบบสร้างงานให้ทีมที่เกี่ยวข้อง",
+        );
         continue;
+      }
+      if (message.type === "text" && userId) {
+        const { data: approved, error } = await sb.rpc("line_keyword_approve", {
+          p_group: groupId,
+          p_user: userId,
+          p_text: message.text,
+        });
+        if (approved || error) {
+          await lineReply(
+            event.replyToken,
+            error
+              ? "อนุมัติไม่สำเร็จ: " + error.message
+              : `✅ อนุมัติรายการ ${String(approved).slice(0, 8)} แล้ว ระบบแจ้งงานต่อให้ทีมที่เกี่ยวข้อง`,
+          );
+          continue;
+        }
+      }
+      if (message.type === "text" && isQuestion(message.text)) {
+        const { data: stats } = await sb.rpc("line_quick_stats", { p_group: groupId });
+        if (stats) {
+          await lineReply(event.replyToken, answerQuestion(message.text, stats as QuickStats));
+          continue;
+        }
       }
       const { data: group } = await sb
         .from("line_groups")
@@ -141,6 +178,10 @@ export async function POST(req: Request) {
         attachment_id: attachmentId,
         source_user: userId || null,
       });
+      if (error && /แพ็กเกจหมดอายุ/.test(error.message)) {
+        await lineReply(event.replyToken, "⚠️ แพ็กเกจ ZettaFlow ของบริษัทหมดอายุ กรุณาให้เจ้าของบริษัทต่ออายุในเว็บ");
+        continue;
+      }
       if (error && error.code !== "23505") dbError(error);
     }
     after(async () => {
