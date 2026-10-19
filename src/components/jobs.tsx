@@ -1,11 +1,11 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Plus, Check, Send, Sparkles, Wand2, X } from "lucide-react";
-import { businessTypes } from "@/lib/catalog";
+import { industryMatches } from "@/lib/catalog";
 import { matchScore, type Match } from "@/lib/match";
 import type { Context, FeedComment, FeedKind, FeedPost, FeedProposal } from "@/lib/types";
 import { api, Empty, Loading } from "./shared";
-import { CompanyLogo, Composer, employmentLabels, headline, kindLabel, since } from "./feed";
+import { CompanyLogo, Composer, IndustryOptions, employmentLabels, headline, kindLabel, since } from "./feed";
 import { FlowMascot } from "./mascot";
 
 const tabs = [
@@ -83,7 +83,7 @@ export function Jobs({
       .filter(
         (p) =>
           (!province || p.company.province === province || (p.meta.location || "").includes(province)) &&
-          (!industry || p.company.industry === industry) &&
+          industryMatches(industry, p.company.industry) &&
           (!q || [p.company.name, p.meta.title || "", p.body].join(" ").toLowerCase().includes(q)),
       )
       .sort((a, b) =>
@@ -151,9 +151,7 @@ export function Jobs({
               <span className="sr-only">ประเภทธุรกิจ</span>
               <select value={industry} onChange={(e) => setIndustry(e.target.value)}>
                 <option value="">ประเภทธุรกิจ: ทั้งหมด</option>
-                {businessTypes.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
+                <IndustryOptions />
               </select>
             </label>
             {tab !== "mine" && (

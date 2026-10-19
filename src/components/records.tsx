@@ -13,22 +13,103 @@ import {
   PackagePlus,
   Paperclip,
   Printer,
+  Camera,
+  UserRound,
 } from "lucide-react";
 import { catalog, statusLabels, type Field } from "@/lib/catalog";
 import type { Entity, Context } from "@/lib/types";
 import { api, Modal, Empty, Loading, money, displayDate } from "./shared";
 type Option = { id: string; kind: string; name: string };
+// Shrinks a photo to a square-ish WebP (max 512px) before upload.
+async function shrinkPhoto(file: File) {
+  const bitmap = await createImageBitmap(file),
+    scale = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height)),
+    canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.85));
+  if (!blob) throw Error("แปลงรูปไม่ได้");
+  return new File([blob], "photo.webp", { type: "image/webp" });
+}
+export const photoUrl = (id: unknown) => (id ? "/api/files/" + String(id) : "");
+function ImageField({
+  field,
+  value,
+  set,
+  department,
+}: {
+  field: Field;
+  value: unknown;
+  set: (value: unknown) => void;
+  department: string;
+}) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    id = "field-" + field.key;
+  return (
+    <div className="image-field">
+      <span className="image-field-label">{field.label}</span>
+      <div className="image-field-row">
+        <span className="image-field-preview">
+          {value ? <img src={photoUrl(value)} alt={field.label} /> : <UserRound size={30} />}
+        </span>
+        <label className="secondary image-field-pick" htmlFor={id}>
+          <Camera size={15} />
+          {busy ? "กำลังอัปโหลด…" : value ? "เปลี่ยนรูป" : "เพิ่มรูป"}
+        </label>
+        <input
+          id={id}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="sr-only"
+          disabled={busy}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) return;
+            setBusy(true);
+            setError("");
+            try {
+              const form = new FormData();
+              form.set("file", await shrinkPhoto(file));
+              form.set("department", department);
+              const r = await fetch("/api/files", { method: "POST", body: form });
+              const data = await r.json();
+              if (!r.ok) throw Error(data.error);
+              set(data.id);
+            } catch (err) {
+              setError((err as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+        {!!value && (
+          <button type="button" className="text-button" onClick={() => set("")}>
+            เอารูปออก
+          </button>
+        )}
+      </div>
+      {error && <p className="form-error">{error}</p>}
+    </div>
+  );
+}
 export function FieldControl({
   field,
   value,
   set,
   options,
+  department = "Operations",
 }: {
   field: Field;
   value: unknown;
   set: (value: unknown) => void;
   options: Option[];
+  department?: string;
 }) {
+  if (field.type === "image")
+    return <ImageField field={field} value={value} set={set} department={department} />;
   const props = {
     id: "field-" + field.key,
     name: field.key,
@@ -237,6 +318,7 @@ export function Records({
       setBusy(false);
     }
   }
+  const photoField = module.fields.find((f) => f.type === "image")?.key;
   const format = (key: string, value: unknown) => {
     if (["startDate", "endDate", "dueDate", "date", "updated_at"].includes(key))
       return displayDate(value);
@@ -459,6 +541,15 @@ export function Records({
                             className="row-link"
                             onClick={() => open("edit", item)}
                           >
+                            {photoField && (
+                              <span className="row-photo">
+                                {item.data[photoField] ? (
+                                  <img src={photoUrl(item.data[photoField])} alt="" loading="lazy" />
+                                ) : (
+                                  String(item.data.name || "?").trim()[0]
+                                )}
+                              </span>
+                            )}
                             {format(key, item.data[key])}
                           </button>
                         ) : (
@@ -586,6 +677,7 @@ export function Records({
                     value={values[f.key]}
                     set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
                     options={options}
+                    department={module.department}
                   />
                 ))}
               </div>

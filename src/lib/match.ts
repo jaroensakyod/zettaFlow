@@ -1,5 +1,6 @@
 // Explainable match score between our company and a job / partner post. Every point comes with a reason
 // the user can read, so the number is never a black box.
+import { businessGroupOf, businessTypeGroups } from "./catalog";
 import type { FeedPost } from "./types";
 
 export type MatchProfile = {
@@ -30,9 +31,13 @@ export function matchScore(post: FeedPost, me: MatchProfile, now = Date.now()): 
   const reasons: string[] = [];
   let score = 5;
   const text = [post.meta.title || "", post.body, post.meta.location || ""].join(" ").toLowerCase();
+  const group = businessGroupOf(me.industry);
   if (me.industry && post.company.industry === me.industry) {
     score += 35;
     reasons.push(`ธุรกิจประเภทเดียวกับคุณ (${me.industry})`);
+  } else if (group && businessGroupOf(post.company.industry) === group) {
+    score += 20;
+    reasons.push(`อยู่หมวดธุรกิจเดียวกัน (${group})`);
   }
   if (
     me.province &&
@@ -41,7 +46,12 @@ export function matchScore(post: FeedPost, me: MatchProfile, now = Date.now()): 
     score += 20;
     reasons.push(`อยู่ใน${me.province}เหมือนกัน`);
   }
-  const words = [...(industryWords[me.industry] || []), ...terms(me.description)];
+  // Detailed types borrow the hint words of their group's broad type.
+  const broad =
+    industryWords[me.industry] ||
+    industryWords[businessTypeGroups.find(([g]) => g === group)?.[1].find((t) => industryWords[t]) || ""] ||
+    [];
+  const words = [...broad, ...terms(me.description)];
   const hits = [...new Set(words.filter((w) => text.includes(w.toLowerCase())))].slice(0, 3);
   if (hits.length) {
     score += hits.length * 10;

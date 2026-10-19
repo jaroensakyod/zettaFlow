@@ -17,7 +17,7 @@ import {
   MessageSquare,
   Share2,
 } from "lucide-react";
-import { businessTypes } from "@/lib/catalog";
+import { businessTypeGroups, industryMatches } from "@/lib/catalog";
 import type { Context, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "@/lib/types";
 import { api, Empty, Loading, Modal } from "./shared";
 
@@ -78,6 +78,23 @@ async function shrink(file: File) {
   throw Error("รูปใหญ่เกินไป");
 }
 
+/** Business type filter options: each group as a whole, then its types. */
+export function IndustryOptions() {
+  return (
+    <>
+      {businessTypeGroups.map(([group, items]) => (
+        <optgroup key={group} label={group}>
+          <option value={"group:" + group}>ทั้งหมวด{group}</option>
+          {items.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
 export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: string; logo: boolean | string; size?: number }) {
   const src = typeof logo === "string" ? logo : logo ? "/api/feed/logo/" + id : "";
   return src ? (
@@ -148,7 +165,7 @@ export function Feed({
     q = search.trim().toLowerCase(),
     shown = (posts || []).filter(
       (p) =>
-        (!industry || p.company.industry === industry) &&
+        industryMatches(industry, p.company.industry) &&
         (!q || [p.company.name, p.meta.title || "", p.body].join(" ").toLowerCase().includes(q)),
     ),
     writer = ctx.member.role !== "viewer";
@@ -233,9 +250,7 @@ export function Feed({
             <span className="sr-only">ประเภทธุรกิจ</span>
             <select value={industry} onChange={(e) => setIndustry(e.target.value)}>
               <option value="">ทุกประเภทธุรกิจ</option>
-              {businessTypes.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
+              <IndustryOptions />
             </select>
           </label>
         </div>

@@ -47,6 +47,8 @@ function fieldSchema(f: Field) {
       .url()
       .refine((s) => /^https?:\/\//.test(s), "ใช้ URL แบบ http/https");
   if (f.type === "relation") return z.uuid();
+  // An uploaded image is stored as its attachment id.
+  if (f.type === "image") return z.uuid();
   return z
     .string()
     .trim()

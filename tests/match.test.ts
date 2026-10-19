@@ -42,4 +42,13 @@ test("match score: every point has a reason", () => {
   // Free-text description words count too, capped at three hits.
   const desc = matchScore(post({ company: { name: "B", industry: "", province: "", has_logo: false }, meta: {}, created_at: "2026-10-01T00:00:00Z" }), { industry: "", province: "", description: "รับออกแบบ ติดตั้ง บูธ งานแฟร์" }, now);
   assert.equal(desc.score, 5 + 30 + 5);
+
+  // Same group, different detailed type: partial credit, and the group's hint words apply.
+  const sameGroup = matchScore(
+    post({ company: { name: "B", industry: "รับจัดงานแต่งงาน", province: "", has_logo: false }, meta: { title: "ทีมจัดบูธ" }, body: "งานแฟร์", created_at: "2026-08-01T00:00:00Z" }),
+    { industry: "จัดนิทรรศการ / แสดงสินค้า", province: "", description: "" },
+    now,
+  );
+  assert.match(sameGroup.reasons[0], /หมวดธุรกิจเดียวกัน/);
+  assert.equal(sameGroup.score, 5 + 20 + 20);
 });

@@ -8,13 +8,12 @@ import {
   Check,
   Link,
   Palette,
-  Upload,
   Building2,
-  Image as ImageIcon,
+  Camera,
 } from "lucide-react";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { FieldControl } from "./records";
-import { companyFields, departmentNames } from "@/lib/catalog";
+import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
 import type { Context, Member, Template } from "@/lib/types";
 import { LineGroupSettings } from "./platform";
 const imageLimits = {
@@ -87,7 +86,7 @@ export function CompanySettings({
       String(ctx.company.settings.brand || "EliteFlow"),
     ),
     [tab, setTab] = useState<(typeof companyTabs)[number][0]>("main"),
-    [showLinks, setShowLinks] = useState(false),
+    [uploading, setUploading] = useState<"" | "logo" | "cover">(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const owner = ctx.member.role === "owner",
@@ -95,15 +94,41 @@ export function CompanySettings({
     set = (k: string, v: unknown) => setValues((s) => ({ ...s, [k]: v })),
     field = (k: string) => companyFields.find((f) => f.key === k)!,
     filled = completenessKeys.filter((k) => text(k).trim()).length,
+    // Like Facebook: a picked cover or logo is saved right away, on top of the saved profile
+    // (not the unsaved form edits).
     pick = async (kind: "logo" | "cover", file?: File) => {
       if (!file) return;
+      setUploading(kind);
       try {
-        set(kind, await toDataUrl(file, kind));
+        const url = await toDataUrl(file, kind),
+          saved = Object.fromEntries(
+            Object.entries(profileOf(ctx))
+              .filter(([k]) => companyFields.some((f) => f.key === k))
+              .map(([k, v]) => [k, String(v ?? "")]),
+          );
+        await api("/company", { method: "PATCH", body: { profile: { ...saved, [kind]: url } } });
+        set(kind, url);
         setError("");
+        notify(kind === "logo" ? "เปลี่ยนโลโก้แล้ว" : "เปลี่ยนรูปปกแล้ว");
+        changed();
       } catch (e) {
         setError((e as Error).message);
+      } finally {
+        setUploading("");
       }
     },
+    filePicker = (kind: "logo" | "cover") => (
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        disabled={!!uploading}
+        onChange={(e) => {
+          pick(kind, e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+    ),
     input = (k: string) => (
       <FieldControl
         key={k}
@@ -113,31 +138,6 @@ export function CompanySettings({
         options={[]}
       />
     );
-  const dropzone = (kind: "logo" | "cover", title: string, hint: string) => (
-    <label className="image-drop">
-      <input
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        hidden
-        onChange={(e) => {
-          pick(kind, e.target.files?.[0]);
-          e.target.value = "";
-        }}
-      />
-      {text(kind) ? (
-        <img src={text(kind)} alt="" className={"image-drop-preview " + kind} />
-      ) : (
-        <span className="image-drop-icon">
-          <Upload size={17} />
-        </span>
-      )}
-      <span className="image-drop-text">
-        <strong>{title}</strong>
-        <small>{hint}</small>
-      </span>
-      <span className="secondary image-drop-button">เลือกไฟล์</span>
-    </label>
-  );
   return (
     <form
       className="company-profile"
@@ -175,26 +175,26 @@ export function CompanySettings({
         >
           {owner && (
             <label className="secondary cover-button">
-              <ImageIcon size={14} />
-              เปลี่ยนรูปปก
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                hidden
-                onChange={(e) => {
-                  pick("cover", e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
+              <Camera size={15} />
+              {uploading === "cover" ? "กำลังอัปโหลด…" : text("cover") ? "เปลี่ยนรูปปก" : "เพิ่มรูปปก"}
+              {filePicker("cover")}
             </label>
           )}
         </div>
         <div className="company-hero-body">
-          <div className="company-logo">
-            {text("logo") ? (
-              <img src={text("logo")} alt="โลโก้บริษัท" />
-            ) : (
-              <Building2 size={30} />
+          <div className="company-logo-wrap">
+            <div className={"company-logo" + (uploading === "logo" ? " busy" : "")}>
+              {text("logo") ? (
+                <img src={text("logo")} alt="โลโก้บริษัท" />
+              ) : (
+                <Building2 size={34} />
+              )}
+            </div>
+            {owner && (
+              <label className="logo-camera" title="เปลี่ยนโลโก้" aria-label="เปลี่ยนโลโก้บริษัท">
+                <Camera size={16} />
+                {filePicker("logo")}
+              </label>
             )}
           </div>
           <div className="company-hero-title">
@@ -235,40 +235,6 @@ export function CompanySettings({
         {tab === "main" ? (
           <>
             <section className="card company-section">
-              <h2>รูปปกและโลโก้</h2>
-              <div className="image-drops">
-                {dropzone(
-                  "cover",
-                  "รูปปก",
-                  "ลากไฟล์มาวาง หรือกดเลือกไฟล์ · ขนาดแนะนำ 1200×400",
-                )}
-                {dropzone("logo", "โลโก้บริษัท", "ไฟล์ PNG หรือ JPG · ภาพสี่เหลี่ยมจัตุรัส")}
-              </div>
-              {showLinks ? (
-                <div className="form-grid image-links">
-                  {(["cover", "logo"] as const).map((k) => (
-                    <label key={k}>
-                      ลิงก์{k === "cover" ? "รูปปก" : "โลโก้"} (https://)
-                      <input
-                        type="url"
-                        placeholder="https://"
-                        value={text(k).startsWith("data:") ? "" : text(k)}
-                        onChange={(e) => set(k, e.target.value.trim())}
-                      />
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="text-button image-link-toggle"
-                  onClick={() => setShowLinks(true)}
-                >
-                  หรือวางลิงก์รูปภาพแทน
-                </button>
-              )}
-            </section>
-            <section className="card company-section">
               <h2>ข้อมูลบริษัท</h2>
               <div className="form-grid company-grid">
                 <label>
@@ -301,25 +267,31 @@ export function CompanySettings({
                     onChange={(e) => set("taxId", e.target.value.replace(/\D/g, ""))}
                   />
                 </label>
-                {(["industry", "employees"] as const).map((k) => {
-                  const options = field(k).options || [];
-                  return (
-                    <label key={k}>
-                      {field(k).label}
-                      <select value={text(k)} onChange={(e) => set(k, e.target.value)}>
-                        <option value="">
-                          {k === "industry" ? "เลือกประเภทธุรกิจ" : "เลือกช่วงจำนวน"}
-                        </option>
-                        {text(k) && !options.includes(text(k)) && (
-                          <option>{text(k)}</option>
-                        )}
-                        {options.map((o) => (
+                <label>
+                  {field("industry").label}
+                  <select value={text("industry")} onChange={(e) => set("industry", e.target.value)}>
+                    <option value="">เลือกประเภทธุรกิจ</option>
+                    {text("industry") && !businessTypes.includes(text("industry")) && (
+                      <option>{text("industry")}</option>
+                    )}
+                    {businessTypeGroups.map(([group, items]) => (
+                      <optgroup key={group} label={group}>
+                        {items.map((o) => (
                           <option key={o}>{o}</option>
                         ))}
-                      </select>
-                    </label>
-                  );
-                })}
+                      </optgroup>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {field("employees").label}
+                  <select value={text("employees")} onChange={(e) => set("employees", e.target.value)}>
+                    <option value="">เลือกช่วงจำนวน</option>
+                    {(field("employees").options || []).map((o) => (
+                      <option key={o}>{o}</option>
+                    ))}
+                  </select>
+                </label>
                 <label>
                   {field("founded").label}
                   <input
