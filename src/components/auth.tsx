@@ -59,9 +59,13 @@ export function Auth({
     <div className="auth-layout">
       <section className="auth-story">
         <div className="brand">
-          <span className="brand-mark">
-            <Layers size={24} />
-          </span>
+          {product === "zetta" ? (
+            <span className="brand-mark">
+              <Layers size={24} />
+            </span>
+          ) : (
+            <img className="auth-logo" src="/brand/eliteflow-mark.png" alt="" width={40} height={40} />
+          )}
           {product === "zetta" ? <>Zetta<span>Flow AI</span></> : <>Elite<span>Flow</span></>}
         </div>
         <div className="auth-eyebrow">{product === "zetta" ? "AI THAT MOVES YOUR BUSINESS FORWARD" : "YOUR BUSINESS. ONE WORKSPACE."}</div>
@@ -202,9 +206,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   return (
     <div className="onboarding">
       <div className="onboard-card">
-        <span className="brand-mark">
-          <Layers />
-        </span>
+        <img className="auth-logo" src="/brand/eliteflow-mark.png" alt="EliteFlow" width={56} height={56} />
         <h1>สร้าง workspace ของบริษัท</h1>
         <p className="muted">
           ถ้ามีคำเชิญ ระบบจะเชื่อมบริษัทให้โดยใช้อีเมลเดียวกัน

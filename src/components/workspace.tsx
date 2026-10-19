@@ -31,8 +31,7 @@ import {
   BadgeDollarSign,
   Bot,
   type LucideIcon,
-  Layers,
-  Home,
+  Network,
   Folder,
   ChevronDown,
   Search,
@@ -55,6 +54,7 @@ import { api, Empty, Loading, money, Modal } from "./shared";
 import { Auth, Onboarding } from "./auth";
 import { Records } from "./records";
 import { HomeDashboard } from "./home-dashboard";
+import { Feed } from "./feed";
 import { AiWorkspace } from "./ai-workspace";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
@@ -67,7 +67,7 @@ import {
   Assistant,
 } from "./tools";
 const groups = [
-  { label: "ภาพรวม", items: ["dashboard", "calendar", "chat"] },
+  { label: "ภาพรวม", items: ["feed", "dashboard", "calendar", "chat"] },
   {
     label: "ธุรกิจ & ลูกค้า",
     items: ["customers", "leads", "dealers", "deals", "projects", "tasks", "events"],
@@ -102,7 +102,8 @@ const groups = [
 ];
 // Shortcuts shown in the top bar; everything else lives under the แผนก menu.
 const primary: [string, string, LucideIcon][] = [
-  ["dashboard", "หน้าหลัก", Home],
+  ["feed", "เครือข่ายธุรกิจ", Network],
+  ["dashboard", "ภาพรวม", LayoutDashboard],
   ["customers", "ลูกค้า", UserRound],
   ["suppliers", "Supplier", Truck],
   ["company", "บริษัท", Building2],
@@ -119,8 +120,13 @@ const extra: Record<
     icon: "Bot",
     description: "ถามและสรุปภาพรวมจากข้อมูลธุรกิจที่คุณมีสิทธิ์ดู",
   },
+  feed: {
+    label: "เครือข่ายธุรกิจ",
+    icon: "Network",
+    description: "อัปเดต ประกาศงาน และโอกาสจากบริษัทในเครือข่าย",
+  },
   dashboard: {
-    label: "Executive Dashboard",
+    label: "ภาพรวมงาน",
     icon: "LayoutDashboard",
     description: "ภาพรวมธุรกิจและสิ่งที่ทีมต้องติดตาม",
   },
@@ -207,6 +213,7 @@ const iconMap: Record<string, LucideIcon> = {
   BadgeDollarSign,
   Bot,
   LayoutDashboard,
+  Network,
   CalendarDays,
   Sparkles,
   Wallet,
@@ -238,7 +245,7 @@ type WorkspaceData = {
   audit: { id: string; action: string; target: string; created_at: string }[];
 };
 export function Workspace({
-  initialView = "dashboard",
+  initialView = "feed",
   product = "elite",
 }: {
   initialView?: string;
@@ -341,7 +348,7 @@ export function Workspace({
     (next: string) => {
       setMenu(false);
       setSearchOpen(false);
-      router.push(next === "dashboard" ? "/eliteflow" : "/workspace/" + next);
+      router.push(next === "feed" ? "/eliteflow" : "/workspace/" + next);
     },
     [router],
   );
@@ -353,9 +360,9 @@ export function Workspace({
   if (!data)
     return (
       <div className="boot-screen">
-        <span className="brand-mark">
-          <Layers size={27} />
-        </span>
+        {product === "elite" && (
+          <img className="boot-logo" src="/brand/eliteflow-mark.png" alt="EliteFlow" width={64} height={64} />
+        )}
         {error ? <p className="form-error">{error}</p> : <Loading />}
       </div>
     );
@@ -403,11 +410,13 @@ export function Workspace({
         <header className="topnav" ref={navRef}>
           <button
             className="topnav-brand"
-            onClick={() => navigate("dashboard")}
+            onClick={() => navigate("feed")}
           >
-            <span className="topnav-mark">
-              {brand === "EliteFlow" ? "EF" : "ZF"}
-            </span>
+            {brand === "EliteFlow" ? (
+              <img className="topnav-logo" src="/brand/eliteflow-mark.png" alt="" width={36} height={36} />
+            ) : (
+              <span className="topnav-mark">ZF</span>
+            )}
             <strong>{brand}</strong>
           </button>
           <nav className="topnav-links" aria-label="เมนูหลัก">
@@ -532,7 +541,7 @@ export function Workspace({
           </div>
         )}
         <main className="main" key={ctx.company.id}>
-          {view !== "dashboard" && view !== "company" && (
+          {!["feed", "dashboard", "company"].includes(view) && (
           <div className="page-heading">
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
@@ -563,7 +572,9 @@ export function Workspace({
           </div>
           )}
           {error && <p className="form-error">{error}</p>}
-          {view === "dashboard" ? (
+          {view === "feed" ? (
+            <Feed ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "dashboard" ? (
             <HomeDashboard
               ctx={ctx}
               summary={data.summary}
@@ -629,7 +640,7 @@ export function Workspace({
                         body: { id: c.id },
                       });
                     setCompanyModal(false);
-                    navigate("dashboard");
+                    navigate("feed");
                     await load();
                   } catch (e) {
                     setCompanyError((e as Error).message);
@@ -652,7 +663,7 @@ export function Workspace({
                     body: { name: new FormData(e.currentTarget).get("name") },
                   });
                   setCompanyModal(false);
-                  navigate("dashboard");
+                  navigate("feed");
                   await load();
                 } catch (err) {
                   setCompanyError((err as Error).message);

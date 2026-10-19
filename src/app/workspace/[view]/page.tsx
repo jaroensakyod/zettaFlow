@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import { Workspace } from "@/components/workspace";
 import { catalog } from "@/lib/catalog";
+export const metadata = {
+  title: "EliteFlow — Business Workspace",
+  icons: { icon: "/brand/eliteflow-icon.png", apple: "/brand/eliteflow-mark.png" },
+};
 const extra = [
+  "feed",
   "dashboard",
   "calendar",
   "chat",

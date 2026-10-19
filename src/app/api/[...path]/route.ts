@@ -43,6 +43,17 @@ import {
 import { catalog, companyFields } from "@/lib/catalog";
 import { submit, processJobs, processNotifications, tokenHash } from "@/lib/ai";
 import { upload, files, download } from "@/lib/files";
+import {
+  feedList,
+  feedSuggest,
+  feedPost,
+  feedDelete,
+  feedLike,
+  feedComment,
+  feedFollow,
+  feedImage,
+  companyLogo,
+} from "@/lib/feed";
 import { designData, designAction } from "@/lib/design";
 import { stageData, changeStage } from "@/lib/project-stages";
 import { transferData, transferStock } from "@/lib/transfers";
@@ -289,6 +300,49 @@ async function handle(req: NextRequest) {
       });
     }
     if (path[0] === "home") return response(await home(ctx));
+    if (path[0] === "feed") {
+      if (path[1] === "image" || path[1] === "logo") {
+        const media =
+          path[1] === "image"
+            ? await feedImage(ctx, path.slice(2).join("/"))
+            : await companyLogo(ctx, path[2]);
+        if (!media) return new Response(null, { status: 404 });
+        if ("redirect" in media) return NextResponse.redirect(media.redirect!);
+        return new Response(new Uint8Array(media.bytes), {
+          headers: {
+            "Content-Type": media.mime,
+            "Cache-Control": path[1] === "image" ? "private, max-age=86400, immutable" : "private, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
+      if (path[1] === "suggest") return response(await feedSuggest(ctx));
+      if (path[1] === "follow")
+        return response({ following: await feedFollow(ctx, path[2]) });
+      if (!path[1]) {
+        if (method === "GET")
+          return response(
+            await feedList(
+              ctx,
+              req.nextUrl.searchParams.get("filter"),
+              req.nextUrl.searchParams.get("before"),
+            ),
+          );
+        assert(
+          Number(req.headers.get("content-length") || 0) <= 4500000,
+          "รูปรวมกันใหญ่เกินไป",
+          413,
+        );
+        return response(await feedPost(ctx, await req.formData()), 201);
+      }
+      if (method === "DELETE") {
+        await feedDelete(ctx, path[1]);
+        return response({ ok: true });
+      }
+      if (path[2] === "like") return response(await feedLike(ctx, path[1]));
+      if (path[2] === "comments")
+        return response(await feedComment(ctx, path[1], await body(req)), 201);
+    }
     if (path[0] === "dashboard") {
       if (method === "GET")
         return response(

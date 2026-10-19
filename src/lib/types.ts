@@ -21,6 +21,38 @@ export type HomeData = {
   projects: { id: string; name: string }[];
   tasks: Entity[];
 };
+export type FeedKind = "post" | "job" | "partner";
+export type FeedComment = {
+  id: string;
+  author_name: string;
+  company_name: string;
+  body: string;
+  created_at: string;
+};
+export type FeedPost = {
+  id: string;
+  company_id: string;
+  author_name: string;
+  kind: FeedKind;
+  body: string;
+  meta: { title?: string; location?: string; budget?: string };
+  images: string[];
+  created_at: string;
+  company: { name: string; industry: string; province: string; has_logo: boolean };
+  likes: number;
+  liked: boolean;
+  comment_count: number;
+  comments: FeedComment[];
+  following: boolean;
+  mine: boolean;
+  can_delete: boolean;
+};
+export type FeedSuggestion = {
+  id: string;
+  name: string;
+  industry: string;
+  has_logo: boolean;
+};
 export type Member = {
   id: string;
   company_id: string;
