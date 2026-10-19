@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { Lock } from "lucide-react";
-import { displayDate, Loading } from "./shared";
+import { displayDate, Loading, PasswordInput } from "./shared";
 import { WidgetView } from "./platform";
 import type { Widget } from "@/lib/platform";
 type Result = {
@@ -65,7 +65,7 @@ export function SharedDashboard({ token }: { token: string }) {
             >
               <label>
                 รหัสผ่าน
-                <input name="password" type="password" autoFocus required />
+                <PasswordInput name="password" autoFocus required />
               </label>
               {data.wrong && <p className="form-error">รหัสผ่านไม่ถูกต้อง</p>}
               <button className="primary" disabled={busy}>

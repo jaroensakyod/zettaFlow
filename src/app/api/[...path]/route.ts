@@ -175,7 +175,7 @@ async function handle(req: NextRequest) {
         });
       }
       if (action === "password") {
-        const password = z.string().min(10).max(200).parse(input.password);
+        const password = z.string().min(7).max(200).parse(input.password);
         const { error } = await sb.auth.updateUser({ password });
         dbError(error);
         return response({ ok: true });
@@ -185,7 +185,7 @@ async function handle(req: NextRequest) {
           email: z.email(),
           password: z
             .string()
-            .min(action === "register" ? 10 : 1)
+            .min(action === "register" ? 7 : 1)
             .max(200),
         })
         .parse(input);

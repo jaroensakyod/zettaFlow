@@ -1,6 +1,6 @@
 "use client";
-import { X, FolderOpen, LoaderCircle } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { X, FolderOpen, LoaderCircle, Eye, EyeOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 export async function api(
   path: string,
   options: { method?: string; body?: unknown } = {},
@@ -86,5 +86,24 @@ export function Loading() {
       <LoaderCircle className="spin" size={24} />
       <span>กำลังโหลดข้อมูล…</span>
     </div>
+  );
+}
+/** Password field with a show / hide toggle. */
+export function PasswordInput(props: Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="password-field">
+      <input {...props} type={show ? "text" : "password"} />
+      <button
+        type="button"
+        className="password-toggle"
+        aria-label={show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+        aria-pressed={show}
+        title={show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+        onClick={() => setShow(!show)}
+      >
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </span>
   );
 }

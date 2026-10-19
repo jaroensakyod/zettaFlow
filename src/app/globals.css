@@ -5980,3 +5980,29 @@ img.net-logo {
     transform: rotate(6deg);
   }
 }
+/* Password show / hide */
+.password-field {
+  position: relative;
+  display: block;
+  margin-top: 7px;
+}
+label .password-field input {
+  margin-top: 0;
+  padding-right: 46px;
+}
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
+  background: none;
+  color: #8a8a9e;
+}
+.password-toggle:hover {
+  background: #f3f2f8;
+  color: var(--accent);
+}

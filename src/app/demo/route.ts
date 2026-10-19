@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 /** Opens the public read-only showcase: sample company, no login, no writes. */
 export function GET(req: NextRequest) {
   const target = new URL(
-    publicDemoAllowed() ? "/zetta/dashboard" : "/zetta",
+    publicDemoAllowed() ? "/eliteflow" : "/",
     req.nextUrl.origin,
   );
   const res = NextResponse.redirect(target);

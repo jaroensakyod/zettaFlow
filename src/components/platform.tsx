@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import { api, Empty, Loading, Modal, money, displayDate } from "./shared";
+import { api, Empty, Loading, Modal, money, displayDate, PasswordInput } from "./shared";
 import { Donut } from "./dashboard-charts";
 import type { Context, Role } from "@/lib/types";
 import type { Widget, Layout } from "@/lib/platform";
@@ -278,7 +278,7 @@ function ShareManager({
           </label>
           <label>
             รหัสผ่าน (ไม่บังคับ, อย่างน้อย 4 ตัว)
-            <input name="password" type="password" minLength={4} autoComplete="new-password" />
+            <PasswordInput name="password" minLength={4} autoComplete="new-password" />
           </label>
           <label>
             หมดอายุใน

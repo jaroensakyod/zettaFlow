@@ -8,7 +8,7 @@ import {
   Package,
   Users,
 } from "lucide-react";
-import { api } from "./shared";
+import { api, PasswordInput } from "./shared";
 export function Auth({
   demo,
   configured,
@@ -135,10 +135,9 @@ export function Auth({
           {mode !== "reset" && (
             <label>
               รหัสผ่าน
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
-                minLength={mode === "register" ? 10 : 1}
+                minLength={mode === "register" ? 7 : 1}
                 autoComplete={
                   mode === "register" ? "new-password" : "current-password"
                 }
@@ -277,11 +276,10 @@ export function ResetPassword() {
         <h1>ตั้งรหัสผ่านใหม่</h1>
         <label>
           รหัสผ่านใหม่
-          <input
-            type="password"
+          <PasswordInput
             name="password"
             required
-            minLength={10}
+            minLength={7}
             autoComplete="new-password"
           />
         </label>
