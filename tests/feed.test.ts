@@ -104,9 +104,53 @@ test("company feed: cross-company visibility, posting rights, likes, comments, f
     await assert.rejects(db.query("select feed_list($1)", [a]));
     await assert.rejects(db.query("select feed_like($1)", [pid]));
 
+    // Proposals on a job post: only other companies propose, once; the owner reviews them.
+    await login(alice);
+    const job = "20000000-0000-4000-8000-000000000002";
+    await db.query(
+      `select feed_post($1,$2,'job','รับช่างติดตั้งบูธ','{"title":"ช่างติดตั้งบูธ"}','{}')`,
+      [a, job],
+    );
+    await assert.rejects(db.query("select feed_propose($1,$2,'x','')", [a, job]), /ตัวเอง/);
+    await assert.rejects(db.query("select feed_propose($1,$2,'x','')", [a, pid]));
+    await login(bob);
+    await db.query("select feed_propose($1,$2,'ทีมเรามีช่าง 5 คน','line: bobco')", [b, job]);
+    await assert.rejects(db.query("select feed_propose($1,$2,'again','')", [b, job]), /แล้ว/);
+    const offers = await val<{ proposed: boolean; proposal_count: number }[]>(
+      "select feed_list($1,'offers')",
+      [b],
+    );
+    assert.equal(offers.length, 1);
+    assert.equal(offers[0].proposed, true);
+    assert.equal(offers[0].proposal_count, 0);
+    const mine = await val<{ incoming: boolean; id: string }[]>("select feed_proposals($1)", [b]);
+    assert.equal(mine.length, 1);
+    assert.equal(mine[0].incoming, false);
+    await assert.rejects(db.query("select feed_proposal_status($1,$2,'shortlisted')", [b, mine[0].id]));
+    await login(alice);
+    const incoming = await val<{ incoming: boolean; company_name: string; contact: string }[]>(
+      "select feed_proposals($1,$2)",
+      [a, job],
+    );
+    assert.equal(incoming[0].incoming, true);
+    assert.equal(incoming[0].company_name, "Bob Co");
+    assert.equal(incoming[0].contact, "line: bobco");
+    assert.equal(
+      (await val<{ proposal_count: number }[]>("select feed_list($1,'mine')", [a]))[0].proposal_count,
+      1,
+    );
+    await db.query("select feed_proposal_status($1,$2,'shortlisted')", [a, mine[0].id]);
+    await login(bob);
+    assert.equal(
+      (await val<{ status: string }[]>("select feed_proposals($1)", [b]))[0].status,
+      "shortlisted",
+    );
+    await login(stranger);
+    await assert.rejects(db.query("select feed_proposals($1)", [a]));
+
     await login(alice);
     await db.query("select feed_delete($1)", [pid]);
-    assert.equal(((await val<unknown[]>("select feed_list($1)", [a])) as unknown[]).length, 0);
+    assert.equal(((await val<unknown[]>("select feed_list($1,'post')", [a])) as unknown[]).length, 0);
   } finally {
     await db.close();
   }

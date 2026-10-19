@@ -7,10 +7,10 @@ import { supabaseServer } from "./supabase/server";
 import { demoRead, demoMutate, type DemoState } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
-import type { Context, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "./types";
+import type { Context, FeedComment, FeedKind, FeedPost, FeedProposal, FeedSuggestion } from "./types";
 
 const BUCKET = "eliteflow-posts";
-const filters = ["all", "following", "post", "job", "partner", "mine"] as const;
+const filters = ["all", "following", "post", "job", "partner", "mine", "offers"] as const;
 const imageTypes: Record<string, string> = {
   "image/webp": "webp",
   "image/png": "png",
@@ -20,6 +20,7 @@ const metaSchema = z.object({
   title: z.string().trim().max(120).optional(),
   location: z.string().trim().max(120).optional(),
   budget: z.string().trim().max(120).optional(),
+  employment: z.enum(["full", "part", "contract", "freelance"]).optional(),
 });
 const postSchema = z.object({
   kind: z.enum(["post", "job", "partner"]),
@@ -38,7 +39,7 @@ const validImage = (bytes: Buffer, mime: string) =>
 // ---------- Demo mode: the local company plus a few sample companies ----------
 type DemoPost = Omit<
   FeedPost,
-  "likes" | "liked" | "comment_count" | "comments" | "following" | "mine" | "can_delete" | "company"
+  "likes" | "liked" | "comment_count" | "comments" | "following" | "mine" | "can_delete" | "company" | "proposal_count" | "proposed"
 > & { author_id: string; archived_at?: string | null };
 type DemoCompany = { id: string; name: string; industry: string; province: string };
 type DemoFeed = {
@@ -47,6 +48,7 @@ type DemoFeed = {
   feedLikes?: { post_id: string; user_id: string }[];
   feedComments?: (FeedComment & { post_id: string; author_id: string })[];
   feedFollows?: string[];
+  feedProposals?: (Omit<FeedProposal, "company_name" | "company_industry" | "post_title" | "post_kind" | "post_company" | "incoming"> & { author_id: string })[];
 };
 const ago = (hours: number) => new Date(Date.now() - hours * 36e5).toISOString();
 function seedFeed(s: DemoState & DemoFeed) {
@@ -60,11 +62,14 @@ function seedFeed(s: DemoState & DemoFeed) {
   s.feedPosts = [
     { id: randomUUID(), company_id: craft.id, author_id: "sample", author_name: "ทีมการตลาด", kind: "post", body: "เปิดโชว์รูมใหม่ที่บางนาแล้ว มีคอลเลกชันโต๊ะทำงานไม้สักสำหรับออฟฟิศ รับออกแบบตามขนาดพื้นที่ บริษัทไหนกำลังตกแต่งออฟฟิศใหม่ทักมาคุยได้เลย", meta: { title: "เปิดโชว์รูมใหม่ที่บางนา พร้อมคอลเลกชันโต๊ะไม้สัก" }, images: [], created_at: ago(2) },
     { id: randomUUID(), company_id: coffee.id, author_id: "sample", author_name: "เจ้าของร้าน", kind: "job", body: "รับสมัครบาริสต้าประจำร้านสาขานิมมาน มีประสบการณ์จะพิจารณาเป็นพิเศษ", meta: { title: "บาริสต้า (2 ตำแหน่ง)", location: "นิมมาน, เชียงใหม่", budget: "ตามประสบการณ์" }, images: [], created_at: ago(5) },
+    { id: randomUUID(), company_id: craft.id, author_id: "sample", author_name: "ฝ่ายขาย", kind: "partner", body: "ต้องการทีมออกแบบและติดตั้งบูธขนาด 6×9 เมตร โทนไม้ธรรมชาติ พร้อมโซนโชว์สินค้า ดูแลหน้างานตลอด 4 วันและรื้อถอนหลังจบงาน", meta: { title: "ตกแต่งบูธงานแฟร์ 4 วัน", location: "ไบเทค บางนา, กรุงเทพฯ", budget: "ตามใบเสนอราคา" }, images: [], created_at: ago(3) },
+    { id: randomUUID(), company_id: coffee.id, author_id: "sample", author_name: "เจ้าของร้าน", kind: "job", body: "ถ่ายภาพเมนูใหม่และภาพบรรยากาศร้านสำหรับโซเชียล 1 วัน", meta: { title: "ช่างภาพอาหาร (ฟรีแลนซ์)", location: "เชียงใหม่", budget: "เหมาจ่ายต่อวัน", employment: "freelance" }, images: [], created_at: ago(30) },
     { id: randomUUID(), company_id: build.id, author_id: "sample", author_name: "ฝ่ายจัดซื้อ", kind: "partner", body: "กำลังหา Supplier ไม้อัดและวัสดุตกแต่ง สำหรับโปรเจกต์ร้านค้า 3 สาขา ส่งของได้ทั่วกรุงเทพฯ ภายในเดือนหน้า", meta: { title: "หา Supplier ไม้อัด 3 สาขา", location: "กรุงเทพฯ" }, images: [], created_at: ago(26) },
   ];
   s.feedLikes = [];
   s.feedComments = [];
   s.feedFollows = [];
+  s.feedProposals = [];
 }
 function demoCompanies(s: DemoState & DemoFeed) {
   const own: DemoCompany = {
@@ -93,6 +98,8 @@ function demoView(ctx: Context, s: DemoState & DemoFeed, p: DemoPost): FeedPost 
     following: (s.feedFollows || []).includes(p.company_id),
     mine: p.company_id === ctx.company.id,
     can_delete: p.author_id === ctx.user.id || (p.company_id === ctx.company.id && ctx.member.role === "owner"),
+    proposal_count: p.company_id === ctx.company.id ? (s.feedProposals || []).filter((r) => r.post_id === p.id).length : 0,
+    proposed: (s.feedProposals || []).some((r) => r.post_id === p.id && r.company_id === ctx.company.id),
   };
 }
 async function demoState() {
@@ -123,10 +130,12 @@ export async function feedList(ctx: Context, filterInput: string | null, before:
             ? p.kind === filter
             : filter === "mine"
               ? p.company_id === ctx.company.id
-              : true,
+              : filter === "offers"
+                ? p.kind !== "post"
+                : true,
       )
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .slice(0, 20)
+      .slice(0, filter === "offers" ? 50 : 20)
       .map((p) => demoView(ctx, s, p));
   }
   const sb = await supabaseServer();
@@ -134,7 +143,7 @@ export async function feedList(ctx: Context, filterInput: string | null, before:
     p_company: ctx.company.id,
     p_filter: filter,
     p_before: cursor,
-    p_limit: 20,
+    p_limit: filter === "offers" ? 50 : 20,
   });
   dbError(error);
   return (data || []) as FeedPost[];
@@ -299,4 +308,76 @@ export async function companyLogo(ctx: Context, companyId: string) {
   if (match) return { mime: match[1], bytes: Buffer.from(match[2], "base64") };
   if (/^https:\/\/\S+$/.test(logo)) return { redirect: logo };
   return null;
+}
+
+// ---------- Proposals (job & partner matching) ----------
+const proposalSchema = z.object({
+  message: z.string().trim().min(1, "เขียนข้อเสนอ").max(3000),
+  contact: z.string().trim().max(200).default(""),
+});
+export async function feedProposals(ctx: Context, postId: string | null): Promise<FeedProposal[]> {
+  const post = postId ? z.uuid().parse(postId) : null;
+  if (ctx.demo) {
+    const s = await demoState(),
+      companies = demoCompanies(s);
+    return (s.feedProposals || [])
+      .map((r) => ({ r, p: s.feedPosts!.find((x) => x.id === r.post_id)! }))
+      .filter(({ r, p }) => p && (p.company_id === ctx.company.id || r.company_id === ctx.company.id) && (!post || r.post_id === post))
+      .map(({ r, p }) => ({
+        id: r.id,
+        post_id: r.post_id,
+        company_id: r.company_id,
+        company_name: companies.get(r.company_id)?.name || "",
+        company_industry: companies.get(r.company_id)?.industry || "",
+        author_name: r.author_name,
+        message: r.message,
+        contact: r.contact,
+        status: r.status,
+        created_at: r.created_at,
+        post_title: p.meta.title || p.body.slice(0, 90),
+        post_kind: p.kind,
+        post_company: companies.get(p.company_id)?.name || "",
+        incoming: p.company_id === ctx.company.id,
+      }))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("feed_proposals", { p_company: ctx.company.id, p_post: post });
+  dbError(error);
+  return (data || []) as FeedProposal[];
+}
+export async function feedPropose(ctx: Context, postId: string, input: unknown) {
+  const id = z.uuid().parse(postId),
+    { message, contact } = proposalSchema.parse(input);
+  assert(canPost(ctx), "ผู้ชมส่งข้อเสนอไม่ได้", 403);
+  if (ctx.demo)
+    return demoMutate((s: DemoState & DemoFeed) => {
+      seedFeed(s);
+      const p = s.feedPosts!.find((x) => x.id === id && !x.archived_at && x.kind !== "post");
+      assert(p, "ไม่พบประกาศ", 404);
+      assert(p.company_id !== ctx.company.id, "เสนอให้ประกาศของบริษัทตัวเองไม่ได้");
+      s.feedProposals ??= [];
+      assert(!s.feedProposals.some((r) => r.post_id === id && r.company_id === ctx.company.id), "บริษัทของคุณส่งข้อเสนอให้ประกาศนี้แล้ว");
+      s.feedProposals.push({ id: randomUUID(), post_id: id, company_id: ctx.company.id, author_id: ctx.user.id, author_name: ctx.user.name, message, contact, status: "sent", created_at: new Date().toISOString() });
+      return { ok: true };
+    });
+  const sb = await supabaseServer();
+  const { error } = await sb.rpc("feed_propose", { p_company: ctx.company.id, p_post: id, p_message: message, p_contact: contact });
+  dbError(error);
+  return { ok: true };
+}
+export async function feedProposalStatus(ctx: Context, proposalId: string, input: unknown) {
+  const id = z.uuid().parse(proposalId),
+    { status } = z.object({ status: z.enum(["sent", "shortlisted", "declined"]) }).parse(input);
+  assert(ctx.member.role === "owner" || ctx.member.role === "manager", "เฉพาะ Owner หรือ Manager", 403);
+  if (ctx.demo)
+    return demoMutate((s: DemoState & DemoFeed) => {
+      const r = (s.feedProposals || []).find((x) => x.id === id);
+      const p = r && s.feedPosts!.find((x) => x.id === r.post_id);
+      assert(r && p && p.company_id === ctx.company.id, "ไม่พบข้อเสนอ", 404);
+      r.status = status;
+    });
+  const sb = await supabaseServer();
+  const { error } = await sb.rpc("feed_proposal_status", { p_company: ctx.company.id, p_id: id, p_status: status });
+  dbError(error);
 }

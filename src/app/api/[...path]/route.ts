@@ -53,6 +53,9 @@ import {
   feedFollow,
   feedImage,
   companyLogo,
+  feedProposals,
+  feedPropose,
+  feedProposalStatus,
 } from "@/lib/feed";
 import { designData, designAction } from "@/lib/design";
 import { stageData, changeStage } from "@/lib/project-stages";
@@ -317,6 +320,12 @@ async function handle(req: NextRequest) {
         });
       }
       if (path[1] === "suggest") return response(await feedSuggest(ctx));
+      if (path[1] === "proposals") {
+        if (method === "GET")
+          return response(await feedProposals(ctx, req.nextUrl.searchParams.get("post")));
+        await feedProposalStatus(ctx, path[2], await body(req));
+        return response({ ok: true });
+      }
       if (path[1] === "follow")
         return response({ following: await feedFollow(ctx, path[2]) });
       if (!path[1]) {
@@ -340,6 +349,8 @@ async function handle(req: NextRequest) {
         return response({ ok: true });
       }
       if (path[2] === "like") return response(await feedLike(ctx, path[1]));
+      if (path[2] === "propose")
+        return response(await feedPropose(ctx, path[1], await body(req)), 201);
       if (path[2] === "comments")
         return response(await feedComment(ctx, path[1], await body(req)), 201);
     }

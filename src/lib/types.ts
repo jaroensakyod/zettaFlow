@@ -35,7 +35,7 @@ export type FeedPost = {
   author_name: string;
   kind: FeedKind;
   body: string;
-  meta: { title?: string; location?: string; budget?: string };
+  meta: { title?: string; location?: string; budget?: string; employment?: "full" | "part" | "contract" | "freelance" };
   images: string[];
   created_at: string;
   company: { name: string; industry: string; province: string; has_logo: boolean };
@@ -46,6 +46,24 @@ export type FeedPost = {
   following: boolean;
   mine: boolean;
   can_delete: boolean;
+  proposal_count: number;
+  proposed: boolean;
+};
+export type FeedProposal = {
+  id: string;
+  post_id: string;
+  company_id: string;
+  company_name: string;
+  company_industry: string;
+  author_name: string;
+  message: string;
+  contact: string;
+  status: "sent" | "shortlisted" | "declined";
+  created_at: string;
+  post_title: string;
+  post_kind: FeedKind;
+  post_company: string;
+  incoming: boolean;
 };
 export type FeedSuggestion = {
   id: string;

@@ -31,7 +31,13 @@ const kinds: [FeedKind, string, typeof ImageIcon][] = [
   ["job", "ประกาศงาน", BriefcaseBusiness],
   ["partner", "หาพาร์ทเนอร์", Handshake],
 ];
-const kindLabel: Record<FeedKind, string> = {
+export const employmentLabels: Record<string, string> = {
+  full: "งานประจำ",
+  part: "พาร์ทไทม์",
+  contract: "สัญญาจ้าง / รายโปรเจกต์",
+  freelance: "ฟรีแลนซ์",
+};
+export const kindLabel: Record<FeedKind, string> = {
   post: "ข่าว & ผลงาน",
   job: "ประกาศงาน",
   partner: "หาพาร์ทเนอร์",
@@ -41,7 +47,7 @@ const tint = (id: string) =>
   palette[[...id].reduce((n, ch) => n + ch.charCodeAt(0), 0) % palette.length];
 const initials = (name: string) =>
   name.replace(/^(บริษัท|บจก\.?|หจก\.?)\s*/, "").trim().slice(0, 2) || "?";
-const since = (iso: string) => {
+export const since = (iso: string) => {
   const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
   if (min < 1) return "เมื่อสักครู่";
   if (min < 60) return `${min} นาที`;
@@ -49,7 +55,7 @@ const since = (iso: string) => {
   if (min < 10080) return `${Math.round(min / 1440)} วัน`;
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", timeZone: "Asia/Bangkok" });
 };
-const headline = (p: FeedPost) => p.meta.title || p.body.split("\n")[0];
+export const headline = (p: FeedPost) => p.meta.title || p.body.split("\n")[0];
 // Body text under the headline: the whole body when the post has its own title, else what follows the first line.
 const excerpt = (p: FeedPost) =>
   p.meta.title ? p.body : p.body.slice(p.body.split("\n")[0].length).trim();
@@ -68,7 +74,7 @@ async function shrink(file: File) {
   throw Error("รูปใหญ่เกินไป");
 }
 
-function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: string; logo: boolean | string; size?: number }) {
+export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: string; logo: boolean | string; size?: number }) {
   const src = typeof logo === "string" ? logo : logo ? "/api/feed/logo/" + id : "";
   return src ? (
     <img className="net-logo" src={src} alt="" width={size} height={size} />
@@ -290,7 +296,7 @@ export function Feed({
             </h2>
             {chances.length ? (
               chances.map((c) => (
-                <button key={c.id} onClick={() => setTab(c.kind as Tab)}>
+                <button key={c.id} onClick={() => navigate("jobs")}>
                   <strong>{headline(c)}</strong>
                   <small>
                     {kindLabel[c.kind]} · {c.company.name}
@@ -341,23 +347,26 @@ export function Feed({
   );
 }
 
-function Composer({
+export function Composer({
   ctx,
   onClose,
   onPosted,
+  initialKind = "post",
 }: {
   ctx: Context;
   onClose: () => void;
   onPosted: (kind: FeedKind) => void;
+  initialKind?: FeedKind;
 }) {
-  const [kind, setKind] = useState<FeedKind>("post"),
+  const [kind, setKind] = useState<FeedKind>(initialKind),
     [body, setBody] = useState(""),
-    [meta, setMeta] = useState({ title: "", location: "", budget: "" }),
+    [meta, setMeta] = useState({ title: "", location: "", budget: "", employment: "full" }),
     [images, setImages] = useState<{ blob: Blob; url: string }[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    fileRef = useRef<HTMLInputElement>(null);
-  useEffect(() => () => images.forEach((i) => URL.revokeObjectURL(i.url)), [images]);
+    fileRef = useRef<HTMLInputElement>(null),
+    urls = useRef<string[]>([]);
+  useEffect(() => () => urls.current.forEach((u) => URL.revokeObjectURL(u)), []);
   return (
     <Modal title="ลงอัปเดตบริษัท" onClose={onClose}>
       <form
@@ -369,7 +378,11 @@ function Composer({
             const form = new FormData();
             form.set("kind", kind);
             form.set("body", body);
-            form.set("meta", JSON.stringify(kind === "post" ? { title: meta.title } : meta));
+            const { employment, ...rest } = meta;
+            form.set(
+              "meta",
+              JSON.stringify(kind === "post" ? { title: meta.title } : kind === "job" ? meta : rest),
+            );
             images.forEach((img, n) => form.append("images", img.blob, `${n}.webp`));
             const r = await fetch("/api/feed", { method: "POST", body: form });
             const data = await r.json();
@@ -430,6 +443,18 @@ function Composer({
               {kind === "job" ? "ค่าจ้าง" : "งบประมาณ"}
               <input maxLength={120} placeholder="ไม่บังคับ" value={meta.budget} onChange={(e) => setMeta({ ...meta, budget: e.target.value })} />
             </label>
+            {kind === "job" && (
+              <label>
+                รูปแบบงาน
+                <select value={meta.employment} onChange={(e) => setMeta({ ...meta, employment: e.target.value })}>
+                  {Object.entries(employmentLabels).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         )}
         <div className="net-previews">
@@ -461,7 +486,9 @@ function Composer({
                 const out: { blob: Blob; url: string }[] = [];
                 for (const f of picked) {
                   const blob = await shrink(f);
-                  out.push({ blob, url: URL.createObjectURL(blob) });
+                  const url = URL.createObjectURL(blob);
+                  urls.current.push(url);
+                  out.push({ blob, url });
                 }
                 setImages((list) => [...list, ...out]);
               } catch (err) {

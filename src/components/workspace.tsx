@@ -32,6 +32,7 @@ import {
   Bot,
   type LucideIcon,
   Network,
+  BriefcaseBusiness,
   Folder,
   ChevronDown,
   Search,
@@ -55,6 +56,7 @@ import { Auth, Onboarding } from "./auth";
 import { Records } from "./records";
 import { HomeDashboard } from "./home-dashboard";
 import { Feed } from "./feed";
+import { Jobs } from "./jobs";
 import { AiWorkspace } from "./ai-workspace";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
@@ -67,7 +69,7 @@ import {
   Assistant,
 } from "./tools";
 const groups = [
-  { label: "ภาพรวม", items: ["feed", "dashboard", "calendar", "chat"] },
+  { label: "ภาพรวม", items: ["feed", "jobs", "dashboard", "calendar", "chat"] },
   {
     label: "ธุรกิจ & ลูกค้า",
     items: ["customers", "leads", "dealers", "deals", "projects", "tasks", "events"],
@@ -103,6 +105,7 @@ const groups = [
 // Shortcuts shown in the top bar; everything else lives under the แผนก menu.
 const primary: [string, string, LucideIcon][] = [
   ["feed", "เครือข่ายธุรกิจ", Network],
+  ["jobs", "หางาน & จับคู่", BriefcaseBusiness],
   ["dashboard", "ภาพรวม", LayoutDashboard],
   ["customers", "ลูกค้า", UserRound],
   ["suppliers", "Supplier", Truck],
@@ -119,6 +122,11 @@ const extra: Record<
     label: "AI Assistant",
     icon: "Bot",
     description: "ถามและสรุปภาพรวมจากข้อมูลธุรกิจที่คุณมีสิทธิ์ดู",
+  },
+  jobs: {
+    label: "หางาน & จับคู่งาน",
+    icon: "BriefcaseBusiness",
+    description: "ตำแหน่งงาน ฟรีแลนซ์ และงาน B2B ที่เข้ากับบริษัทคุณ",
   },
   feed: {
     label: "เครือข่ายธุรกิจ",
@@ -214,6 +222,7 @@ const iconMap: Record<string, LucideIcon> = {
   Bot,
   LayoutDashboard,
   Network,
+  BriefcaseBusiness,
   CalendarDays,
   Sparkles,
   Wallet,
@@ -541,7 +550,7 @@ export function Workspace({
           </div>
         )}
         <main className="main" key={ctx.company.id}>
-          {!["feed", "dashboard", "company"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company"].includes(view) && (
           <div className="page-heading">
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
@@ -574,6 +583,8 @@ export function Workspace({
           {error && <p className="form-error">{error}</p>}
           {view === "feed" ? (
             <Feed ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "jobs" ? (
+            <Jobs ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "dashboard" ? (
             <HomeDashboard
               ctx={ctx}
