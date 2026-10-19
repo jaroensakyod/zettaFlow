@@ -11,6 +11,7 @@ import {
   movement,
   purchaseAction,
   summary,
+  home,
   templates,
   saveTemplate,
   ingestions,
@@ -37,6 +38,7 @@ import {
   canWrite,
   requireOwner,
   safeCsv,
+  validDate,
 } from "@/lib/domain";
 import { catalog, companyFields } from "@/lib/catalog";
 import { submit, processJobs, processNotifications, tokenHash } from "@/lib/ai";
@@ -286,6 +288,7 @@ async function handle(req: NextRequest) {
         platformAdmin: platformAdmin(ctx),
       });
     }
+    if (path[0] === "home") return response(await home(ctx));
     if (path[0] === "dashboard") {
       if (method === "GET")
         return response(
@@ -593,9 +596,27 @@ async function handle(req: NextRequest) {
       requireOwner(ctx);
       const input = await body(req);
       const profile = z
-        .record(z.string(), z.string().max(3000))
+        .record(z.string(), z.string().max(150000))
         .parse(input.profile);
       assert(profile.name?.trim(), "กรอกชื่อบริษัท");
+      for (const [k, v] of Object.entries(profile)) {
+        if (!v) continue;
+        if (k === "logo" || k === "cover")
+          assert(
+            v.length <= (k === "logo" ? 60000 : 150000) &&
+              /^(data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+|https:\/\/\S+)$/.test(v),
+            "รูปภาพไม่ถูกต้องหรือใหญ่เกินไป",
+          );
+        else assert(v.length <= 3000, "ข้อมูลบริษัทยาวเกินไป");
+      }
+      assert(
+        !profile.taxId || /^\d{13}$/.test(profile.taxId),
+        "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก",
+      );
+      assert(
+        !profile.founded || validDate(profile.founded),
+        "วันที่ก่อตั้งไม่ถูกต้อง",
+      );
       assert(
         Object.keys(profile).every((k) =>
           companyFields.some((f) => f.key === k),

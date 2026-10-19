@@ -25,7 +25,7 @@ import {
   dashboardSummary,
 } from "./domain";
 import { catalog } from "./catalog";
-import type { Context, Entity, Template, Ingestion } from "./types";
+import type { Context, Entity, Template, Ingestion, HomeData } from "./types";
 export function dbError(error: { message: string; code?: string } | null) {
   if (error?.code === "23505")
     throw new AppError("รหัสหรือเลขอ้างอิงนี้มีอยู่แล้ว กรุณาใช้ค่าอื่น", 409);
@@ -530,6 +530,89 @@ export async function summary(ctx: Context) {
           .limit(15)
       : { data: [] };
   return { summary: { ...result, series, widgets }, recent, audit };
+}
+const counted = (kind: unknown, status: unknown) =>
+  kind === "sales"
+    ? status === "confirmed"
+    : ["approved", "paid"].includes(String(status));
+export async function home(ctx: Context): Promise<HomeData> {
+  const since = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10);
+  if (ctx.demo) {
+    const rows = (await demoRead()).entities.filter(
+      (e) => !e.archived_at && canRead(ctx, e.department),
+    );
+    return {
+      finance: rows
+        .filter(
+          (e) =>
+            (e.kind === "sales" || e.kind === "expenses") &&
+            counted(e.kind, e.data.status) &&
+            String(e.data.date || "") >= since,
+        )
+        .map((e) => ({
+          kind: e.kind as "sales" | "expenses",
+          date: String(e.data.date),
+          amount: Number(e.data.amount || 0),
+          projectId: e.data.projectId ? String(e.data.projectId) : null,
+        })),
+      projects: rows
+        .filter((e) => e.kind === "projects")
+        .map((e) => ({ id: e.id, name: String(e.data.name) })),
+      tasks: rows.filter((e) => e.kind === "tasks").slice(0, 300),
+    };
+  }
+  const sb = await supabaseServer();
+  const [finance, projects, tasks] = await Promise.all([
+    sb
+      .from("entities")
+      .select(
+        "kind,date:data->>date,amount:data->>amount,status:data->>status,projectId:data->>projectId",
+      )
+      .eq("company_id", ctx.company.id)
+      .is("archived_at", null)
+      .in("kind", ["sales", "expenses"])
+      .gte("data->>date", since)
+      .limit(5000),
+    sb
+      .from("entities")
+      .select("id,name:data->>name")
+      .eq("company_id", ctx.company.id)
+      .is("archived_at", null)
+      .eq("kind", "projects")
+      .order("updated_at", { ascending: false })
+      .limit(200),
+    sb
+      .from("entities")
+      .select("*")
+      .eq("company_id", ctx.company.id)
+      .is("archived_at", null)
+      .eq("kind", "tasks")
+      .order("updated_at", { ascending: false })
+      .limit(300),
+  ]);
+  dbError(finance.error);
+  dbError(projects.error);
+  dbError(tasks.error);
+  return {
+    finance: (
+      (finance.data || []) as unknown as {
+        kind: "sales" | "expenses";
+        date: string;
+        amount: string;
+        status: string;
+        projectId: string | null;
+      }[]
+    )
+      .filter((r) => counted(r.kind, r.status))
+      .map((r) => ({
+        kind: r.kind,
+        date: r.date,
+        amount: Number(r.amount || 0),
+        projectId: r.projectId || null,
+      })),
+    projects: ((projects.data || []) as unknown as { id: string; name: string }[]),
+    tasks: (tasks.data || []) as Entity[],
+  };
 }
 export async function templates(ctx: Context) {
   if (ctx.demo)

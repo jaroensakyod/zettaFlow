@@ -11,6 +11,16 @@ export type Entity = {
   version: number;
   archived_at: string | null;
 };
+export type HomeData = {
+  finance: {
+    kind: "sales" | "expenses";
+    date: string;
+    amount: number;
+    projectId: string | null;
+  }[];
+  projects: { id: string; name: string }[];
+  tasks: Entity[];
+};
 export type Member = {
   id: string;
   company_id: string;

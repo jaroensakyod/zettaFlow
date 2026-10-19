@@ -32,32 +32,29 @@ import {
   Bot,
   type LucideIcon,
   Layers,
+  Home,
+  Folder,
   ChevronDown,
   Search,
-  Menu,
-  X,
   Plus,
   RefreshCw,
   LogOut,
-  ArrowUpRight,
   CalendarDays,
   ArrowRight,
   Sparkles,
-  TrendingUp,
   Wallet,
-  Workflow,
-  FolderKanban,
   TriangleAlert,
   CheckCircle2,
   Bell,
   LayoutDashboard,
   Command,
 } from "lucide-react";
-import { catalog, modules, statusLabels } from "@/lib/catalog";
+import { catalog, modules } from "@/lib/catalog";
 import type { Context, Entity } from "@/lib/types";
-import { api, Empty, Loading, money, displayDate, Modal } from "./shared";
+import { api, Empty, Loading, money, Modal } from "./shared";
 import { Auth, Onboarding } from "./auth";
 import { Records } from "./records";
+import { HomeDashboard } from "./home-dashboard";
 import { AiWorkspace } from "./ai-workspace";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
@@ -102,6 +99,16 @@ const groups = [
     items: ["ai-inbox", "templates", "assistant", "integrations"],
   },
   { label: "จัดการระบบ", items: ["company", "team", "store", "pricing"] },
+];
+// Shortcuts shown in the top bar; everything else lives under the แผนก menu.
+const primary: [string, string, LucideIcon][] = [
+  ["dashboard", "หน้าหลัก", Home],
+  ["customers", "ลูกค้า", UserRound],
+  ["suppliers", "Supplier", Truck],
+  ["company", "บริษัท", Building2],
+  ["employees", "พนักงาน", Users],
+  ["projects", "โปรเจกต์", Folder],
+  ["chat", "แชท", MessageCircle],
 ];
 const extra: Record<
   string,
@@ -239,6 +246,7 @@ export function Workspace({
 }) {
   const router = useRouter();
   const requestEpoch = useRef(0);
+  const navRef = useRef<HTMLElement>(null);
   const [companyModal, setCompanyModal] = useState(false),
     [companyChoices, setCompanyChoices] = useState<
       { id: string; name: string; role: string }[]
@@ -254,13 +262,10 @@ export function Workspace({
     [onboarding, setOnboarding] = useState(false),
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
-    [mobile, setMobile] = useState(false),
+    [menu, setMenu] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [search, setSearch] = useState(""),
     [alerts, setAlerts] = useState(false),
-    [expanded, setExpanded] = useState(
-      () => new Set(["ภาพรวม", "ธุรกิจ & ลูกค้า", "ZettaFlow AI"]),
-    ),
     [lastSync, setLastSync] = useState(new Date());
   const notify = useCallback((message: string) => {
     setToast(message);
@@ -296,10 +301,25 @@ export function Workspace({
   }, [load]);
   useEffect(() => {
     setView(initialView);
-    const activeGroup = groups.find((g) => g.items.includes(initialView));
-    if (activeGroup) setExpanded((s) => new Set([...s, activeGroup.label]));
-    setMobile(false);
+    setMenu(false);
   }, [initialView]);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: Event) => {
+      if (
+        e instanceof KeyboardEvent
+          ? e.key === "Escape"
+          : !navRef.current?.contains(e.target as Node)
+      )
+        setMenu(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [menu]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -319,7 +339,7 @@ export function Workspace({
   }, [data, auth, load]);
   const navigate = useCallback(
     (next: string) => {
-      setMobile(false);
+      setMenu(false);
       setSearchOpen(false);
       router.push(next === "dashboard" ? "/eliteflow" : "/workspace/" + next);
     },
@@ -357,6 +377,16 @@ export function Workspace({
         }}
       />
     );
+  const openCompanies = async () => {
+    setMenu(false);
+    setCompanyModal(true);
+    try {
+      setCompanyChoices(await api("/companies"));
+      setCompanyError("");
+    } catch (e) {
+      setCompanyError((e as Error).message);
+    }
+  };
   const visible = (key: string) =>
     key === "team"
       ? ctx.member.role === "owner"
@@ -367,156 +397,78 @@ export function Workspace({
         : true;
   return (
     <div
-      className={"workspace theme-" + theme + (mobile ? " mobile-open" : "")}
+      className={"workspace top-layout theme-" + theme}
     >
-      <aside className="sidebar">
-        <button
-          className="brand brand-button"
-          onClick={() => navigate("dashboard")}
-        >
-          <span className="brand-mark">
-            <Layers size={21} />
-          </span>
-          {brand === "EliteFlow" ? (
-            <>
-              Elite<span>Flow</span>
-            </>
-          ) : (
-            <>
-              Zetta<span>Flow</span>
-              <small>AI</small>
-            </>
-          )}
-        </button>
-        <button
-          className="company-selector"
-          onClick={async () => {
-            setCompanyModal(true);
-            try {
-              setCompanyChoices(await api("/companies"));
-              setCompanyError("");
-            } catch (e) {
-              setCompanyError((e as Error).message);
-            }
-          }}
-        >
-          <div className="company-icon">{ctx.company.name[0]}</div>
-          <div>
-            <strong>{ctx.company.name}</strong>
-            <small>Business Workspace</small>
-          </div>
-          <ChevronDown size={15} />
-        </button>
-        <nav>
-          {groups.map((group) => {
-            const items = group.items.filter(visible);
-            if (!items.length) return null;
-            return (
-              <div className="nav-group" key={group.label}>
-                <button
-                  className="nav-group-label"
-                  onClick={() =>
-                    setExpanded((s) => {
-                      const next = new Set(s);
-                      if (next.has(group.label)) next.delete(group.label);
-                      else next.add(group.label);
-                      return next;
-                    })
-                  }
-                >
-                  {group.label}
-                  <ChevronDown
-                    size={12}
-                    className={expanded.has(group.label) ? "" : "collapsed"}
-                  />
-                </button>
-                {expanded.has(group.label) &&
-                  items.map((key) => (
-                    <button
-                      key={key}
-                      className={"nav-item " + (view === key ? "active" : "")}
-                      onClick={() => navigate(key)}
-                    >
-                      <Icon name={details(key).icon} />
-                      <span>{details(key).label}</span>
-                      {key === "ai-inbox" && <span className="nav-ai">AI</span>}
-                    </button>
-                  ))}
-              </div>
-            );
-          })}
-        </nav>
-        <div className="sidebar-footer">
-          <button
-            className="nav-item"
-            onClick={() => router.push("/zetta/dashboard")}
-          >
-            <Sparkles size={18} />
-            เปิด ZettaFlow AI
-            <ArrowRight size={15} />
-          </button>
-          <span className="live-dot" />
-          <span>
-            {ctx.demo ? "Local demo workspace" : "Supabase workspace"}
-          </span>
-          <button
-            className="icon-button"
-            onClick={() => {
-              setMobile(false);
-            }}
-            aria-label="ปิดเมนู"
-          >
-            <X size={15} />
-          </button>
-        </div>
-      </aside>
-      {mobile && (
-        <button
-          className="mobile-scrim"
-          aria-label="ปิดเมนู"
-          onClick={() => setMobile(false)}
-        />
-      )}
       <div className="workspace-body">
-        <header className="topbar">
+        <header className="topnav" ref={navRef}>
           <button
-            className="icon-button mobile-menu"
-            aria-label="เปิดเมนู"
-            onClick={() => setMobile(true)}
+            className="topnav-brand"
+            onClick={() => navigate("dashboard")}
           >
-            <Menu size={20} />
+            <span className="topnav-mark">
+              {brand === "EliteFlow" ? "EF" : "ZF"}
+            </span>
+            <strong>{brand}</strong>
           </button>
-          <div className="breadcrumb">
-            Workspace <span>/</span>
-            <strong>{meta.label}</strong>
-          </div>
-          <div className="topbar-actions">
+          <nav className="topnav-links" aria-label="เมนูหลัก">
+            {primary
+              .filter(([key]) => visible(key))
+              .map(([key, label, Ico]) => (
+                <button
+                  key={key}
+                  className={"topnav-link" + (view === key ? " active" : "")}
+                  aria-current={view === key ? "page" : undefined}
+                  onClick={() => navigate(key)}
+                >
+                  <Ico size={16} />
+                  {label}
+                </button>
+              ))}
             <button
-              className="command-button"
+              className={
+                "topnav-link" +
+                (menu || !primary.some(([key]) => key === view)
+                  ? " active"
+                  : "")
+              }
+              aria-expanded={menu}
+              onClick={() => setMenu(!menu)}
+            >
+              <Grid2X2 size={16} />
+              แผนก
+              <ChevronDown size={14} className={menu ? "flip" : ""} />
+            </button>
+          </nav>
+          <div className="topnav-actions">
+            <button
+              className="icon-button"
+              aria-label="ค้นหาเครื่องมือ"
+              title="ค้นหาเครื่องมือ (⌘K)"
               onClick={() => setSearchOpen(true)}
             >
-              <Search size={16} />
-              <span>ค้นหาเครื่องมือ</span>
-              <kbd>⌘ K</kbd>
+              <Search size={18} />
             </button>
             <button
               className="notification-button icon-button"
               aria-label="แจ้งเตือน"
               onClick={() => setAlerts(!alerts)}
             >
-              <Bell size={19} />
+              <Bell size={18} />
               {data.summary.lowStock.length > 0 && <i />}
             </button>
-            <span className="divider" />
-            <div className="user-profile">
-              <span className="avatar">{ctx.user.name[0]}</span>
-              <div>
-                <strong>{ctx.user.name}</strong>
-                <small>{ctx.member.role.toUpperCase()}</small>
-              </div>
-            </div>
             <button
-              className="icon-button"
+              className="user-profile"
+              title={ctx.company.name + " · สลับบริษัท"}
+              onClick={openCompanies}
+            >
+              <span className="avatar">{ctx.user.name[0]}</span>
+              <span>
+                <strong>{ctx.user.name}</strong>
+                <small>{ctx.company.name}</small>
+              </span>
+            </button>
+            <button
+              className="icon-button topnav-logout"
               aria-label="ออกจากระบบ"
               onClick={async () => {
                 requestEpoch.current++;
@@ -535,6 +487,43 @@ export function Workspace({
               <LogOut size={17} />
             </button>
           </div>
+          {menu && (
+            <div className="topnav-menu">
+              {groups.map((group) => {
+                const items = group.items.filter(
+                  (key) => visible(key) && !primary.some(([k]) => k === key),
+                );
+                if (!items.length) return null;
+                return (
+                  <div className="topnav-menu-group" key={group.label}>
+                    <span>{group.label}</span>
+                    {items.map((key) => (
+                      <button
+                        key={key}
+                        className={view === key ? "active" : ""}
+                        onClick={() => navigate(key)}
+                      >
+                        <Icon name={details(key).icon} size={16} />
+                        {details(key).label}
+                        {key === "ai-inbox" && <span className="nav-ai">AI</span>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+              <div className="topnav-menu-group">
+                <span>อื่นๆ</span>
+                <button onClick={openCompanies}>
+                  <Building2 size={16} />
+                  สลับบริษัท
+                </button>
+                <button onClick={() => router.push("/zetta/dashboard")}>
+                  <Sparkles size={16} />
+                  เปิด ZettaFlow AI
+                </button>
+              </div>
+            </div>
+          )}
         </header>
         {ctx.demo && (
           <div className="demo-banner">
@@ -543,6 +532,7 @@ export function Workspace({
           </div>
         )}
         <main className="main" key={ctx.company.id}>
+          {view !== "dashboard" && view !== "company" && (
           <div className="page-heading">
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
@@ -571,9 +561,15 @@ export function Workspace({
               </button>
             </div>
           </div>
+          )}
           {error && <p className="form-error">{error}</p>}
           {view === "dashboard" ? (
-            <Dashboard data={data} navigate={navigate} />
+            <HomeDashboard
+              ctx={ctx}
+              summary={data.summary}
+              navigate={navigate}
+              refreshKey={lastSync.getTime()}
+            />
           ) : catalog[view] ? (
             <Records
               key={view}
@@ -746,326 +742,5 @@ export function Workspace({
         </Modal>
       )}
     </div>
-  );
-}
-function Dashboard({
-  data,
-  navigate,
-}: {
-  data: WorkspaceData;
-  navigate: (v: string) => void;
-}) {
-  const s = data.summary,
-    metrics = [
-      {
-        label: "ยอดขายที่ยืนยัน",
-        value: "฿ " + money(s.sales),
-        note: "ยอดขายจากข้อมูลธุรกิจ",
-        icon: TrendingUp,
-        color: "violet",
-        view: "sales",
-      },
-      {
-        label: "ค่าใช้จ่ายที่อนุมัติ",
-        value: "฿ " + money(s.expenses),
-        note: "ค่าใช้จ่ายที่อนุมัติ / จ่ายแล้ว",
-        icon: Wallet,
-        color: "rose",
-        view: "expenses",
-      },
-      {
-        label: "โครงการที่ดำเนินการ",
-        value: s.projects,
-        note: "Planning · Active · Review",
-        icon: FolderKanban,
-        color: "blue",
-        view: "projects",
-      },
-      {
-        label: "งานที่ต้องติดตาม",
-        value: s.tasks,
-        note: "งานที่ยังไม่ปิดสถานะ",
-        icon: Workflow,
-        color: "mint",
-        view: "tasks",
-      },
-    ];
-  const recentProjects = data.recent.filter(
-    (e) => e.kind === "projects" || e.kind === "deals",
-  );
-  const series =
-    s.series ||
-    data.recent
-      .filter((e) => e.kind === "sales" && e.data.status === "confirmed")
-      .map((e) => ({
-        date: String(e.data.date),
-        sales: Number(e.data.amount),
-        expenses: 0,
-      }));
-  const max = Math.max(1, ...series.map((v) => Math.max(v.sales, v.expenses)));
-  return (
-    <>
-      <div className="metric-grid">
-        {metrics.map((m) => (
-          <button
-            className="metric-card"
-            key={m.label}
-            onClick={() => navigate(m.view)}
-          >
-            <div className="metric-top">
-              <span>{m.label}</span>
-              <i className={"metric-icon " + m.color}>
-                <m.icon size={19} />
-              </i>
-            </div>
-            <strong>{m.value}</strong>
-            <div className="metric-bottom">
-              <span>{m.note}</span>
-              <ArrowUpRight size={14} />
-            </div>
-          </button>
-        ))}
-      </div>
-      {!!s.widgets?.length && (
-        <section className="card dynamic-widgets">
-          <div className="card-heading">
-            <h2>ข้อมูลตาม Data Template</h2>
-            <span className="muted">ปรับตามฟิลด์ตัวเลขที่กำหนด</span>
-          </div>
-          <div className="widget-grid">
-            {s.widgets.map((w) => (
-              <div className="widget-item" key={w.key}>
-                <span>
-                  {w.name} · {w.label}
-                </span>
-                <strong>{money(w.total)}</strong>
-                <small>{w.count} รายการที่อนุมัติ</small>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-      <div className="dashboard-grid">
-        <div className="dashboard-left">
-          <section className="card chart-card">
-            <div className="card-heading">
-              <div>
-                <h2>ยอดขาย & ค่าใช้จ่าย</h2>
-                <p>ภาพรวมจากรายการที่ยืนยันแล้ว</p>
-              </div>
-              <button className="secondary" onClick={() => navigate("reports")}>
-                ดูรายงาน
-                <ArrowUpRight size={14} />
-              </button>
-            </div>
-            <div className="chart-legend">
-              <span>
-                <i />
-                ยอดขาย
-              </span>
-              <span>
-                <i />
-                ค่าใช้จ่าย
-              </span>
-            </div>
-            {series.length ? (
-              <div className="chart-area">
-                <div className="chart-axis">
-                  <span>{money(max)}</span>
-                  <span>{money(max / 2)}</span>
-                  <span>0</span>
-                </div>
-                <div className="bar-chart">
-                  {series.slice(-14).map((day, index) => (
-                    <div className="bar-group" key={day.date + index}>
-                      <div className="bar-pair">
-                        <div
-                          className="bar sales"
-                          style={{
-                            height: Math.max(2, (day.sales / max) * 100) + "%",
-                          }}
-                          title={`ยอดขาย ${money(day.sales)}`}
-                        />
-                        <div
-                          className="bar expenses"
-                          style={{
-                            height:
-                              Math.max(2, (day.expenses / max) * 100) + "%",
-                          }}
-                          title={`ค่าใช้จ่าย ${money(day.expenses)}`}
-                        />
-                      </div>
-                      <small>{day.date.slice(5)}</small>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <Empty
-                title="ยังไม่มีข้อมูลสำหรับกราฟ"
-                description="บันทึกและยืนยันยอดขายเพื่อดูภาพรวม"
-              />
-            )}
-          </section>
-          <section className="card">
-            <div className="card-heading">
-              <div>
-                <h2>โครงการและพื้นที่ล่าสุด</h2>
-                <p>งานที่ทีมกำลังขับเคลื่อน</p>
-              </div>
-              <button
-                className="text-button"
-                onClick={() => navigate("projects")}
-              >
-                ดูทั้งหมด
-                <ArrowUpRight size={14} />
-              </button>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>โครงการ / พื้นที่</th>
-                    <th>ผู้รับผิดชอบ</th>
-                    <th>วันที่สิ้นสุด</th>
-                    <th>สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentProjects.slice(0, 5).map((p) => (
-                    <tr key={p.id}>
-                      <td className="primary-cell">
-                        <button
-                          className="row-link"
-                          onClick={() => navigate(p.kind)}
-                        >
-                          {String(p.data.name)}
-                        </button>
-                        <small>{catalog[p.kind].label}</small>
-                      </td>
-                      <td>{String(p.data.owner || "—")}</td>
-                      <td>{displayDate(p.data.endDate)}</td>
-                      <td>
-                        <span className={"badge " + String(p.data.status)}>
-                          {statusLabels[String(p.data.status)]}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!recentProjects.length && (
-              <Empty
-                title="ยังไม่มีโครงการ"
-                action={
-                  <button
-                    className="secondary"
-                    onClick={() => navigate("projects")}
-                  >
-                    เริ่มโครงการใหม่
-                  </button>
-                }
-              />
-            )}
-          </section>
-        </div>
-        <aside className="dashboard-right">
-          <section className="card insight-card">
-            <div className="card-heading">
-              <h2>Workspace Summary</h2>
-              <Sparkles size={21} />
-            </div>
-            <p>
-              มองเห็นสิ่งสำคัญของธุรกิจ
-              <br />
-              จากข้อมูลที่ทีมอัปเดต
-            </p>
-            <div className="insight-line">
-              <span className="insight-dot amber" />
-              มี <strong>{s.pendingDeals} ดีล</strong> รออนุมัติ
-            </div>
-            <div className="insight-line">
-              <span className="insight-dot violet" />
-              ติดตามงาน <strong>{s.tasks} งาน</strong>
-            </div>
-            <div className="insight-line">
-              <span className="insight-dot rose" />
-              สต็อกถึงจุดสั่งซื้อ <strong>{s.lowStock.length} รายการ</strong>
-            </div>
-            <small>คำนวณจากข้อมูลที่บัญชีนี้มีสิทธิ์ดู</small>
-            <button
-              className="insight-button"
-              onClick={() => navigate("ai-inbox")}
-            >
-              เปิด ZettaFlow AI
-              <ArrowRight size={15} />
-            </button>
-          </section>
-          <section className="card">
-            <div className="card-heading">
-              <h2>เครื่องมือของทีม</h2>
-              <span className="muted">QUICK ACCESS</span>
-            </div>
-            {[
-              ["customers", "ลูกค้า & CRM"],
-              ["products", "สต็อกสินค้า"],
-              ["tasks", "งาน & Workflow"],
-              ["ai-inbox", "รับข้อมูลด้วย AI"],
-            ].map(([key, label]) => (
-              <button
-                className="quick-link"
-                key={key}
-                onClick={() => navigate(key)}
-              >
-                <span>
-                  <Icon name={details(key).icon} />
-                </span>
-                {label}
-                <ArrowUpRight size={15} />
-              </button>
-            ))}
-          </section>
-          <section className="card">
-            <div className="card-heading">
-              <h2>กิจกรรมล่าสุด</h2>
-              <span className="live-dot" />
-            </div>
-            {data.audit.length ? (
-              data.audit.slice(0, 4).map((a) => (
-                <div className="activity-item" key={a.id}>
-                  <span className="activity-dot" />
-                  <div>
-                    <p>{a.action.replaceAll("_", " ")}</p>
-                    <small>
-                      {displayDate(a.created_at)} · {a.target.slice(0, 8)}
-                    </small>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="muted activity-empty">
-                กิจกรรมของทีมจะแสดงหลังบันทึกข้อมูล
-              </p>
-            )}
-          </section>
-        </aside>
-      </div>
-      <section className="cta-card">
-        <div>
-          <span className="cta-icon">
-            <Sparkles size={23} />
-          </span>
-          <div>
-            <h3>ทุกบทสนทนา ต่อยอดเป็นงานของทีมได้</h3>
-            <p>กำหนด Template แล้วรับข้อมูลผ่านเว็บหรือกลุ่ม LINE</p>
-          </div>
-        </div>
-        <button className="secondary" onClick={() => navigate("templates")}>
-          ออกแบบ Data Template
-          <ArrowRight size={16} />
-        </button>
-      </section>
-    </>
   );
 }

@@ -8,12 +8,66 @@ import {
   Check,
   Link,
   Palette,
+  Upload,
+  Building2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { FieldControl } from "./records";
 import { companyFields, departmentNames } from "@/lib/catalog";
 import type { Context, Member, Template } from "@/lib/types";
 import { LineGroupSettings } from "./platform";
+const imageLimits = {
+  logo: { width: 320, height: 320, max: 60000 },
+  cover: { width: 1200, height: 400, max: 150000 },
+};
+// Shrinks an uploaded image into a WebP data URL small enough to live in the company profile.
+async function toDataUrl(file: File, kind: "logo" | "cover") {
+  const { width, height, max } = imageLimits[kind],
+    bitmap = await createImageBitmap(file),
+    scale = Math.min(1, width / bitmap.width, height / bitmap.height),
+    canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  for (const quality of [0.85, 0.7, 0.55, 0.4]) {
+    const url = canvas.toDataURL("image/webp", quality);
+    if (url.length <= max) return url;
+  }
+  throw Error("รูปใหญ่เกินไป ลองใช้รูปที่เล็กลง");
+}
+const completenessKeys = [
+  "logo",
+  "name",
+  "nameEn",
+  "taxId",
+  "industry",
+  "employees",
+  "founded",
+  "description",
+];
+const companyTabs = [
+  ["main", "ข้อมูลหลัก"],
+  ["address", "ที่อยู่"],
+  ["social", "Social และช่องทางติดต่อ"],
+  ["docs", "เอกสาร"],
+] as const;
+const tabFields: Record<string, string[]> = {
+  address: ["address", "province", "zip", "shipAddress"],
+  social: ["phone", "email", "website", "line", "facebook"],
+  docs: ["registration", "legal", "bank", "bankAccount"],
+};
+const placeholders: Record<string, string> = {
+  name: "เช่น บริษัท ตัวอย่าง จำกัด",
+  nameEn: "เช่น Example Co., Ltd.",
+  taxId: "13 หลัก",
+  description: "เล่าสั้นๆ ว่าบริษัททำอะไร",
+};
+const profileOf = (ctx: Context) => {
+  const p = { ...ctx.company.profile } as Record<string, unknown>;
+  if (p.taxId) p.taxId = String(p.taxId).replace(/\D/g, "");
+  return p;
+};
 export function CompanySettings({
   ctx,
   notify,
@@ -23,8 +77,8 @@ export function CompanySettings({
   notify: (s: string) => void;
   changed: () => void;
 }) {
-  const [values, setValues] = useState<Record<string, unknown>>(
-      ctx.company.profile,
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+      profileOf(ctx),
     ),
     [theme, setTheme] = useState(
       String(ctx.company.settings.theme || "violet"),
@@ -32,80 +86,319 @@ export function CompanySettings({
     [brand, setBrand] = useState(
       String(ctx.company.settings.brand || "EliteFlow"),
     ),
+    [tab, setTab] = useState<(typeof companyTabs)[number][0]>("main"),
+    [showLinks, setShowLinks] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  return (
-    <section className="card company-card">
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          try {
-            await api("/company", {
-              method: "PATCH",
-              body: { profile: values, settings: { theme, brand } },
-            });
-            notify("บันทึกบริษัทแล้ว");
-            changed();
-          } catch (err) {
-            setError((err as Error).message);
-          } finally {
-            setBusy(false);
-          }
+  const owner = ctx.member.role === "owner",
+    text = (k: string) => String(values[k] ?? ""),
+    set = (k: string, v: unknown) => setValues((s) => ({ ...s, [k]: v })),
+    field = (k: string) => companyFields.find((f) => f.key === k)!,
+    filled = completenessKeys.filter((k) => text(k).trim()).length,
+    pick = async (kind: "logo" | "cover", file?: File) => {
+      if (!file) return;
+      try {
+        set(kind, await toDataUrl(file, kind));
+        setError("");
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    },
+    input = (k: string) => (
+      <FieldControl
+        key={k}
+        field={field(k)}
+        value={values[k]}
+        set={(v) => set(k, v)}
+        options={[]}
+      />
+    );
+  const dropzone = (kind: "logo" | "cover", title: string, hint: string) => (
+    <label className="image-drop">
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+        onChange={(e) => {
+          pick(kind, e.target.files?.[0]);
+          e.target.value = "";
         }}
-      >
-        <fieldset disabled={ctx.member.role !== "owner" || busy}>
-          <div className="card-heading">
-            <h2>ข้อมูลบริษัท</h2>
-            <span className="badge">
-              {ctx.member.role === "owner"
-                ? "จัดการโดย Owner"
-                : "อ่านอย่างเดียว"}
-            </span>
-          </div>
-          <div className="form-grid">
-            {companyFields.map((f) => (
-              <FieldControl
-                key={f.key}
-                field={f}
-                value={values[f.key]}
-                set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
-                options={[]}
+      />
+      {text(kind) ? (
+        <img src={text(kind)} alt="" className={"image-drop-preview " + kind} />
+      ) : (
+        <span className="image-drop-icon">
+          <Upload size={17} />
+        </span>
+      )}
+      <span className="image-drop-text">
+        <strong>{title}</strong>
+        <small>{hint}</small>
+      </span>
+      <span className="secondary image-drop-button">เลือกไฟล์</span>
+    </label>
+  );
+  return (
+    <form
+      className="company-profile"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          const profile = Object.fromEntries(
+            Object.entries(values)
+              .filter(([k]) => companyFields.some((f) => f.key === k))
+              .map(([k, v]) => [k, String(v ?? "")]),
+          );
+          await api("/company", {
+            method: "PATCH",
+            body: { profile, settings: { theme, brand } },
+          });
+          setError("");
+          notify("บันทึกข้อมูลบริษัทแล้ว");
+          changed();
+        } catch (err) {
+          setError((err as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <section className="card company-hero">
+        <div
+          className="company-cover"
+          style={
+            text("cover")
+              ? { backgroundImage: `url("${text("cover")}")` }
+              : undefined
+          }
+        >
+          {owner && (
+            <label className="secondary cover-button">
+              <ImageIcon size={14} />
+              เปลี่ยนรูปปก
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+                onChange={(e) => {
+                  pick("cover", e.target.files?.[0]);
+                  e.target.value = "";
+                }}
               />
-            ))}
-          </div>
-          <h3 className="form-section-title">ปรับแต่ง workspace</h3>
-          <div className="form-grid">
-            <label>
-              ธีม
-              <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-                <option value="violet">Violet</option>
-                <option value="ocean">Ocean</option>
-                <option value="forest">Forest</option>
-              </select>
             </label>
-            <label>
-              ชื่อแพลตฟอร์ม
-              <select value={brand} onChange={(e) => setBrand(e.target.value)}>
-                <option>EliteFlow</option>
-                <option>ZettaFlow</option>
-              </select>
-            </label>
+          )}
+        </div>
+        <div className="company-hero-body">
+          <div className="company-logo">
+            {text("logo") ? (
+              <img src={text("logo")} alt="โลโก้บริษัท" />
+            ) : (
+              <Building2 size={30} />
+            )}
           </div>
-        </fieldset>
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-        {ctx.member.role === "owner" && (
-          <div className="modal-footer">
-            <button className="primary" disabled={busy}>
-              <Check size={15} />
-              บันทึกข้อมูลบริษัท
-            </button>
+          <div className="company-hero-title">
+            <h2>{text("name").trim() || "ยังไม่ได้ตั้งชื่อบริษัท"}</h2>
+            <p>กรอกข้อมูลด้านล่าง ข้อมูลนี้ใช้ในเอกสารและทุกระบบ</p>
           </div>
+          <div className="company-progress">
+            <div>
+              <strong>ความครบถ้วน</strong>
+              <span>
+                {filled} จาก {completenessKeys.length} ช่อง
+              </span>
+            </div>
+            <i>
+              <b style={{ width: (filled / completenessKeys.length) * 100 + "%" }} />
+            </i>
+          </div>
+        </div>
+      </section>
+      <div className="company-tabs" role="tablist">
+        {companyTabs.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={tab === key ? "active" : ""}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="badge">
+          {owner ? "จัดการโดย Owner" : "อ่านอย่างเดียว"}
+        </span>
+      </div>
+      <fieldset disabled={!owner || busy}>
+        {tab === "main" ? (
+          <>
+            <section className="card company-section">
+              <h2>รูปปกและโลโก้</h2>
+              <div className="image-drops">
+                {dropzone(
+                  "cover",
+                  "รูปปก",
+                  "ลากไฟล์มาวาง หรือกดเลือกไฟล์ · ขนาดแนะนำ 1200×400",
+                )}
+                {dropzone("logo", "โลโก้บริษัท", "ไฟล์ PNG หรือ JPG · ภาพสี่เหลี่ยมจัตุรัส")}
+              </div>
+              {showLinks ? (
+                <div className="form-grid image-links">
+                  {(["cover", "logo"] as const).map((k) => (
+                    <label key={k}>
+                      ลิงก์{k === "cover" ? "รูปปก" : "โลโก้"} (https://)
+                      <input
+                        type="url"
+                        placeholder="https://"
+                        value={text(k).startsWith("data:") ? "" : text(k)}
+                        onChange={(e) => set(k, e.target.value.trim())}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="text-button image-link-toggle"
+                  onClick={() => setShowLinks(true)}
+                >
+                  หรือวางลิงก์รูปภาพแทน
+                </button>
+              )}
+            </section>
+            <section className="card company-section">
+              <h2>ข้อมูลบริษัท</h2>
+              <div className="form-grid company-grid">
+                <label>
+                  {field("name").label}
+                  <input
+                    required
+                    maxLength={200}
+                    placeholder={placeholders.name}
+                    value={text("name")}
+                    onChange={(e) => set("name", e.target.value)}
+                  />
+                </label>
+                <label>
+                  {field("nameEn").label}
+                  <input
+                    placeholder={placeholders.nameEn}
+                    value={text("nameEn")}
+                    onChange={(e) => set("nameEn", e.target.value)}
+                  />
+                </label>
+                <label>
+                  {field("taxId").label}
+                  <input
+                    inputMode="numeric"
+                    pattern="\d{13}"
+                    maxLength={13}
+                    title="ตัวเลข 13 หลัก"
+                    placeholder={placeholders.taxId}
+                    value={text("taxId")}
+                    onChange={(e) => set("taxId", e.target.value.replace(/\D/g, ""))}
+                  />
+                </label>
+                {(["industry", "employees"] as const).map((k) => {
+                  const options = field(k).options || [];
+                  return (
+                    <label key={k}>
+                      {field(k).label}
+                      <select value={text(k)} onChange={(e) => set(k, e.target.value)}>
+                        <option value="">
+                          {k === "industry" ? "เลือกประเภทธุรกิจ" : "เลือกช่วงจำนวน"}
+                        </option>
+                        {text(k) && !options.includes(text(k)) && (
+                          <option>{text(k)}</option>
+                        )}
+                        {options.map((o) => (
+                          <option key={o}>{o}</option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                })}
+                <label>
+                  {field("founded").label}
+                  <input
+                    type="date"
+                    value={text("founded")}
+                    onChange={(e) => set("founded", e.target.value)}
+                  />
+                </label>
+                <label className="wide">
+                  {field("description").label}
+                  <textarea
+                    maxLength={3000}
+                    placeholder={placeholders.description}
+                    value={text("description")}
+                    onChange={(e) => set("description", e.target.value)}
+                  />
+                  <small className="field-hint">
+                    แสดงในหน้าโปรไฟล์และเอกสารที่ส่งให้ลูกค้า
+                  </small>
+                </label>
+              </div>
+            </section>
+          </>
+        ) : (
+          <section className="card company-section">
+            <h2>{companyTabs.find(([k]) => k === tab)![1]}</h2>
+            <div className="form-grid company-grid">
+              {tabFields[tab].map(input)}
+            </div>
+            {tab === "docs" && (
+              <>
+                <h3 className="form-section-title">ปรับแต่ง workspace</h3>
+                <div className="form-grid company-grid">
+                  <label>
+                    ธีม
+                    <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+                      <option value="violet">Violet</option>
+                      <option value="ocean">Ocean</option>
+                      <option value="forest">Forest</option>
+                    </select>
+                  </label>
+                  <label>
+                    ชื่อแพลตฟอร์ม
+                    <select value={brand} onChange={(e) => setBrand(e.target.value)}>
+                      <option>EliteFlow</option>
+                      <option>ZettaFlow</option>
+                    </select>
+                  </label>
+                </div>
+              </>
+            )}
+          </section>
         )}
-      </form>
-    </section>
+      </fieldset>
+      <p className="form-error" role="alert">
+        {error}
+      </p>
+      {owner && (
+        <div className="company-actions">
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() => {
+              setValues(profileOf(ctx));
+              setTheme(String(ctx.company.settings.theme || "violet"));
+              setBrand(String(ctx.company.settings.brand || "EliteFlow"));
+              setError("");
+            }}
+          >
+            ยกเลิก
+          </button>
+          <button className="primary" disabled={busy}>
+            <Check size={15} />
+            บันทึกข้อมูล
+          </button>
+        </div>
+      )}
+    </form>
   );
 }
 export function Team({

@@ -623,13 +623,39 @@ export const statusLabels: Record<string, string> = {
   income: "รับเงิน",
   expense: "จ่ายเงิน",
 };
+export const businessTypes = [
+  "ค้าปลีก",
+  "ค้าส่ง / จัดจำหน่าย",
+  "ผลิต",
+  "บริการ",
+  "ร้านอาหาร / คาเฟ่",
+  "อีเวนต์ / ออแกไนซ์",
+  "ก่อสร้าง / ตกแต่ง",
+  "เทคโนโลยี",
+  "การศึกษา",
+  "สุขภาพ / ความงาม",
+  "อื่นๆ",
+];
+export const employeeRanges = [
+  "1–5 คน",
+  "6–20 คน",
+  "21–50 คน",
+  "51–200 คน",
+  "มากกว่า 200 คน",
+];
 export const companyFields: Field[] = [
-  f("name", "ชื่อบริษัท", "text", true),
-  f("nameEn", "ชื่อภาษาอังกฤษ"),
-  f("taxId", "เลขผู้เสียภาษี"),
+  f("logo", "โลโก้บริษัท"),
+  f("cover", "รูปปก"),
+  f("name", "ชื่อบริษัท (ภาษาไทย)", "text", true),
+  f("nameEn", "ชื่อบริษัท (ภาษาอังกฤษ)"),
+  f("taxId", "เลขประจำตัวผู้เสียภาษี"),
   f("registration", "เลขทะเบียนบริษัท"),
   f("legal", "ประเภทนิติบุคคล"),
-  f("industry", "ประเภทธุรกิจ"),
+  f("industry", "ประเภทธุรกิจ", "select", false, { options: businessTypes }),
+  f("employees", "จำนวนพนักงาน", "select", false, {
+    options: employeeRanges,
+  }),
+  f("founded", "วันที่ก่อตั้ง", "date"),
   f("phone", "โทรศัพท์", "tel"),
   f("email", "อีเมล", "email"),
   f("website", "เว็บไซต์", "url"),
@@ -641,5 +667,5 @@ export const companyFields: Field[] = [
   f("facebook", "Facebook"),
   f("bank", "ธนาคาร"),
   f("bankAccount", "บัญชีบริษัท"),
-  f("description", "รายละเอียดธุรกิจ", "textarea"),
+  f("description", "เกี่ยวกับบริษัท", "textarea"),
 ];
