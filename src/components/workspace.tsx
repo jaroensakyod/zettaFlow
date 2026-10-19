@@ -57,6 +57,7 @@ import { Records } from "./records";
 import { HomeDashboard } from "./home-dashboard";
 import { Feed } from "./feed";
 import { Jobs } from "./jobs";
+import { FlowAssistant } from "./flow-assistant";
 import { AiWorkspace } from "./ai-workspace";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
@@ -535,10 +536,6 @@ export function Workspace({
                   <Building2 size={16} />
                   สลับบริษัท
                 </button>
-                <button onClick={() => router.push("/zetta/dashboard")}>
-                  <Sparkles size={16} />
-                  เปิด ZettaFlow AI
-                </button>
               </div>
             </div>
           )}
@@ -693,6 +690,7 @@ export function Workspace({
           </p>
         </Modal>
       )}
+      <FlowAssistant ctx={ctx} navigate={navigate} notify={notify} />
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={17} />

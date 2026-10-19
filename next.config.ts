@@ -70,7 +70,7 @@ const config: NextConfig = {
           { key: "Referrer-Policy", value: "same-origin" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(), microphone=(self), geolocation=()",
           },
         ],
       },
