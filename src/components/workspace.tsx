@@ -48,6 +48,8 @@ import {
   Bell,
   LayoutDashboard,
   Command,
+  ScanLine,
+  LifeBuoy,
 } from "lucide-react";
 import { catalog, modules } from "@/lib/catalog";
 import type { Context, Entity } from "@/lib/types";
@@ -58,6 +60,8 @@ import { HomeDashboard } from "./home-dashboard";
 import { Feed } from "./feed";
 import { Jobs } from "./jobs";
 import { FlowAssistant } from "./flow-assistant";
+import { SubscriptionPanel, SlipChecker } from "./platform";
+import { SupportChat, AdminConsole } from "./engage";
 import { AiWorkspace } from "./ai-workspace";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
@@ -66,7 +70,6 @@ import {
   Calendar,
   Reports,
   ModuleStore,
-  Pricing,
   Assistant,
 } from "./tools";
 const groups = [
@@ -90,6 +93,7 @@ const groups = [
       "expenses",
       "invoices",
       "payments",
+      "slips",
       "campaigns",
       "tickets",
       "contracts",
@@ -101,7 +105,7 @@ const groups = [
     label: "ZettaFlow AI",
     items: ["ai-inbox", "templates", "assistant", "integrations"],
   },
-  { label: "จัดการระบบ", items: ["company", "team", "store", "pricing"] },
+  { label: "จัดการระบบ", items: ["company", "team", "store", "pricing", "admin"] },
 ];
 // Shortcuts shown in the top bar; everything else lives under the แผนก menu.
 const primary: [string, string, LucideIcon][] = [
@@ -187,7 +191,17 @@ const extra: Record<
   pricing: {
     label: "แพ็กเกจบริการ",
     icon: "BadgeDollarSign",
-    description: "รูปแบบแพ็กเกจสำหรับ ZettaFlow AI",
+    description: "เลือกแพ็กเกจ ดูโควตาการใช้งาน และชำระเงินด้วยสลิปโอน",
+  },
+  slips: {
+    label: "ตรวจสลิปโอนเงิน",
+    icon: "ScanLine",
+    description: "อ่าน QR บนสลิป เทียบยอด และกันการใช้สลิปซ้ำ",
+  },
+  admin: {
+    label: "Admin Console",
+    icon: "LifeBuoy",
+    description: "แชทลูกค้า · โปรโมชัน · ประกาศ · ยืนยันการชำระเงิน",
   },
 };
 const details = (view: string) =>
@@ -227,6 +241,8 @@ const iconMap: Record<string, LucideIcon> = {
   CalendarDays,
   Sparkles,
   Wallet,
+  ScanLine,
+  LifeBuoy,
 };
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const Component = iconMap[name] || LayoutDashboard;
@@ -253,6 +269,7 @@ type WorkspaceData = {
   summary: Summary;
   recent: Entity[];
   audit: { id: string; action: string; target: string; created_at: string }[];
+  platformAdmin?: boolean;
 };
 export function Workspace({
   initialView = "feed",
@@ -405,7 +422,9 @@ export function Workspace({
     }
   };
   const visible = (key: string) =>
-    key === "team"
+    key === "admin"
+      ? !!data.platformAdmin
+      : key === "team"
       ? ctx.member.role === "owner"
       : catalog[key]
         ? ctx.member.role === "owner" ||
@@ -587,6 +606,7 @@ export function Workspace({
               ctx={ctx}
               summary={data.summary}
               navigate={navigate}
+              notify={notify}
               refreshKey={lastSync.getTime()}
             />
           ) : catalog[view] ? (
@@ -614,7 +634,17 @@ export function Workspace({
           ) : view === "store" ? (
             <ModuleStore navigate={navigate} />
           ) : view === "pricing" ? (
-            <Pricing />
+            <div className="elite-zone">
+              <SubscriptionPanel ctx={ctx} notify={notify} />
+            </div>
+          ) : view === "slips" ? (
+            <div className="elite-zone">
+              <SlipChecker />
+            </div>
+          ) : view === "admin" && data.platformAdmin ? (
+            <div className="elite-zone">
+              <AdminConsole notify={notify} />
+            </div>
           ) : view === "assistant" ? (
             <Assistant />
           ) : (
@@ -691,6 +721,10 @@ export function Workspace({
         </Modal>
       )}
       <FlowAssistant ctx={ctx} navigate={navigate} notify={notify} />
+      {/* Stacked above the Flow mascot so the two launchers never overlap. */}
+      <div className="elite-support">
+        <SupportChat ctx={ctx} />
+      </div>
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={17} />

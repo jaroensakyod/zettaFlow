@@ -14,6 +14,7 @@ import {
 import { statusLabels } from "@/lib/catalog";
 import type { Context, Entity, HomeData } from "@/lib/types";
 import { api, money, displayDate, Loading, Empty } from "./shared";
+import { WidgetBoard } from "./platform";
 
 const BKK = "Asia/Bangkok";
 export const deptLabels: Record<string, string> = {
@@ -115,11 +116,13 @@ export function HomeDashboard({
   ctx,
   summary,
   navigate,
+  notify,
   refreshKey,
 }: {
   ctx: Context;
   summary: Summary;
   navigate: (v: string) => void;
+  notify: (s: string) => void;
   refreshKey: number;
 }) {
   const [home, setHome] = useState<HomeData | null>(null),
@@ -184,25 +187,10 @@ export function HomeDashboard({
       {home && (
         <TaskBoard today={today} tasks={home.tasks} navigate={navigate} />
       )}
-      {!!summary.widgets?.length && (
-        <section className="card dynamic-widgets">
-          <div className="card-heading">
-            <h2>ข้อมูลตาม Data Template</h2>
-            <span className="muted">ปรับตามฟิลด์ตัวเลขที่กำหนด</span>
-          </div>
-          <div className="widget-grid">
-            {summary.widgets.map((w) => (
-              <div className="widget-item" key={w.key}>
-                <span>
-                  {w.name} · {w.label}
-                </span>
-                <strong>{money(w.total)}</strong>
-                <small>{w.count} รายการที่อนุมัติ</small>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Owners reorder, hide and set per-role visibility here, and share the board by link. */}
+      <div className="elite-zone">
+        <WidgetBoard ctx={ctx} notify={notify} />
+      </div>
     </>
   );
 }
