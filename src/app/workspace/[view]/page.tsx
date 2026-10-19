@@ -20,6 +20,8 @@ const extra = [
   "store",
   "pricing",
   "assistant",
+  "slips",
+  "admin",
 ];
 export default async function Page({
   params,

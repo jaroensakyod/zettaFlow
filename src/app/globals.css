@@ -6113,3 +6113,45 @@ label .password-field input {
 .logo-camera {
   z-index: 2;
 }
+/* Zetta-built tools (widget board, billing, slip checker, admin) inside EliteFlow */
+.elite-zone .z-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 23px;
+  margin: 0 0 20px;
+}
+.elite-zone .z-card h2 {
+  font-size: 15px;
+  color: var(--ink);
+}
+.elite-zone .section-actions h2 {
+  margin: 0;
+}
+/* Support chat launcher sits above the Flow mascot (bottom-right) */
+.elite-support .support-fab {
+  right: 43px;
+  bottom: 136px;
+  z-index: 41;
+  width: 48px;
+  height: 48px;
+}
+.elite-support .support-panel {
+  bottom: 196px;
+  height: min(480px, calc(100vh - 220px));
+}
+@media (max-width: 720px) {
+  .elite-support .support-fab {
+    right: 26px;
+    bottom: 104px;
+  }
+  .elite-support .support-panel {
+    right: 14px;
+    bottom: 160px;
+    height: min(440px, calc(100vh - 180px));
+  }
+}
+@media print {
+  .elite-support {
+    display: none;
+  }
+}
