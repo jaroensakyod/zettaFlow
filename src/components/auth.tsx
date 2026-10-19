@@ -20,7 +20,12 @@ export function Auth({
   onLogin: () => void;
   product?: "elite" | "zetta";
 }) {
-  const [mode, setMode] = useState<"login" | "register" | "reset">("login"),
+  // "ทดลองฟรี" on the public pages links here with ?signup=1 to open the sign-up form.
+  const [mode, setMode] = useState<"login" | "register" | "reset">(() =>
+      typeof window !== "undefined" && new URLSearchParams(window.location.search).has("signup")
+        ? "register"
+        : "login",
+    ),
     [error, setError] = useState(() =>
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).has("auth_error")

@@ -26,35 +26,17 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { PricingCards, Faq, PromoStrip } from "./landing-parts";
+import { Logo, LandingHeader, LandingFooter, SIGNUP } from "./landing-shell";
 import "./landing.css";
 
 const thai = IBM_Plex_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "500", "600", "700"], variable: "--lp-thai" });
 const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["500", "700", "800"], variable: "--lp-display" });
 
 export const metadata = {
-  title: "Zetta Flow AI — CEO Command Center",
-  description: "เปลี่ยนทุกบทสนทนาใน LINE ให้เป็นข้อมูลธุรกิจ Workflow และ Dashboard แบบ Real-time",
+  title: "EliteFlow — ระบบบริหารธุรกิจและเครือข่ายบริษัท",
+  description: "เปลี่ยนทุกบทสนทนาใน LINE ให้เป็นข้อมูลธุรกิจ Workflow และ Dashboard แบบ Real-time พร้อมเครือข่ายธุรกิจและผู้ช่วย AI น้องโฟลว์",
+  icons: { icon: "/brand/eliteflow-icon.png", apple: "/brand/eliteflow-mark.png" },
 };
-
-function Logo() {
-  return (
-    <span className="lp-logo">
-      <svg viewBox="0 0 40 40" aria-hidden>
-        <defs>
-          <linearGradient id="lpz" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#7c5cff" />
-            <stop offset="1" stopColor="#e443d0" />
-          </linearGradient>
-        </defs>
-        <path d="M6 6h28l-19 22h17v6H6l19-22H6z" fill="url(#lpz)" />
-      </svg>
-      <span>
-        <b>Zetta Flow AI</b>
-        <small>AI That Moves Your Business Forward</small>
-      </span>
-    </span>
-  );
-}
 
 /** Tiny inline sparkline. */
 function Spark({ points, color = "#7c5cff" }: { points: number[]; color?: string }) {
@@ -192,24 +174,10 @@ const departments = [
   { icon: FileScan, name: "BD / สัญญาเช่า", note: "PDF สัญญา → คลังเอกสาร", stat: "18 พื้นที่", tone: "amber" },
 ];
 
-export default function ZettaHome() {
+export default function LandingHome() {
   return (
     <div className={`lp ${thai.variable} ${display.variable}`}>
-      <header className="lp-header">
-        <Link href="/zetta" aria-label="Zetta Flow AI หน้าแรก"><Logo /></Link>
-        <nav aria-label="เมนูหลัก">
-          <a href="#product">Product</a>
-          <a href="#how">How it works</a>
-          <a href="#solutions">Solutions</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
-        </nav>
-        <div className="lp-header-cta">
-          <a href="/demo" className="lp-link">ดูตัวอย่าง</a>
-          <Link href="/eliteflow" className="lp-link">เข้าสู่ระบบ</Link>
-          <Link href="/zetta/dashboard" className="lp-btn primary sm">ทดลองฟรี</Link>
-        </div>
-      </header>
+      <LandingHeader />
 
       <main>
         <PromoStrip />
@@ -224,7 +192,7 @@ export default function ZettaHome() {
               — ทีมทำงานแบบเดิม ผู้บริหารตัดสินใจได้เร็วกว่าเดิม
             </p>
             <div className="lp-hero-actions">
-              <Link href="/zetta/dashboard" className="lp-btn primary">
+              <Link href={SIGNUP} className="lp-btn primary">
                 เริ่มทดลองฟรี 14 วัน <ArrowRight size={18} />
               </Link>
               <a href="/demo" className="lp-btn ghost">ดูระบบตัวอย่าง</a>
@@ -267,7 +235,7 @@ export default function ZettaHome() {
               ))}
             </div>
             <div className="lp-chat" aria-label="ตัวอย่างแชทในกลุ่ม LINE">
-              <div className="lp-chat-top"><MessageCircle size={16} /> [ZettaFlow] คลังสินค้า · 6 คน</div>
+              <div className="lp-chat-top"><MessageCircle size={16} /> [EliteFlow] คลังสินค้า · 6 คน</div>
               <div className="msg"><i>W</i><p>ส่งของแล้ว: ป้ายราคา 100, ไม้แขวน 180, หุ่น 2<br />ซัพพลายเออร์: Siam Display</p></div>
               <div className="msg bot"><i><Bot size={13} /></i><p>⚠️ ข้อมูลยังไม่ครบ กรุณาส่งเพิ่ม: <b>ยอดรวม</b></p></div>
               <div className="msg"><i>W</i><p>ยอดรวม: 18,500</p></div>
@@ -303,12 +271,12 @@ export default function ZettaHome() {
           </header>
           <div className="lp-depts">
             {departments.map((d) => (
-              <Link key={d.name} href="/zetta/dashboard" className={"lp-dept " + d.tone}>
+              <Link key={d.name} href={SIGNUP} className={"lp-dept " + d.tone}>
                 <span className="lp-ficon"><d.icon size={20} /></span>
                 <h3>{d.name}</h3>
                 <p>{d.note}</p>
                 <b>{d.stat}</b>
-                <span className="lp-more">ดู Dashboard <ArrowRight size={14} /></span>
+                <span className="lp-more">เริ่มใช้งาน <ArrowRight size={14} /></span>
               </Link>
             ))}
           </div>
@@ -326,6 +294,9 @@ export default function ZettaHome() {
             <p>เริ่มฟรี 14 วัน อัปเกรดเมื่อพร้อม</p>
           </header>
           <PricingCards />
+          <p className="lp-fine">
+            <Link href="/pricing">เปรียบเทียบแพ็กเกจแบบละเอียด <ArrowRight size={14} /></Link>
+          </p>
         </section>
 
         <section id="faq" className="lp-section narrow">
@@ -337,31 +308,13 @@ export default function ZettaHome() {
           <h2>พร้อมให้ AI ช่วยบริหารธุรกิจแล้วหรือยัง?</h2>
           <p>ตั้งค่าเสร็จภายในวันเดียว ทีมเราช่วยออกแบบ Workflow ให้ฟรีในช่วงทดลอง</p>
           <div className="lp-hero-actions center">
-            <Link href="/zetta/dashboard" className="lp-btn primary">เริ่มทดลองฟรี <ArrowRight size={18} /></Link>
+            <Link href={SIGNUP} className="lp-btn primary">เริ่มทดลองฟรี <ArrowRight size={18} /></Link>
             <a href="tel:0960041231" className="lp-btn ghost">โทร 096-004-1231</a>
           </div>
         </section>
       </main>
 
-      <footer className="lp-footer" id="contact">
-        <div>
-          <Logo />
-          <p>One AI Platform. Unlimited Business Workflows.</p>
-        </div>
-        <div>
-          <h4>ติดต่อ</h4>
-          <a href="mailto:Sirisoaa@gmail.com">Sirisoaa@gmail.com</a>
-          <a href="tel:0960041231">096-004-1231</a>
-          <span>LINE: siri_studio</span>
-        </div>
-        <div>
-          <h4>ผลิตภัณฑ์</h4>
-          <Link href="/zetta/dashboard">Executive Dashboard</Link>
-          <Link href="/zetta/templates">Form Designer</Link>
-          <Link href="/eliteflow">EliteFlow Workspace</Link>
-        </div>
-        <small>© 2026 Zetta Flow AI · www.zettaflowai.com</small>
-      </footer>
+      <LandingFooter />
     </div>
   );
 }

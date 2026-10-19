@@ -7,7 +7,7 @@ import type { TaskDraft } from "@/lib/flow-intent";
 import type { Context } from "@/lib/types";
 import { api } from "./shared";
 import { deptLabels } from "./home-dashboard";
-import { FlowMascot, type FlowMood } from "./mascot";
+import { FlowMascot, type FlowAct, type FlowMood } from "./mascot";
 
 // Browser speech APIs (Chrome / Edge / Safari). Minimal typing: not every TS DOM lib ships these.
 type Recognition = {
@@ -63,7 +63,9 @@ export function FlowAssistant({
     [speaking, setSpeaking] = useState(false),
     [voiceOn, setVoiceOn] = useState(false),
     [canListen, setCanListen] = useState(false),
+    [act, setAct] = useState<FlowAct>(""),
     recRef = useRef<Recognition | null>(null),
+    charRef = useRef<HTMLElement | null>(null),
     listRef = useRef<HTMLDivElement>(null),
     fileRef = useRef<HTMLInputElement>(null),
     inputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +100,46 @@ export function FlowAssistant({
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
   }, [open]);
+  // Idle life: every few seconds Flow waves, hops, glances around or wiggles its antenna.
+  useEffect(() => {
+    if (listening || busy || speaking) return;
+    const acts: FlowAct[] = ["wave", "hop", "look", "wiggle"];
+    let timer: ReturnType<typeof setTimeout>;
+    const next = () => {
+      timer = setTimeout(() => {
+        setAct(acts[Math.floor(Math.random() * acts.length)]);
+        timer = setTimeout(() => {
+          setAct("");
+          next();
+        }, 1600);
+      }, 4000 + Math.random() * 5000);
+    };
+    next();
+    return () => clearTimeout(timer);
+  }, [listening, busy, speaking]);
+  // Eyes follow the pointer.
+  useEffect(() => {
+    let frame = 0;
+    const move = (e: PointerEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const el = charRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect(),
+          dx = e.clientX - (r.left + r.width / 2),
+          dy = e.clientY - (r.top + r.height / 2),
+          d = Math.hypot(dx, dy) || 1,
+          k = Math.min(1, d / 260);
+        el.style.setProperty("--ex", ((dx / d) * 4 * k).toFixed(2) + "px");
+        el.style.setProperty("--ey", ((dy / d) * 3 * k).toFixed(2) + "px");
+      });
+    };
+    window.addEventListener("pointermove", move);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
   const push = (m: NewMsg) => setMessages((list) => [...list, { ...m, id: Date.now() + Math.random() } as Msg]);
   const markDone = (id: number, key: string) =>
     setMessages((list) =>
@@ -228,6 +270,9 @@ export function FlowAssistant({
             </div>
           )}
           <button
+            ref={(el) => {
+              if (el) charRef.current = el;
+            }}
             className="flow-fab"
             aria-label="เปิดผู้ช่วย AI น้องโฟลว์"
             onClick={() => {
@@ -235,7 +280,7 @@ export function FlowAssistant({
               setHello(false);
             }}
           >
-            <FlowMascot size={84} animated mood="idle" />
+            <FlowMascot size={84} animated mood="idle" act={act} />
             <span className="flow-fab-shadow" />
           </button>
         </div>
@@ -243,8 +288,13 @@ export function FlowAssistant({
       {open && (
         <aside className="flow-panel" role="dialog" aria-label="ผู้ช่วย AI น้องโฟลว์">
           <header className="flow-head">
-            <span className="flow-head-char">
-              <FlowMascot size={62} label="น้องโฟลว์" animated mood={mood} />
+            <span
+              className="flow-head-char"
+              ref={(el) => {
+                if (el) charRef.current = el;
+              }}
+            >
+              <FlowMascot size={62} label="น้องโฟลว์" animated mood={mood} act={mood === "idle" ? act : ""} />
             </span>
             <div>
               <strong>น้องโฟลว์</strong>

@@ -1175,3 +1175,128 @@
     font-size: 13px;
   }
 }
+
+/* Logo image + pricing page */
+.lp-logo img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex: none;
+}
+.pr-hero .lp-head h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  margin: 10px 0 12px;
+}
+.pr-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--card-line);
+  border-radius: 18px;
+  background: var(--card);
+}
+.pr-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.pr-table th,
+.pr-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--card-line);
+  text-align: center;
+}
+.pr-table th[scope="row"],
+.pr-table thead th:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text);
+}
+.pr-table thead th {
+  font-family: var(--lp-display), sans-serif;
+  font-size: 17px;
+  padding-top: 20px;
+}
+.pr-table thead th small {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--lp-thai), sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.pr-table .pop {
+  background: rgba(124, 92, 255, 0.09);
+}
+.pr-group th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+}
+.pr-yes {
+  color: #5ff2b5;
+}
+.pr-no {
+  color: var(--muted);
+}
+.pr-table tfoot td {
+  border-bottom: 0;
+  padding: 18px;
+}
+.pr-faq {
+  display: grid;
+  gap: 10px;
+}
+.pr-faq details {
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 4px 18px;
+}
+.pr-faq summary {
+  cursor: pointer;
+  padding: 14px 0;
+  font-weight: 600;
+}
+.pr-faq p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.lp-fine a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #c4b5ff;
+  font-weight: 600;
+}
+.lp .pr-table th,
+.lp .pr-table td {
+  background: transparent;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+  position: static;
+}
+.lp .pr-table .pop {
+  background: rgba(124, 92, 255, 0.09);
+}
+.lp .pr-table .pr-group th {
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.lp .pr-table thead th small {
+  color: var(--muted);
+}
+.lp .pr-table tbody th,
+.lp .pr-table tbody td {
+  font-size: 14px;
+  font-weight: 500;
+}
+.lp .pr-table .pr-group th {
+  font-size: 12px;
+  font-weight: 700;
+}

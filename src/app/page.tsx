@@ -1,1 +1,1 @@
-export { default, metadata } from "./eliteflow/page";
+export { default, metadata } from "./zetta/page";

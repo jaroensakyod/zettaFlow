@@ -5364,11 +5364,6 @@ img.net-logo {
     transform: translateY(-5px);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .flow-fab {
-    animation: none;
-  }
-}
 .flow-hello {
   position: relative;
   max-width: 230px;
@@ -5776,7 +5771,7 @@ img.net-logo {
 .flow-char.mood-listening .fc-arm {
   animation: fc-ears 1.2s ease-in-out infinite;
 }
-.flow-char.mood-thinking .fc-eyes {
+.flow-char.mood-thinking .fc-pupils {
   animation: fc-look 1.6s ease-in-out infinite;
 }
 .flow-char.mood-thinking .fc-bulb {
@@ -5864,14 +5859,6 @@ img.net-logo {
     transform: translate(3px, -3px);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .flow-char,
-  .flow-char *,
-  .flow-fab .flow-char,
-  .flow-fab-shadow {
-    animation: none !important;
-  }
-}
 .flow-head-char {
   display: grid;
   place-items: center;
@@ -5914,5 +5901,82 @@ img.net-logo {
   .flow-fab svg {
     width: 66px;
     height: 66px;
+  }
+}
+.fc-pupils {
+  transform: translate(var(--ex, 0px), var(--ey, 0px));
+  transition: transform 0.15s ease-out;
+}
+.fc-body {
+  transform-origin: 50% 100%;
+}
+.fc-antenna {
+  transform-origin: 50% 100%;
+}
+.flow-char.act-wave .fc-arm-r {
+  animation: fc-wave 0.45s ease-in-out 3;
+}
+.flow-char.act-hop .fc-body {
+  animation: fc-hop 0.9s ease-out;
+}
+.flow-char.act-look .fc-pupils {
+  animation: fc-glance 1.6s ease-in-out;
+}
+.flow-char.act-wiggle .fc-antenna {
+  animation: fc-wiggle 0.25s ease-in-out 6 alternate;
+}
+.flow-char.act-wiggle .fc-body {
+  animation: fc-tilt 1.5s ease-in-out;
+}
+.flow-fab:hover .fc-body {
+  animation: fc-hop 0.9s ease-out;
+}
+@keyframes fc-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(0) scale(1.08, 0.9);
+  }
+  45% {
+    transform: translateY(-16px) scale(0.95, 1.05);
+  }
+  70% {
+    transform: translateY(0) scale(1.06, 0.92);
+  }
+}
+@keyframes fc-glance {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25%,
+  40% {
+    transform: translate(-4px, 0);
+  }
+  60%,
+  75% {
+    transform: translate(4px, -1px);
+  }
+}
+@keyframes fc-wiggle {
+  from {
+    transform: rotate(-14deg);
+  }
+  to {
+    transform: rotate(14deg);
+  }
+}
+@keyframes fc-tilt {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30% {
+    transform: rotate(-7deg);
+  }
+  65% {
+    transform: rotate(6deg);
   }
 }
