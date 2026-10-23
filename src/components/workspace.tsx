@@ -63,13 +63,14 @@ import { FlowAssistant } from "./flow-assistant";
 import { SubscriptionPanel, SlipChecker } from "./platform";
 import { SupportChat, AdminConsole } from "./engage";
 import { AiWorkspace } from "./ai-workspace";
+import { CoinBadge, CoinStore, Departments } from "./coins";
+import { ExpenseCapture } from "./expense-capture";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
 import {
   Chat,
   Calendar,
   Reports,
-  ModuleStore,
   Assistant,
 } from "./tools";
 const groups = [
@@ -105,7 +106,7 @@ const groups = [
     label: "ZettaFlow AI",
     items: ["ai-inbox", "templates", "assistant", "integrations"],
   },
-  { label: "จัดการระบบ", items: ["company", "team", "store", "pricing", "admin"] },
+  { label: "จัดการระบบ", items: ["departments", "company", "team", "store", "pricing", "admin"] },
 ];
 // Shortcuts shown in the top bar; everything else lives under the แผนก menu.
 const primary: [string, string, LucideIcon][] = [
@@ -183,10 +184,15 @@ const extra: Record<
     icon: "ShieldCheck",
     description: "จัดการสมาชิกและสิทธิ์การเข้าถึงแต่ละแผนก",
   },
-  store: {
-    label: "Module Library",
+  departments: {
+    label: "แผนกทั้งหมด",
     icon: "Grid2X2",
-    description: "เครื่องมือสำหรับทุกทีมในธุรกิจของคุณ",
+    description: "เลือกแผนกเพื่อเปิดระบบงานของแผนกนั้น",
+  },
+  store: {
+    label: "Module Store",
+    icon: "Store",
+    description: "ซื้อระบบของแต่ละแผนกด้วยเหรียญ ซื้อครั้งเดียวใช้ได้ตลอด",
   },
   pricing: {
     label: "แพ็กเกจบริการ",
@@ -478,6 +484,7 @@ export function Workspace({
             </button>
           </nav>
           <div className="topnav-actions">
+            <CoinBadge ctx={ctx} />
             <button
               className="icon-button"
               aria-label="ค้นหาเครื่องมือ"
@@ -609,6 +616,11 @@ export function Workspace({
               notify={notify}
               refreshKey={lastSync.getTime()}
             />
+          ) : view === "expenses" && catalog[view] ? (
+            <>
+              <ExpenseCapture ctx={ctx} notify={notify} changed={load} />
+              <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} />
+            </>
           ) : catalog[view] ? (
             <Records
               key={view}
@@ -632,7 +644,9 @@ export function Workspace({
           ) : view === "reports" ? (
             <Reports notify={notify} />
           ) : view === "store" ? (
-            <ModuleStore navigate={navigate} />
+            <CoinStore ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "departments" ? (
+            <Departments ctx={ctx} navigate={navigate} />
           ) : view === "pricing" ? (
             <div className="elite-zone">
               <SubscriptionPanel ctx={ctx} notify={notify} />

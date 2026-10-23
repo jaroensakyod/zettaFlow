@@ -9,11 +9,9 @@ import {
   FileText,
   BarChart3,
   Settings2,
-  Search,
   BookOpen,
   Palette,
   Check,
-  ArrowUpRight,
 } from "lucide-react";
 import { api, Empty, Loading, displayDate, money } from "./shared";
 import { catalog, departmentNames, statusLabels, modules } from "@/lib/catalog";
@@ -331,46 +329,6 @@ export function Reports({ notify }: { notify: (s: string) => void }) {
           ข้อมูลเก็บเข้าคลังจะไม่รวมในการส่งออก
         </div>
       </section>
-    </>
-  );
-}
-export function ModuleStore({ navigate }: { navigate: (v: string) => void }) {
-  const [query, setQuery] = useState("");
-  return (
-    <>
-      <div className="section-actions">
-        <div className="search-box">
-          <Search size={16} />
-          <input
-            aria-label="ค้นหาโมดูล"
-            placeholder="ค้นหาเครื่องมือสำหรับทีม…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <span className="muted">
-          โมดูลที่มีใน workspace · ไม่หักเหรียญหรือเรียกเก็บเงิน
-        </span>
-      </div>
-      <div className="template-grid">
-        {modules
-          .filter((m) =>
-            (m.label + " " + m.department)
-              .toLowerCase()
-              .includes(query.toLowerCase()),
-          )
-          .map((m) => (
-            <article className="card store-card" key={m.key}>
-              <span className="badge">{m.department}</span>
-              <h2>{m.label}</h2>
-              <p>{m.description}</p>
-              <button className="secondary" onClick={() => navigate(m.key)}>
-                เปิดโมดูล
-                <ArrowUpRight size={15} />
-              </button>
-            </article>
-          ))}
-      </div>
     </>
   );
 }

@@ -59,6 +59,8 @@ import {
   feedProposalStatus,
 } from "@/lib/feed";
 import { designData, designAction } from "@/lib/design";
+import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
+import { readReceipt, expenseOverview } from "@/lib/expenses";
 import { stageData, changeStage } from "@/lib/project-stages";
 import { transferData, transferStock } from "@/lib/transfers";
 import {
@@ -382,6 +384,25 @@ async function handle(req: NextRequest) {
         return response({ ...(await billing(ctx)), platformAdmin: platformAdmin(ctx) });
       return response(await requestPayment(ctx, await body(req)), 201);
     }
+    if (path[0] === "coins") {
+      if (path[1] === "admin") {
+        if (method === "GET") return response(await pendingTopups(ctx));
+        const input = z
+          .object({
+            status: z.enum(["verified", "rejected"]),
+            note: z.string().max(500).optional(),
+          })
+          .parse(await body(req));
+        await confirmTopup(ctx, z.uuid().parse(path[2]), input.status, input.note);
+        return response({ ok: true });
+      }
+      if (method === "GET") return response(await coinStore(ctx));
+      if (path[1] === "topup") return response(await requestTopup(ctx, await body(req)), 201);
+      if (path[1] === "buy")
+        return response(await buyModule(ctx, z.string().regex(/^[a-z_]{1,40}$/).parse(path[2])), 201);
+    }
+    if (path[0] === "receipts")
+      return response(method === "GET" ? await expenseOverview(ctx) : await readReceipt(ctx, await body(req)));
     if (path[0] === "support") {
       if (method === "GET") {
         const thread = await supportThread(ctx);

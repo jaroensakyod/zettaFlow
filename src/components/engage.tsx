@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, X, Send, Megaphone, Trash2, Plus, Save } from "lucide-react";
 import { api, Modal, Empty, displayDate } from "./shared";
 import { PlatformPayments } from "./platform";
+import { AdminTopups } from "./coins";
 import type { Context } from "@/lib/types";
 import type { Announcement, Promo, SupportMessage } from "@/lib/engage";
 
@@ -69,6 +70,12 @@ export function SupportChat({ ctx }: { ctx: Context }) {
     },
     [],
   );
+  // Other screens (e.g. coin top-up) open the chat with window.dispatchEvent(new Event("ef:support-open")).
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener("ef:support-open", show);
+    return () => window.removeEventListener("ef:support-open", show);
+  }, []);
   useEffect(() => {
     if (!allowed) return;
     load(open);
@@ -155,7 +162,12 @@ export function AdminConsole({ notify }: { notify: (s: string) => void }) {
       {tab === "support" && <SupportInbox notify={notify} />}
       {tab === "promos" && <ContentEditor kind="promos" notify={notify} />}
       {tab === "announcements" && <ContentEditor kind="announcements" notify={notify} />}
-      {tab === "payments" && <PlatformPayments notify={notify} changed={() => {}} />}
+      {tab === "payments" && (
+        <>
+          <AdminTopups notify={notify} />
+          <PlatformPayments notify={notify} changed={() => {}} />
+        </>
+      )}
     </>
   );
 }

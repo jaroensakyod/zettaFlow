@@ -364,7 +364,7 @@ function ShareManager({
   );
 }
 
-async function uploadFile(file: File, department: string) {
+export async function uploadFile(file: File, department: string) {
   const upload = new FormData();
   upload.set("file", file);
   upload.set("department", department);

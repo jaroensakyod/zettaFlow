@@ -18,6 +18,7 @@ const extra = [
   "company",
   "team",
   "store",
+  "departments",
   "pricing",
   "assistant",
   "slips",
