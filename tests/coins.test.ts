@@ -69,7 +69,7 @@ test("expenses accept the new tax-document fields", async () => {
     const c = (await one<{ id: string }>(db, "select create_company('B')as id")).id;
     const r = await one<{ data: Record<string, unknown> }>(db, "select data from save_entity($1,'expenses',$2)", [
       c,
-      { name: "ค่าบริการ", category: "ค่าบริการ", date: "2026-10-01", amount: 10700, vatMode: "included", whtRate: "3", docType: "ใบกำกับภาษี", docNo: "INV-1", status: "pending" },
+      { name: "ค่าบริการ", category: "ค่าบริการ", date: "2026-10-01", amount: 10700, vatMode: "included", whtRate: "3", docType: "ใบกำกับภาษีเต็มรูป", docNo: "INV-1", status: "pending" },
     ]);
     assert.equal(r.data.whtRate, "3");
     assert.equal(r.data.docNo, "INV-1");

@@ -11,13 +11,34 @@ export type Field = {
     | "select"
     | "url"
     | "relation"
-    | "image";
+    | "image"
+    | "lines";
   required?: boolean;
   options?: string[];
   resource?: string;
   min?: number;
   group?: string;
+  /** Kept in the record but edited on a dedicated page, not in the generic form. */
+  hidden?: boolean;
 };
+/** One row of a document's item list (`lines` field). */
+export type Line = { name: string; qty: number; price: number };
+export const expenseCategories = ["ค่ามัดจำ", "ค่าเช่า", "ค่าไฟฟ้า", "ค่าบริการ", "ค่าพรม", "บุคลากร", "จัดซื้อ", "ขนส่ง", "การตลาด", "อื่นๆ"] as const;
+export const docTypes = ["ใบกำกับภาษีเต็มรูป", "ใบกำกับภาษีอย่างย่อ", "ใบเสร็จ", "ใบแจ้งหนี้"] as const;
+export const payStatuses = ["โอนแล้ว", "เงินสดย่อย", "ยังไม่จ่าย"] as const;
+export const partyTypes = ["นิติบุคคล", "บุคคลธรรมดา"] as const;
+export const supplierCategories = ["สินค้า / วัตถุดิบ", "บริการ"] as const;
+/** Documents HR keeps for each employee (ticked off in `checklist`, comma separated). */
+export const employeeDocuments = ["สัญญาจ้างงาน", "สำเนาบัตรประชาชน", "สำเนาทะเบียนบ้าน", "วุฒิการศึกษา", "หน้าสมุดบัญชีธนาคาร", "ใบรับรองแพทย์"] as const;
+/** Approval rights HR records per employee (shown as switches; the role on the team page is what the system enforces). */
+export const approvalRights = [
+  ["leave", "อนุมัติใบลา", "ลาป่วย ลากิจ ลาพักร้อนของทีม"],
+  ["expense", "อนุมัติเบิกค่าใช้จ่าย", "วงเงินตามที่บริษัทกำหนดต่อครั้ง"],
+  ["purchase", "อนุมัติใบสั่งซื้อ", "สั่งซื้อสินค้าและบริการจาก Supplier"],
+  ["project", "อนุมัติงานโปรเจกต์", "ปิดงาน และส่งงานต่อให้แผนกอื่น"],
+  ["contract", "อนุมัติสัญญา", "สัญญาลูกค้าและสัญญา Supplier"],
+  ["staff", "จัดการข้อมูลพนักงาน", "เพิ่ม แก้ไข และกำหนดสิทธิ์ให้คนอื่น"],
+] as const;
 export type Module = {
   key: string;
   label: string;
@@ -45,6 +66,12 @@ const contact = [
   f("address", "ที่อยู่", "textarea"),
   f("notes", "หมายเหตุ", "textarea"),
 ];
+// Second address and contact person (directory tabs ที่อยู่ / ผู้ติดต่อ).
+const secondary = [
+  f("shippingAddress", "ที่อยู่จัดส่ง", "textarea"),
+  f("contact2", "ผู้ติดต่อคนที่ 2"),
+  f("contact2Phone", "โทรศัพท์ผู้ติดต่อคนที่ 2", "tel"),
+];
 const project = f("projectId", "โครงการ", "relation", false, {
   resource: "projects",
 });
@@ -62,11 +89,19 @@ export const modules: Module[] = [
     columns: ["name", "phone", "email", "status"],
     fields: [
       f("name", "ชื่อลูกค้า", "text", true),
-      f("code", "รหัสลูกค้า"),
+      f("code", "รหัสลูกค้า (เว้นว่างเพื่อออกรหัสอัตโนมัติ)"),
+      f("type", "ประเภท", "select", false, { options: [...partyTypes] }),
       f("company", "บริษัท"),
+      f("taxId", "เลขประจำตัวผู้เสียภาษี"),
+      f("branch", "สำนักงาน / สาขา"),
+      f("businessType", "ประเภทธุรกิจ"),
       f("segment", "กลุ่มลูกค้า", "select", false, {
-        options: ["standard", "vip"],
+        options: ["standard", "regular", "vip"],
       }),
+      f("creditDays", "เครดิต (วัน)", "number", false, { min: 0 }),
+      f("creditLimit", "วงเงินเครดิต", "number", false, { min: 0 }),
+      f("ownerId", "ผู้ดูแล", "relation", false, { resource: "employees" }),
+      ...secondary,
       status(["active", "inactive"]),
       ...contact,
     ],
@@ -109,9 +144,23 @@ export const modules: Module[] = [
     columns: ["name", "contact", "phone", "status"],
     fields: [
       f("name", "ชื่อซัพพลายเออร์", "text", true),
-      f("code", "รหัส"),
+      f("code", "รหัส (เว้นว่างเพื่อออกรหัสอัตโนมัติ)"),
+      f("type", "ประเภท", "select", false, { options: [...partyTypes] }),
+      f("category", "สินค้า / บริการ", "select", false, { options: [...supplierCategories] }),
+      f("tier", "ระดับ Supplier", "select", false, { options: ["หลัก", "สำรอง"] }),
       f("taxId", "เลขประจำตัวผู้เสียภาษี"),
+      f("branch", "สำนักงาน / สาขา"),
+      f("businessType", "ประเภทธุรกิจ"),
+      f("rating", "คะแนน (0–5)", "number", false, { min: 0 }),
+      f("leadTime", "ระยะเวลาส่งของ"),
+      f("creditDays", "เครดิต (วัน)", "number", false, { min: 0 }),
       f("paymentTerms", "เงื่อนไขชำระเงิน"),
+      f("bankName", "ธนาคาร"),
+      f("bankAccount", "เลขบัญชี"),
+      f("bankAccountName", "ชื่อบัญชี"),
+      f("products", "สินค้า / บริการที่ซื้อ", "textarea"),
+      f("docExpiry", "เอกสารหมดอายุ", "date"),
+      ...secondary,
       status(["active", "inactive"]),
       ...contact,
     ],
@@ -140,7 +189,19 @@ export const modules: Module[] = [
       f("bank", "ธนาคาร"),
       f("bankAccount", "เลขบัญชี"),
       f("emergency", "ผู้ติดต่อฉุกเฉิน"),
-      status(["active", "on_leave", "inactive"]),
+      f("level", "ระดับ", "select", false, { options: ["พนักงาน", "หัวหน้างาน", "ผู้จัดการ", "ผู้บริหาร"] }),
+      f("managerId", "หัวหน้างาน", "relation", false, { resource: "employees" }),
+      f("branch", "สาขา"),
+      f("workHours", "เวลาทำงาน"),
+      f("about", "เกี่ยวกับ", "textarea"),
+      f("skills", "ทักษะ (คั่นด้วย ,)"),
+      f("score", "คะแนนประเมิน (0–100)", "number", false, { min: 0 }),
+      f("leaveQuota", "วันลาต่อปี", "number", false, { min: 0 }),
+      f("checklist", "เอกสารที่ส่งแล้ว", "text", false, { hidden: true }),
+      f("approvals", "สิทธิ์การอนุมัติ", "text", false, { hidden: true }),
+      f("history", "ประวัติการทำงาน", "textarea", false, { hidden: true }),
+      f("cover", "รูปปก", "image", false, { hidden: true }),
+      status(["active", "probation", "on_leave", "inactive"]),
       ...contact,
     ],
   },
@@ -362,32 +423,24 @@ export const modules: Module[] = [
     fields: [
       f("name", "รายการค่าใช้จ่าย", "text", true),
       project,
-      f("category", "หมวดหมู่", "select", true, {
-        options: [
-          "ค่ามัดจำ",
-          "ค่าเช่า",
-          "ค่าไฟฟ้า",
-          "ค่าบริการ",
-          "ค่าพรม",
-          "บุคลากร",
-          "จัดซื้อ",
-          "ขนส่ง",
-          "การตลาด",
-          "อื่นๆ",
-        ],
-      }),
+      f("category", "หมวดหมู่", "select", true, { options: [...expenseCategories] }),
+      f("accountCode", "รหัสผังบัญชี"),
+      f("costCenter", "ศูนย์ต้นทุน"),
       f("payee", "ผู้รับเงิน"),
       f("supplierId", "Supplier", "relation", false, { resource: "suppliers" }),
-      f("docType", "ประเภทเอกสาร", "select", false, {
-        options: ["ใบกำกับภาษี", "บิลเงินสด", "ใบเสร็จ", "ใบแจ้งหนี้"],
-      }),
+      f("docType", "ประเภทเอกสาร", "select", false, { options: [...docTypes] }),
       f("docNo", "เลขที่เอกสาร"),
       f("taxId", "เลขผู้เสียภาษีผู้ขาย"),
       f("date", "วันที่", "date", true),
+      f("receiptId", "ไฟล์ใบเสร็จ", "image", false, { hidden: true }),
+      f("lines", "รายการสินค้า", "lines", false, { hidden: true }),
       f("amount", "ยอดตามเอกสาร", "number", true, { min: 0 }),
       f("vatMode", "VAT", "select", false, { options: ["included", "excluded", "none"] }),
       f("whtRate", "หัก ณ ที่จ่าย (%)", "select", false, { options: ["0", "1", "2", "3", "5"] }),
-      f("payStatus", "การชำระ", "select", false, { options: ["จ่ายแล้ว", "รอจ่าย", "จ่ายบางส่วน"] }),
+      f("payStatus", "การชำระ", "select", false, { options: [...payStatuses] }),
+      f("reviewStatus", "การตรวจ", "select", false, { options: ["รอตรวจ", "บันทึกแล้ว"], hidden: true }),
+      f("aiNotes", "เหตุผลจาก AI", "textarea", false, { hidden: true }),
+      f("aiUncertain", "ช่องที่ AI ไม่แน่ใจ", "text", false, { hidden: true }),
       status(["pending", "approved", "paid", "rejected"]),
       f("notes", "หมายเหตุ", "textarea"),
     ],
@@ -601,6 +654,7 @@ export const statusLabels: Record<string, string> = {
   available: "พร้อมใช้งาน",
   assigned: "มอบหมายแล้ว",
   on_leave: "ลาพัก",
+  probation: "ทดลองงาน",
   planning: "วางแผน",
   review: "รอตรวจทาน",
   completed: "เสร็จสิ้น",
@@ -633,6 +687,9 @@ export const statusLabels: Record<string, string> = {
   urgent: "ด่วน",
   income: "รับเงิน",
   expense: "จ่ายเงิน",
+  standard: "ทั่วไป",
+  regular: "ลูกค้าประจำ",
+  vip: "VIP",
 };
 // Business types common in Thailand, grouped (loosely following TSIC sections). The first item of
 // several groups is a broad type kept from the original short list so existing profiles stay valid.

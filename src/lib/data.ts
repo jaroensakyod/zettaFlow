@@ -23,6 +23,9 @@ import {
   templateSchema,
   validateValues,
   dashboardSummary,
+  codePrefixes,
+  thaiYear,
+  formatCode,
 } from "./domain";
 import { catalog } from "./catalog";
 import type { Context, Entity, Template, Ingestion, HomeData } from "./types";
@@ -118,6 +121,25 @@ export async function listEntities(
   const { data, error, count } = await query;
   dbError(error);
   return { rows: (data || []) as Entity[], count: count || 0 };
+}
+/** Every live record of one kind the user may read (newest first), for pages that summarise a whole list. */
+export async function allEntities(ctx: Context, kind: string, limit = 2000) {
+  if (ctx.demo)
+    return (await demoRead()).entities
+      .filter((e) => e.kind === kind && !e.archived_at && canRead(ctx, e.department))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, limit);
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("entities")
+    .select("*")
+    .eq("company_id", ctx.company.id)
+    .eq("kind", kind)
+    .is("archived_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  dbError(error);
+  return (data || []) as Entity[];
 }
 export async function entityOptions(ctx: Context) {
   if (ctx.demo)
@@ -227,6 +249,12 @@ export async function saveEntity(
               ? "partial"
               : "issued";
       }
+      const prefix = codePrefixes[kind];
+      if (prefix && !data.code) {
+        const books = (s.accounting ||= { journals: [], wht: [], counters: {} }),
+          key = prefix;
+        data.code = old?.data.code || formatCode(prefix, thaiYear(), (books.counters[key] = (books.counters[key] || 0) + 1));
+      }
       const record: Entity = {
         id: id || randomUUID(),
         company_id: ctx.company.id,
@@ -278,6 +306,19 @@ export async function saveEntity(
   });
   dbError(error);
   return record as Entity;
+}
+/** The code the next new customer / supplier will get (does not reserve it). */
+export async function nextCode(ctx: Context, kind: string) {
+  const prefix = codePrefixes[kind];
+  assert(prefix, "ไม่มีรหัสอัตโนมัติ", 404);
+  if (ctx.demo) {
+    const n = ((await demoRead()).accounting?.counters[prefix] || 0) + 1;
+    return { code: formatCode(prefix, thaiYear(), n) };
+  }
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("peek_code", { p_company: ctx.company.id, p_kind: kind });
+  dbError(error);
+  return { code: String(data || "") };
 }
 export async function archiveEntity(
   ctx: Context,

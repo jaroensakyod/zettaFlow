@@ -108,6 +108,7 @@ export function FieldControl({
   options: Option[];
   department?: string;
 }) {
+  if (field.hidden || field.type === "lines") return null;
   if (field.type === "image")
     return <ImageField field={field} value={value} set={set} department={department} />;
   const props = {
@@ -196,6 +197,79 @@ function initialValues(kind: string, row?: Entity) {
             ? new Date().toISOString().slice(0, 10)
             : "",
     ]),
+  );
+}
+/** Add / edit dialog for plain catalog records (directory pages); Records keeps its own for kinds with extra rules. */
+export function EntityEditor({
+  kind,
+  row,
+  initial,
+  options,
+  writable,
+  onClose,
+  onSaved,
+}: {
+  kind: string;
+  row?: Entity;
+  initial?: Record<string, unknown>;
+  options: Option[];
+  writable: boolean;
+  onClose: () => void;
+  onSaved: (row: Entity) => void;
+}) {
+  const module = catalog[kind];
+  const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...initialValues(kind, row), ...initial })),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const saved: Entity = await api("/entities/" + kind + (row ? "/" + row.id : ""), {
+        method: row ? "PATCH" : "POST",
+        body: { data: values, version: row?.version },
+      });
+      onSaved(saved);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose}>
+      <form onSubmit={save}>
+        <fieldset disabled={!writable || busy}>
+          <div className="form-grid">
+            {module.fields.map((f) => (
+              <FieldControl
+                key={f.key}
+                field={f}
+                value={values[f.key]}
+                set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
+                options={options}
+                department={module.department}
+              />
+            ))}
+          </div>
+        </fieldset>
+        <p role="alert" className="form-error">
+          {error}
+        </p>
+        <div className="modal-footer">
+          <button type="button" className="secondary" onClick={onClose}>
+            ปิด
+          </button>
+          {writable && (
+            <button className="primary" disabled={busy}>
+              <Check size={15} />
+              {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล"}
+            </button>
+          )}
+        </div>
+      </form>
+    </Modal>
   );
 }
 export function Records({

@@ -18,6 +18,7 @@ import type {
   ProjectInventory,
 } from "./types";
 import { AppError, assert, stockDelta, validateValues } from "./domain";
+import type { AccountingState } from "./ledger";
 export const demoEnabled = () =>
   process.env.ELITEFLOW_DEMO_MODE === "true" && !process.env.VERCEL;
 /** Public read-only showcase (/demo). Same sample data, held in memory, never written. */
@@ -37,6 +38,7 @@ function showcaseState(): DemoState {
 export const READ_ONLY_DEMO =
   "นี่คือระบบตัวอย่าง (อ่านอย่างเดียว) — สมัครใช้งานฟรีเพื่อบันทึกข้อมูลจริง";
 export type DemoState = {
+  accounting?: AccountingState;
   transfers?: StockTransfer[];
   projectInventory?: ProjectInventory[];
   stages?: ProjectStage[];

@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   context,
   listEntities,
+  nextCode,
   entityOptions,
   saveEntity,
   archiveEntity,
@@ -60,7 +61,9 @@ import {
 } from "@/lib/feed";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
-import { readReceipt, expenseOverview } from "@/lib/expenses";
+import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml } from "@/lib/accounting";
+import { importRows } from "@/lib/importer";
+import { directory } from "@/lib/directory";
 import { stageData, changeStage } from "@/lib/project-stages";
 import { transferData, transferStock } from "@/lib/transfers";
 import {
@@ -402,7 +405,29 @@ async function handle(req: NextRequest) {
         return response(await buyModule(ctx, z.string().regex(/^[a-z_]{1,40}$/).parse(path[2])), 201);
     }
     if (path[0] === "receipts")
-      return response(method === "GET" ? await expenseOverview(ctx) : await readReceipt(ctx, await body(req)));
+      return response(method === "GET" ? await accountingOverview(ctx) : await importReceipt(ctx, await body(req)), method === "GET" ? 200 : 201);
+    if (path[0] === "accounting") {
+      const id = z.uuid().parse(path[2]);
+      if (path[1] === "post" && method === "POST") return response(await postExpense(ctx, id));
+      if (path[1] === "books" && method === "GET") return response(await expenseBooks(ctx, id));
+    }
+    if (path[0] === "wht" && method === "GET")
+      return new Response(await whtCertificateHtml(ctx, z.uuid().parse(path[1])), {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "private, no-store",
+          "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
+        },
+      });
+    if (path[0] === "import" && method === "POST") {
+      assert(Number(req.headers.get("content-length") || 0) <= 4500000, "ไฟล์สูงสุด 4 MB", 413);
+      const file = (await req.formData()).get("file");
+      assert(file instanceof File, "แนบไฟล์ CSV หรือ Excel");
+      return response(await importRows(ctx, z.string().max(40).parse(path[1]), file));
+    }
+    if (path[0] === "entities" && path[2] === "next-code" && method === "GET")
+      return response(await nextCode(ctx, path[1]));
+    if (path[0] === "directory" && method === "GET") return response(await directory(ctx, z.string().max(40).parse(path[1])));
     if (path[0] === "support") {
       if (method === "GET") {
         const thread = await supportThread(ctx);

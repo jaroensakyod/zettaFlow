@@ -6,6 +6,7 @@ import type { FlowAction, FlowCard } from "@/lib/flow";
 import type { TaskDraft } from "@/lib/flow-intent";
 import type { Context } from "@/lib/types";
 import { api } from "./shared";
+import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
 import { FlowMascot, type FlowAct, type FlowMood } from "./mascot";
 
@@ -68,7 +69,32 @@ export function FlowAssistant({
     charRef = useRef<HTMLElement | null>(null),
     listRef = useRef<HTMLDivElement>(null),
     fileRef = useRef<HTMLInputElement>(null),
-    inputRef = useRef<HTMLInputElement>(null);
+    inputRef = useRef<HTMLInputElement>(null),
+    // Attached files stay in memory only (chat history in sessionStorage keeps just the names).
+    filesRef = useRef(new Map<number, File>());
+  const sendReceipt = async (msgId: number) => {
+    const file = filesRef.current.get(msgId);
+    if (!file) {
+      push({ from: "bot", text: "ไฟล์นี้ไม่อยู่ในหน้านี้แล้ว แนบใบเสร็จใหม่อีกครั้งได้เลยค่ะ", actions: [], cards: [] });
+      return;
+    }
+    setBusy(true);
+    try {
+      const attachmentId = await uploadFile(file, "Finance");
+      const r: { error?: string } = await api("/receipts", { method: "POST", body: { attachmentId } });
+      markDone(msgId, "receipt");
+      push({
+        from: "bot",
+        text: r.error ? "ส่งเข้าระบบบัญชีแล้ว แต่ AI อ่านไม่ได้ กรุณากรอกข้อมูลเองค่ะ" : "ส่งเข้าระบบบัญชีแล้ว AI กรอกข้อมูลให้ รอคุณตรวจและกดบันทึกค่ะ",
+        actions: [{ type: "open", view: "expenses", label: "เปิดหน้าระบบบัญชี" }],
+        cards: [],
+      });
+    } catch (e) {
+      push({ from: "bot", text: "ส่งใบเสร็จไม่สำเร็จ: " + (e as Error).message, actions: [], cards: [] });
+    } finally {
+      setBusy(false);
+    }
+  };
   useEffect(() => {
     try {
       if (sessionStorage.getItem(STORE + "-open") === "1") setOpen(true);
@@ -224,8 +250,10 @@ export function FlowAssistant({
         if (!r.ok) throw Error((reply as unknown as { error: string }).error);
       } else reply = await api("/flow", { method: "POST", body: { message } });
       const auto = reply.actions.find((a) => a.type === "open" && a.auto);
+      const botId = Date.now() + Math.random();
+      if (file) filesRef.current.set(botId, file);
       const bot: Msg = {
-        id: Date.now() + Math.random(),
+        id: botId,
         from: "bot",
         text: reply.reply,
         actions: reply.actions,
@@ -365,6 +393,18 @@ export function FlowAssistant({
                             markDone(m.id, "open:" + a.view);
                           }}
                         >
+                          {a.label}
+                          <ArrowRight size={14} />
+                        </button>
+                      )
+                    ) : a.type === "receipt" ? (
+                      m.done?.includes("receipt") ? (
+                        <span key={i} className="flow-done">
+                          <Check size={14} />
+                          ส่งเข้าระบบบัญชีแล้ว
+                        </span>
+                      ) : (
+                        <button key={i} className="secondary flow-action" disabled={busy} onClick={() => sendReceipt(m.id)}>
                           {a.label}
                           <ArrowRight size={14} />
                         </button>

@@ -2,7 +2,7 @@
 // for the user to confirm. It never saves anything by itself.
 import { z } from "zod";
 import { catalog } from "./catalog";
-import { assert } from "./domain";
+import { assert, canWrite } from "./domain";
 import { home, listEntities, summary } from "./data";
 import { entitled } from "./platform";
 import { MAX_PDF_PAGES, pdfPages } from "./billing";
@@ -11,7 +11,9 @@ import type { Context, Entity } from "./types";
 
 export type FlowAction =
   | { type: "open"; view: string; label: string; auto?: boolean }
-  | { type: "create_task"; draft: TaskDraft; label: string };
+  | { type: "create_task"; draft: TaskDraft; label: string }
+  /** Sends the attached receipt to the accounting page as an expense waiting review (only after the user clicks). */
+  | { type: "receipt"; label: string };
 export type FlowCard = { title: string; sub: string; tone?: "danger" | "warn" | "ok"; view?: string };
 export type FlowReply = { reply: string; actions: FlowAction[]; cards: FlowCard[]; engine: string };
 
@@ -87,11 +89,13 @@ async function summarizeDocument(ctx: Context, file: File): Promise<FlowReply> {
   const inbox = open("ai-inbox");
   assert(file.size > 0 && file.size <= 4000000, "ไฟล์สูงสุด 4 MB");
   assert(["application/pdf", "image/png", "image/jpeg", "image/webp"].includes(file.type), "อ่านได้เฉพาะ PDF และรูปภาพ");
+  const receipt: FlowAction[] = canWrite(ctx, "Finance") ? [{ type: "receipt", label: "ส่งเป็นใบเสร็จเข้าระบบบัญชี" }] : [];
   if (!(await entitled(ctx, "exec_dashboard")) || !process.env.OPENAI_API_KEY)
     return {
       reply:
-        "ตอนนี้น้องโฟลว์ยังอ่านเอกสารเองไม่ได้ เพราะยังไม่ได้เปิด AI Add-on หรือยังไม่ได้ตั้งค่า AI ส่งเอกสารเข้า Data Inbox เพื่อให้ระบบดึงข้อมูลลงฟอร์มให้ตรวจแทนได้ค่ะ",
-      actions: [inbox],
+        "ตอนนี้น้องโฟลว์ยังอ่านเอกสารเองไม่ได้ เพราะยังไม่ได้เปิด AI Add-on หรือยังไม่ได้ตั้งค่า AI ส่งเอกสารเข้า Data Inbox เพื่อให้ระบบดึงข้อมูลลงฟอร์มให้ตรวจแทนได้ค่ะ" +
+        (receipt.length ? " ถ้าเป็นใบเสร็จ กดส่งเข้าระบบบัญชีให้ตรวจได้เลยค่ะ" : ""),
+      actions: [...receipt, inbox],
       cards: [],
       engine: "rules",
     };
@@ -108,7 +112,7 @@ async function summarizeDocument(ctx: Context, file: File): Promise<FlowReply> {
     ],
     600,
   );
-  return { reply, actions: [{ ...inbox, label: "บันทึกเข้าระบบผ่าน Data Inbox" }], cards: [], engine: "ai" };
+  return { reply, actions: [...receipt, { ...inbox, label: "บันทึกเข้าระบบผ่าน Data Inbox" }], cards: [], engine: "ai" };
 }
 
 export async function flowReply(ctx: Context, input: unknown, file?: File | null): Promise<FlowReply> {

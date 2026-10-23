@@ -64,7 +64,8 @@ import { SubscriptionPanel, SlipChecker } from "./platform";
 import { SupportChat, AdminConsole } from "./engage";
 import { AiWorkspace } from "./ai-workspace";
 import { CoinBadge, CoinStore, Departments } from "./coins";
-import { ExpenseCapture } from "./expense-capture";
+import { Accounting } from "./accounting";
+import { Directory } from "./directory";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
 import {
@@ -618,9 +619,12 @@ export function Workspace({
             />
           ) : view === "expenses" && catalog[view] ? (
             <>
-              <ExpenseCapture ctx={ctx} notify={notify} changed={load} />
-              <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} />
+              <Accounting ctx={ctx} notify={notify} changed={load} />
+              <h2 className="acc-table-title">ตารางค่าใช้จ่ายทั้งหมด</h2>
+              <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} refresh={lastSync.getTime()} />
             </>
+          ) : view === "customers" || view === "suppliers" || view === "employees" ? (
+            <Directory key={view} kind={view} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
           ) : catalog[view] ? (
             <Records
               key={view}

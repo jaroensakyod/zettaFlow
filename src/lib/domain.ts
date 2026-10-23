@@ -49,6 +49,16 @@ function fieldSchema(f: Field) {
   if (f.type === "relation") return z.uuid();
   // An uploaded image is stored as its attachment id.
   if (f.type === "image") return z.uuid();
+  if (f.type === "lines")
+    return z
+      .array(
+        z.object({
+          name: z.string().trim().min(1).max(500),
+          qty: z.number().finite().min(0).max(1e9),
+          price: z.number().finite().min(-1e12).max(1e12),
+        }),
+      )
+      .max(100);
   return z
     .string()
     .trim()
@@ -107,6 +117,11 @@ export function validateEntity(kind: string, input: unknown) {
   if (kind === "deals") assert(Number(data.gp || 0) <= 100, "GP ไม่เกิน 100%");
   return data;
 }
+/** Running codes for customers / suppliers: CUS-67-0001 = Thai year added (2 digits) + a number that never resets. Mirrors assign_entity_code(). */
+export const codePrefixes: Record<string, string> = { customers: "CUS", suppliers: "SUP" };
+export const thaiYear = (now = Date.now()) => (new Date(now + 7 * 3600000).getUTCFullYear() + 543) % 100;
+export const formatCode = (prefix: string, year: number, n: number) =>
+  `${prefix}-${String(year).padStart(2, "0")}-${String(n).padStart(4, "0")}`;
 export function entityDepartment(kind: string, data: Record<string, unknown>) {
   return ["tasks", "documents"].includes(kind)
     ? String(data.department || "Operations")
