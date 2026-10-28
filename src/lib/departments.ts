@@ -1,7 +1,22 @@
 // แผนก mega menu: 9 colour-coded departments, 6 shortcuts each. Every `view` is a real workspace page
 // (catalog kind or extra view); `?kind=` opens the report page on that department's data.
 export type MenuItem = { label: string; view: string; icon: string };
-export type DepartmentMenu = { id: string; title: string; en: string; subtitle: string; icon: string; tone: string; overview: string; items: MenuItem[] };
+/** A left-sidebar entry; a group shows its children indented under it. */
+export type SideItem = MenuItem & { children?: MenuItem[] };
+export type DepartmentMenu = {
+  id: string;
+  title: string;
+  en: string;
+  subtitle: string;
+  icon: string;
+  tone: string;
+  overview: string;
+  items: MenuItem[];
+  /** Left sidebar on this department's pages; defaults to `items`. */
+  sidebar?: SideItem[];
+  /** Two-line message on the sidebar's illustration card. */
+  tagline?: [string, string];
+};
 
 export const departmentMenu: DepartmentMenu[] = [
   {
@@ -47,6 +62,24 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "ภาษี & ภ.ง.ด.", view: "tax", icon: "Landmark" },
       { label: "งบการเงิน & รายงาน", view: "reports?kind=expenses", icon: "ChartNoAxesCombined" },
     ],
+    sidebar: [
+      {
+        label: "ค่าใช้จ่าย", view: "expenses", icon: "FileSpreadsheet",
+        children: [
+          { label: "บันทึกค่าใช้จ่าย", view: "expense-new", icon: "FilePen" },
+          { label: "รายการค่าใช้จ่าย", view: "expenses", icon: "FileText" },
+          { label: "รออนุมัติ", view: "expenses?filter=pending", icon: "FileClock" },
+          { label: "รายงาน", view: "reports?kind=expenses", icon: "FileChartColumn" },
+        ],
+      },
+      { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit" },
+      { label: "การชำระเงิน", view: "payments", icon: "CalendarDays" },
+      { label: "ใบเสร็จรับเงิน", view: "bills", icon: "ScrollText" },
+      { label: "ภาษี & ภ.ง.ด.", view: "tax", icon: "BadgeDollarSign" },
+      { label: "งบการเงิน", view: "reports?kind=payments", icon: "ChartColumn" },
+      { label: "ตั้งค่า", view: "company", icon: "Settings" },
+    ],
+    tagline: ["จัดการการเงิน", "ได้อย่างเป็นระบบ โปร่งใส ตรวจสอบได้"],
   },
   {
     id: "hr", title: "บุคคล", en: "HR", subtitle: "บริหารบุคลากรและองค์กร", icon: "Users", tone: "amber", overview: "employees",
@@ -108,3 +141,22 @@ export const departmentMenu: DepartmentMenu[] = [
 /** Workspace views that are not catalog kinds but are opened from this menu. */
 export const menuViews = ["tax", "transfers", "expiries"];
 export const baseView = (view: string) => view.split("?")[0];
+export const sidebarOf = (d: DepartmentMenu): SideItem[] => d.sidebar || d.items;
+const entries = (d: DepartmentMenu) => sidebarOf(d).flatMap((i) => [i, ...(i.children || [])]);
+// App-wide pages: they only show a department sidebar when the user came from that department.
+const shared = new Set(["feed", "jobs", "dashboard", "calendar", "chat", "company", "team", "store", "departments", "pricing", "assistant", "admin", "integrations", "templates", "ai-inbox", "tasks", "documents", "reports"]);
+/** The department whose sidebar a page shows: an exact match (with ?query) wins, the last-used department is preferred. */
+export function departmentOf(view: string, preferred?: string | null) {
+  const ordered = [...departmentMenu].sort((a, b) => Number(b.id === preferred) - Number(a.id === preferred));
+  const exact = ordered.find((d) => entries(d).some((i) => i.view === view));
+  if (exact && (!shared.has(baseView(view)) || exact.id === preferred || view.includes("?"))) return exact;
+  const base = baseView(view);
+  const loose = ordered.find((d) => d.overview === base || entries(d).some((i) => baseView(i.view) === base));
+  return loose && (!shared.has(base) || loose.id === preferred) ? loose : undefined;
+}
+/** The sidebar entry for this page: the exact view (with ?query) if listed, else the first entry with the same base view. */
+export function activeEntry(d: DepartmentMenu, view: string) {
+  // Sub-pages first, so a group and its child with the same view highlight the child.
+  const all = sidebarOf(d).flatMap((i) => [...(i.children || []), i]);
+  return all.find((i) => i.view === view) || all.find((i) => baseView(i.view) === baseView(view));
+}

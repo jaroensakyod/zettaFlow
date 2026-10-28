@@ -6,6 +6,8 @@ export type TaskDraft = {
   department: string;
   dueDate: string;
   priority: "normal" | "high" | "urgent";
+  assignee?: string;
+  notes?: string;
 };
 export type Intent =
   | { kind: "open"; view: string }

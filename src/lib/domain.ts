@@ -56,6 +56,12 @@ function fieldSchema(f: Field) {
           name: z.string().trim().min(1).max(500),
           qty: z.number().finite().min(0).max(1e9),
           price: z.number().finite().min(-1e12).max(1e12),
+          // Optional expense-row details (บันทึกค่าใช้จ่าย).
+          category: z.string().trim().max(100).optional(),
+          unit: z.string().trim().max(30).optional(),
+          currency: z.string().trim().max(3).optional(),
+          discount: z.number().finite().min(0).max(1e12).optional(),
+          discountType: z.enum(["percent", "amount"]).optional(),
         }),
       )
       .max(100);

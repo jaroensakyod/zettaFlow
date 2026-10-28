@@ -167,7 +167,7 @@ export async function importReceipt(ctx: Context, input: unknown) {
   return { entity, engine: read?.engine || "manual", error: failure };
 }
 
-async function linkAttachment(ctx: Context, attachmentId: string, entityId: string) {
+export async function linkAttachment(ctx: Context, attachmentId: string, entityId: string) {
   if (ctx.demo)
     return demoMutate((s) => {
       const a = s.attachments.find((x) => x.id === attachmentId);

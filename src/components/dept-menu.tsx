@@ -6,7 +6,8 @@ import {
   CalendarOff, Car, ChartNoAxesCombined, ChevronDown, ClipboardCheck, Clock, CreditCard, Files, FileText, Gauge,
   Gavel, Landmark, ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt,
   ReceiptText, Scale, Search, ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users,
-  Wallet, Wrench, type LucideIcon,
+  Wallet, Wrench, FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign,
+  ChartColumn, Settings, type LucideIcon,
 } from "lucide-react";
 import { departmentMenu, baseView } from "@/lib/departments";
 
@@ -15,6 +16,14 @@ const icons: Record<string, LucideIcon> = {
   CalendarOff, Car, ChartNoAxesCombined, ClipboardCheck, Clock, CreditCard, Files, FileText, Gauge, Gavel, Landmark,
   ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt, ReceiptText, Scale,
   ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users, Wallet, Wrench,
+  FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign, ChartColumn, Settings,
+};
+/** The department the user last opened a page from; its sidebar wins when a page belongs to several. */
+export const DEPT_KEY = "eliteflow-dept";
+export const rememberDept = (id: string) => {
+  try {
+    sessionStorage.setItem(DEPT_KEY, id);
+  } catch {}
 };
 export const MenuIcon = ({ name, size = 16 }: { name: string; size?: number }) => {
   const C = icons[name] || FileText;
@@ -111,7 +120,7 @@ export function DepartmentMegaMenu({
             <ul>
               {d.items.map((i, k) => (
                 <li key={i.label} style={{ "--k": k } as CSSProperties}>
-                  <button className={baseView(i.view) === view ? "active" : ""} onClick={() => navigate(i.view)}>
+                  <button className={baseView(i.view) === view ? "active" : ""} onClick={() => { rememberDept(d.id); navigate(i.view); }}>
                     <MenuIcon name={i.icon} size={15} />
                     {i.label}
                   </button>

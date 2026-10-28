@@ -29,10 +29,14 @@ const filters = { all: "ทั้งหมด", pending: "รอตรวจ", s
 const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 const gross = (d: Record<string, unknown>) => computeExpense(Number(d.amount), (d.vatMode as VatMode) || "none", Number(d.whtRate) || 0, String(d.docType || "")).gross;
 
-export function Accounting({ ctx, notify, changed }: { ctx: Context; notify: (s: string) => void; changed: () => void }) {
+export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; notify: (s: string) => void; changed: () => void; navigate?: (view: string) => void }) {
   const [data, setData] = useState<Overview | null>(null),
     [options, setOptions] = useState<Option[]>([]),
-    [filter, setFilter] = useState<keyof typeof filters>("pending"),
+    // The sidebar links here with ?filter=pending|saved|all.
+    [filter, setFilter] = useState<keyof typeof filters>(() => {
+      const f = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("filter");
+      return f && f in filters ? (f as keyof typeof filters) : "pending";
+    }),
     [project, setProject] = useState(""),
     [selected, setSelected] = useState<Entity | null>(null),
     [draft, setDraft] = useState<Draft | null>(null),
@@ -157,6 +161,11 @@ export function Accounting({ ctx, notify, changed }: { ctx: Context; notify: (s:
             {i > 0 && <em>เร็วๆ นี้</em>}
           </button>
         ))}
+        {writable && navigate && (
+          <button className="primary acc-new" onClick={() => navigate("expense-new")}>
+            <Plus size={16} /> บันทึกค่าใช้จ่าย
+          </button>
+        )}
       </div>
       <div className="expense-cards">
         {(
@@ -291,6 +300,11 @@ export function Accounting({ ctx, notify, changed }: { ctx: Context; notify: (s:
                     {draft.supplierId ? " · Supplier ในทะเบียน" : ""}
                   </small>
                 </div>
+                {navigate && (
+                  <button className="secondary" onClick={() => navigate("expense-new?id=" + selected.id)}>
+                    <FileText size={15} /> เปิดในฟอร์มบันทึกค่าใช้จ่าย
+                  </button>
+                )}
                 {wht && (
                   <a className="secondary as-button" href={"/api/wht/" + selected.id} target="_blank" rel="noreferrer">
                     <Printer size={15} /> พิมพ์ 50 ทวิ

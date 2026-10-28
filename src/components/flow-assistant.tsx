@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { Paperclip, Send, X, Check, FileText, ArrowRight, Mic, Square, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Paperclip, Send, X, Check, FileText, ArrowRight, Mic, Square, Volume2, VolumeX, Trash2 } from "lucide-react";
 import { departmentNames } from "@/lib/catalog";
 import type { FlowAction, FlowCard } from "@/lib/flow";
 import type { TaskDraft } from "@/lib/flow-intent";
@@ -248,7 +248,11 @@ export function FlowAssistant({
         const r = await fetch("/api/flow", { method: "POST", body: form });
         reply = await r.json();
         if (!r.ok) throw Error((reply as unknown as { error: string }).error);
-      } else reply = await api("/flow", { method: "POST", body: { message } });
+      } else {
+        // Recent turns let follow-ups like "ใคร" or "แล้วอันนี้ล่ะ" make sense.
+        const history = messages.slice(-10).map((m) => ({ from: m.from, text: m.text.slice(0, 1500) }));
+        reply = await api("/flow", { method: "POST", body: { message, history } });
+      }
       const auto = reply.actions.find((a) => a.type === "open" && a.auto);
       const botId = Date.now() + Math.random();
       if (file) filesRef.current.set(botId, file);
@@ -370,7 +374,7 @@ export function FlowAssistant({
                 </div>
               ) : (
                 <div className="flow-bot" key={m.id}>
-                  <p>{m.text}</p>
+                  <FlowText text={m.text} />
                   {m.cards.map((c, i) => (
                     <button key={i} className={"flow-card " + (c.tone || "")} onClick={() => c.view && navigate(c.view)}>
                       <strong>{c.title}</strong>
@@ -409,6 +413,16 @@ export function FlowAssistant({
                           <ArrowRight size={14} />
                         </button>
                       )
+                    ) : a.type === "delete_task" ? (
+                      <DeleteTaskConfirm
+                        key={i}
+                        action={a}
+                        done={m.done?.includes("delete:" + a.id)}
+                        onDeleted={() => {
+                          markDone(m.id, "delete:" + a.id);
+                          notify("ลบงานแล้ว (กู้คืนได้จากหน้างาน)");
+                        }}
+                      />
                     ) : (
                       <TaskConfirm
                         key={i}
@@ -522,7 +536,17 @@ function TaskConfirm({ draft, done, onCreated }: { draft: TaskDraft; done?: bool
         try {
           await api("/entities/tasks", {
             method: "POST",
-            body: { data: { name: d.name, department: d.department, dueDate: d.dueDate || undefined, priority: d.priority, status: "pending" } },
+            body: {
+              data: {
+                name: d.name,
+                department: d.department,
+                dueDate: d.dueDate || undefined,
+                priority: d.priority,
+                assignee: d.assignee?.trim() || undefined,
+                notes: d.notes?.trim() || undefined,
+                status: "pending",
+              },
+            },
           });
           onCreated();
         } catch (err) {
@@ -535,6 +559,10 @@ function TaskConfirm({ draft, done, onCreated }: { draft: TaskDraft; done?: bool
       <label>
         ชื่องาน
         <input required maxLength={200} value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} />
+      </label>
+      <label>
+        ผู้รับผิดชอบ
+        <input maxLength={200} value={d.assignee || ""} placeholder="ไม่ระบุ" onChange={(e) => setD({ ...d, assignee: e.target.value })} />
       </label>
       <div className="flow-task-row">
         <label>
@@ -560,6 +588,10 @@ function TaskConfirm({ draft, done, onCreated }: { draft: TaskDraft; done?: bool
           </select>
         </label>
       </div>
+      <label>
+        รายละเอียด
+        <textarea rows={2} maxLength={2000} value={d.notes || ""} placeholder="เวลา สถานที่ หรือหมายเหตุ" onChange={(e) => setD({ ...d, notes: e.target.value })} />
+      </label>
       {error && <p className="form-error">{error}</p>}
       <button className="primary" disabled={busy || !d.name.trim()}>
         <Check size={15} />
@@ -567,4 +599,92 @@ function TaskConfirm({ draft, done, onCreated }: { draft: TaskDraft; done?: bool
       </button>
     </form>
   );
+}
+
+function DeleteTaskConfirm({
+  action,
+  done,
+  onDeleted,
+}: {
+  action: Extract<FlowAction, { type: "delete_task" }>;
+  done?: boolean;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  if (done)
+    return (
+      <span className="flow-done">
+        <Check size={14} />
+        ลบงาน “{action.name}” แล้ว
+      </span>
+    );
+  return (
+    <div className="flow-delete">
+      <span>
+        <Trash2 size={15} />
+        ลบงาน <strong>{action.name}</strong>
+      </span>
+      {error && <p className="form-error">{error}</p>}
+      <button
+        className="danger"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await api(`/entities/tasks/${action.id}`, { method: "DELETE", body: {} });
+            onDeleted();
+          } catch (err) {
+            setError((err as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Trash2 size={14} />
+        {busy ? "กำลังลบ…" : action.label}
+      </button>
+    </div>
+  );
+}
+
+// Renders the small Markdown subset the assistant is asked to use: paragraphs, "- " / "1. " lists, **bold**,
+// and "**หัวข้อ**" lines. Built from React elements only, so model output can never inject HTML.
+const inline = (s: string) =>
+  s.split(/(\*\*[^*\n]+\*\*)/g).map((part, i) =>
+    /^\*\*[^*\n]+\*\*$/.test(part) ? <strong key={i}>{part.slice(2, -2)}</strong> : part.replace(/\*\*/g, ""),
+  );
+function FlowText({ text }: { text: string }) {
+  const blocks: ReactNode[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+  const flush = () => {
+    if (!list) return;
+    const items = list.items.map((t, i) => <li key={i}>{inline(t)}</li>);
+    blocks.push(list.ordered ? <ol key={blocks.length}>{items}</ol> : <ul key={blocks.length}>{items}</ul>);
+    list = null;
+  };
+  for (const raw of text.replace(/\r/g, "").split("\n")) {
+    const line = raw.trim(),
+      bullet = /^[-•*]\s+(.+)$/.exec(line),
+      numbered = /^\d+[.)]\s+(.+)$/.exec(line);
+    if (bullet || numbered) {
+      const ordered = !!numbered;
+      if (list && list.ordered !== ordered) flush();
+      list ??= { ordered, items: [] };
+      list.items.push((bullet || numbered)![1]);
+      continue;
+    }
+    flush();
+    if (!line) continue;
+    const heading = /^#{1,4}\s+(.+)$/.exec(line) || /^\*\*([^*]+)\*\*:?$/.exec(line);
+    blocks.push(
+      heading ? (
+        <h4 key={blocks.length}>{heading[1].replace(/\*\*/g, "")}</h4>
+      ) : (
+        <p key={blocks.length}>{inline(line)}</p>
+      ),
+    );
+  }
+  flush();
+  return <div className="flow-text">{blocks}</div>;
 }

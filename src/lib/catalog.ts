@@ -21,8 +21,25 @@ export type Field = {
   /** Kept in the record but edited on a dedicated page, not in the generic form. */
   hidden?: boolean;
 };
-/** One row of a document's item list (`lines` field). */
-export type Line = { name: string; qty: number; price: number };
+/** One row of a document's item list (`lines` field). Expense rows may also carry a category, unit, currency and discount. */
+export type Line = {
+  name: string;
+  qty: number;
+  price: number;
+  category?: string;
+  unit?: string;
+  currency?: string;
+  discount?: number;
+  discountType?: "percent" | "amount";
+};
+/** qty × price less the row's discount (a percentage or a baht amount), never below zero. */
+export const lineAmount = (l: Line) => {
+  const gross = (Number(l.qty) || 0) * (Number(l.price) || 0),
+    off = l.discountType === "percent" ? (gross * (Number(l.discount) || 0)) / 100 : Number(l.discount) || 0;
+  return Math.max(0, Math.round((gross - off) * 100) / 100);
+};
+export const lineCategories = ["ค่าเดินทาง", "ค่าเลี้ยงรับรอง", "ค่าที่พัก", "ค่าน้ำมัน", "ค่าขนส่ง", "วัสดุสิ้นเปลือง", "อุปกรณ์", "ค่าบริการ", "ค่าโฆษณา", "อื่นๆ"] as const;
+export const payeeTypes = ["บริษัท / Supplier", "บุคคลธรรมดา", "พนักงานในบริษัท"] as const;
 export const expenseCategories = ["ค่ามัดจำ", "ค่าเช่า", "ค่าไฟฟ้า", "ค่าบริการ", "ค่าพรม", "บุคลากร", "จัดซื้อ", "ขนส่ง", "การตลาด", "อื่นๆ"] as const;
 export const docTypes = ["ใบกำกับภาษีเต็มรูป", "ใบกำกับภาษีอย่างย่อ", "ใบเสร็จ", "ใบแจ้งหนี้"] as const;
 export const payStatuses = ["โอนแล้ว", "เงินสดย่อย", "ยังไม่จ่าย"] as const;
@@ -445,6 +462,14 @@ export const modules: Module[] = [
       f("aiUncertain", "ช่องที่ AI ไม่แน่ใจ", "text", false, { hidden: true }),
       status(["pending", "approved", "paid", "rejected"]),
       f("notes", "หมายเหตุ", "textarea"),
+      // Filled by the บันทึกค่าใช้จ่าย form (expense-form.tsx).
+      f("code", "เลขที่เอกสาร (EXP)", "text", false, { hidden: true }),
+      f("payeeType", "ประเภทผู้รับเงิน", "select", false, { options: [...payeeTypes], hidden: true }),
+      f("employeeId", "พนักงานผู้รับเงิน", "relation", false, { resource: "employees", hidden: true }),
+      f("payeePhone", "เบอร์โทรผู้รับเงิน", "tel", false, { hidden: true }),
+      f("discount", "ส่วนลดท้ายบิล", "number", false, { min: 0, hidden: true }),
+      f("discountType", "ประเภทส่วนลด", "select", false, { options: ["amount", "percent"], hidden: true }),
+      f("approver", "ผู้อนุมัติ", "text", false, { hidden: true }),
     ],
   },
   {
@@ -640,7 +665,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 /** Item list total after discount, plus VAT when the document adds it. */
 export const docTotal = (d: Record<string, unknown>) => {
   const lines = Array.isArray(d.lines) ? (d.lines as Line[]) : [];
-  const sub = lines.length ? lines.reduce((s, l) => s + num(l.qty) * num(l.price), 0) : num(d.subtotal);
+  const sub = lines.length ? lines.reduce((s, l) => s + lineAmount(l), 0) : num(d.subtotal);
   const after = Math.max(0, sub - num(d.discount));
   return r2(d.vatMode === "excluded" ? after * 1.07 : after);
 };

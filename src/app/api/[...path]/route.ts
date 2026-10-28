@@ -65,7 +65,8 @@ import {
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
 import { taxReport, expiries } from "@/lib/dept-views";
-import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml } from "@/lib/accounting";
+import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml, linkAttachment } from "@/lib/accounting";
+import { scanExpenseDocument } from "@/lib/expenses";
 import { importRows } from "@/lib/importer";
 import { directory } from "@/lib/directory";
 import { stageData, changeStage } from "@/lib/project-stages";
@@ -410,6 +411,15 @@ async function handle(req: NextRequest) {
     }
     if (path[0] === "tax-report") return response(await taxReport(ctx));
     if (path[0] === "expiries") return response(await expiries(ctx));
+    // บันทึกค่าใช้จ่าย form: AI reads one uploaded file into rows (nothing saved), and files uploaded before the
+    // first save are linked to the expense afterwards.
+    if (path[0] === "expense-scan" && method === "POST") return response(await scanExpenseDocument(ctx, await body(req)));
+    if (path[0] === "expense-files" && method === "POST") {
+      const input = z.object({ attachmentId: z.uuid(), entityId: z.uuid() }).parse(await body(req));
+      assert(canWrite(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
+      await linkAttachment(ctx, input.attachmentId, input.entityId);
+      return response({ ok: true });
+    }
     if (path[0] === "receipts")
       return response(method === "GET" ? await accountingOverview(ctx) : await importReceipt(ctx, await body(req)), method === "GET" ? 200 : 201);
     if (path[0] === "accounting") {

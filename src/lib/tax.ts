@@ -1,6 +1,6 @@
 // Thai expense tax math: VAT (included / excluded / none) and withholding tax on the pre-VAT amount.
 import { VAT } from "./billing";
-import type { Line } from "./catalog";
+import { lineAmount, type Line } from "./catalog";
 
 export const vatModes = { excluded: "ยังไม่รวม VAT", included: "รวม VAT แล้ว", none: "ไม่มี VAT" } as const;
 export type VatMode = keyof typeof vatModes;
@@ -23,7 +23,7 @@ export function computeExpense(amount: number, vatMode: VatMode = "none", whtRat
 
 /** Sum of an item list as printed (same VAT basis as the document amount). */
 export const linesTotal = (lines: Line[] | undefined) =>
-  round((lines || []).reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0));
+  round((lines || []).reduce((s, l) => s + lineAmount(l), 0));
 
 /** True when the item list does not add up to the document amount (shown as a red warning). */
 export const linesMismatch = (lines: Line[] | undefined, amount: number) =>

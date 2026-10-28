@@ -7,7 +7,8 @@ const baht = (n: number) => "฿" + Math.round(n).toLocaleString("th-TH");
 const num = (v: unknown) => Number(v || 0);
 const sum = (rows: Entity[], key = "amount") => rows.reduce((s, r) => s + num(r.data[key]), 0);
 
-export async function businessSnapshot(ctx: Context, now = Date.now()) {
+/** The snapshot text, plus the open tasks it lists as T1, T2… so a reply can point at one without seeing ids. */
+export async function businessSnapshot(ctx: Context, now = Date.now()): Promise<{ text: string; tasks: Map<string, Entity> }> {
   const day = (n: number) => new Date(now + 7 * 3600000 + n * 864e5).toISOString().slice(0, 10);
   const today = day(0),
     monthStart = today.slice(0, 8) + "01",
@@ -16,6 +17,7 @@ export async function businessSnapshot(ctx: Context, now = Date.now()) {
   const kinds = [
     "sales", "expenses", "invoices", "bills", "products", "tasks", "leads", "quotations", "projects", "customers",
     "suppliers", "sales_targets", "campaigns", "attendance", "leaves", "recruitment", "software", "vehicles", "contracts", "tickets",
+    "events", "employees",
   ] as const;
   const all = Object.fromEntries(
     await Promise.all(kinds.map(async (k) => [k, await allEntities(ctx, k).catch(() => [] as Entity[])] as const)),
@@ -65,14 +67,21 @@ export async function businessSnapshot(ctx: Context, now = Date.now()) {
       `สินค้า ${all.products.length} รายการ มูลค่าสต็อกตามทุน ${baht(all.products.reduce((s, r) => s + num(r.data.stock) * num(r.data.cost), 0))} · ถึงจุดสั่งซื้อ ${low.length} รายการ`,
       ...low.map((r) => `  - ${r.data.name} (${r.data.sku}) เหลือ ${num(r.data.stock)} จุดสั่งซื้อ ${num(r.data.reorderLevel)}`),
     );
-  const openTasks = all.tasks.filter((r) => r.data.status !== "done");
-  if (openTasks.length) {
-    const urgent = openTasks.filter((r) => r.data.dueDate && days(r.data.dueDate) <= 3).sort((a, b) => String(a.data.dueDate).localeCompare(String(b.data.dueDate)));
+  const openTasks = all.tasks
+    .filter((r) => r.data.status !== "done")
+    .sort((a, b) => String(a.data.dueDate || "9999").localeCompare(String(b.data.dueDate || "9999")));
+  const tasks = new Map<string, Entity>();
+  if (openTasks.length)
     out.push(
-      `งานค้าง ${openTasks.length} งาน · เลยกำหนด ${openTasks.filter((r) => r.data.dueDate && days(r.data.dueDate) < 0).length} · ภายใน 3 วัน:`,
-      ...urgent.slice(0, 10).map((r) => `  - ${r.data.name} (${r.data.department}, ${r.data.assignee || "ยังไม่มอบหมาย"}) ${days(r.data.dueDate) < 0 ? `เลยกำหนด ${-days(r.data.dueDate)} วัน` : `ครบ ${r.data.dueDate}`} [${r.data.priority}/${r.data.status}]`),
+      `งาน/นัดหมายที่ยังไม่เสร็จ ${openTasks.length} รายการ · เลยกำหนด ${openTasks.filter((r) => r.data.dueDate && days(r.data.dueDate) < 0).length} (อ้างถึงงานด้วยรหัส T#):`,
+      ...openTasks.slice(0, 40).map((r, i) => {
+        tasks.set("T" + (i + 1), r);
+        const due = r.data.dueDate
+          ? days(r.data.dueDate) < 0 ? `เลยกำหนด ${-days(r.data.dueDate)} วัน (${r.data.dueDate})` : `ครบ ${r.data.dueDate}`
+          : "ไม่มีกำหนด";
+        return `  - T${i + 1} ${r.data.name} | ${r.data.department} | ${r.data.assignee || "ยังไม่มอบหมาย"} | ${due} | ${r.data.priority}/${r.data.status}${r.data.notes ? " | " + String(r.data.notes).slice(0, 80) : ""}`;
+      }),
     );
-  }
   if (all.leads.length) {
     const stages = new Map<string, { n: number; v: number }>();
     for (const r of all.leads) {
@@ -94,9 +103,39 @@ export async function businessSnapshot(ctx: Context, now = Date.now()) {
   const running = all.campaigns.filter((r) => r.data.status === "running");
   if (running.length) out.push("แคมเปญที่กำลังรัน: " + running.map((r) => `${r.data.name} งบ ${baht(num(r.data.budget))} รายได้ ${baht(num(r.data.revenue))}`).join(", "));
   const att = all.attendance.filter((r) => r.data.date === today);
-  if (att.length || all.leaves.length || all.recruitment.length)
+  if (att.length || all.leaves.length || all.recruitment.length) {
+    const names = (status: string) => att.filter((r) => r.data.status === status).map((r) => r.data.name).join(", ") || "-";
+    const onLeave = all.leaves.filter(
+      (r) => r.data.status === "approved" && String(r.data.startDate) <= today && String(r.data.endDate || r.data.startDate) >= today,
+    );
     out.push(
-      `HR วันนี้: เข้างาน ${att.length} คน สาย ${att.filter((r) => r.data.status === "สาย").length} (${att.filter((r) => r.data.status === "สาย").map((r) => r.data.name).join(", ")}) ลา ${att.filter((r) => r.data.status === "ลา").length} · ใบลารออนุมัติ ${all.leaves.filter((r) => r.data.status === "pending").length} · ผู้สมัครที่กำลังดำเนินการ ${all.recruitment.filter((r) => !["รับเข้าทำงาน", "ไม่ผ่าน"].includes(String(r.data.status))).length}`,
+      `HR วันนี้: พนักงานทั้งหมด ${all.employees.filter((r) => r.data.status !== "inactive").length} คน · มาทำงาน ${att.filter((r) => !["ลา", "ขาด"].includes(String(r.data.status))).length} คน · สาย: ${names("สาย")} · ลา: ${names("ลา")}${onLeave.length ? " (" + onLeave.map((r) => r.data.type).join(", ") + ")" : ""} · ขาด: ${names("ขาด")} · นอกสถานที่: ${names("ทำงานนอกสถานที่")}`,
+      `ใบลารออนุมัติ: ${all.leaves.filter((r) => r.data.status === "pending").map((r) => `${r.data.name} ${r.data.startDate}–${r.data.endDate}`).join(", ") || "-"} · ผู้สมัครที่กำลังดำเนินการ ${all.recruitment.filter((r) => !["รับเข้าทำงาน", "ไม่ผ่าน"].includes(String(r.data.status))).length} คน`,
+    );
+  }
+  const events = all.events
+    .filter((r) => r.data.status !== "cancelled")
+    .sort((a, b) => String(a.data.startDate).localeCompare(String(b.data.startDate)));
+  if (events.length)
+    out.push(
+      "อีเวนต์:",
+      ...events.map(
+        (r) =>
+          `  - ${r.data.name} | ${r.data.startDate}${r.data.endDate && r.data.endDate !== r.data.startDate ? "–" + r.data.endDate : ""} | ${r.data.location || "-"} | ${r.data.status} | งบ ${baht(num(r.data.budget))} | ผู้ดูแล ${r.data.owner || "-"}`,
+      ),
+    );
+  // Contact book. allEntities is permission-filtered, so staff details only reach people who may read HR.
+  if (all.employees.length)
+    out.push(
+      "รายชื่อพนักงาน (ชื่อ (ชื่อเล่น) | แผนก | ตำแหน่ง | โทร | อีเมล):",
+      ...all.employees
+        .slice(0, 60)
+        .map((r) => `  - ${r.data.name}${r.data.nickname ? ` (${r.data.nickname})` : ""} | ${r.data.department} | ${r.data.position || "-"} | ${r.data.phone || "-"} | ${r.data.email || "-"}`),
+    );
+  if (all.customers.length)
+    out.push(
+      "ผู้ติดต่อลูกค้า (บริษัท | ผู้ติดต่อ | โทร):",
+      ...all.customers.slice(0, 40).map((r) => `  - ${r.data.name} | ${r.data.contact || "-"} | ${r.data.phone || "-"}${r.data.segment === "vip" ? " | VIP" : ""}`),
     );
   const expiring = [
     ...all.software.map((r) => [r.data.name, r.data.expiryDate, "ซอฟต์แวร์"]),
@@ -106,5 +145,5 @@ export async function businessSnapshot(ctx: Context, now = Date.now()) {
   if (expiring.length) out.push("ใกล้หมดอายุใน 30 วัน: " + expiring.map(([n, d]) => `${n} (${d})`).join(", "));
   const tickets = all.tickets.filter((r) => ["open", "progress"].includes(String(r.data.status)));
   if (tickets.length) out.push(`เคส IT/บริการลูกค้าที่เปิดอยู่ ${tickets.length}: ` + tickets.map((r) => `${r.data.name} [${r.data.priority}]`).join(", "));
-  return out.join("\n");
+  return { text: out.join("\n"), tasks };
 }

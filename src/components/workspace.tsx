@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
   Store,
@@ -66,7 +66,10 @@ import { AiWorkspace } from "./ai-workspace";
 import { CoinBadge, CoinStore, Departments } from "./coins";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
-import { DepartmentMegaMenu } from "./dept-menu";
+import { DepartmentMegaMenu, DEPT_KEY } from "./dept-menu";
+import { DepartmentSidebar } from "./dept-sidebar";
+import { ExpenseForm } from "./expense-form";
+import { departmentOf } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
@@ -157,6 +160,11 @@ const extra: Record<
     label: "ทีม & สิทธิ์",
     icon: "ShieldCheck",
     description: "จัดการสมาชิกและสิทธิ์การเข้าถึงแต่ละแผนก",
+  },
+  "expense-new": {
+    label: "บันทึกค่าใช้จ่าย",
+    icon: "Wallet",
+    description: "กรอกข้อมูลค่าใช้จ่าย เพื่ออนุมัติและบันทึกเข้าระบบ",
   },
   tax: {
     label: "ภาษี & ภ.ง.ด.",
@@ -375,6 +383,16 @@ export function Workspace({
     },
     [router],
   );
+  // Department pages get that department's left sidebar (the last department used wins when a page is shared).
+  const searchParams = useSearchParams(),
+    fullView = view + (searchParams.toString() ? "?" + searchParams.toString() : ""),
+    [preferredDept, setPreferredDept] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setPreferredDept(sessionStorage.getItem(DEPT_KEY));
+    } catch {}
+  }, [fullView]);
+  const sideDept = departmentOf(fullView, preferredDept);
   // แผนก opens when a mouse points at it and fades out shortly after the pointer leaves both the button and the menu.
   const menuTimer = useRef<ReturnType<typeof setTimeout>>(undefined),
     lastPointer = useRef("");
@@ -572,8 +590,10 @@ export function Workspace({
             จะใช้ Supabase และบัญชีจริง
           </div>
         )}
+        <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
+        {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
         <main className="main" key={ctx.company.id}>
-          {!["feed", "jobs", "dashboard", "company"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company", "expense-new"].includes(view) && (
           <div className="page-heading">
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
@@ -616,9 +636,11 @@ export function Workspace({
               notify={notify}
               refreshKey={lastSync.getTime()}
             />
+          ) : view === "expense-new" ? (
+            <ExpenseForm key={searchParams.get("id") || "new"} ctx={ctx} id={searchParams.get("id")} navigate={navigate} notify={notify} changed={load} />
           ) : view === "expenses" && catalog[view] ? (
             <>
-              <Accounting ctx={ctx} notify={notify} changed={load} />
+              <Accounting key={"acc:" + fullView} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
               <h2 className="acc-table-title">ตารางค่าใช้จ่ายทั้งหมด</h2>
               <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} refresh={lastSync.getTime()} />
             </>
@@ -686,6 +708,7 @@ export function Workspace({
             </span>
           </footer>
         </main>
+        </div>
       </div>
       {companyModal && (
         <Modal title="เลือกบริษัท" onClose={() => setCompanyModal(false)}>

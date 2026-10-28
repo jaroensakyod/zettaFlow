@@ -12,7 +12,10 @@ type Request = {
   /** Uses the stronger OCR model when one is configured (the "ocr_plus" add-on). */
   precise?: boolean;
   timeoutMs?: number;
+  /** Receives the tokens this call used, for cost reporting. */
+  onUsage?: (u: AiUsage) => void;
 };
+export type AiUsage = { model: string; input: number; output: number };
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 export const aiProvider = () =>
@@ -27,7 +30,7 @@ export async function aiGenerate(req: Request): Promise<string> {
   return text;
 }
 
-async function gemini({ instructions, parts, maxTokens, schema, precise, timeoutMs = 45000 }: Request) {
+async function gemini({ instructions, parts, maxTokens, schema, precise, timeoutMs = 45000, onUsage }: Request) {
   const model =
     (precise && process.env.GEMINI_OCR_MODEL) || process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   const r = await fetch(
@@ -55,21 +58,24 @@ async function gemini({ instructions, parts, maxTokens, schema, precise, timeout
       }),
     },
   );
+  if (!r.ok) console.error("Gemini " + r.status + " (" + model + "): " + (await r.text()).slice(0, 500));
   assert(r.ok, "AI ไม่พร้อม กรุณาตรวจการตั้งค่าหรือโควตา", 502);
   const d = await r.json();
+  onUsage?.({ model, input: d.usageMetadata?.promptTokenCount || 0, output: (d.usageMetadata?.candidatesTokenCount || 0) + (d.usageMetadata?.thoughtsTokenCount || 0) });
   return (d.candidates?.[0]?.content?.parts || [])
     .filter((p: { thought?: boolean; text?: string }) => !p.thought && p.text)
     .map((p: { text: string }) => p.text)
     .join("");
 }
 
-async function openAi({ instructions, parts, maxTokens, schema, precise, timeoutMs = 45000 }: Request) {
+async function openAi({ instructions, parts, maxTokens, schema, precise, timeoutMs = 45000, onUsage }: Request) {
+  const model = (precise && process.env.OPENAI_OCR_MODEL) || process.env.OPENAI_MODEL || "gpt-4.1-mini";
   const r = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     signal: AbortSignal.timeout(timeoutMs),
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: (precise && process.env.OPENAI_OCR_MODEL) || process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      model,
       store: false,
       ...(maxTokens && { max_output_tokens: maxTokens }),
       instructions,
@@ -90,6 +96,7 @@ async function openAi({ instructions, parts, maxTokens, schema, precise, timeout
   });
   assert(r.ok, "AI ไม่พร้อม กรุณาตรวจการตั้งค่าหรือโควตา", 502);
   const d = await r.json();
+  onUsage?.({ model, input: d.usage?.input_tokens || 0, output: d.usage?.output_tokens || 0 });
   return d.output
     ?.flatMap((o: { content?: { type: string; text: string }[] }) => o.content || [])
     .find((c: { type: string }) => c.type === "output_text")?.text as string | undefined;
