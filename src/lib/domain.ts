@@ -118,7 +118,7 @@ export function validateEntity(kind: string, input: unknown) {
   return data;
 }
 /** Running codes for customers / suppliers: CUS-67-0001 = Thai year added (2 digits) + a number that never resets. Mirrors assign_entity_code(). */
-export const codePrefixes: Record<string, string> = { customers: "CUS", suppliers: "SUP" };
+export const codePrefixes: Record<string, string> = { customers: "CUS", suppliers: "SUP", quotations: "QT", sales_orders: "SO", bills: "AP", stock_issues: "WD" };
 export const thaiYear = (now = Date.now()) => (new Date(now + 7 * 3600000).getUTCFullYear() + 543) % 100;
 export const formatCode = (prefix: string, year: number, n: number) =>
   `${prefix}-${String(year).padStart(2, "0")}-${String(n).padStart(4, "0")}`;

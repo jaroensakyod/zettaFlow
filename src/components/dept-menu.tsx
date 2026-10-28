@@ -25,13 +25,10 @@ export function DepartmentMegaMenu({
   view,
   visible,
   navigate,
-  tools,
 }: {
   view: string;
   visible: (key: string) => boolean;
   navigate: (view: string) => void;
-  /** Non-department pages (AI, settings…) shown as a compact row at the bottom. */
-  tools: React.ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -61,8 +58,10 @@ export function DepartmentMegaMenu({
         </label>
       </div>
       {!cards.length && <p className="dept-menu-empty">ไม่พบเมนู “{query}”</p>}
-      <div className="dept-menu-grid">
-        {cards.map((d) => (
+      {/* Same layout as the design: 5 departments on top, 4 below (one grid while searching). */}
+      {(q ? [cards] : [cards.slice(0, 5), cards.slice(5)]).filter((r) => r.length).map((row, i) => (
+        <div key={i} className={"dept-menu-grid" + (q ? "" : row.length === 5 ? " cols-5" : " cols-4")}>
+          {row.map((d) => (
           <section key={d.id} className={"dept-menu-card tone-" + d.tone}>
             <button className="dept-menu-title" onClick={() => navigate(d.overview)}>
               <span className="dept-menu-icon">
@@ -88,8 +87,9 @@ export function DepartmentMegaMenu({
             </ul>
           </section>
         ))}
-      </div>
-      {!q && <div className="dept-menu-tools">{tools}</div>}
+        </div>
+      ))}
+
     </div>
   );
 }

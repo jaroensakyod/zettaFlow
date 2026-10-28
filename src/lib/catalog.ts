@@ -661,14 +661,14 @@ const expiry = f("expiryDate", "วันหมดอายุ", "date");
 modules.push(
   {
     key: "quotations", label: "ใบเสนอราคา", description: "ออกใบเสนอราคา คิดส่วนลดและ VAT แล้วติดตามผลจนลูกค้าตอบรับ",
-    department: "Sales", icon: "FileText", columns: ["name", "customerId", "date", "total", "status"],
-    fields: [f("name", "เลขที่ใบเสนอราคา", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("date", "วันที่", "date", true), f("validUntil", "ยืนราคาถึง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, owner, status(["ร่าง", "ส่งแล้ว", "ตอบรับ", "ปฏิเสธ"]), notes],
+    department: "Sales", icon: "FileText", columns: ["name", "code", "customerId", "date", "total", "status"],
+    fields: [f("name", "หัวข้องาน", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("date", "วันที่", "date", true), f("validUntil", "ยืนราคาถึง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, owner, status(["ร่าง", "ส่งแล้ว", "ตอบรับ", "ปฏิเสธ"]), notes],
     computed: { total: { label: "ยอดสุทธิ", calc: docTotal } },
   },
   {
     key: "sales_orders", label: "คำสั่งซื้อ (SO)", description: "คำสั่งซื้อจากลูกค้า กำหนดส่ง และสถานะจัดส่ง/ออกใบแจ้งหนี้",
-    department: "Sales", icon: "ShoppingCart", columns: ["name", "customerId", "deliveryDate", "total", "status"],
-    fields: [f("name", "เลขที่ SO", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("quotationId", "อ้างอิงใบเสนอราคา", "relation", false, { resource: "quotations" }), f("date", "วันที่สั่ง", "date", true), f("deliveryDate", "กำหนดส่ง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, project, status(["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว", "ออกใบแจ้งหนี้แล้ว", "ยกเลิก"]), notes],
+    department: "Sales", icon: "ShoppingCart", columns: ["name", "code", "customerId", "deliveryDate", "total", "status"],
+    fields: [f("name", "หัวข้อคำสั่งซื้อ", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("quotationId", "อ้างอิงใบเสนอราคา", "relation", false, { resource: "quotations" }), f("date", "วันที่สั่ง", "date", true), f("deliveryDate", "กำหนดส่ง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, project, status(["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว", "ออกใบแจ้งหนี้แล้ว", "ยกเลิก"]), notes],
     computed: { total: { label: "ยอดสุทธิ", calc: docTotal } },
   },
   {
@@ -696,8 +696,8 @@ modules.push(
   },
   {
     key: "stock_issues", label: "เบิกสินค้าออก", description: "ใบเบิกสินค้าออกจากคลังให้โปรเจกต์/แผนก พร้อมผู้อนุมัติ",
-    department: "Warehouse", icon: "PackageMinus", columns: ["name", "productId", "quantity", "requester", "status"],
-    fields: [f("name", "เลขที่ใบเบิก", "text", true), f("productId", "สินค้า", "relation", true, { resource: "products" }), f("quantity", "จำนวน", "number", true, { min: 0 }), f("requester", "ผู้เบิก", "text", true), project, f("date", "วันที่เบิก", "date", true), status(["รออนุมัติ", "อนุมัติแล้ว", "จ่ายของแล้ว", "ไม่อนุมัติ"]), notes],
+    department: "Warehouse", icon: "PackageMinus", columns: ["name", "code", "productId", "quantity", "requester", "status"],
+    fields: [f("name", "รายการเบิก", "text", true), f("productId", "สินค้า", "relation", true, { resource: "products" }), f("quantity", "จำนวน", "number", true, { min: 0 }), f("requester", "ผู้เบิก", "text", true), project, f("date", "วันที่เบิก", "date", true), status(["รออนุมัติ", "อนุมัติแล้ว", "จ่ายของแล้ว", "ไม่อนุมัติ"]), notes],
   },
   {
     key: "stock_counts", label: "ตรวจนับสต็อก", description: "นับสต็อกจริงเทียบยอดในระบบ เห็นส่วนต่างทันที",
@@ -707,8 +707,8 @@ modules.push(
   },
   {
     key: "bills", label: "ใบรับวางบิล (AP)", description: "รับวางบิลจาก Supplier ติดตามวันครบกำหนดและการจ่าย",
-    department: "Finance", icon: "ReceiptText", columns: ["name", "supplierId", "dueDate", "amount", "status"],
-    fields: [f("name", "เลขที่ใบวางบิล", "text", true), f("supplierId", "Supplier", "relation", true, { resource: "suppliers" }), f("invoiceNo", "เลขที่ใบแจ้งหนี้ของ Supplier"), f("date", "วันที่รับวางบิล", "date", true), f("dueDate", "ครบกำหนดจ่าย", "date", true), f("amount", "ยอดเงิน", "number", true, { min: 0 }), f("whtRate", "หัก ณ ที่จ่าย (%)", "select", false, { options: ["0", "1", "2", "3", "5"] }), project, status(["รอตรวจ", "รอจ่าย", "จ่ายแล้ว", "โต้แย้ง"]), notes],
+    department: "Finance", icon: "ReceiptText", columns: ["name", "code", "supplierId", "dueDate", "net", "status"],
+    fields: [f("name", "รายการ", "text", true), f("supplierId", "Supplier", "relation", true, { resource: "suppliers" }), f("invoiceNo", "เลขที่ใบแจ้งหนี้ของ Supplier"), f("date", "วันที่รับวางบิล", "date", true), f("dueDate", "ครบกำหนดจ่าย", "date", true), f("amount", "ยอดเงิน", "number", true, { min: 0 }), f("whtRate", "หัก ณ ที่จ่าย (%)", "select", false, { options: ["0", "1", "2", "3", "5"] }), project, status(["รอตรวจ", "รอจ่าย", "จ่ายแล้ว", "โต้แย้ง"]), notes],
     computed: { net: { label: "ยอดจ่ายสุทธิ", calc: (d) => r2(num(d.amount) - (num(d.amount) / 1.07) * (num(d.whtRate) / 100)) } },
   },
   {

@@ -8,6 +8,7 @@ import {
   nextCode,
   entityOptions,
   saveEntity,
+  convertEntity,
   archiveEntity,
   movement,
   purchaseAction,
@@ -513,6 +514,8 @@ async function handle(req: NextRequest) {
       return response(await flowReply(ctx, await body(req)));
     }
     if (path[0] === "options") return response(await entityOptions(ctx));
+    if (path[0] === "convert" && method === "POST")
+      return response(await convertEntity(ctx, z.string().max(40).parse(path[1]), z.uuid().parse(path[2])), 201);
     if (path[0] === "entities") {
       if (method === "GET")
         return response(

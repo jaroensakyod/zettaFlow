@@ -20,6 +20,7 @@ import { catalog, statusLabels, type Field } from "@/lib/catalog";
 import type { Entity, Context } from "@/lib/types";
 import { api, Modal, Empty, Loading, money, displayDate } from "./shared";
 import { LineFeedButton } from "./template-target";
+import { conversions } from "@/lib/dept-rules";
 type Option = { id: string; kind: string; name: string };
 // Shrinks a photo to a square-ish WebP (max 512px) before upload.
 async function shrinkPhoto(file: File) {
@@ -595,6 +596,7 @@ export function Records({
                         {
                           stock: "คงเหลือ",
                           total: "ยอดรวม",
+                          code: "เลขที่",
                           net: "ค่าจ้างสุทธิ",
                           updated_at: "อัปเดต",
                           status: "สถานะ",
@@ -665,6 +667,28 @@ export function Records({
                                 : "รับสินค้า"}
                             </button>
                           )}
+                        {!archived &&
+                          writable &&
+                          conversions
+                            .filter((c) => c.from === kind && c.when.includes(String(item.data.status)))
+                            .map((c) => (
+                              <button
+                                key={c.to}
+                                className="small-button"
+                                onClick={async () => {
+                                  try {
+                                    await api("/convert/" + kind + "/" + item.id, { method: "POST", body: {} });
+                                    notify(c.label + " แล้ว · ดูได้ที่หน้า" + catalog[c.to].label);
+                                    await load();
+                                    changed();
+                                  } catch (err) {
+                                    notify((err as Error).message);
+                                  }
+                                }}
+                              >
+                                {c.label}
+                              </button>
+                            ))}
                         {kind === "deals" &&
                           !archived &&
                           item.data.status === "pending" &&

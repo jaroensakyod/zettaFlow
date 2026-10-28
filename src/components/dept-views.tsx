@@ -168,3 +168,23 @@ export function TransfersPage({ ctx, notify, changed }: { ctx: Context; notify: 
   if (!entities) return <Loading />;
   return <StockTransfers ctx={ctx} entities={entities} changed={changed} notify={notify} />;
 }
+
+/** Bell panel: anything expiring within 30 days (or already expired). */
+export function ExpiryAlerts({ navigate }: { navigate: (v: string) => void }) {
+  const [rows, setRows] = useState<Expiry[]>([]);
+  useEffect(() => {
+    api("/expiries").then((r: Expiry[]) => setRows(r.filter((x) => x.days <= 30))).catch(() => {});
+  }, []);
+  if (!rows.length) return null;
+  return (
+    <button className="alert-item" onClick={() => navigate("expiries")}>
+      <CalendarClock size={18} />
+      <span>
+        {rows.length} รายการใกล้หมดอายุ / ครบกำหนด
+        <small>
+          {rows.slice(0, 3).map((r) => r.name + " (" + (r.days < 0 ? "เลยมา " + -r.days : r.days) + " วัน)").join(" · ")}
+        </small>
+      </span>
+    </button>
+  );
+}

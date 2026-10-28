@@ -67,7 +67,7 @@ import { CoinBadge, CoinStore, Departments } from "./coins";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
 import { DepartmentMegaMenu } from "./dept-menu";
-import { TaxReport, Expiries, TransfersPage } from "./dept-views";
+import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
 import {
@@ -530,24 +530,6 @@ export function Workspace({
               view={view}
               visible={visible}
               navigate={navigate}
-              tools={
-                <>
-                  <span>เครื่องมือ & ตั้งค่า</span>
-                  {toolKeys
-                    .filter((key) => visible(key) && !primary.some(([k]) => k === key))
-                    .map((key) => (
-                      <button key={key} className={view === key ? "active" : ""} onClick={() => navigate(key)}>
-                        <Icon name={details(key).icon} size={15} />
-                        {details(key).label}
-                        {key === "ai-inbox" && <span className="nav-ai">AI</span>}
-                      </button>
-                    ))}
-                  <button onClick={openCompanies}>
-                    <Building2 size={15} />
-                    สลับบริษัท
-                  </button>
-                </>
-              }
             />
           )}
         </header>
@@ -746,6 +728,7 @@ export function Workspace({
               {data.summary.pendingDeals} ดีลรออนุมัติ · {data.summary.tasks}{" "}
               งานที่ยังไม่เสร็จ
             </p>
+            <ExpiryAlerts navigate={(v) => { setAlerts(false); navigate(v); }} />
             {data.summary.lowStock.map((p) => (
               <button
                 className="alert-item"

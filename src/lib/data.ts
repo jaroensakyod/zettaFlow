@@ -13,6 +13,7 @@ import {
   publicDemoAllowed,
   PUBLIC_DEMO_COOKIE,
 } from "./demo";
+import { derive, needsApprover, stockEffect, stockLocked, convertData, conversions, fitToPage } from "./dept-rules";
 import {
   assert,
   AppError,
@@ -176,6 +177,8 @@ export async function saveEntity(
   const data = validateEntity(kind, input),
     department = entityDepartment(kind, data);
   assert(canWrite(ctx, department), "ไม่มีสิทธิ์แก้ไขแผนกนี้", 403);
+  if (!id && needsApprover(kind, data.status) && !["owner", "manager"].includes(ctx.member.role))
+    throw new AppError("ต้องให้ Owner หรือ Manager เป็นผู้อนุมัติสถานะนี้", 403);
   if (
     ["deals", "expenses", "leaves", "payroll"].includes(kind) &&
     ["approved", "paid"].includes(String(data.status))
@@ -211,6 +214,11 @@ export async function saveEntity(
         assert(old.version === version, "ข้อมูลเปลี่ยนแล้ว กรุณารีเฟรช", 409);
         assert(!old.archived_at, "รายการนี้เก็บเข้าคลังแล้ว", 409);
       }
+      if (old && needsApprover(kind, data.status, old.data.status))
+        assert(["owner", "manager"].includes(ctx.member.role), "ต้องให้ Owner หรือ Manager เป็นผู้อนุมัติสถานะนี้", 403);
+      if (old && stockLocked(kind, old.data.status))
+        assert(["productId", "quantity", "countedQty"].every((k) => old.data[k] === data[k]), "ปรับสต็อกไปแล้ว แก้จำนวนไม่ได้", 409);
+      Object.assign(data, derive(kind, data));
       if (kind === "deals" && data.status === "approved")
         assert(
           old?.data.status === "approved",
@@ -268,8 +276,12 @@ export async function saveEntity(
         version: (old?.version || 0) + 1,
         archived_at: null,
       };
+      const oldStatus = old?.data.status;
       if (old) Object.assign(old, record);
       else s.entities.unshift(record);
+      const product = data.productId ? s.entities.find((e) => e.id === data.productId && e.kind === "products") : undefined;
+      const move = stockEffect(kind, data, oldStatus, Number(product?.data.stock || 0));
+      if (move && product) demoMovement(s, product.id, move.type, move.quantity, kind + ":" + record.id, String(data.name || ""));
       if (kind === "payments" && data.invoiceId) {
         const inv = s.entities.find(
           (e) => e.id === data.invoiceId && e.kind === "invoices",
@@ -772,4 +784,24 @@ export async function setTemplateTarget(ctx: Context, id: string, input: unknown
   const sb = await supabaseServer();
   const { error } = await sb.rpc("set_template_target", { p_company: ctx.company.id, p_id: id, p_kind: kind, p_map: map });
   dbError(error);
+}
+/** Next step for a document (quotation → SO → invoice, paid bill → payment, hired applicant → employee). Runs once per source. */
+export async function convertEntity(ctx: Context, kind: string, id: string) {
+  const rule = conversions.find((c) => c.from === kind);
+  assert(rule, "แปลงเอกสารนี้ไม่ได้", 404);
+  let src: Entity | undefined;
+  if (ctx.demo) src = (await demoRead()).entities.find((e) => e.id === id && e.kind === kind && !e.archived_at);
+  else {
+    const sb = await supabaseServer();
+    const { data, error } = await sb.from("entities").select("*").eq("company_id", ctx.company.id).eq("kind", kind).eq("id", id).is("archived_at", null).maybeSingle();
+    dbError(error);
+    src = data || undefined;
+  }
+  assert(src && canRead(ctx, src.department), "ไม่พบรายการ", 404);
+  assert(rule.when.includes(String(src.data.status)), "ทำได้เมื่อสถานะเป็น " + rule.when.join(" / "));
+  const { data, exists } = convertData(src);
+  assert(!(await allEntities(ctx, rule.to, 5000)).some(exists), "สร้างไปแล้ว", 409);
+  const created = await saveEntity(ctx, rule.to, fitToPage(rule.to, data));
+  if (rule.done) await saveEntity(ctx, kind, { ...src.data, status: rule.done }, src.id, src.version);
+  return { kind: rule.to, record: created };
 }
