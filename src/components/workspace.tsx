@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -292,6 +292,7 @@ export function Workspace({
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [menu, setMenu] = useState(false),
+    [menuClosing, setMenuClosing] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [search, setSearch] = useState(""),
     [alerts, setAlerts] = useState(false),
@@ -374,6 +375,27 @@ export function Workspace({
     },
     [router],
   );
+  // แผนก opens when a mouse points at it and fades out shortly after the pointer leaves both the button and the menu.
+  const menuTimer = useRef<ReturnType<typeof setTimeout>>(undefined),
+    lastPointer = useRef("");
+  useEffect(() => () => clearTimeout(menuTimer.current), []);
+  const menuHoverOpen = (e: ReactPointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(menuTimer.current);
+    setMenuClosing(false);
+    setMenu(true);
+  };
+  const menuHoverClose = (e: ReactPointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(menuTimer.current);
+    menuTimer.current = setTimeout(() => {
+      setMenuClosing(true);
+      menuTimer.current = setTimeout(() => {
+        setMenu(false);
+        setMenuClosing(false);
+      }, 160);
+    }, 220);
+  };
   if (onboarding) return <Onboarding onComplete={load} />;
   if (auth && config)
     return (
@@ -469,7 +491,15 @@ export function Workspace({
                   : "")
               }
               aria-expanded={menu}
-              onClick={() => setMenu(!menu)}
+              onPointerDown={(e) => (lastPointer.current = e.pointerType)}
+              onPointerEnter={menuHoverOpen}
+              onPointerLeave={menuHoverClose}
+              onClick={() => {
+                // A mouse already opened it on hover; a click shouldn't snap it shut again.
+                if (lastPointer.current === "mouse" && menu) return;
+                setMenuClosing(false);
+                setMenu(!menu);
+              }}
             >
               <Grid2X2 size={16} />
               แผนก
@@ -530,6 +560,9 @@ export function Workspace({
               view={view}
               visible={visible}
               navigate={navigate}
+              closing={menuClosing}
+              onPointerEnter={menuHoverOpen}
+              onPointerLeave={menuHoverClose}
             />
           )}
         </header>

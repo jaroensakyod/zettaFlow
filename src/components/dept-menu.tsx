@@ -1,6 +1,6 @@
 "use client";
 // แผนก mega menu: colour-coded department cards with 6 shortcuts each, a search box, and a tools row.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type PointerEventHandler } from "react";
 import {
   AppWindow, ArrowLeftRight, Award, BadgePercent, BookOpen, Building2, Calculator, CalendarClock, CalendarDays,
   CalendarOff, Car, ChartNoAxesCombined, ChevronDown, ClipboardCheck, Clock, CreditCard, Files, FileText, Gauge,
@@ -25,14 +25,33 @@ export function DepartmentMegaMenu({
   view,
   visible,
   navigate,
+  closing = false,
+  onPointerEnter,
+  onPointerLeave,
 }: {
   view: string;
   visible: (key: string) => boolean;
   navigate: (view: string) => void;
+  closing?: boolean;
+  onPointerEnter?: PointerEventHandler;
+  onPointerLeave?: PointerEventHandler;
 }) {
   const [query, setQuery] = useState("");
   // Each department is its own dropdown: one open at a time; a search opens every match.
   const [openId, setOpenId] = useState("");
+  // A mouse opens a card just by pointing at it (touch still taps); a short delay lets the pointer cross gaps.
+  const leaveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(leaveTimer.current), []);
+  const hoverOpen = (id: string) => (e: PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(leaveTimer.current);
+    setOpenId(id);
+  };
+  const hoverClose = (e: PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(leaveTimer.current);
+    leaveTimer.current = setTimeout(() => setOpenId(""), 140);
+  };
   const q = query.trim().toLowerCase();
   const cards = useMemo(
     () =>
@@ -47,7 +66,12 @@ export function DepartmentMegaMenu({
     [q, visible],
   );
   return (
-    <div className="dept-menu" role="menu">
+    <div
+      className={"dept-menu" + (q ? " searching" : "") + (closing ? " closing" : "")}
+      role="menu"
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+    >
       <div className="dept-menu-head">
         <div>
           <h2>เลือกแผนกเพื่อเข้าสู่ระบบงาน</h2>
@@ -62,8 +86,14 @@ export function DepartmentMegaMenu({
       {/* Same layout as the design: 5 departments on top, 4 below (one grid while searching). */}
       {(q ? [cards] : [cards.slice(0, 5), cards.slice(5)]).filter((r) => r.length).map((row, i) => (
         <div key={i} className={"dept-menu-grid" + (q ? "" : row.length === 5 ? " cols-5" : " cols-4")}>
-          {row.map((d) => (
-          <section key={d.id} className={"dept-menu-card tone-" + d.tone}>
+          {row.map((d, n) => (
+          <section
+            key={d.id}
+            className={"dept-menu-card tone-" + d.tone + (q || openId === d.id ? " open" : "")}
+            style={{ "--i": i * 5 + n } as CSSProperties}
+            onPointerEnter={hoverOpen(d.id)}
+            onPointerLeave={hoverClose}
+          >
             <button className="dept-menu-title" aria-expanded={!!q || openId === d.id} onClick={() => setOpenId(openId === d.id ? "" : d.id)}>
               <span className="dept-menu-icon">
                 <MenuIcon name={d.icon} size={22} />
@@ -76,10 +106,11 @@ export function DepartmentMegaMenu({
               </span>
               <ChevronDown size={16} className={"dept-menu-arrow" + (q || openId === d.id ? " flip" : "")} />
             </button>
-            {(q || openId === d.id) && (
+            {/* Always rendered so it can animate; inert while closed so hidden links can't take focus. */}
+            <div className="dept-menu-drop" inert={!q && openId !== d.id}>
             <ul>
-              {d.items.map((i) => (
-                <li key={i.label}>
+              {d.items.map((i, k) => (
+                <li key={i.label} style={{ "--k": k } as CSSProperties}>
                   <button className={baseView(i.view) === view ? "active" : ""} onClick={() => navigate(i.view)}>
                     <MenuIcon name={i.icon} size={15} />
                     {i.label}
@@ -87,7 +118,7 @@ export function DepartmentMegaMenu({
                 </li>
               ))}
             </ul>
-            )}
+            </div>
           </section>
         ))}
         </div>
