@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   AppWindow, ArrowLeftRight, Award, BadgePercent, BookOpen, Building2, Calculator, CalendarClock, CalendarDays,
-  CalendarOff, Car, ChartNoAxesCombined, ChevronRight, ClipboardCheck, Clock, CreditCard, Files, FileText, Gauge,
+  CalendarOff, Car, ChartNoAxesCombined, ChevronDown, ClipboardCheck, Clock, CreditCard, Files, FileText, Gauge,
   Gavel, Landmark, ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt,
   ReceiptText, Scale, Search, ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users,
   Wallet, Wrench, type LucideIcon,
@@ -31,6 +31,8 @@ export function DepartmentMegaMenu({
   navigate: (view: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  // Each department is its own dropdown: one open at a time; a search opens every match.
+  const [openId, setOpenId] = useState("");
   const q = query.trim().toLowerCase();
   const cards = useMemo(
     () =>
@@ -54,7 +56,6 @@ export function DepartmentMegaMenu({
         <label className="dept-menu-search">
           <Search size={16} />
           <input autoFocus placeholder="ค้นหาเมนูหรือฟีเจอร์…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="ค้นหาเมนู" />
-          <kbd>⌘ K</kbd>
         </label>
       </div>
       {!cards.length && <p className="dept-menu-empty">ไม่พบเมนู “{query}”</p>}
@@ -63,7 +64,7 @@ export function DepartmentMegaMenu({
         <div key={i} className={"dept-menu-grid" + (q ? "" : row.length === 5 ? " cols-5" : " cols-4")}>
           {row.map((d) => (
           <section key={d.id} className={"dept-menu-card tone-" + d.tone}>
-            <button className="dept-menu-title" onClick={() => navigate(d.overview)}>
+            <button className="dept-menu-title" aria-expanded={!!q || openId === d.id} onClick={() => setOpenId(openId === d.id ? "" : d.id)}>
               <span className="dept-menu-icon">
                 <MenuIcon name={d.icon} size={22} />
               </span>
@@ -73,8 +74,9 @@ export function DepartmentMegaMenu({
                 </b>
                 <em>{d.subtitle}</em>
               </span>
-              <ChevronRight size={16} className="dept-menu-arrow" />
+              <ChevronDown size={16} className={"dept-menu-arrow" + (q || openId === d.id ? " flip" : "")} />
             </button>
+            {(q || openId === d.id) && (
             <ul>
               {d.items.map((i) => (
                 <li key={i.label}>
@@ -85,6 +87,7 @@ export function DepartmentMegaMenu({
                 </li>
               ))}
             </ul>
+            )}
           </section>
         ))}
         </div>

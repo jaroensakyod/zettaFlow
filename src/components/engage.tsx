@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageCircle, X, Send, Megaphone, Trash2, Plus, Save } from "lucide-react";
+import { X, Send, Megaphone, Trash2, Plus, Save } from "lucide-react";
 import { api, Modal, Empty, displayDate } from "./shared";
 import { PlatformPayments } from "./platform";
 import { AdminTopups } from "./coins";
@@ -88,10 +88,12 @@ export function SupportChat({ ctx }: { ctx: Context }) {
   if (!allowed) return null;
   return (
     <>
-      <button className="support-fab" aria-label="แชทกับทีมงาน ZettaFlow" onClick={() => setOpen((o) => !o)}>
-        {open ? <X size={22} /> : <MessageCircle size={22} />}
-        {!open && unread > 0 && <span className="support-badge">{unread}</span>}
-      </button>
+      {/* No floating launcher: the chat opens from screens that need it (window event "ef:support-open"); this button only closes it. */}
+      {open && (
+        <button className="support-fab" aria-label="ปิดแชททีมงาน" onClick={() => setOpen(false)}>
+          <X size={22} />
+        </button>
+      )}
       {open && (
         <section className="support-panel" aria-label="แชทกับทีมงาน">
           <header>

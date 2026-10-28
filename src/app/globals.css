@@ -6556,3 +6556,8 @@ input[type="file"][hidden] { display: none !important; }
 @media (max-width: 1100px) { .dept-menu-grid.cols-5, .dept-menu-grid.cols-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .dept-menu-grid.cols-5, .dept-menu-grid.cols-4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 480px) { .dept-menu-grid.cols-5, .dept-menu-grid.cols-4 { grid-template-columns: 1fr; } }
+/* Department cards are dropdowns: header only until opened */
+.dept-menu-grid { align-items: start; }
+.dept-menu-arrow { transition: transform .15s; }
+.dept-menu-arrow.flip { transform: rotate(180deg); }
+.dept-menu-title[aria-expanded="true"] { border-bottom: 1px solid var(--line); }
