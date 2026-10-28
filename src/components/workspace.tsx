@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { Suspense, useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
@@ -275,13 +275,18 @@ type WorkspaceData = {
   audit: { id: string; action: string; target: string; created_at: string }[];
   platformAdmin?: boolean;
 };
-export function Workspace({
-  initialView = "feed",
-  product = "elite",
-}: {
-  initialView?: string;
-  product?: "elite" | "zetta";
-}) {
+type WorkspaceProps = { initialView?: string; product?: "elite" | "zetta" };
+// The workspace reads the URL query (sidebar, list filters, the expense being edited), so Next needs a Suspense
+// boundary around it for pages it prerenders.
+export function Workspace(props: WorkspaceProps) {
+  return (
+    <Suspense fallback={<div className="boot-screen" />}>
+      <WorkspaceView {...props} />
+    </Suspense>
+  );
+}
+
+function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspaceProps) {
   const router = useRouter();
   const requestEpoch = useRef(0);
   const navRef = useRef<HTMLElement>(null);
