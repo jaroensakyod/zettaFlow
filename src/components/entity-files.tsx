@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FileText, Paperclip } from "lucide-react";
 import { api, displayDate, Loading } from "./shared";
+import { uploadFile } from "./platform";
 
 type FileRow = { id: string; name: string; size: number; mime: string; created_at: string };
 
@@ -48,12 +49,7 @@ export function EntityFiles({ entity, department, writable }: { entity: string; 
               setBusy(true);
               setError("");
               try {
-                const form = new FormData();
-                form.set("file", f);
-                form.set("department", department);
-                form.set("entity", entity);
-                const r = await fetch("/api/files", { method: "POST", body: form });
-                if (!r.ok) throw Error((await r.json()).error);
+                await uploadFile(f, department, entity);
                 await load();
               } catch (err) {
                 setError((err as Error).message);

@@ -15,6 +15,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { api, Modal, Empty, Loading, displayDate, money } from "./shared";
+import { uploadFile } from "./platform";
 import { FieldControl } from "./records";
 import { TemplateTarget } from "./template-target";
 import type { Context, Template, Ingestion } from "@/lib/types";
@@ -588,19 +589,7 @@ export function AiWorkspace({
                 let attachmentId;
                 const file = form.get("file") as File;
                 if (file?.size) {
-                  const upload = new FormData();
-                  upload.set("file", file);
-                  upload.set(
-                    "department",
-                    templates.find((t) => t.id === selected)!.department,
-                  );
-                  const r = await fetch("/api/files", {
-                    method: "POST",
-                    body: upload,
-                  });
-                  const d = await r.json();
-                  if (!r.ok) throw Error(d.error);
-                  attachmentId = d.id;
+                  attachmentId = await uploadFile(file, templates.find((t) => t.id === selected)!.department);
                 }
                 await api("/ingestions", {
                   method: "POST",
@@ -653,7 +642,7 @@ export function AiWorkspace({
               />
             </label>
             <label className="upload-label">
-              ภาพ / PDF (สูงสุด 4 MB)
+              ภาพ / PDF (สูงสุด 15 MB)
               <input
                 type="file"
                 name="file"

@@ -59,6 +59,7 @@ const docLabels: Record<string, string> = {
 };
 const payLabels: Record<string, string> = { ยังไม่จ่าย: "ยังไม่ชำระ", โอนแล้ว: "ชำระแล้ว (โอน)", เงินสดย่อย: "ชำระด้วยเงินสดย่อย" };
 const ACCEPT = "application/pdf,image/png,image/jpeg";
+const MAX_FILE = 15_000_000;
 const NOTE_MAX = 500;
 const today = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
 const two = (n: number) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -109,7 +110,7 @@ export function ExpenseForm({
     }),
     [rows, setRows] = useState<Row[]>([blankRow()]),
     [editCode, setEditCode] = useState(false),
-    [files, setFiles] = useState<{ id: string; name: string; linked: boolean }[]>([]),
+    [files, setFiles] = useState<{ id: string; name: string; linked: boolean; local?: boolean }[]>([]),
     [reports, setReports] = useState<ScanReport[]>([]),
     [reading, setReading] = useState(""),
     [addingSupplier, setAddingSupplier] = useState(false),
@@ -247,12 +248,23 @@ export function ExpenseForm({
       setReading(`AI กำลังอ่าน ${ok.length > 1 ? `${i + 1}/${ok.length} ` : ""}${original.name}`);
       try {
         const f = await shrink(original);
-        if (f.size > 4000000) throw Error(original.name + " ใหญ่เกิน 4MB");
-        const attachmentId = entity ? await linkFile(f, entity.id) : await uploadFile(f, "Finance");
-        setFiles((fs) => [...fs, { id: attachmentId, name: original.name, linked: !!entity }]);
-        setD((x) => (x.receiptId ? x : { ...x, receiptId: attachmentId }));
+        if (f.size > MAX_FILE) throw Error(original.name + " ใหญ่เกิน 15MB");
+        let attachmentId = "";
+        // The public demo stores nothing: AI reads the file sent with the request and it is listed but not kept.
+        if (ctx.demo) attachmentId = await uploadFile(f, "Finance", entity?.id).catch(() => "");
+        else attachmentId = await uploadFile(f, "Finance", entity?.id);
+        setFiles((fs) => [...fs, attachmentId ? { id: attachmentId, name: original.name, linked: !!entity } : { id: "local-" + Date.now() + i, name: original.name, linked: true, local: true }]);
+        if (attachmentId) setD((x) => (x.receiptId ? x : { ...x, receiptId: attachmentId }));
         try {
-          const scan: Scan = await api("/expense-scan", { method: "POST", body: { attachmentId } });
+          let scan: Scan;
+          if (attachmentId) scan = await api("/expense-scan", { method: "POST", body: { attachmentId } });
+          else {
+            const form = new FormData();
+            form.set("file", f);
+            const r = await fetch("/api/expense-scan", { method: "POST", body: form });
+            scan = await r.json();
+            if (!r.ok) throw Error((scan as unknown as { error: string }).error);
+          }
           const warning = apply(scan, fresh);
           if (scan.lines.length) fresh = false;
           setReports((r) => [...r, { file: original.name, scan, warning }]);
@@ -358,7 +370,7 @@ export function ExpenseForm({
         ? await api("/entities/expenses/" + entity.id, { method: "PATCH", body: { data: body, version: entity.version } })
         : await api("/entities/expenses", { method: "POST", body: { data: body } });
       // Files uploaded before the first save are linked to the expense now.
-      const unlinked = files.filter((f) => !f.linked);
+      const unlinked = files.filter((f) => !f.linked && !f.local);
       for (const f of unlinked) await api("/expense-files", { method: "POST", body: { attachmentId: f.id, entityId: saved.id } });
       if (unlinked.length) setFiles((fs) => fs.map((f) => ({ ...f, linked: true })));
       if (submit) await api("/accounting/post/" + saved.id, { method: "POST" });
@@ -780,7 +792,7 @@ export function ExpenseForm({
               <span>
                 {reading || "ลากไฟล์มาวางที่นี่ หรือ"} {!reading && <b>คลิกเพื่ออัปโหลด</b>}
               </span>
-              <small>PDF, JPG, PNG · AI อ่านใบเสร็จ/สลิปแล้วเพิ่มรายการให้อัตโนมัติ</small>
+              <small>PDF, JPG, PNG ไม่เกิน 15MB · AI อ่านใบเสร็จ/สลิปแล้วเพิ่มรายการให้อัตโนมัติ</small>
               <input ref={attachRef} type="file" hidden multiple accept={ACCEPT} onChange={(e) => {
                 const list = [...(e.target.files || [])];
                 e.target.value = "";
@@ -792,9 +804,15 @@ export function ExpenseForm({
                 {files.map((f) => (
                   <li key={f.id}>
                     <Paperclip size={13} />
-                    <a href={"/api/files/" + f.id} target="_blank" rel="noreferrer">
-                      {f.name}
-                    </a>
+                    {f.local ? (
+                      <span>
+                        {f.name} <small>(โหมดตัวอย่าง ไม่ได้เก็บไฟล์)</small>
+                      </span>
+                    ) : (
+                      <a href={"/api/files/" + f.id} target="_blank" rel="noreferrer">
+                        {f.name}
+                      </a>
+                    )}
                     {!f.linked && <small>แนบเมื่อบันทึก</small>}
                     {!f.linked && (
                       <button type="button" className="exf-icon" aria-label={"เอา " + f.name + " ออก"} onClick={() => setFiles((fs) => fs.filter((x) => x.id !== f.id))}>
@@ -868,16 +886,6 @@ async function shrink(file: File): Promise<File> {
   }
 }
 
-async function linkFile(file: File, entityId: string) {
-  const form = new FormData();
-  form.set("file", file);
-  form.set("department", "Finance");
-  form.set("entity", entityId);
-  const r = await fetch("/api/files", { method: "POST", body: form });
-  const out = await r.json();
-  if (!r.ok) throw Error(out.error);
-  return out.id as string;
-}
 
 function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (

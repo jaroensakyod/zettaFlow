@@ -19,6 +19,7 @@ import {
 import { catalog, statusLabels, type Field } from "@/lib/catalog";
 import type { Entity, Context } from "@/lib/types";
 import { api, Modal, Empty, Loading, money, displayDate } from "./shared";
+import { uploadFile } from "./platform";
 import { LineFeedButton } from "./template-target";
 import { conversions } from "@/lib/dept-rules";
 type Option = { id: string; kind: string; name: string };
@@ -73,13 +74,7 @@ function ImageField({
             setBusy(true);
             setError("");
             try {
-              const form = new FormData();
-              form.set("file", await shrinkPhoto(file));
-              form.set("department", department);
-              const r = await fetch("/api/files", { method: "POST", body: form });
-              const data = await r.json();
-              if (!r.ok) throw Error(data.error);
-              set(data.id);
+              set(await uploadFile(await shrinkPhoto(file), department));
             } catch (err) {
               setError((err as Error).message);
             } finally {
@@ -976,7 +971,7 @@ export function Records({
           </div>
           {writable && (
             <label className="upload-label">
-              แนบไฟล์ (สูงสุด 4 MB)
+              แนบไฟล์ (สูงสุด 15 MB)
               <input
                 type="file"
                 disabled={busy}

@@ -103,18 +103,35 @@ export function DepartmentMegaMenu({
             onPointerEnter={hoverOpen(d.id)}
             onPointerLeave={hoverClose}
           >
-            <button className="dept-menu-title" aria-expanded={!!q || openId === d.id} onClick={() => setOpenId(openId === d.id ? "" : d.id)}>
-              <span className="dept-menu-icon">
-                <MenuIcon name={d.icon} size={22} />
-              </span>
-              <span>
-                <b>
-                  {d.title} <small>({d.en})</small>
-                </b>
-                <em>{d.subtitle}</em>
-              </span>
-              <ChevronDown size={16} className={"dept-menu-arrow" + (q || openId === d.id ? " flip" : "")} />
-            </button>
+            {/* The title opens the department main page; the arrow toggles its list (pointing at the card does too). */}
+            <div className="dept-menu-title">
+              <button
+                className="dept-menu-go"
+                title={"ไปหน้า" + d.title}
+                onClick={() => {
+                  rememberDept(d.id);
+                  navigate(d.overview);
+                }}
+              >
+                <span className="dept-menu-icon">
+                  <MenuIcon name={d.icon} size={22} />
+                </span>
+                <span>
+                  <b>
+                    {d.title} <small>({d.en})</small>
+                  </b>
+                  <em>{d.subtitle}</em>
+                </span>
+              </button>
+              <button
+                className="dept-menu-toggle"
+                aria-label={"เมนูย่อย" + d.title}
+                aria-expanded={!!q || openId === d.id}
+                onClick={() => setOpenId(openId === d.id ? "" : d.id)}
+              >
+                <ChevronDown size={16} className={"dept-menu-arrow" + (q || openId === d.id ? " flip" : "")} />
+              </button>
+            </div>
             {/* Always rendered so it can animate; inert while closed so hidden links can't take focus. */}
             <div className="dept-menu-drop" inert={!q && openId !== d.id}>
             <ul>

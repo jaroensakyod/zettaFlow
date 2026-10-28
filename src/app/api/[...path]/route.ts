@@ -45,7 +45,7 @@ import {
 } from "@/lib/domain";
 import { catalog, companyFields } from "@/lib/catalog";
 import { submit, processJobs, processNotifications, tokenHash } from "@/lib/ai";
-import { upload, files, download } from "@/lib/files";
+import { upload, files, download, prepareUpload, finishUpload, MAX_UPLOAD } from "@/lib/files";
 import { flowReply, businessAnswer } from "@/lib/flow";
 import { aiEnabled } from "@/lib/llm";
 import {
@@ -66,7 +66,7 @@ import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
 import { taxReport, expiries } from "@/lib/dept-views";
 import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml, linkAttachment } from "@/lib/accounting";
-import { scanExpenseDocument } from "@/lib/expenses";
+import { scanExpenseDocument, demoScanAllowed } from "@/lib/expenses";
 import { sampleData } from "@/lib/sample-data";
 import { importRows } from "@/lib/importer";
 import { directory } from "@/lib/directory";
@@ -262,7 +262,7 @@ async function handle(req: NextRequest) {
       ctx.demo &&
       !demoEnabled() &&
       method !== "GET" &&
-      !(path[0] === "assistant" || path[0] === "flow" || (path[0] === "templates" && path[1] === "draft"))
+      !(path[0] === "assistant" || path[0] === "flow" || path[0] === "expense-scan" || (path[0] === "templates" && path[1] === "draft"))
     )
       throw new AppError(READ_ONLY_DEMO, 403);
     if (path[0] === "companies") {
@@ -415,7 +415,17 @@ async function handle(req: NextRequest) {
     // บันทึกค่าใช้จ่าย form: AI reads one uploaded file into rows (nothing saved), and files uploaded before the
     // first save are linked to the expense afterwards.
     if (path[0] === "sample-data" && method === "POST") return response(await sampleData(ctx, await body(req)));
-    if (path[0] === "expense-scan" && method === "POST") return response(await scanExpenseDocument(ctx, await body(req)));
+    if (path[0] === "expense-scan" && method === "POST") {
+      // A file posted with the request is read without being stored: the public demo can try AI reading.
+      if ((req.headers.get("content-type") || "").startsWith("multipart/form-data")) {
+        assert(Number(req.headers.get("content-length") || 0) <= (demoEnabled() ? MAX_UPLOAD + 200000 : 4500000), "ไฟล์ใหญ่เกินไป", 413);
+        if (ctx.demo && !demoEnabled()) demoScanAllowed(req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown");
+        const file = (await req.formData()).get("file");
+        assert(file instanceof File, "แนบไฟล์");
+        return response(await scanExpenseDocument(ctx, {}, file));
+      }
+      return response(await scanExpenseDocument(ctx, await body(req)));
+    }
     if (path[0] === "expense-files" && method === "POST") {
       const input = z.object({ attachmentId: z.uuid(), entityId: z.uuid() }).parse(await body(req));
       assert(canWrite(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
@@ -980,9 +990,13 @@ async function handle(req: NextRequest) {
         return response(
           await files(ctx, req.nextUrl.searchParams.get("entity") || undefined),
         );
+      // Direct upload: the browser sends the file to storage itself, so its size is not limited by this request.
+      if (path[1] === "direct" && path[2] === "complete") return response(await finishUpload(ctx, await body(req)), 201);
+      if (path[1] === "direct") return response(await prepareUpload(ctx, await body(req)));
+      // Through the server: demo mode (local files). Hosting caps a request near 4.5 MB, local dev does not.
       assert(
-        Number(req.headers.get("content-length") || 0) <= 4500000,
-        "ไฟล์สูงสุด 4 MB",
+        Number(req.headers.get("content-length") || 0) <= (demoEnabled() ? MAX_UPLOAD + 200000 : 4500000),
+        "ไฟล์ใหญ่เกินไป",
         413,
       );
       const form = await req.formData();

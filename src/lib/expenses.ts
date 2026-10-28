@@ -3,7 +3,7 @@ import { z } from "zod";
 import { extract } from "./ai";
 import { assert, canWrite } from "./domain";
 import { allEntities } from "./data";
-import { download } from "./files";
+import { download, MAX_UPLOAD } from "./files";
 import { entitled } from "./platform";
 import { whtForm } from "./tax";
 import { expenseCategories, docTypes, lineCategories, type Line } from "./catalog";
@@ -161,11 +161,17 @@ type ScanLine = { name: string; category: string; unit: string; qty: number; uni
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Reads one uploaded file into fields and item rows for the expense form (nothing is saved). */
-export async function scanExpenseDocument(ctx: Context, input: unknown) {
-  const { attachmentId } = z.object({ attachmentId: z.uuid() }).parse(input);
+/** `sent` is a file posted with the request instead of a stored attachment (the public demo, where nothing is stored). */
+export async function scanExpenseDocument(ctx: Context, input: unknown, sent?: File) {
   assert(canWrite(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
   assert(aiEnabled(), "ยังไม่ได้ตั้งค่า AI สำหรับอ่านเอกสาร", 503);
-  const [{ file, bytes }, suppliers] = await Promise.all([download(ctx, attachmentId), allEntities(ctx, "suppliers", 2000)]);
+  const read = sent
+    ? (async () => {
+        assert(sent.size > 0 && sent.size <= MAX_UPLOAD, "ไฟล์ใหญ่เกินไป");
+        return { file: { mime: sent.type, name: sent.name.slice(0, 200) }, bytes: Buffer.from(await sent.arrayBuffer()) };
+      })()
+    : download(ctx, z.object({ attachmentId: z.uuid() }).parse(input).attachmentId);
+  const [{ file, bytes }, suppliers] = await Promise.all([read, allEntities(ctx, "suppliers", 2000)]);
   assert(["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(file.mime), "AI อ่านได้เฉพาะรูปภาพและ PDF");
   if (file.mime === "application/pdf") assert(pdfPages(bytes) <= MAX_PDF_PAGES, `PDF ยาวเกิน ${MAX_PDF_PAGES} หน้า`);
   // A Thai bank slip carries a verifiable QR; its reference becomes the document number.
@@ -243,4 +249,21 @@ export async function scanExpenseDocument(ctx: Context, input: unknown) {
     mismatch: v.total != null && lines.length > 0 && Math.abs(rebuilt - v.total) > 1 ? { printed: v.total, rebuilt } : null,
     usage: usage as AiUsage | null,
   };
+}
+
+// Public demo: anyone can try AI reading, so cap it per visitor and overall (per server instance, reset hourly).
+const demoScans = new Map<string, number>();
+let demoWindow = 0,
+  demoTotal = 0;
+export function demoScanAllowed(ip: string) {
+  const hour = Math.floor(Date.now() / 3600000);
+  if (hour !== demoWindow) {
+    demoWindow = hour;
+    demoTotal = 0;
+    demoScans.clear();
+  }
+  const used = demoScans.get(ip) || 0;
+  assert(used < 20 && demoTotal < 300, "ระบบตัวอย่างให้ AI อ่านได้ 20 ไฟล์ต่อชั่วโมง ลองใหม่ภายหลัง หรือสมัครใช้งานฟรี", 429);
+  demoScans.set(ip, used + 1);
+  demoTotal++;
 }

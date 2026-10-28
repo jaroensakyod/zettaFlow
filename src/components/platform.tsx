@@ -364,10 +364,23 @@ function ShareManager({
   );
 }
 
-export async function uploadFile(file: File, department: string) {
+/**
+ * Uploads a file and returns its attachment id. With Supabase the browser PUTs the file straight to storage through
+ * a one-time URL (no hosting request-size cap, up to 15 MB); demo mode sends it through the server.
+ */
+export async function uploadFile(file: File, department: string, entityId?: string) {
+  const meta = { name: file.name, mime: file.type, size: file.size, department, entityId: entityId || null };
+  const ready: { direct: boolean; id?: string; url?: string } = await api("/files/direct", { method: "POST", body: meta });
+  if (ready.direct) {
+    const put = await fetch(ready.url!, { method: "PUT", headers: { "Content-Type": file.type, "x-upsert": "false" }, body: file });
+    if (!put.ok) throw Error("อัปโหลดไฟล์ไม่สำเร็จ (" + put.status + ")");
+    const done: { id: string } = await api("/files/direct/complete", { method: "POST", body: { ...meta, id: ready.id } });
+    return done.id;
+  }
   const upload = new FormData();
   upload.set("file", file);
   upload.set("department", department);
+  if (entityId) upload.set("entity", entityId);
   const r = await fetch("/api/files", { method: "POST", body: upload });
   const d = await r.json();
   if (!r.ok) throw Error(d.error);

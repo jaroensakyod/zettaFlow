@@ -7,6 +7,7 @@ import type { Context, Entity } from "@/lib/types";
 import { statusLabels, approvalRights, employeeDocuments } from "@/lib/catalog";
 import type { PartyStats } from "@/lib/directory";
 import { api, displayDate, Loading, Empty } from "./shared";
+import { uploadFile } from "./platform";
 import { EntityEditor, photoUrl } from "./records";
 import { EntityFiles } from "./entity-files";
 import { deptLabels } from "./home-dashboard";
@@ -145,13 +146,11 @@ export function EmployeeProfile({
                   const f = ev.target.files?.[0];
                   ev.target.value = "";
                   if (!f) return;
-                  const form = new FormData();
-                  form.set("file", f);
-                  form.set("department", "HR");
-                  const r = await fetch("/api/files", { method: "POST", body: form });
-                  const j = await r.json();
-                  if (!r.ok) return setError(j.error);
-                  patch({ cover: j.id }, "เปลี่ยนรูปปกแล้ว");
+                  try {
+                    patch({ cover: await uploadFile(f, "HR") }, "เปลี่ยนรูปปกแล้ว");
+                  } catch (err) {
+                    setError((err as Error).message);
+                  }
                 }}
               />
             </label>

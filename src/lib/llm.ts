@@ -30,6 +30,28 @@ export async function aiGenerate(req: Request): Promise<string> {
   return text;
 }
 
+// Gemini takes about 20 MB inline per request (base64 adds a third), so bigger files go through its Files API.
+const INLINE_MAX = 7_000_000;
+async function geminiUpload(file: { mime: string; name: string; bytes: Buffer }) {
+  const key = process.env.GEMINI_API_KEY!;
+  const r = await fetch("https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=media", {
+    method: "POST",
+    signal: AbortSignal.timeout(60000),
+    headers: { "x-goog-api-key": key, "Content-Type": file.mime },
+    body: new Uint8Array(file.bytes),
+  });
+  if (!r.ok) console.error("Gemini upload " + r.status + ": " + (await r.text()).slice(0, 300));
+  assert(r.ok, "ส่งไฟล์ให้ AI ไม่สำเร็จ", 502);
+  let f: { name: string; uri: string; state?: string } = (await r.json()).file;
+  // Large PDFs may need a moment before they can be read.
+  for (let i = 0; f.state === "PROCESSING" && i < 20; i++) {
+    await new Promise((ok) => setTimeout(ok, 1000));
+    f = await (await fetch("https://generativelanguage.googleapis.com/v1beta/" + f.name, { headers: { "x-goog-api-key": key } })).json();
+  }
+  assert(f.state !== "FAILED" && f.state !== "PROCESSING", "AI เตรียมไฟล์ไม่สำเร็จ", 502);
+  return f.uri;
+}
+
 async function gemini({ instructions, parts, maxTokens, schema, precise, timeoutMs = 45000, onUsage }: Request) {
   const model =
     (precise && process.env.GEMINI_OCR_MODEL) || process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
@@ -44,10 +66,14 @@ async function gemini({ instructions, parts, maxTokens, schema, precise, timeout
         contents: [
           {
             role: "user",
-            parts: parts.map((p) =>
-              "text" in p
-                ? { text: p.text }
-                : { inlineData: { mimeType: p.file.mime, data: p.file.bytes.toString("base64") } },
+            parts: await Promise.all(
+              parts.map(async (p) =>
+                "text" in p
+                  ? { text: p.text }
+                  : p.file.bytes.length > INLINE_MAX
+                    ? { fileData: { mimeType: p.file.mime, fileUri: await geminiUpload(p.file) } }
+                    : { inlineData: { mimeType: p.file.mime, data: p.file.bytes.toString("base64") } },
+              ),
             ),
           },
         ],

@@ -18,6 +18,7 @@ import type {
   Attachment,
 } from "@/lib/types";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
+import { uploadFile } from "./platform";
 type ReviewData = { revisions: DesignRevision[]; comments: DesignComment[] };
 const labels = {
   submitted: "รอตรวจทาน",
@@ -425,16 +426,7 @@ export function DesignPanel({
               const form = new FormData(e.currentTarget),
                 file = form.get("file") as File;
               try {
-                const uploadData = new FormData();
-                uploadData.set("file", file);
-                uploadData.set("entity", project.id);
-                uploadData.set("department", "Design");
-                const response = await fetch("/api/files", {
-                    method: "POST",
-                    body: uploadData,
-                  }),
-                  attachment = await response.json();
-                if (!response.ok) throw Error(attachment.error);
+                const attachment = { id: await uploadFile(file, "Design", project.id) };
                 await api("/design", {
                   method: "POST",
                   body: {
@@ -458,7 +450,7 @@ export function DesignPanel({
             }}
           >
             <label>
-              ภาพ / PDF · สูงสุด 4 MB
+              ภาพ / PDF · สูงสุด 15 MB
               <input
                 name="file"
                 type="file"
