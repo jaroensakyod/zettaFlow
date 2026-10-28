@@ -1,6 +1,7 @@
 // What น้องโฟลว์ knows when it answers a free question: a compact, plain-text snapshot of the company
 // built from the records this user may read. Numbers are worked out here, so the model only explains them.
 import { allEntities } from "./data";
+import { catalog } from "./catalog";
 import type { Context, Entity } from "./types";
 
 const baht = (n: number) => "฿" + Math.round(n).toLocaleString("th-TH");
@@ -8,7 +9,12 @@ const num = (v: unknown) => Number(v || 0);
 const sum = (rows: Entity[], key = "amount") => rows.reduce((s, r) => s + num(r.data[key]), 0);
 
 /** The snapshot text, plus the open tasks it lists as T1, T2… so a reply can point at one without seeing ids. */
-export async function businessSnapshot(ctx: Context, now = Date.now()): Promise<{ text: string; tasks: Map<string, Entity> }> {
+/**
+ * The snapshot text, plus the open tasks it lists as T1, T2… so a reply can point at one without seeing ids.
+ * `focus` (the question and recent chat) picks which pages are listed row by row; every other page gets a one-line
+ * count, which keeps a question to a few thousand tokens instead of the whole company.
+ */
+export async function businessSnapshot(ctx: Context, focus = "", now = Date.now()): Promise<{ text: string; tasks: Map<string, Entity> }> {
   const day = (n: number) => new Date(now + 7 * 3600000 + n * 864e5).toISOString().slice(0, 10);
   const today = day(0),
     monthStart = today.slice(0, 8) + "01",
@@ -145,5 +151,70 @@ export async function businessSnapshot(ctx: Context, now = Date.now()): Promise<
   if (expiring.length) out.push("ใกล้หมดอายุใน 30 วัน: " + expiring.map(([n, d]) => `${n} (${d})`).join(", "));
   const tickets = all.tickets.filter((r) => ["open", "progress"].includes(String(r.data.status)));
   if (tickets.length) out.push(`เคส IT/บริการลูกค้าที่เปิดอยู่ ${tickets.length}: ` + tickets.map((r) => `${r.data.name} [${r.data.priority}]`).join(", "));
+  // Every other page the user may read, as compact rows, so any department question has data behind it.
+  const covered = new Set<string>(["sales", "expenses", "attendance", "tasks", "employees", "customers"]);
+  const rest = Object.keys(catalog).filter((k) => !covered.has(k));
+  const lists = await Promise.all(rest.map(async (k) => [k, k in all ? all[k as keyof typeof all] : await allEntities(ctx, k, 200).catch(() => [] as Entity[])] as const));
+  const names = new Map<string, string>();
+  for (const rows of [...Object.values(all), ...lists.map(([, r]) => r)]) for (const e of rows) names.set(e.id, String(e.data.name || e.data.sku || ""));
+  const wanted = relevantKinds(focus);
+  for (const [kind, rows] of lists) {
+    if (!rows.length) continue;
+    const m = catalog[kind];
+    const statuses = new Map<string, number>();
+    for (const r of rows) if (r.data.status) statuses.set(String(r.data.status), (statuses.get(String(r.data.status)) || 0) + 1);
+    out.push(
+      `หน้า${m.label} (${rows.length} รายการ${statuses.size ? "; " + [...statuses].map(([s, n]) => `${s} ${n}`).join(", ") : ""}):`,
+      ...(wanted.has(kind) ? rows.slice(0, 20).map((r) => "  - " + rowText(kind, r.data, names)) : []),
+    );
+  }
   return { text: out.join("\n"), tasks };
+}
+
+// Words people use for each department and page, beyond the page titles themselves.
+const deptWords: Record<string, string[]> = {
+  Sales: ["ขาย", "ลูกค้า", "ใบเสนอ", "เสนอราคา", "ดีล", "pipeline", "เป้า", "so", "ออเดอร์", "คำสั่งซื้อ"],
+  Marketing: ["การตลาด", "แคมเปญ", "คอนเทนต์", "โฆษณา", "โซเชียล", "social", "tiktok", "facebook", "โปรโมชัน", "โปร", "งบการตลาด", "reach"],
+  Warehouse: ["คลัง", "สต็อก", "สินค้า", "เบิก", "ตรวจนับ", "ของ"],
+  Purchasing: ["จัดซื้อ", "ซื้อ", "po", "ซัพพลายเออร์", "supplier", "ผู้ขาย"],
+  Finance: ["บัญชี", "การเงิน", "ใบแจ้งหนี้", "invoice", "ลูกหนี้", "เจ้าหนี้", "บิล", "จ่าย", "ชำระ", "ภาษี", "vat", "เงิน", "รายรับ", "ค่าใช้จ่าย"],
+  HR: ["hr", "บุคคล", "พนักงาน", "เงินเดือน", "ค่าจ้าง", "ลา", "สาย", "kpi", "okr", "ประเมิน", "สมัคร", "สัมภาษณ์", "ฟรีแลนซ์", "คน"],
+  Event: ["อีเวนต์", "อีเว้น", "event", "งาน expo", "แขก", "ผู้เข้าร่วม", "สถานที่", "บูธ", "เวที"],
+  IT: ["it", "ไอที", "คอม", "ซอฟต์แวร์", "software", "ระบบ", "ความปลอดภัย", "security", "license", "ไลเซนส์", "เคส", "แจ้งซ่อม", "ticket"],
+  "Customer Service": ["ร้องเรียน", "เคสลูกค้า", "บริการลูกค้า"],
+  Legal: ["กฎหมาย", "สัญญา", "นโยบาย", "คดี", "ข้อพิพาท", "เครื่องหมายการค้า", "ลิขสิทธิ์", "pdpa", "ทนาย"],
+  Admin: ["ธุรการ", "รถ", "ยานพาหนะ", "ทะเบียน", "ประกัน", "ซ่อม", "แม่บ้าน", "ห้องประชุม", "บริการทั่วไป", "เอกสาร"],
+  Operations: ["โครงการ", "project", "ทรัพย์สิน", "asset", "อุปกรณ์", "อีเวนต์"],
+  "Business Development": ["ดีล", "พื้นที่", "ห้าง", "สาขา", "dealer", "pop-up", "ค่าเช่า"],
+};
+/** Pages whose title or department words appear in the question / recent chat. */
+function relevantKinds(focus: string) {
+  const q = focus.toLowerCase();
+  const out = new Set<string>();
+  if (!q.trim()) return out;
+  for (const [kind, m] of Object.entries(catalog)) {
+    const titleWords = m.label.toLowerCase().split(/[s&/()]+/).filter((w) => w.length >= 2);
+    if (titleWords.some((w) => q.includes(w)) || (deptWords[m.department] || []).some((w) => q.includes(w))) out.add(kind);
+  }
+  return out;
+}
+
+/** One record as "label: value; …" — short fields only, related records by name, computed columns included. */
+function rowText(kind: string, d: Record<string, unknown>, names: Map<string, string>) {
+  const m = catalog[kind];
+  const parts: string[] = [];
+  for (const f of m.fields) {
+    const v = d[f.key];
+    if (v === undefined || v === null || v === "" || f.type === "image" || f.type === "lines" || f.hidden) continue;
+    if (f.type === "relation") {
+      const n = names.get(String(v));
+      if (n) parts.push(`${f.label}: ${n}`);
+    } else if (f.type === "number") parts.push(`${f.label}: ${Number(v).toLocaleString("th-TH")}`);
+    else parts.push(`${f.key === "name" ? "" : f.label + ": "}${String(v).replace(/\s+/g, " ").slice(0, f.type === "textarea" ? 80 : 60)}`);
+  }
+  for (const [k, c] of Object.entries(m.computed || {})) parts.push(`${c.label}: ${c.calc(d).toLocaleString("th-TH")}`);
+  if (kind === "invoices" && d.total !== undefined) parts.push(`ยอดรวม: ${num(d.total).toLocaleString("th-TH")}`, `รับแล้ว: ${num(d.paid).toLocaleString("th-TH")}`);
+  if (kind === "products" && d.stock !== undefined) parts.push(`คงเหลือ: ${num(d.stock).toLocaleString("th-TH")}`);
+  if (kind === "payroll" && d.net !== undefined) parts.push(`สุทธิ: ${num(d.net).toLocaleString("th-TH")}`);
+  return parts.join("; ").slice(0, 260);
 }

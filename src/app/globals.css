@@ -6853,3 +6853,12 @@ fieldset.exf-card:disabled { opacity: 1; }
 .exf-ai .exf-icon { width: 22px; height: 22px; color: inherit; }
 .exf-ai-busy { animation: exf-pulse 1.4s ease-in-out infinite; }
 @keyframes exf-pulse { 50% { opacity: .55; } }
+.records-filter { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.records-filter b { color: var(--accent); }
+.sample-card { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; padding: 16px 18px; border: 1px dashed #cfc5ee; background: #fcfbff; }
+.sample-card > div { flex: 1; min-width: 0; }
+.sample-card h3 { margin: 0 0 4px; font-size: 15px; }
+.sample-card p { margin: 0; font-size: 13px; color: var(--muted); }
+.sample-card-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); flex: none; }
+.sample-card button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+@media (max-width: 640px) { .sample-card { flex-wrap: wrap; } }

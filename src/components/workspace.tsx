@@ -68,6 +68,7 @@ import { Accounting } from "./accounting";
 import { Directory } from "./directory";
 import { DepartmentMegaMenu, DEPT_KEY } from "./dept-menu";
 import { DepartmentSidebar } from "./dept-sidebar";
+import { SampleDataCard } from "./sample-data-card";
 import { ExpenseForm } from "./expense-form";
 import { departmentOf } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
@@ -393,6 +394,17 @@ export function Workspace({
     } catch {}
   }, [fullView]);
   const sideDept = departmentOf(fullView, preferredDept);
+  // Menu links like "content?channel=social" or "leaves?status=pending" narrow a record list.
+  const listFilter = (() => {
+    const m = catalog[view];
+    if (!m) return undefined;
+    for (const [k, v] of searchParams.entries()) {
+      if (k === "channel" && v === "social")
+        return { label: "Social Media", test: (e: Entity) => ["Facebook", "Instagram", "TikTok", "LINE OA", "YouTube"].includes(String(e.data.channel)) };
+      const f = m.fields.find((x) => x.key === k && x.options?.includes(v));
+      if (f) return { label: f.label + ": " + v, test: (e: Entity) => e.data[k] === v };
+    }
+  })();
   // แผนก opens when a mouse points at it and fades out shortly after the pointer leaves both the button and the menu.
   const menuTimer = useRef<ReturnType<typeof setTimeout>>(undefined),
     lastPointer = useRef("");
@@ -648,16 +660,20 @@ export function Workspace({
             <Directory key={view} kind={view} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
           ) : catalog[view] ? (
             <Records
-              key={view}
+              key={fullView}
               kind={view}
               ctx={ctx}
               notify={notify}
               changed={load}
+              only={listFilter}
             />
           ) : view === "ai-inbox" || view === "templates" ? (
             <AiWorkspace ctx={ctx} view={view} notify={notify} changed={load} />
           ) : view === "company" ? (
-            <CompanySettings ctx={ctx} notify={notify} changed={load} />
+            <>
+              <SampleDataCard ctx={ctx} notify={notify} changed={load} />
+              <CompanySettings ctx={ctx} notify={notify} changed={load} />
+            </>
           ) : view === "team" ? (
             <Team ctx={ctx} notify={notify} />
           ) : view === "integrations" ? (

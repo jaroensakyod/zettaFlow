@@ -280,12 +280,15 @@ export function Records({
   notify,
   changed,
   refresh = 0,
+  only,
 }: {
   kind: string;
   ctx: Context;
   notify: (s: string) => void;
   changed: () => void;
   refresh?: number;
+  /** A menu link such as "content?channel=social" narrows the list to matching rows. */
+  only?: { label: string; test: (e: Entity) => boolean };
 }) {
   const module = catalog[kind];
   const [rows, setRows] = useState<Entity[]>([]),
@@ -316,8 +319,8 @@ export function Records({
       const d = await api(
         `/entities/${kind}?page=${page}&q=${encodeURIComponent(debounced)}&archived=${archived}`,
       );
-      setRows(d.rows);
-      setCount(d.count);
+      setRows(only ? d.rows.filter(only.test) : d.rows);
+      setCount(only ? d.rows.filter(only.test).length : d.count);
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -493,6 +496,7 @@ export function Records({
           ระบบนี้ไม่เรียกเก็บเงินหรือยืนยันการโอนแทนธนาคาร
         </div>
       )}
+      {only && <p className="records-filter">แสดงเฉพาะ: <b>{only.label}</b></p>}
       <section className="card records-card">
         {loading ? (
           <Loading />

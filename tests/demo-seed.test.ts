@@ -38,3 +38,18 @@ test("the demo seed is deterministic for the public showcase", () => {
     two.entities.map((e) => e.data),
   );
 });
+
+test("sample data for a real company inserts in an order the database accepts", async () => {
+  const { sampleRows } = await import("../src/lib/sample-data");
+  const rows = sampleRows();
+  const seen = new Map<string, string>();
+  for (const r of rows) {
+    for (const f of catalog[r.kind].fields)
+      if (f.type === "relation" && r.data[f.key]) assert.equal(seen.get(String(r.data[f.key])), f.resource, `${r.kind}.${f.key} must point at an earlier ${f.resource}`);
+    seen.set(r.id, r.kind);
+    validateEntity(r.kind, r.data);
+  }
+  assert.ok(rows.length > 500);
+  assert.ok(rows.filter((r) => r.kind === "products").every((r) => typeof r.stock === "number"), "stock travels beside the product");
+  assert.ok(rows.some((r) => r.kind === "invoices" && r.status === "paid" && r.paid! > 0));
+});

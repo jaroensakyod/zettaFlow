@@ -99,7 +99,7 @@ const agentRules = (today: string, canEdit: boolean) =>
 async function agent(ctx: Context, message: string, history: ChatTurn[]) {
   const today = bangkokToday(),
     canEdit = ctx.member.role !== "viewer";
-  const snapshot = await businessSnapshot(ctx);
+  const snapshot = await businessSnapshot(ctx, [message, ...history.slice(-4).map((t) => t.text)].join(" "));
   const transcript = history.map((t) => `${t.from === "me" ? "ผู้ใช้" : "น้องโฟลว์"}: ${t.text.slice(0, 1500)}`).join("\n");
   const raw = await aiGenerate({
     instructions: persona + format + " " + agentRules(today, canEdit),
