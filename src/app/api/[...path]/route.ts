@@ -47,6 +47,7 @@ import { catalog, companyFields } from "@/lib/catalog";
 import { submit, processJobs, processNotifications, tokenHash } from "@/lib/ai";
 import { upload, files, download } from "@/lib/files";
 import { flowReply, businessAnswer } from "@/lib/flow";
+import { aiEnabled } from "@/lib/llm";
 import {
   feedList,
   feedSuggest,
@@ -138,7 +139,7 @@ async function handle(req: NextRequest) {
         demo:
           demoEnabled() ||
           (await cookies()).get(PUBLIC_DEMO_COOKIE)?.value === "1",
-        ai: !!process.env.OPENAI_API_KEY,
+        ai: aiEnabled(),
         line: !!process.env.LINE_CHANNEL_SECRET,
         worker: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       });
