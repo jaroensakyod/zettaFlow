@@ -1,3 +1,4 @@
+import { currentExpenseCategories, legacyExpenseCategories } from "./expense-categories";
 export type Field = {
   key: string;
   label: string;
@@ -20,6 +21,8 @@ export type Field = {
   group?: string;
   /** Kept in the record but edited on a dedicated page, not in the generic form. */
   hidden?: boolean;
+  /** Shown with a dedicated picker instead of a flat list (grouped expense categories with emoji). */
+  picker?: "expenseCategory";
 };
 /** One row of a document's item list (`lines` field). Expense rows may also carry a category, unit, currency and discount. */
 export type Line = {
@@ -40,7 +43,8 @@ export const lineAmount = (l: Line) => {
 };
 export const lineCategories = ["ค่าเดินทาง", "ค่าเลี้ยงรับรอง", "ค่าที่พัก", "ค่าน้ำมัน", "ค่าขนส่ง", "วัสดุสิ้นเปลือง", "อุปกรณ์", "ค่าบริการ", "ค่าโฆษณา", "อื่นๆ"] as const;
 export const payeeTypes = ["บริษัท / Supplier", "บุคคลธรรมดา", "พนักงานในบริษัท"] as const;
-export const expenseCategories = ["ค่ามัดจำ", "ค่าเช่า", "ค่าไฟฟ้า", "ค่าบริการ", "ค่าพรม", "บุคลากร", "จัดซื้อ", "ขนส่ง", "การตลาด", "อื่นๆ"] as const;
+// หมวดหมู่หลัก: the grouped list (expense-categories.ts) plus the older names that existing records still use.
+export const expenseCategories = [...currentExpenseCategories, ...legacyExpenseCategories.filter((x) => !currentExpenseCategories.includes(x))];
 export const docTypes = ["ใบกำกับภาษีเต็มรูป", "ใบกำกับภาษีอย่างย่อ", "ใบเสร็จ", "ใบแจ้งหนี้"] as const;
 export const payStatuses = ["โอนแล้ว", "เงินสดย่อย", "ยังไม่จ่าย"] as const;
 export const partyTypes = ["นิติบุคคล", "บุคคลธรรมดา"] as const;
@@ -442,7 +446,7 @@ export const modules: Module[] = [
     fields: [
       f("name", "รายการค่าใช้จ่าย", "text", true),
       project,
-      f("category", "หมวดหมู่", "select", true, { options: [...expenseCategories] }),
+      f("category", "หมวดหมู่", "select", true, { options: [...expenseCategories], picker: "expenseCategory" }),
       f("accountCode", "รหัสผังบัญชี"),
       f("costCenter", "ศูนย์ต้นทุน"),
       f("payee", "ผู้รับเงิน"),

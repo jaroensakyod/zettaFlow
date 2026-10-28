@@ -8,9 +8,10 @@ import {
   Pencil, Plus, Printer, Save, Send, Tag, Trash2, Upload, User, UserRound, Wallet, X, Calculator, Paperclip, Sparkles,
 } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
-import { departmentNames, docTypes, expenseCategories, lineAmount, lineCategories, payeeTypes, type Line } from "@/lib/catalog";
+import { departmentNames, docTypes, lineAmount, lineCategories, payeeTypes, type Line } from "@/lib/catalog";
 import { computeExpense, FULL_TAX_INVOICE, awaitingReview } from "@/lib/tax";
 import { api } from "./shared";
+import { CategorySelect } from "./category-select";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
 
@@ -466,12 +467,7 @@ export function ExpenseForm({
               <input value={d.docNo} maxLength={100} placeholder="เช่น INV-20261028, BILL-001" onChange={(e) => set("docNo", e.target.value)} />
             </Field>
             <Field label="หมวดหมู่หลัก" required icon={<Tag size={18} />}>
-              <select required value={d.category} onChange={(e) => set("category", e.target.value)} className={d.category ? "" : "placeholder"}>
-                <option value="">เลือกหมวดหมู่</option>
-                {expenseCategories.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
+              <CategorySelect required value={d.category} onChange={(v) => set("category", v)} className={d.category ? "" : "placeholder"} />
             </Field>
             <Field label="ศูนย์ต้นทุน" icon={<Building2 size={18} />}>
               <select value={d.costCenter} onChange={(e) => set("costCenter", e.target.value)} className={d.costCenter ? "" : "placeholder"}>
@@ -580,22 +576,7 @@ export function ExpenseForm({
         </section>
 
         <fieldset className="exf-card exf-payee" disabled={locked}>
-          <div className="exf-card-head">
-            <SectionTitle icon={<UserRound size={22} />}>2. ผู้รับเงิน / ผู้ขาย (Supplier)</SectionTitle>
-            <div className="exf-head-actions">
-              <button type="button" className="exf-outline" disabled={locked} onClick={() => importRef.current?.click()}>
-                <Upload size={16} /> {busy === "scan" ? "AI กำลังอ่าน…" : "นำเข้าจากไฟล์"}
-              </button>
-              <input ref={importRef} type="file" hidden multiple accept={ACCEPT} onChange={(e) => {
-                const list = [...(e.target.files || [])];
-                e.target.value = "";
-                addFiles(list);
-              }} />
-              <button type="button" className="exf-outline" onClick={() => setRows((rs) => [...rs, blankRow()])}>
-                <Plus size={16} /> เพิ่มรายการ
-              </button>
-            </div>
-          </div>
+          <SectionTitle icon={<UserRound size={22} />}>2. ผู้รับเงิน / ผู้ขาย (Supplier)</SectionTitle>
           <div className="exf-segment" role="radiogroup" aria-label="ประเภทผู้รับเงิน">
             {payeeTypes.map((t) => (
               <label key={t} className={d.payeeType === t ? "active" : ""}>
@@ -661,7 +642,23 @@ export function ExpenseForm({
         </fieldset>
 
         <fieldset className="exf-card exf-items" disabled={locked}>
-          <SectionTitle icon={<FileSpreadsheet size={22} />}>3. รายละเอียดค่าใช้จ่าย</SectionTitle>
+          {/* Import (AI reads receipts / slips into rows) and add-row live with the item table they fill. */}
+          <div className="exf-card-head">
+            <SectionTitle icon={<FileSpreadsheet size={22} />}>3. รายละเอียดค่าใช้จ่าย</SectionTitle>
+            <div className="exf-head-actions">
+              <button type="button" className="exf-outline" disabled={locked} onClick={() => importRef.current?.click()}>
+                <Upload size={16} /> {busy === "scan" ? "AI กำลังอ่าน…" : "นำเข้าจากไฟล์"}
+              </button>
+              <input ref={importRef} type="file" hidden multiple accept={ACCEPT} onChange={(e) => {
+                const list = [...(e.target.files || [])];
+                e.target.value = "";
+                addFiles(list);
+              }} />
+              <button type="button" className="exf-outline" onClick={() => setRows((rs) => [...rs, blankRow()])}>
+                <Plus size={16} /> เพิ่มรายการ
+              </button>
+            </div>
+          </div>
           {(!!reading || !!reports.length) && (
             <div className="exf-ai" aria-live="polite">
               {reading && (
@@ -907,7 +904,7 @@ function Field({ label, required, icon, children }: { label: string; required?: 
       <span className="exf-control">
         {icon && <span className="exf-control-icon">{icon}</span>}
         {children}
-        {(children as { type?: string })?.type === "select" && <ChevronDown className="exf-chev" size={17} />}
+        {["select", CategorySelect].includes((children as { type?: unknown })?.type as string) && <ChevronDown className="exf-chev" size={17} />}
       </span>
     </label>
   );

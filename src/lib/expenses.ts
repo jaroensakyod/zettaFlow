@@ -6,7 +6,8 @@ import { allEntities } from "./data";
 import { download, MAX_UPLOAD } from "./files";
 import { entitled } from "./platform";
 import { whtForm } from "./tax";
-import { expenseCategories, docTypes, lineCategories, type Line } from "./catalog";
+import { docTypes, lineCategories, type Line } from "./catalog";
+import { currentExpenseCategories as expenseCategories } from "./expense-categories";
 import { aiEnabled, aiGenerate, type AiUsage } from "./llm";
 import { decodeQr, parseSlipQr, type SlipQr } from "./slip";
 import { MAX_PDF_PAGES, pdfPages } from "./billing";
@@ -126,7 +127,7 @@ const scanSchema = {
     date: { type: ["string", "null"], description: "Gregorian YYYY-MM-DD (convert พ.ศ.)" },
     vatMode: { type: "string", enum: ["included", "excluded", "none"], description: "included = printed prices already include 7% VAT; excluded = VAT is added below the items; none = no VAT" },
     whtRate: { type: "string", enum: ["0", "1", "2", "3", "5"] },
-    category: { type: "string", enum: [...expenseCategories], description: "main expense category of the whole document; meals, hotels and travel go to อื่นๆ" },
+    category: { type: "string", enum: [...expenseCategories], description: "main expense category of the whole document (e.g. fuel, hotel, client meals, office supplies)" },
     billDiscount: { type: "number", description: "discount on the whole bill in baht, 0 if none" },
     total: { type: ["number", "null"], description: "grand total printed on the document" },
     lines: {

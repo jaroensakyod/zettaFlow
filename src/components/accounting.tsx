@@ -4,7 +4,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScanLine, Upload, Receipt, Landmark, HandCoins, Clock, Plus, Trash2, Printer, Sparkles, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
-import { expenseCategories, docTypes, payStatuses, departmentNames, type Line } from "@/lib/catalog";
+import { docTypes, payStatuses, departmentNames, type Line } from "@/lib/catalog";
+import { categoryLabel } from "@/lib/expense-categories";
+import { CategorySelect } from "./category-select";
 import { computeExpense, vatModes, whtForm, linesTotal, linesMismatch, FULL_TAX_INVOICE, awaitingReview, type VatMode } from "@/lib/tax";
 import { buildJournal, expenseAccount, type Account, type CostCenter } from "@/lib/ledger";
 import { api, money, displayDate, Empty, Loading } from "./shared";
@@ -247,7 +249,7 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                       <span>
                         <b>{String(e.data.payee || e.data.name)}</b>
                         <small>
-                          {displayDate(e.data.date)} · {String(e.data.category)}
+                          {displayDate(e.data.date)} · {categoryLabel(String(e.data.category))}
                           {!!e.data.projectId && " · " + (projects.find((p) => p.id === e.data.projectId)?.name || "โปรเจกต์")}
                         </small>
                       </span>
@@ -384,11 +386,7 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                     <legend>2. หมวดบัญชีและโปรเจกต์</legend>
                     <label className={flag("category")}>
                       หมวดค่าใช้จ่าย
-                      <select required value={String(draft.category || "อื่นๆ")} onChange={(e) => set("category", e.target.value)}>
-                        {expenseCategories.map((c) => (
-                          <option key={c}>{c}</option>
-                        ))}
-                      </select>
+                      <CategorySelect required value={String(draft.category || "")} onChange={(v) => set("category", v)} />
                     </label>
                     <label>
                       รหัสผังบัญชี

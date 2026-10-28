@@ -6871,3 +6871,9 @@ fieldset.exf-card:disabled { opacity: 1; }
 .dept-menu-toggle:hover { background: color-mix(in srgb, var(--tone) 10%, transparent); }
 .dept-menu-title:has(.dept-menu-toggle[aria-expanded="true"]) { border-bottom: 1px solid var(--line); }
 @media (min-width: 761px) { .dept-menu-title:has(.dept-menu-toggle[aria-expanded="true"]) { border-bottom: 0; } }
+/* Grand total: solid accent so it is the first thing the eye lands on. */
+.exf-total { background: linear-gradient(135deg, #7c55e6, #5b35cf); color: white; box-shadow: 0 10px 24px rgba(91, 53, 207, .32); padding: 18px 16px; }
+.exf-total span { color: rgba(255, 255, 255, .92); font-size: 15.5px; }
+.exf-total b { color: white; font-size: 28px; }
+.exf-total b small { color: rgba(255, 255, 255, .9); }
+.exf-items .exf-card-head .exf-title { margin-bottom: 16px; }

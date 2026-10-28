@@ -61,3 +61,23 @@ test("every department page shows its own sidebar; app-wide pages show none", as
   assert.equal(activeEntry(acc, "expenses?filter=pending")?.label, "รออนุมัติ");
   assert.equal(activeEntry(acc, "expense-new?id=abc")?.label, "บันทึกค่าใช้จ่าย");
 });
+
+test("every หมวดหมู่หลัก has an emoji and books to an account the chart has", async () => {
+  const { expenseCategoryGroups, currentExpenseCategories, categoryLabel } = await import("../src/lib/expense-categories");
+  const { defaultAccounts, expenseAccount } = await import("../src/lib/ledger");
+  assert.equal(currentExpenseCategories.length, new Set(currentExpenseCategories).size, "no duplicate names");
+  for (const g of expenseCategoryGroups)
+    for (const c of g.items) {
+      assert.ok(c.emoji && c.emoji !== c.name, c.name + " has no emoji");
+      assert.ok(defaultAccounts.some((a) => a.code === c.account), `${c.name} → ${c.account} is not in the chart`);
+      assert.equal(expenseAccount({ category: c.name }, defaultAccounts), c.account);
+    }
+  assert.equal(categoryLabel("ค่าน้ำมัน/แก๊ส/รถยนต์"), "⛽ ค่าน้ำมัน/แก๊ส/รถยนต์");
+  // Older categories still book where they did, and stay valid on records.
+  assert.equal(expenseAccount({ category: "ค่าไฟฟ้า" }, defaultAccounts), "5220");
+  assert.equal(expenseAccount({ category: "ส่วนตัว", accountCode: "5900" }, defaultAccounts), "5900");
+  for (const old of ["ค่ามัดจำ", "บุคลากร", "อื่นๆ"]) assert.ok(catalog.expenses.fields.find((f) => f.key === "category")!.options!.includes(old));
+  const sql = await readFile("supabase/migrations/0027_expense_categories.sql", "utf8");
+  for (const name of currentExpenseCategories) assert.ok(sql.includes(name), name + " missing from 0027");
+  for (const a of defaultAccounts) assert.ok(sql.includes(`'${a.code}'`), a.code + " missing from 0027");
+});

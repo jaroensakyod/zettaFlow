@@ -20,6 +20,7 @@ import { catalog, statusLabels, type Field } from "@/lib/catalog";
 import type { Entity, Context } from "@/lib/types";
 import { api, Modal, Empty, Loading, money, displayDate } from "./shared";
 import { uploadFile } from "./platform";
+import { CategorySelect } from "./category-select";
 import { LineFeedButton } from "./template-target";
 import { conversions } from "@/lib/dept-rules";
 type Option = { id: string; kind: string; name: string };
@@ -133,6 +134,8 @@ export function FieldControl({
       {field.required && <span className="required"> *</span>}
       {field.type === "textarea" ? (
         <textarea {...props} rows={3} />
+      ) : field.picker === "expenseCategory" ? (
+        <CategorySelect id={props.id} name={props.name} required={props.required} value={props.value} onChange={set} placeholder={"เลือก" + field.label} />
       ) : field.type === "select" || field.type === "relation" ? (
         <select {...props}>
           <option value="">เลือก{field.label}</option>

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
-import { buildJournal } from "../src/lib/ledger";
+import { buildJournal, defaultAccounts } from "../src/lib/ledger";
 import { thaiYear } from "../src/lib/domain";
 const owner = "10000000-0000-4000-8000-000000000001",
   other = "10000000-0000-4000-8000-000000000002";
@@ -61,7 +61,7 @@ test("post_expense books a balanced entry, numbers 50 ทวิ once, and stays 
   try {
     await login(owner, "owner@test.local");
     const c = (await one<{ id: string }>(db, "select create_company('A')as id")).id;
-    assert.equal((await one<{ n: number }>(db, "select count(*)::int n from accounts where company_id=$1", [c])).n, 16);
+    assert.equal((await one<{ n: number }>(db, "select count(*)::int n from accounts where company_id=$1", [c])).n, defaultAccounts.length, "new companies get the whole default chart");
     const p = await save(db, c, "projects", { name: "The Promenade", priority: "normal", status: "active", budget: 50000 });
     await rejects(save(db, c, "expenses", expense({ lines: [{ name: "", qty: 1, price: 1 }] })), /รายการสินค้า/);
     const data = expense({
