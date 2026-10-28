@@ -17,7 +17,8 @@ import type {
   StockTransfer,
   ProjectInventory,
 } from "./types";
-import { AppError, assert, stockDelta, validateValues, validateEntity } from "./domain";
+import { AppError, assert, stockDelta, validateValues, validateEntity, entityDepartment } from "./domain";
+import { seedCompany } from "./demo-company";
 import { mapToTarget } from "./line-target";
 import type { AccountingState } from "./ledger";
 export const demoEnabled = () =>
@@ -97,120 +98,8 @@ export function seedDemo(makeId: () => string = uid): DemoState {
     });
     return id;
   };
-  const supplier = add("suppliers", "Purchasing", {
-    name: "Siri Supplies (ตัวอย่าง)",
-    contact: "ทีมจัดซื้อ",
-    phone: "02-000-0000",
-    status: "active",
-  });
-  const customer = add("customers", "Sales", {
-    name: "บริษัทตัวอย่าง",
-    code: "CUS-001",
-    contact: "ผู้ประสานงาน",
-    phone: "02-000-0000",
-    status: "active",
-  });
-  const project = add("projects", "Operations", {
-    name: "The Promenade",
-    code: "PRJ-001",
-    owner: "Siri",
-    priority: "high",
-    startDate: "2026-10-16",
-    endDate: "2026-10-28",
-    budget: 150000,
-    status: "active",
-  });
-  add("dealers", "Business Development", {
-    name: "The Promenade",
-    branch: "เดอะพรอมานาด",
-    province: "กรุงเทพฯ",
-    status: "active",
-  });
-  add("deals", "Business Development", {
-    name: "The Promenade / Pop-up",
-    projectId: project,
-    location: "G Floor",
-    area: 33,
-    rent: 55000,
-    gp: 22,
-    startDate: "2026-10-16",
-    endDate: "2026-10-28",
-    status: "pending",
-  });
-  const product = add("products", "Warehouse", {
-    name: "เสื้อรุ่น A",
-    sku: "SHIRT-A",
-    unit: "ตัว",
-    cost: 190,
-    price: 590,
-    stock: 80,
-    reorderLevel: 20,
-    status: "active",
-  });
-  add("products", "Warehouse", {
-    name: "กางเกงรุ่น 01",
-    sku: "PANTS-01",
-    unit: "ตัว",
-    cost: 290,
-    price: 890,
-    stock: 8,
-    reorderLevel: 15,
-    status: "active",
-  });
-  add("purchases", "Purchasing", {
-    name: "PO-001",
-    supplierId: supplier,
-    productId: product,
-    quantity: 100,
-    unitCost: 190,
-    total: 19000,
-    orderDate: "2026-10-12",
-    status: "draft",
-  });
-  add("sales", "Sales", {
-    name: "ยอดขายหน้าร้าน",
-    projectId: project,
-    customerId: customer,
-    date: "2026-10-12",
-    amount: 58420,
-    status: "confirmed",
-  });
-  add("expenses", "Finance", {
-    name: "ค่าเช่าพื้นที่",
-    projectId: project,
-    date: "2026-10-12",
-    category: "ค่าเช่า",
-    amount: 55000,
-    status: "approved",
-  });
-  add("tasks", "Design", {
-    name: "เขียนแบบ / Perspective",
-    projectId: project,
-    department: "Design",
-    assignee: "ทีม Design",
-    dueDate: "2026-10-15",
-    priority: "high",
-    status: "progress",
-  });
-  // แผนก menu pages: a couple of rows each so the demo is not empty.
-  const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
-  add("quotations", "Sales", { name: "QT-2569-0012", customerId: customer, date: day(-3), validUntil: day(27), lines: [{ name: "ออกแบบบูธ 3x3", qty: 1, price: 45000 }, { name: "ติดตั้งระบบไฟ", qty: 1, price: 12000 }], discount: 2000, vatMode: "excluded", owner: "ศิริกัลยา", status: "ส่งแล้ว" });
-  add("sales_targets", "Sales", { name: "ทีมขายกรุงเทพ", month: day(0).slice(0, 7), target: 500000, actual: 368000, visits: 24, status: "กำลังดำเนินการ" });
-  add("content", "Marketing", { name: "รีวิวบูธงาน Expo", channel: "TikTok", type: "วิดีโอ", publishDate: day(2), reach: 18500, engagement: 1240, status: "รออนุมัติ" });
-  add("bills", "Finance", { name: "AP-0045", supplierId: supplier, date: day(-5), dueDate: day(10), amount: 32100, whtRate: "3", status: "รอจ่าย" });
-  add("attendance", "HR", { name: "นภา ใจดี", date: day(0), shiftStart: "09:00", checkIn: "09:12", checkOut: "18:05", status: "สาย" });
-  add("software", "IT", { name: "Microsoft 365 Business", vendor: "Microsoft", seats: 12, cost: 54000, expiryDate: day(21), status: "รอต่ออายุ" });
-  add("vehicles", "Admin", { name: "Toyota Hilux Revo", plate: "2ขก 4581", driver: "สมชาย", mileage: 84210, taxExpiry: day(12), insuranceExpiry: day(45), status: "พร้อมใช้" });
-  add("policies", "Legal", { name: "นโยบายคุ้มครองข้อมูลส่วนบุคคล", category: "ข้อมูลส่วนบุคคล (PDPA)", effectiveDate: day(-300), expiryDate: day(60), status: "ประกาศใช้" });
-  add("employees", "HR", {
-    name: "พนักงานตัวอย่าง",
-    code: "EMP-001",
-    department: "Sales",
-    position: "Sales Coordinator",
-    employmentType: "ประจำ",
-    salary: 25000,
-    status: "active",
-  });
+  // A realistic company on every page (see demo-company.ts) so dashboards and น้องโฟลว์ have real-looking data.
+  const company = seedCompany((kind, data) => add(kind, entityDepartment(kind, data), data));
   const template: Template = {
     id: makeId(),
     company_id: companyId,
@@ -264,11 +153,67 @@ export function seedDemo(makeId: () => string = uid): DemoState {
     engine: "explicit-fields",
     created_at: timestamp(),
   }));
+  // Expense slips sent from LINE, waiting in Data Inbox for someone to check.
+  const expense: Template = {
+    id: makeId(),
+    company_id: companyId,
+    name: "เบิกค่าใช้จ่าย (LINE)",
+    department: "Finance",
+    version: 1,
+    fields: [
+      { key: "payee", label: "จ่ายให้", type: "text", required: true },
+      { key: "date", label: "วันที่", type: "date", required: true },
+      { key: "amount", label: "จำนวนเงิน", type: "number", required: true },
+      { key: "category", label: "หมวด", type: "choice", required: true, options: ["ขนส่ง", "การตลาด", "จัดซื้อ", "อื่นๆ"] },
+    ],
+    steps: [],
+  };
+  const ago = (h: number) => new Date(Date.now() - h * 3600000).toISOString();
+  const waiting: Ingestion[] = (
+    [
+      ["ค่ารถ Lalamove ขนชั้นวางไปไบเทค 1,850 บาท วันนี้", { payee: "Lalamove", amount: 1850, category: "ขนส่ง" }, ["วันที่"], 2],
+      ["บูสต์โพสต์ TikTok Winter Linen 3,000", { amount: 3000, category: "การตลาด" }, ["จ่ายให้", "วันที่"], 5],
+      ["ซื้อเทปกาว คัตเตอร์ ที่ไทวัสดุ 642 บาท", { payee: "ไทวัสดุ", amount: 642, category: "จัดซื้อ" }, ["วันที่"], 26],
+    ] as const
+  ).map(([raw, values, missing, h]) => ({
+    id: makeId(),
+    company_id: companyId,
+    template: expense,
+    raw,
+    values,
+    missing: [...missing],
+    status: "review",
+    source: "LINE",
+    engine: "explicit-fields",
+    created_at: ago(h),
+  }));
+  const team = company.staff;
+  const chat: Message[] = (
+    [
+      [1, "Sales", "ใบเสนอราคา Money Expo ส่งแล้วนะครับ รอลูกค้าตอบภายในศุกร์นี้", 30],
+      [6, "Finance", "INV ของไทยเบฟ ค้างจ่ายครึ่งหนึ่ง ใครดูแลช่วยตามให้ทีค่ะ", 20],
+      [8, "Warehouse", "กางเกงขากว้างลินินเหลือ 9 ตัว ต่ำกว่าจุดสั่งซื้อแล้วครับ", 8],
+      [4, "Marketing", "คลิปรีวิว Winter Linen ยอดวิวเกิน 80K แล้ว 🎉", 3],
+    ] as const
+  ).map(([i, department, body, h]) => ({
+    id: makeId(),
+    company_id: companyId,
+    department,
+    channel: "general",
+    body,
+    user_id: makeId(),
+    name: team[i].name,
+    created_at: ago(h),
+  }));
   return {
     company: {
       id: companyId,
       name: "Siri Studio · Demo",
-      profile: { name: "Siri Studio · Demo", industry: "Retail & Events" },
+      profile: {
+        name: "บริษัท ศิริ สตูดิโอ จำกัด",
+        industry: "Retail & Events",
+        description: "แบรนด์เสื้อผ้าลินิน และทีมรับออกแบบ ผลิต ติดตั้งบูธและ Pop-up Store ในห้างชั้นนำ",
+      },
       settings: { theme: "violet" },
     },
     members: [
@@ -282,11 +227,29 @@ export function seedDemo(makeId: () => string = uid): DemoState {
         departments: [],
         disabled: false,
       },
+      ...(
+        [
+          [1, "manager", ["Sales"]],
+          [6, "manager", ["Finance"]],
+          [8, "staff", ["Warehouse"]],
+          [4, "staff", ["Marketing"]],
+          [10, "viewer", ["HR"]],
+        ] as const
+      ).map(([i, role, departments]) => ({
+        id: makeId(),
+        company_id: companyId,
+        user_id: makeId(),
+        name: team[i].name,
+        email: `staff${i + 1}@siristudio.co.th`,
+        role,
+        departments: [...departments],
+        disabled: false,
+      })),
     ],
     entities,
-    templates: [template, delivery],
-    ingestions: deliveries,
-    messages: [],
+    templates: [template, delivery, expense],
+    ingestions: [...waiting, ...deliveries],
+    messages: chat,
     attachments: [],
     audit: [],
     movements: [],

@@ -29,4 +29,7 @@ test("flow intent: create task, queries, open page, chat", () => {
   assert.deepEqual(routeIntent("ไปที่หน้าหางาน", today), { kind: "open", view: "jobs" });
   assert.equal(pageFor("ใบแจ้งหนี้"), "invoices");
   assert.deepEqual(routeIntent("ช่วยแนะนำวิธีเพิ่มยอด", today), { kind: "chat" });
+  // Comparisons and breakdowns go to the AI, which sees the whole company snapshot.
+  assert.deepEqual(routeIntent("สรุปยอดขายเดือนนี้เทียบเดือนก่อน แยกช่องทาง", today), { kind: "chat" });
+  assert.deepEqual(routeIntent("ทีมไหนต้องเร่งยอดขาย", today), { kind: "chat" });
 });

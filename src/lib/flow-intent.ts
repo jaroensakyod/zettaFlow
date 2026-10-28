@@ -105,6 +105,9 @@ export function routeIntent(message: string, today: string): Intent {
       draft: { name: (rest || text).slice(0, 200), department, dueDate, priority },
     };
   }
+  // Comparisons, breakdowns and "why/should" questions need reasoning, not a fixed lookup: leave them to the AI.
+  if (/เทียบ|เปรียบ|แยก(?:ตาม|เป็น)?|วิเคราะห์|ทำไม|เพราะอะไร|แนวโน้ม|ควร|ช่องทาง|ทีมไหน|ใครบ้าง/.test(text))
+    return { kind: "chat" };
   if (/ใบแจ้งหนี้|invoice/i.test(text) && /ค้าง|เลย|ยังไม่(?:ได้)?(?:จ่าย|ชำระ)|ครบกำหนด|ทวง/.test(text))
     return { kind: "query", topic: "overdue_invoices" };
   if (/งาน/.test(text) && /ใกล้|ครบกำหนด|ค้าง|เลยกำหนด|ต้องทำ|deadline/i.test(text))
