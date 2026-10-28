@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api, Modal, Empty, Loading, displayDate, money } from "./shared";
 import { FieldControl } from "./records";
+import { TemplateTarget } from "./template-target";
 import type { Context, Template, Ingestion } from "@/lib/types";
 import { departmentNames, statusLabels, type Field } from "@/lib/catalog";
 export function AiWorkspace({
@@ -178,6 +179,7 @@ export function AiWorkspace({
                 {t.steps.map((s) => s.department).join(" → ") ||
                   "ตรวจทานและจัดเก็บข้อมูล"}
               </p>
+              <TemplateTarget t={t} editable={ctx.member.role === "owner"} onSaved={() => { load(); notify("บันทึกหน้าปลายทางแล้ว"); }} />
               <div className="template-buttons">
                 {ctx.member.role === "owner" && (
                   <button className="secondary" onClick={() => openTemplate(t)}>

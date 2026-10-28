@@ -48,6 +48,8 @@ export type Module = {
   fields: Field[];
   columns: string[];
   statusOptions?: string[];
+  /** Read-only columns worked out from the saved fields (shown in the table, never stored). */
+  computed?: Record<string, { label: string; calc: (d: Record<string, unknown>) => number }>;
 };
 const f = (
   key: string,
@@ -632,6 +634,152 @@ modules.push({
     f("notes", "หมายเหตุ", "textarea"),
   ],
 });
+// ---------- Department menu pages (แผนก mega menu) ----------
+const num = (v: unknown) => Number(v) || 0;
+const r2 = (n: number) => Math.round(n * 100) / 100;
+/** Item list total after discount, plus VAT when the document adds it. */
+export const docTotal = (d: Record<string, unknown>) => {
+  const lines = Array.isArray(d.lines) ? (d.lines as Line[]) : [];
+  const sub = lines.length ? lines.reduce((s, l) => s + num(l.qty) * num(l.price), 0) : num(d.subtotal);
+  const after = Math.max(0, sub - num(d.discount));
+  return r2(d.vatMode === "excluded" ? after * 1.07 : after);
+};
+const hoursBetween = (a: unknown, b: unknown) => {
+  const t = (s: unknown) => /^\d{1,2}:\d{2}$/.test(String(s)) ? Number(String(s).split(":")[0]) * 60 + Number(String(s).split(":")[1]) : NaN;
+  const m = t(b) - t(a);
+  return Number.isFinite(m) && m > 0 ? r2(m / 60) : 0;
+};
+export const computeAttendance = (d: Record<string, unknown>) => ({
+  hours: hoursBetween(d.checkIn, d.checkOut),
+  late: Math.max(0, (() => { const [h, m] = String(d.checkIn || "").split(":").map(Number); const s = String(d.shiftStart || "09:00").split(":").map(Number); return Number.isFinite(h) ? h * 60 + (m || 0) - (s[0] * 60 + (s[1] || 0)) : 0; })()),
+});
+const vatMode = f("vatMode", "VAT", "select", false, { options: ["excluded", "included", "none"] });
+const lines = f("lines", "รายการสินค้า/บริการ", "lines");
+const owner = f("owner", "ผู้รับผิดชอบ");
+const notes = f("notes", "หมายเหตุ", "textarea");
+const expiry = f("expiryDate", "วันหมดอายุ", "date");
+modules.push(
+  {
+    key: "quotations", label: "ใบเสนอราคา", description: "ออกใบเสนอราคา คิดส่วนลดและ VAT แล้วติดตามผลจนลูกค้าตอบรับ",
+    department: "Sales", icon: "FileText", columns: ["name", "customerId", "date", "total", "status"],
+    fields: [f("name", "เลขที่ใบเสนอราคา", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("date", "วันที่", "date", true), f("validUntil", "ยืนราคาถึง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, owner, status(["ร่าง", "ส่งแล้ว", "ตอบรับ", "ปฏิเสธ"]), notes],
+    computed: { total: { label: "ยอดสุทธิ", calc: docTotal } },
+  },
+  {
+    key: "sales_orders", label: "คำสั่งซื้อ (SO)", description: "คำสั่งซื้อจากลูกค้า กำหนดส่ง และสถานะจัดส่ง/ออกใบแจ้งหนี้",
+    department: "Sales", icon: "ShoppingCart", columns: ["name", "customerId", "deliveryDate", "total", "status"],
+    fields: [f("name", "เลขที่ SO", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("quotationId", "อ้างอิงใบเสนอราคา", "relation", false, { resource: "quotations" }), f("date", "วันที่สั่ง", "date", true), f("deliveryDate", "กำหนดส่ง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, project, status(["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว", "ออกใบแจ้งหนี้แล้ว", "ยกเลิก"]), notes],
+    computed: { total: { label: "ยอดสุทธิ", calc: docTotal } },
+  },
+  {
+    key: "sales_targets", label: "งานขาย & เป้าหมาย", description: "เป้ายอดขายรายเดือนต่อคน/ทีม เทียบยอดทำได้จริง",
+    department: "Sales", icon: "Target", columns: ["name", "month", "target", "actual", "percent"],
+    fields: [f("name", "พนักงาน / ทีม", "text", true), f("month", "เดือน (YYYY-MM)", "text", true), f("target", "เป้ายอดขาย", "number", true, { min: 0 }), f("actual", "ยอดทำได้", "number", false, { min: 0 }), f("visits", "จำนวนเข้าพบลูกค้า", "number", false, { min: 0 }), status(["กำลังดำเนินการ", "ถึงเป้า", "ไม่ถึงเป้า"]), notes],
+    computed: { percent: { label: "% ของเป้า", calc: (d) => (num(d.target) ? r2((num(d.actual) / num(d.target)) * 100) : 0) } },
+  },
+  {
+    key: "content", label: "สื่อโฆษณา & คอนเทนต์", description: "ปฏิทินคอนเทนต์และโฆษณาทุกช่องทาง รวม Social Media พร้อมผลลัพธ์",
+    department: "Marketing", icon: "Megaphone", columns: ["name", "channel", "publishDate", "reach", "status"],
+    fields: [f("name", "หัวข้อคอนเทนต์", "text", true), f("channel", "ช่องทาง", "select", true, { options: ["Facebook", "Instagram", "TikTok", "LINE OA", "YouTube", "เว็บไซต์", "สื่อสิ่งพิมพ์", "อื่นๆ"] }), f("type", "รูปแบบ", "select", false, { options: ["โพสต์", "วิดีโอ", "โฆษณา", "บทความ", "ไลฟ์"] }), f("campaignId", "แคมเปญ", "relation", false, { resource: "campaigns" }), f("publishDate", "วันเผยแพร่", "date"), f("url", "ลิงก์", "url"), f("spend", "ค่าโฆษณา", "number", false, { min: 0 }), f("reach", "Reach", "number", false, { min: 0 }), f("engagement", "Engagement", "number", false, { min: 0 }), owner, status(["ไอเดีย", "กำลังทำ", "รออนุมัติ", "เผยแพร่แล้ว"]), notes],
+    computed: { rate: { label: "Engagement %", calc: (d) => (num(d.reach) ? r2((num(d.engagement) / num(d.reach)) * 100) : 0) } },
+  },
+  {
+    key: "marketing_budget", label: "งบการตลาด", description: "ตั้งงบต่อแคมเปญ/ไตรมาส เทียบใช้จริงและงบคงเหลือ",
+    department: "Marketing", icon: "Wallet", columns: ["name", "period", "budget", "spent", "remaining"],
+    fields: [f("name", "รายการงบ", "text", true), f("campaignId", "แคมเปญ", "relation", false, { resource: "campaigns" }), f("period", "ช่วงเวลา (เช่น 2026-Q4)", "text", true), f("budget", "งบที่ตั้ง", "number", true, { min: 0 }), f("spent", "ใช้จริง", "number", false, { min: 0 }), status(["วางแผน", "อนุมัติ", "ปิดงบ"]), notes],
+    computed: { remaining: { label: "คงเหลือ", calc: (d) => r2(num(d.budget) - num(d.spent)) } },
+  },
+  {
+    key: "promotions", label: "กิจกรรมส่งเสริมการขาย", description: "โปรโมชัน ส่วนลด และกิจกรรมหน้าร้าน พร้อมผลยอดขาย",
+    department: "Marketing", icon: "BadgePercent", columns: ["name", "startDate", "endDate", "result", "status"],
+    fields: [f("name", "ชื่อกิจกรรม", "text", true), f("mechanic", "รูปแบบโปร (ลด/แถม/สะสมแต้ม)"), ...dates, f("discount", "ส่วนลด (%)", "number", false, { min: 0 }), f("budget", "งบ", "number", false, { min: 0 }), f("target", "เป้ายอดขาย", "number", false, { min: 0 }), f("result", "ยอดขายที่ได้", "number", false, { min: 0 }), status(["วางแผน", "กำลังจัด", "จบแล้ว"]), notes],
+  },
+  {
+    key: "stock_issues", label: "เบิกสินค้าออก", description: "ใบเบิกสินค้าออกจากคลังให้โปรเจกต์/แผนก พร้อมผู้อนุมัติ",
+    department: "Warehouse", icon: "PackageMinus", columns: ["name", "productId", "quantity", "requester", "status"],
+    fields: [f("name", "เลขที่ใบเบิก", "text", true), f("productId", "สินค้า", "relation", true, { resource: "products" }), f("quantity", "จำนวน", "number", true, { min: 0 }), f("requester", "ผู้เบิก", "text", true), project, f("date", "วันที่เบิก", "date", true), status(["รออนุมัติ", "อนุมัติแล้ว", "จ่ายของแล้ว", "ไม่อนุมัติ"]), notes],
+  },
+  {
+    key: "stock_counts", label: "ตรวจนับสต็อก", description: "นับสต็อกจริงเทียบยอดในระบบ เห็นส่วนต่างทันที",
+    department: "Warehouse", icon: "ClipboardCheck", columns: ["name", "productId", "systemQty", "countedQty", "diff"],
+    fields: [f("name", "รอบนับ", "text", true), f("productId", "สินค้า", "relation", true, { resource: "products" }), f("date", "วันที่นับ", "date", true), f("systemQty", "ยอดในระบบ", "number", true), f("countedQty", "นับได้จริง", "number", true, { min: 0 }), f("counter", "ผู้นับ"), status(["นับแล้ว", "ตรวจแล้ว", "ปรับยอดแล้ว"]), notes],
+    computed: { diff: { label: "ส่วนต่าง", calc: (d) => num(d.countedQty) - num(d.systemQty) } },
+  },
+  {
+    key: "bills", label: "ใบรับวางบิล (AP)", description: "รับวางบิลจาก Supplier ติดตามวันครบกำหนดและการจ่าย",
+    department: "Finance", icon: "ReceiptText", columns: ["name", "supplierId", "dueDate", "amount", "status"],
+    fields: [f("name", "เลขที่ใบวางบิล", "text", true), f("supplierId", "Supplier", "relation", true, { resource: "suppliers" }), f("invoiceNo", "เลขที่ใบแจ้งหนี้ของ Supplier"), f("date", "วันที่รับวางบิล", "date", true), f("dueDate", "ครบกำหนดจ่าย", "date", true), f("amount", "ยอดเงิน", "number", true, { min: 0 }), f("whtRate", "หัก ณ ที่จ่าย (%)", "select", false, { options: ["0", "1", "2", "3", "5"] }), project, status(["รอตรวจ", "รอจ่าย", "จ่ายแล้ว", "โต้แย้ง"]), notes],
+    computed: { net: { label: "ยอดจ่ายสุทธิ", calc: (d) => r2(num(d.amount) - (num(d.amount) / 1.07) * (num(d.whtRate) / 100)) } },
+  },
+  {
+    key: "recruitment", label: "สรรหา & รับพนักงาน", description: "ผู้สมัครแต่ละตำแหน่ง ตั้งแต่สมัคร สัมภาษณ์ จนรับเข้าทำงาน",
+    department: "HR", icon: "UserPlus", columns: ["name", "position", "interviewDate", "expectedSalary", "status"],
+    fields: [f("name", "ชื่อผู้สมัคร", "text", true), f("position", "ตำแหน่งที่สมัคร", "text", true), f("source", "ช่องทาง", "select", false, { options: ["JobThai", "JobsDB", "LinkedIn", "เครือข่าย EliteFlow", "แนะนำ", "อื่นๆ"] }), f("phone", "โทรศัพท์", "tel"), f("email", "อีเมล", "email"), f("interviewDate", "วันสัมภาษณ์", "date"), f("expectedSalary", "เงินเดือนที่คาดหวัง", "number", false, { min: 0 }), f("score", "คะแนนสัมภาษณ์ (0-10)", "number", false, { min: 0 }), status(["สมัคร", "คัดกรอง", "สัมภาษณ์", "เสนองาน", "รับเข้าทำงาน", "ไม่ผ่าน"]), notes],
+  },
+  {
+    key: "attendance", label: "เวลาเข้า-ออกงาน", description: "บันทึกเวลาเข้า-ออก ชั่วโมงทำงาน และนาทีที่สาย",
+    department: "HR", icon: "Clock", columns: ["name", "date", "checkIn", "checkOut", "hours"],
+    fields: [f("name", "พนักงาน", "text", true), f("employeeId", "เชื่อมข้อมูลพนักงาน", "relation", false, { resource: "employees" }), f("date", "วันที่", "date", true), f("shiftStart", "เวลาเข้างาน (กะ) HH:MM"), f("checkIn", "เข้างาน HH:MM", "text", true), f("checkOut", "ออกงาน HH:MM"), f("location", "สถานที่"), status(["ปกติ", "สาย", "ขาด", "ลา", "ทำงานนอกสถานที่"]), notes],
+    computed: { hours: { label: "ชั่วโมง", calc: (d) => computeAttendance(d).hours }, late: { label: "สาย (นาที)", calc: (d) => computeAttendance(d).late } },
+  },
+  {
+    key: "kpi", label: "ประเมินผลงาน (KPI/OKR)", description: "ตั้งเป้าหมายรายรอบ ให้คะแนน และติดตามความคืบหน้า",
+    department: "HR", icon: "Gauge", columns: ["name", "period", "objective", "progress", "status"],
+    fields: [f("name", "พนักงาน", "text", true), f("employeeId", "เชื่อมข้อมูลพนักงาน", "relation", false, { resource: "employees" }), f("period", "รอบประเมิน", "text", true), f("objective", "เป้าหมาย / KPI", "text", true), f("target", "ค่าเป้าหมาย", "number", false), f("actual", "ผลที่ได้", "number", false), f("score", "คะแนน (1-5)", "number", false, { min: 0 }), status(["ตั้งเป้า", "ระหว่างรอบ", "ประเมินแล้ว"]), notes],
+    computed: { progress: { label: "ความคืบหน้า %", calc: (d) => (num(d.target) ? r2((num(d.actual) / num(d.target)) * 100) : 0) } },
+  },
+  {
+    key: "event_guests", label: "ผู้เข้าร่วมงาน", description: "รายชื่อผู้ลงทะเบียน เช็กอิน และประเภทแขก",
+    department: "Event", icon: "Users", columns: ["name", "eventId", "guestType", "company", "status"],
+    fields: [f("name", "ชื่อผู้เข้าร่วม", "text", true), f("eventId", "อีเวนต์", "relation", true, { resource: "events" }), f("guestType", "ประเภท", "select", false, { options: ["ทั่วไป", "VIP", "สื่อ", "พาร์ทเนอร์", "วิทยากร"] }), f("company", "บริษัท"), f("phone", "โทรศัพท์", "tel"), f("email", "อีเมล", "email"), status(["ลงทะเบียน", "ยืนยัน", "เช็กอินแล้ว", "ไม่มา"]), notes],
+  },
+  {
+    key: "event_budget", label: "งบประมาณอีเวนต์", description: "งบแต่ละหมวดของอีเวนต์ เทียบใช้จริง",
+    department: "Event", icon: "Wallet", columns: ["name", "eventId", "budget", "spent", "remaining"],
+    fields: [f("name", "หมวดงบ", "text", true), f("eventId", "อีเวนต์", "relation", true, { resource: "events" }), f("budget", "งบ", "number", true, { min: 0 }), f("spent", "ใช้จริง", "number", false, { min: 0 }), f("vendor", "ผู้รับจ้าง"), status(["วางแผน", "อนุมัติ", "จ่ายแล้ว"]), notes],
+    computed: { remaining: { label: "คงเหลือ", calc: (d) => r2(num(d.budget) - num(d.spent)) } },
+  },
+  {
+    key: "venues", label: "สถานที่ & อุปกรณ์", description: "สถานที่จัดงาน อุปกรณ์ที่ต้องใช้ วันจอง และค่าใช้จ่าย",
+    department: "Event", icon: "MapPin", columns: ["name", "type", "bookingDate", "cost", "status"],
+    fields: [f("name", "ชื่อสถานที่ / อุปกรณ์", "text", true), f("type", "ประเภท", "select", true, { options: ["สถานที่", "เวที & แสงเสียง", "บูธ", "เฟอร์นิเจอร์", "อุปกรณ์ไอที", "อื่นๆ"] }), f("eventId", "อีเวนต์", "relation", false, { resource: "events" }), f("bookingDate", "วันที่จอง/ใช้", "date"), f("capacity", "ความจุ / จำนวน", "number", false, { min: 0 }), f("cost", "ค่าใช้จ่าย", "number", false, { min: 0 }), f("contact", "ผู้ติดต่อ"), f("phone", "โทรศัพท์", "tel"), status(["สอบถาม", "จองแล้ว", "ยืนยัน", "ยกเลิก"]), notes],
+  },
+  {
+    key: "software", label: "ระบบและซอฟต์แวร์", description: "ไลเซนส์ ซอฟต์แวร์ และระบบที่ใช้ พร้อมวันต่ออายุ",
+    department: "IT", icon: "AppWindow", columns: ["name", "vendor", "seats", "expiryDate", "status"],
+    fields: [f("name", "ชื่อระบบ / ซอฟต์แวร์", "text", true), f("vendor", "ผู้ให้บริการ"), f("seats", "จำนวนไลเซนส์", "number", false, { min: 0 }), f("cost", "ค่าใช้จ่ายต่อปี", "number", false, { min: 0 }), expiry, owner, f("url", "ลิงก์ระบบ", "url"), status(["ใช้งาน", "ทดลองใช้", "รอต่ออายุ", "ยกเลิก"]), notes],
+  },
+  {
+    key: "security", label: "ความปลอดภัย", description: "เหตุการณ์ความปลอดภัย ช่องโหว่ และงานป้องกัน",
+    department: "IT", icon: "ShieldAlert", columns: ["name", "severity", "date", "owner", "status"],
+    fields: [f("name", "หัวข้อ", "text", true), f("category", "ประเภท", "select", true, { options: ["เหตุการณ์", "ช่องโหว่", "รหัสผ่าน/สิทธิ์", "สำรองข้อมูล", "อบรม", "อื่นๆ"] }), f("severity", "ความรุนแรง", "select", true, { options: ["ต่ำ", "กลาง", "สูง", "วิกฤต"] }), f("date", "วันที่พบ", "date", true), owner, status(["เปิด", "กำลังแก้", "แก้แล้ว", "ปิด"]), notes],
+  },
+  {
+    key: "ip_assets", label: "สิทธิบัตร & ทรัพย์สินทางปัญญา", description: "เครื่องหมายการค้า สิทธิบัตร ลิขสิทธิ์ และวันต่ออายุ",
+    department: "Legal", icon: "Award", columns: ["name", "type", "registrationNo", "expiryDate", "status"],
+    fields: [f("name", "ชื่อ", "text", true), f("type", "ประเภท", "select", true, { options: ["เครื่องหมายการค้า", "สิทธิบัตร", "อนุสิทธิบัตร", "ลิขสิทธิ์", "ความลับทางการค้า"] }), f("registrationNo", "เลขทะเบียน"), f("filingDate", "วันยื่น", "date"), expiry, owner, status(["ยื่นคำขอ", "จดทะเบียนแล้ว", "รอต่ออายุ", "หมดอายุ"]), notes],
+  },
+  {
+    key: "policies", label: "ข้อกำหนด & นโยบาย", description: "นโยบายบริษัท ระเบียบ และข้อกำหนดที่ต้องปฏิบัติ",
+    department: "Legal", icon: "BookOpen", columns: ["name", "category", "effectiveDate", "expiryDate", "status"],
+    fields: [f("name", "ชื่อนโยบาย / ข้อกำหนด", "text", true), f("category", "หมวด", "select", false, { options: ["บุคคล", "ข้อมูลส่วนบุคคล (PDPA)", "การเงิน", "ความปลอดภัย", "สิ่งแวดล้อม", "อื่นๆ"] }), f("effectiveDate", "มีผลตั้งแต่", "date"), f("expiryDate", "ทบทวน/หมดอายุ", "date"), owner, f("url", "ลิงก์เอกสาร", "url"), status(["ร่าง", "ประกาศใช้", "รอทบทวน", "ยกเลิก"]), notes],
+  },
+  {
+    key: "cases", label: "คดีความ & ข้อพิพาท", description: "คดีและข้อพิพาท คู่กรณี นัดศาล และทุนทรัพย์",
+    department: "Legal", icon: "Gavel", columns: ["name", "counterparty", "nextHearing", "amount", "status"],
+    fields: [f("name", "เรื่อง", "text", true), f("caseNo", "เลขคดี"), f("counterparty", "คู่กรณี", "text", true), f("court", "ศาล / หน่วยงาน"), f("lawyer", "ทนาย"), f("nextHearing", "นัดถัดไป", "date"), f("amount", "ทุนทรัพย์", "number", false, { min: 0 }), status(["เจรจา", "ฟ้องร้อง", "พิจารณา", "ยุติ"]), notes],
+  },
+  {
+    key: "vehicles", label: "ยานพาหนะ", description: "รถบริษัท ภาษี ประกัน ไมล์ และผู้ใช้รถ",
+    department: "Admin", icon: "Car", columns: ["name", "plate", "driver", "insuranceExpiry", "status"],
+    fields: [f("name", "รถ (ยี่ห้อ/รุ่น)", "text", true), f("plate", "ทะเบียน", "text", true), f("driver", "ผู้รับผิดชอบ / คนขับ"), f("mileage", "เลขไมล์", "number", false, { min: 0 }), f("taxExpiry", "ภาษีหมดอายุ", "date"), f("insuranceExpiry", "ประกันหมดอายุ", "date"), f("nextService", "เข้าศูนย์ครั้งถัดไป", "date"), status(["พร้อมใช้", "ใช้งานอยู่", "ซ่อมบำรุง", "จำหน่ายแล้ว"]), notes],
+  },
+  {
+    key: "services", label: "งานบริการทั่วไป", description: "แม่บ้าน ซ่อมอาคาร จองห้องประชุม และงานธุรการอื่นๆ",
+    department: "Admin", icon: "Wrench", columns: ["name", "category", "requester", "date", "status"],
+    fields: [f("name", "เรื่อง", "text", true), f("category", "ประเภท", "select", true, { options: ["ซ่อมอาคาร", "แม่บ้าน/ทำความสะอาด", "จองห้องประชุม", "รับ-ส่งเอกสาร", "อุปกรณ์สำนักงาน", "อื่นๆ"] }), f("requester", "ผู้แจ้ง", "text", true), f("location", "สถานที่"), f("date", "วันที่ต้องการ", "date"), owner, status(["แจ้งแล้ว", "กำลังดำเนินการ", "เสร็จแล้ว", "ยกเลิก"]), notes],
+  },
+);
 export const catalog = Object.fromEntries(modules.map((m) => [m.key, m]));
 export const departmentNames = [
   "Operations",
@@ -647,6 +795,8 @@ export const departmentNames = [
   "Customer Service",
   "Legal",
   "Data",
+  "Event",
+  "Admin",
 ];
 export const statusLabels: Record<string, string> = {
   active: "ใช้งาน",

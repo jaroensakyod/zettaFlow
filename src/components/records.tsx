@@ -19,6 +19,7 @@ import {
 import { catalog, statusLabels, type Field } from "@/lib/catalog";
 import type { Entity, Context } from "@/lib/types";
 import { api, Modal, Empty, Loading, money, displayDate } from "./shared";
+import { LineFeedButton } from "./template-target";
 type Option = { id: string; kind: string; name: string };
 // Shrinks a photo to a square-ish WebP (max 512px) before upload.
 async function shrinkPhoto(file: File) {
@@ -470,6 +471,7 @@ export function Records({
             <Download size={15} />
             CSV
           </button>
+          {ctx.member.role === "owner" && !archived && <LineFeedButton kind={kind} notify={notify} />}
           {writable && !archived && (
             <button className="primary" onClick={() => open("edit")}>
               <Plus size={16} />
@@ -589,6 +591,7 @@ export function Records({
                   {module.columns.map((c) => (
                     <th key={c}>
                       {module.fields.find((f) => f.key === c)?.label ||
+                        module.computed?.[c]?.label ||
                         {
                           stock: "คงเหลือ",
                           total: "ยอดรวม",
@@ -626,6 +629,8 @@ export function Records({
                             )}
                             {format(key, item.data[key])}
                           </button>
+                        ) : module.computed?.[key] ? (
+                          money(module.computed[key].calc(item.data))
                         ) : (
                           format(
                             key,

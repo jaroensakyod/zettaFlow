@@ -17,7 +17,8 @@ import type {
   StockTransfer,
   ProjectInventory,
 } from "./types";
-import { AppError, assert, stockDelta, validateValues } from "./domain";
+import { AppError, assert, stockDelta, validateValues, validateEntity } from "./domain";
+import { mapToTarget } from "./line-target";
 import type { AccountingState } from "./ledger";
 export const demoEnabled = () =>
   process.env.ELITEFLOW_DEMO_MODE === "true" && !process.env.VERCEL;
@@ -191,6 +192,16 @@ export function seedDemo(makeId: () => string = uid): DemoState {
     priority: "high",
     status: "progress",
   });
+  // แผนก menu pages: a couple of rows each so the demo is not empty.
+  const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  add("quotations", "Sales", { name: "QT-2569-0012", customerId: customer, date: day(-3), validUntil: day(27), lines: [{ name: "ออกแบบบูธ 3x3", qty: 1, price: 45000 }, { name: "ติดตั้งระบบไฟ", qty: 1, price: 12000 }], discount: 2000, vatMode: "excluded", owner: "ศิริกัลยา", status: "ส่งแล้ว" });
+  add("sales_targets", "Sales", { name: "ทีมขายกรุงเทพ", month: day(0).slice(0, 7), target: 500000, actual: 368000, visits: 24, status: "กำลังดำเนินการ" });
+  add("content", "Marketing", { name: "รีวิวบูธงาน Expo", channel: "TikTok", type: "วิดีโอ", publishDate: day(2), reach: 18500, engagement: 1240, status: "รออนุมัติ" });
+  add("bills", "Finance", { name: "AP-0045", supplierId: supplier, date: day(-5), dueDate: day(10), amount: 32100, whtRate: "3", status: "รอจ่าย" });
+  add("attendance", "HR", { name: "นภา ใจดี", date: day(0), shiftStart: "09:00", checkIn: "09:12", checkOut: "18:05", status: "สาย" });
+  add("software", "IT", { name: "Microsoft 365 Business", vendor: "Microsoft", seats: 12, cost: 54000, expiryDate: day(21), status: "รอต่ออายุ" });
+  add("vehicles", "Admin", { name: "Toyota Hilux Revo", plate: "2ขก 4581", driver: "สมชาย", mileage: 84210, taxExpiry: day(12), insuranceExpiry: day(45), status: "พร้อมใช้" });
+  add("policies", "Legal", { name: "นโยบายคุ้มครองข้อมูลส่วนบุคคล", category: "ข้อมูลส่วนบุคคล (PDPA)", effectiveDate: day(-300), expiryDate: day(60), status: "ประกาศใช้" });
   add("employees", "HR", {
     name: "พนักงานตัวอย่าง",
     code: "EMP-001",
@@ -513,5 +524,15 @@ export function demoApprove(
   } else assert(reason?.trim(), "กรอกเหตุผลที่ไม่อนุมัติ");
   item.status = status as Ingestion["status"];
   item.error = reason || undefined;
+  // Copy to the template's target page (same rules as ingestion_to_entity in SQL); a bad fit is noted, not fatal.
+  const current = s.templates.find((t) => t.id === item.template.id);
+  const target = status === "approved" && current ? mapToTarget(current, item.values, item.created_at, (kind, name) => s.entities.find((e) => e.kind === kind && !e.archived_at && String(e.data.name).toLowerCase() === name.toLowerCase())?.id) : null;
+  if (target)
+    try {
+      const data = validateEntity(target.kind, target.data);
+      s.entities.unshift({ id: uid(), kind: target.kind, department: target.department, company_id: companyId, data: { ...data, ingestionId: item.id }, created_by: userId, created_at: timestamp(), updated_at: timestamp(), version: 1, archived_at: null });
+    } catch (e) {
+      item.error = "ส่งเข้า " + target.kind + " ไม่ได้: " + (e as Error).message;
+    }
   demoAudit(s, status, item.id);
 }

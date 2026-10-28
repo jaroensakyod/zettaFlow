@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { supabaseServer, configured } from "./supabase/server";
@@ -751,5 +752,24 @@ export async function decide(
     p_values: input.values,
     p_reason: input.reason || "",
   });
+  dbError(error);
+}
+/** Owner points a Data Template (and every LINE group using it) at a workspace page; approved items are copied there. */
+export async function setTemplateTarget(ctx: Context, id: string, input: unknown) {
+  requireOwner(ctx);
+  const { kind, map } = z
+    .object({ kind: z.string().max(40).nullable(), map: z.record(z.string().max(40), z.string().max(40)).default({}) })
+    .parse(input);
+  assert(!kind || catalog[kind], "ไม่พบหน้าปลายทาง");
+  if (ctx.demo)
+    return demoMutate((s) => {
+      const t = s.templates.find((t) => t.id === id);
+      assert(t, "ไม่พบ Template", 404);
+      t.target_kind = kind;
+      t.field_map = map;
+      demoAudit(s, "template_target", id);
+    });
+  const sb = await supabaseServer();
+  const { error } = await sb.rpc("set_template_target", { p_company: ctx.company.id, p_id: id, p_kind: kind, p_map: map });
   dbError(error);
 }

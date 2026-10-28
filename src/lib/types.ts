@@ -107,6 +107,9 @@ export type Template = {
   }[];
   steps: { name: string; department: string }[];
   version: number;
+  /** Page (catalog kind) an approved item is copied to, with template key → page key mapping. */
+  target_kind?: string | null;
+  field_map?: Record<string, string>;
 };
 export type Ingestion = {
   id: string;

@@ -15,6 +15,7 @@ import {
   home,
   templates,
   saveTemplate,
+  setTemplateTarget,
   ingestions,
   decide,
   dbError,
@@ -61,6 +62,7 @@ import {
 } from "@/lib/feed";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
+import { taxReport, expiries } from "@/lib/dept-views";
 import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml } from "@/lib/accounting";
 import { importRows } from "@/lib/importer";
 import { directory } from "@/lib/directory";
@@ -404,6 +406,8 @@ async function handle(req: NextRequest) {
       if (path[1] === "buy")
         return response(await buyModule(ctx, z.string().regex(/^[a-z_]{1,40}$/).parse(path[2])), 201);
     }
+    if (path[0] === "tax-report") return response(await taxReport(ctx));
+    if (path[0] === "expiries") return response(await expiries(ctx));
     if (path[0] === "receipts")
       return response(method === "GET" ? await accountingOverview(ctx) : await importReceipt(ctx, await body(req)), method === "GET" ? 200 : 201);
     if (path[0] === "accounting") {
@@ -848,6 +852,10 @@ async function handle(req: NextRequest) {
       if (method === "GET") return response(await templates(ctx));
       if (path[1] === "draft")
         return response(await draftTemplate(ctx, await body(req)));
+      if (path[2] === "target") {
+        await setTemplateTarget(ctx, z.uuid().parse(path[1]), await body(req));
+        return response({ ok: true });
+      }
       return response(await saveTemplate(ctx, await body(req), path[1]));
     }
     if (path[0] === "ingestions") {

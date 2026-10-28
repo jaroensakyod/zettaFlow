@@ -643,7 +643,9 @@ export function Integrations({
       .then(([c, t, i]) => {
         setConfig(c);
         setTemplates(t);
-        setSelected(t[0]?.id || "");
+        // ?template=<id> comes from a page's "รับข้อมูลจากกลุ่ม LINE" button.
+        const wanted = new URLSearchParams(window.location.search).get("template");
+        setSelected(t.find((x: Template) => x.id === wanted)?.id || t[0]?.id || "");
         setGroups(i.groups);
         setNotifications(i.notifications);
       })

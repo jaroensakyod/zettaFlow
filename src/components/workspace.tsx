@@ -66,6 +66,8 @@ import { AiWorkspace } from "./ai-workspace";
 import { CoinBadge, CoinStore, Departments } from "./coins";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
+import { DepartmentMegaMenu } from "./dept-menu";
+import { TaxReport, Expiries, TransfersPage } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
 import {
@@ -74,40 +76,11 @@ import {
   Reports,
   Assistant,
 } from "./tools";
-const groups = [
-  { label: "ภาพรวม", items: ["feed", "jobs", "dashboard", "calendar", "chat"] },
-  {
-    label: "ธุรกิจ & ลูกค้า",
-    items: ["customers", "leads", "dealers", "deals", "projects", "tasks", "events"],
-  },
-  {
-    label: "บุคลากร",
-    items: ["employees", "freelancers", "leaves", "payroll"],
-  },
-  {
-    label: "คลัง & จัดซื้อ",
-    items: ["products", "purchases", "suppliers", "assets"],
-  },
-  {
-    label: "การเงิน & แผนก",
-    items: [
-      "sales",
-      "expenses",
-      "invoices",
-      "payments",
-      "slips",
-      "campaigns",
-      "tickets",
-      "contracts",
-      "documents",
-      "reports",
-    ],
-  },
-  {
-    label: "ZettaFlow AI",
-    items: ["ai-inbox", "templates", "assistant", "integrations"],
-  },
-  { label: "จัดการระบบ", items: ["departments", "company", "team", "store", "pricing", "admin"] },
+// Pages outside the department cards, listed in the menu's bottom row.
+const toolKeys = [
+  "calendar", "chat", "projects", "dealers", "deals", "freelancers", "slips", "reports",
+  "ai-inbox", "templates", "assistant", "integrations",
+  "departments", "company", "team", "store", "pricing", "admin",
 ];
 // Shortcuts shown in the top bar; everything else lives under the แผนก menu.
 const primary: [string, string, LucideIcon][] = [
@@ -184,6 +157,21 @@ const extra: Record<
     label: "ทีม & สิทธิ์",
     icon: "ShieldCheck",
     description: "จัดการสมาชิกและสิทธิ์การเข้าถึงแต่ละแผนก",
+  },
+  tax: {
+    label: "ภาษี & ภ.ง.ด.",
+    icon: "Wallet",
+    description: "ภาษีซื้อ ภ.พ.30 และหัก ณ ที่จ่าย ภ.ง.ด.3 / ภ.ง.ด.53 รายเดือน จากค่าใช้จ่ายที่ตรวจแล้ว",
+  },
+  expiries: {
+    label: "ติดตามวันหมดอายุ",
+    icon: "CalendarDays",
+    description: "สัญญา ไลเซนส์ ทรัพย์สินทางปัญญา ภาษี/ประกันรถ และนัดคดี เรียงตามวันที่ใกล้สุด",
+  },
+  transfers: {
+    label: "โอนย้ายสินค้า",
+    icon: "Package",
+    description: "โอนสินค้าจากคลังกลางไปโปรเจกต์ และดูยอดคงเหลือแต่ละโปรเจกต์",
   },
   departments: {
     label: "แผนกทั้งหมด",
@@ -433,6 +421,10 @@ export function Workspace({
       ? !!data.platformAdmin
       : key === "team"
       ? ctx.member.role === "owner"
+      : key === "tax"
+      ? ctx.member.role === "owner" || ctx.member.departments.includes("Finance")
+      : key === "transfers"
+      ? ctx.member.role === "owner" || ctx.member.departments.includes("Warehouse")
       : catalog[key]
         ? ctx.member.role === "owner" ||
           ctx.member.departments.includes(catalog[key].department) ||
@@ -534,37 +526,29 @@ export function Workspace({
             </button>
           </div>
           {menu && (
-            <div className="topnav-menu">
-              {groups.map((group) => {
-                const items = group.items.filter(
-                  (key) => visible(key) && !primary.some(([k]) => k === key),
-                );
-                if (!items.length) return null;
-                return (
-                  <div className="topnav-menu-group" key={group.label}>
-                    <span>{group.label}</span>
-                    {items.map((key) => (
-                      <button
-                        key={key}
-                        className={view === key ? "active" : ""}
-                        onClick={() => navigate(key)}
-                      >
-                        <Icon name={details(key).icon} size={16} />
+            <DepartmentMegaMenu
+              view={view}
+              visible={visible}
+              navigate={navigate}
+              tools={
+                <>
+                  <span>เครื่องมือ & ตั้งค่า</span>
+                  {toolKeys
+                    .filter((key) => visible(key) && !primary.some(([k]) => k === key))
+                    .map((key) => (
+                      <button key={key} className={view === key ? "active" : ""} onClick={() => navigate(key)}>
+                        <Icon name={details(key).icon} size={15} />
                         {details(key).label}
                         {key === "ai-inbox" && <span className="nav-ai">AI</span>}
                       </button>
                     ))}
-                  </div>
-                );
-              })}
-              <div className="topnav-menu-group">
-                <span>อื่นๆ</span>
-                <button onClick={openCompanies}>
-                  <Building2 size={16} />
-                  สลับบริษัท
-                </button>
-              </div>
-            </div>
+                  <button onClick={openCompanies}>
+                    <Building2 size={15} />
+                    สลับบริษัท
+                  </button>
+                </>
+              }
+            />
           )}
         </header>
         {ctx.demo && (
@@ -649,6 +633,12 @@ export function Workspace({
             <Reports notify={notify} />
           ) : view === "store" ? (
             <CoinStore ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "tax" ? (
+            <TaxReport navigate={navigate} />
+          ) : view === "expiries" ? (
+            <Expiries navigate={navigate} />
+          ) : view === "transfers" ? (
+            <TransfersPage ctx={ctx} notify={notify} changed={load} />
           ) : view === "departments" ? (
             <Departments ctx={ctx} navigate={navigate} />
           ) : view === "pricing" ? (

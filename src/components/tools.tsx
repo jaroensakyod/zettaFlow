@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -234,10 +235,15 @@ export function Calendar({ navigate }: { navigate: (view: string) => void }) {
   );
 }
 export function Reports({ notify }: { notify: (s: string) => void }) {
-  const [kind, setKind] = useState("sales"),
+  // The แผนก menu opens /workspace/reports?kind=<page> on that department's data.
+  const wanted = useSearchParams().get("kind");
+  const [kind, setKind] = useState(wanted && catalog[wanted] ? wanted : "sales"),
     [rows, setRows] = useState<Entity[]>([]),
     [count, setCount] = useState(0),
     [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (wanted && catalog[wanted]) setKind(wanted);
+  }, [wanted]);
   useEffect(() => {
     api("/entities/" + kind)
       .then((d) => {
