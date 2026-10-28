@@ -6877,3 +6877,32 @@ fieldset.exf-card:disabled { opacity: 1; }
 .exf-total b { color: white; font-size: 28px; }
 .exf-total b small { color: rgba(255, 255, 255, .9); }
 .exf-items .exf-card-head .exf-title { margin-bottom: 16px; }
+/* Uploaded receipts on บันทึกค่าใช้จ่าย: a strip under section 3, small previews beside each AI note and in section 4. */
+.exf-receipts { display: flex; align-items: center; gap: 12px; margin: -4px 0 12px; padding: 10px 12px; border: 1px solid var(--exf-line); border-radius: 12px; background: #fbfaff; }
+.exf-receipts > span { flex: none; font-size: 12.5px; font-weight: 600; color: #4b4562; }
+.exf-receipts > div { display: flex; gap: 10px; overflow-x: auto; padding: 2px; scrollbar-width: thin; }
+.exf-thumb { position: relative; flex: none; display: grid; place-items: center; padding: 0; overflow: hidden; border: 1px solid #ddd6f3; border-radius: 9px; background: white; cursor: zoom-in; transition: transform .15s, box-shadow .15s, border-color .15s; }
+.exf-thumb.md { width: 74px; height: 96px; }
+.exf-thumb.sm { width: 34px; height: 42px; border-radius: 6px; }
+.exf-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.exf-thumb:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 6px 14px rgba(91, 53, 207, .18); }
+.exf-thumb-pdf { display: grid; justify-items: center; gap: 2px; color: #c2384f; }
+.exf-thumb-pdf small { font-size: 10px; font-weight: 700; }
+.exf-ai p > .exf-thumb { margin: -2px 0; }
+.exf-files li { gap: 10px; }
+.exf-files li > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.exf-viewer { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgba(20, 14, 40, .62); backdrop-filter: blur(3px); animation: exf-fade .15s ease both; }
+@keyframes exf-fade { from { opacity: 0; } }
+.exf-viewer-box { display: grid; grid-template-rows: auto 1fr; width: min(920px, 100%); height: min(92vh, 1100px); background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); }
+.exf-viewer-box header { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--exf-line); font-size: 13.5px; }
+.exf-viewer-box header b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exf-viewer-box header span { color: var(--muted); font-size: 12.5px; }
+.exf-viewer-box header a { color: var(--accent); font-size: 12.5px; font-weight: 600; }
+.exf-viewer-body { position: relative; display: grid; place-items: center; min-height: 0; background: #f4f3f8; overflow: auto; }
+.exf-viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.exf-viewer-body object { width: 100%; height: 100%; }
+.exf-viewer-nav { position: absolute; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .92); color: #2f2a45; box-shadow: 0 4px 14px rgba(0, 0, 0, .15); cursor: pointer; }
+.exf-viewer-nav.prev { left: 12px; rotate: 180deg; }
+.exf-viewer-nav.next { right: 12px; }
+@media (max-width: 640px) { .exf-viewer { padding: 0; } .exf-viewer-box { height: 100vh; border-radius: 0; } .exf-receipts { flex-direction: column; align-items: stretch; } }

@@ -24,7 +24,9 @@ type Scan = {
   uncertain: string[];
   mismatch: { printed: number; rebuilt: number } | null;
 };
-type ScanReport = { file: string; scan?: Scan; error?: string; warning?: string };
+type ScanReport = { file: string; fileId?: string; scan?: Scan; error?: string; warning?: string };
+/** An attached document: `src` previews it (a local object URL for files added here, else the stored file). */
+type FileItem = { id: string; name: string; mime: string; src: string; linked: boolean; local?: boolean };
 const uncertainLabels: Record<string, string> = { vendor: "ผู้ขาย", taxId: "เลขผู้เสียภาษี", date: "วันที่", docNo: "เลขที่เอกสาร", total: "ยอดรวม", lines: "รายการ", vatMode: "VAT" };
 type Overview = { expenses: Entity[]; costCenters: { code: string; name: string }[] };
 type Row = Line & { key: number };
@@ -111,7 +113,8 @@ export function ExpenseForm({
     }),
     [rows, setRows] = useState<Row[]>([blankRow()]),
     [editCode, setEditCode] = useState(false),
-    [files, setFiles] = useState<{ id: string; name: string; linked: boolean; local?: boolean }[]>([]),
+    [files, setFiles] = useState<FileItem[]>([]),
+    [viewing, setViewing] = useState<FileItem | null>(null),
     [reports, setReports] = useState<ScanReport[]>([]),
     [reading, setReading] = useState(""),
     [addingSupplier, setAddingSupplier] = useState(false),
@@ -125,6 +128,9 @@ export function ExpenseForm({
     attachRef = useRef<HTMLInputElement>(null);
   const writable = ctx.member.role !== "viewer" && (ctx.member.role === "owner" || ctx.member.departments.includes("Finance"));
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
+  // Previews of files added here are local object URLs; free them when the form closes.
+  const previews = useRef<string[]>([]);
+  useEffect(() => () => previews.current.forEach((u) => URL.revokeObjectURL(u)), []);
   // Latest form values for the file loop, which spans several renders.
   const dRef = useRef(d);
   dRef.current = d;
@@ -177,7 +183,7 @@ export function ExpenseForm({
                 [{ ...blankRow(), name: String(x.name || ""), category: "", price: x.vatMode === "included" ? computeExpense(Number(x.amount), "included").base : Number(x.amount) || 0 }],
           );
           api("/files?entity=" + found.id)
-            .then((f: { id: string; name: string }[]) => setFiles(f.map((x) => ({ ...x, linked: true }))))
+            .then((f: { id: string; name: string; mime: string }[]) => setFiles(f.map((x) => ({ ...x, src: "/api/files/" + x.id, linked: true }))))
             .catch(() => {});
         } else {
           const prefix = "EXP-" + today().replace(/-/g, "") + "-";
@@ -254,7 +260,10 @@ export function ExpenseForm({
         // The public demo stores nothing: AI reads the file sent with the request and it is listed but not kept.
         if (ctx.demo) attachmentId = await uploadFile(f, "Finance", entity?.id).catch(() => "");
         else attachmentId = await uploadFile(f, "Finance", entity?.id);
-        setFiles((fs) => [...fs, attachmentId ? { id: attachmentId, name: original.name, linked: !!entity } : { id: "local-" + Date.now() + i, name: original.name, linked: true, local: true }]);
+        const fileId = attachmentId || "local-" + Date.now() + i;
+        const item: FileItem = { id: fileId, name: original.name, mime: f.type, src: URL.createObjectURL(f), linked: !attachmentId || !!entity, local: !attachmentId };
+        previews.current.push(item.src);
+        setFiles((fs) => [...fs, item]);
         if (attachmentId) setD((x) => (x.receiptId ? x : { ...x, receiptId: attachmentId }));
         try {
           let scan: Scan;
@@ -268,9 +277,9 @@ export function ExpenseForm({
           }
           const warning = apply(scan, fresh);
           if (scan.lines.length) fresh = false;
-          setReports((r) => [...r, { file: original.name, scan, warning }]);
+          setReports((r) => [...r, { file: original.name, fileId, scan, warning }]);
         } catch (e) {
-          setReports((r) => [...r, { file: original.name, error: (e as Error).message }]);
+          setReports((r) => [...r, { file: original.name, fileId, error: (e as Error).message }]);
         }
       } catch (e) {
         setError((e as Error).message);
@@ -659,6 +668,16 @@ export function ExpenseForm({
               </button>
             </div>
           </div>
+          {!!files.length && (
+            <div className="exf-receipts" aria-label="ใบเสร็จที่อัปโหลด">
+              <span>ใบเสร็จ / เอกสาร ({files.length})</span>
+              <div>
+                {files.map((f) => (
+                  <Thumb key={f.id} file={f} onOpen={setViewing} />
+                ))}
+              </div>
+            </div>
+          )}
           {(!!reading || !!reports.length) && (
             <div className="exf-ai" aria-live="polite">
               {reading && (
@@ -668,7 +687,10 @@ export function ExpenseForm({
               )}
               {reports.map((r, i) => (
                 <p key={i} className={r.error || r.warning || r.scan?.mismatch || r.scan?.uncertain.length ? "warn" : ""}>
-                  <Sparkles size={15} />
+                  {(() => {
+                    const file = files.find((x) => x.id === r.fileId);
+                    return file ? <Thumb file={file} size="sm" onOpen={setViewing} /> : <Sparkles size={15} />;
+                  })()}
                   <span>
                     <b>{r.file}</b>{" "}
                     {r.error
@@ -800,18 +822,12 @@ export function ExpenseForm({
               <ul className="exf-files">
                 {files.map((f) => (
                   <li key={f.id}>
-                    <Paperclip size={13} />
-                    {f.local ? (
-                      <span>
-                        {f.name} <small>(โหมดตัวอย่าง ไม่ได้เก็บไฟล์)</small>
-                      </span>
-                    ) : (
-                      <a href={"/api/files/" + f.id} target="_blank" rel="noreferrer">
-                        {f.name}
-                      </a>
-                    )}
-                    {!f.linked && <small>แนบเมื่อบันทึก</small>}
-                    {!f.linked && (
+                    <Thumb file={f} size="sm" onOpen={setViewing} />
+                    <span>
+                      {f.name}
+                      {f.local ? <small> (โหมดตัวอย่าง ไม่ได้เก็บไฟล์)</small> : !f.linked ? <small> · แนบเมื่อบันทึก</small> : null}
+                    </span>
+                    {!f.linked && !f.local && (
                       <button type="button" className="exf-icon" aria-label={"เอา " + f.name + " ออก"} onClick={() => setFiles((fs) => fs.filter((x) => x.id !== f.id))}>
                         <X size={13} />
                       </button>
@@ -837,6 +853,8 @@ export function ExpenseForm({
 
       {error && <p className="form-error exf-error">{error}</p>}
       {!writable && <p className="muted exf-error">ดูได้อย่างเดียว · บันทึกค่าใช้จ่ายได้เฉพาะเจ้าของบริษัทหรือทีมบัญชี</p>}
+
+      {viewing && <Viewer file={viewing} files={files} onClose={() => setViewing(null)} onPick={setViewing} />}
 
       <footer className="exf-actions">
         <button type="button" className="exf-btn" onClick={() => navigate("expenses")}>
@@ -883,6 +901,69 @@ async function shrink(file: File): Promise<File> {
   }
 }
 
+
+/** A receipt preview: the picture itself, or a PDF tile. Clicking opens the large viewer. */
+function Thumb({ file, size = "md", onOpen }: { file: FileItem; size?: "sm" | "md"; onOpen: (f: FileItem) => void }) {
+  return (
+    <button type="button" className={"exf-thumb " + size} title={file.name} aria-label={"ดู " + file.name} onClick={() => onOpen(file)}>
+      {file.mime.startsWith("image/") ? (
+        <img src={file.src} alt="" loading="lazy" />
+      ) : (
+        <span className="exf-thumb-pdf">
+          <FileText size={size === "sm" ? 16 : 26} />
+          {size === "md" && <small>PDF</small>}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Large view of one receipt, to check the rows against it; arrows step through all attached files. */
+function Viewer({ file, files, onClose, onPick }: { file: FileItem; files: FileItem[]; onClose: () => void; onPick: (f: FileItem) => void }) {
+  const at = files.findIndex((f) => f.id === file.id);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight" && at < files.length - 1) onPick(files[at + 1]);
+      if (e.key === "ArrowLeft" && at > 0) onPick(files[at - 1]);
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [at, files, onClose, onPick]);
+  return (
+    <div className="exf-viewer" role="dialog" aria-modal="true" aria-label={file.name} onClick={onClose}>
+      <div className="exf-viewer-box" onClick={(e) => e.stopPropagation()}>
+        <header>
+          <b>{file.name}</b>
+          {files.length > 1 && (
+            <span>
+              {at + 1}/{files.length}
+            </span>
+          )}
+          <a href={file.src} target="_blank" rel="noreferrer">
+            เปิดในแท็บใหม่
+          </a>
+          <button type="button" className="exf-icon" aria-label="ปิด" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+        <div className="exf-viewer-body">
+          {file.mime.startsWith("image/") ? <img src={file.src} alt={file.name} /> : <object data={file.src} type={file.mime} aria-label={file.name} />}
+          {at > 0 && (
+            <button type="button" className="exf-viewer-nav prev" aria-label="ไฟล์ก่อนหน้า" onClick={() => onPick(files[at - 1])}>
+              <ChevronRight size={22} />
+            </button>
+          )}
+          {at < files.length - 1 && (
+            <button type="button" className="exf-viewer-nav next" aria-label="ไฟล์ถัดไป" onClick={() => onPick(files[at + 1])}>
+              <ChevronRight size={22} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
