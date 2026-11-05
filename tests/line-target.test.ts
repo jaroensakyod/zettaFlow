@@ -199,3 +199,18 @@ test("sorted page forms keep chat fields and only ask for what the group must se
   assert.deepEqual(leave.fields.find((f) => f.key === "employeeId"), { key: "employeeId", label: "พนักงาน (ชื่อ)", type: "text", required: true });
   assert.ok(!pageTemplate("expenses").fields.some((f) => ["receiptId", "lines", "aiNotes"].includes(f.key)));
 });
+
+test("the attachments table takes files up to the 15 MB upload limit", async () => {
+  const { MAX_UPLOAD } = await import("../src/lib/files");
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Files')as id")).id;
+    await db.exec("reset role;set role service_role;");
+    const id = (await one<{ id: string }>(db, "select gen_random_uuid()as id")).id;
+    await db.query("insert into attachments(id,company_id,department,name,mime,size,path)values($1,$2,'Finance','big.pdf','application/pdf',$3,$4)", [id, c, MAX_UPLOAD, c + "/Finance/" + id]);
+    await rejects(db.query("insert into attachments(id,company_id,department,name,mime,size,path)values(gen_random_uuid(),$1,'Finance','huge.pdf','application/pdf',$2,'p2')", [c, MAX_UPLOAD + 1]), /attachments_size_check/);
+  } finally {
+    await db.close();
+  }
+});
