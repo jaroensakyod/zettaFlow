@@ -214,3 +214,29 @@ test("the attachments table takes files up to the 15 MB upload limit", async () 
     await db.close();
   }
 });
+
+test("a receipt photo from LINE follows the approved expense", async () => {
+  const { pageTemplate } = await import("../src/lib/line-sort");
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Receipt')as id")).id;
+    await db.exec("reset role;set role service_role;");
+    const file = (await one<{ id: string }>(db, "select gen_random_uuid()as id")).id;
+    await db.query("insert into attachments(id,company_id,department,name,mime,size,path)values($1,$2,'Operations','r.jpg','image/jpeg',1000,$3)", [file, c, c + "/Operations/" + file]);
+    const job = await one<{ id: string; lease_id: string }>(db,
+      "insert into ingestions(company_id,template,department,raw,status,source,group_id,lease_id,attachment_id)values($1,$2,'Operations','','processing','LINE','Cg',gen_random_uuid(),$3)returning id,lease_id",
+      [c, { id: null, name: "AI แยกอัตโนมัติ", department: "Operations", fields: [], steps: [], mode: "sort" }, file]);
+    const values = { name: "ชาเขียวนม", amount: 60, payee: "หจก.บุญรอดคอฟฟี่", date: "2023-11-27" };
+    await db.query("select complete_sorted_ingestion($1,$2,'expenses',$3,$4,'[]','ai-sort')", [job.id, job.lease_id, pageTemplate("expenses"), values]);
+    await login(owner, "owner@test.local");
+    await db.query("select decide_ingestion($1,$2,'approved',$3,'')", [c, job.id, values]);
+    await db.exec("reset role;");
+    const e = await one<{ id: string; data: Record<string, unknown> }>(db, "select id,data from entities where company_id=$1 and kind='expenses'", [c]);
+    assert.equal(e.data.receiptId, file);
+    const a = await one<{ entity_id: string; department: string }>(db, "select entity_id,department from attachments where id=$1", [file]);
+    assert.deepEqual([a.entity_id, a.department], [e.id, "Finance"]);
+  } finally {
+    await db.close();
+  }
+});
