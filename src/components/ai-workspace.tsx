@@ -232,7 +232,7 @@ export function AiWorkspace({
                     </td>
                     <td>{i.template.department}</td>
                     <td>
-                      {i.source} · {i.engine === "ai" ? "AI" : "ฟิลด์ตรง"}
+                      {i.source} · {i.engine === "ai-sort" ? "AI แยกหน้า" : i.engine === "ai" ? "AI" : "ฟิลด์ตรง"}
                     </td>
                     <td>{displayDate(i.created_at)}</td>
                     <td>

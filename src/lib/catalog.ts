@@ -842,6 +842,7 @@ export const statusLabels: Record<string, string> = {
   pending: "รอดำเนินการ",
   approved: "อนุมัติ",
   rejected: "ไม่อนุมัติ",
+  skipped: "ข้าม (คุยทั่วไป)",
   confirmed: "ยืนยันแล้ว",
   running: "กำลังดำเนินการ",
   progress: "กำลังดำเนินการ",
