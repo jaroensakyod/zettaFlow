@@ -18,6 +18,7 @@ import { templates, dbError } from "./data";
 import { supabaseServer } from "./supabase/server";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES } from "./billing";
+import { sortMessage } from "./line-sort";
 import { lineReply } from "./line";
 import { aiEnabled, aiGenerate, type AiPart } from "./llm";
 export const tokenHash = (s: string) =>
@@ -187,6 +188,27 @@ export async function processJobs(id?: string) {
           bytes: Buffer.from(await blob.arrayBuffer()),
         };
       }
+      if ((job.template as { mode?: string })?.mode === "sort") {
+        const r = await sortMessage({
+          raw: job.raw,
+          sender: await lineName(job.group_id, job.source_user),
+          sentAt: job.created_at,
+          earlier: await earlierMessages(sb, job),
+          attachment,
+        });
+        const { error: e } = await sb.rpc("complete_sorted_ingestion", {
+          p_id: job.id,
+          p_lease: job.lease_id,
+          p_kind: r.kind,
+          p_template: r.template,
+          p_values: r.values,
+          p_missing: r.missing,
+          p_engine: r.engine,
+        });
+        dbError(e);
+        if (r.kind) await replyInsteadOfPush(sb, job);
+        continue;
+      }
       const { data: precise } = await sb.rpc("has_addon", {
         c: job.company_id,
         a: "ocr_plus",
@@ -288,6 +310,34 @@ async function verifySlipJob(
  * LINE reply messages are free; push messages are billed. If the job finished while the
  * webhook's reply token is still valid, answer with it and mark the queued push as sent.
  */
+const lineNames = new Map<string, string | null>();
+/** Display name of a group member (free API call, not a message). Null for unknown or test groups. */
+async function lineName(groupId?: string | null, userId?: string | null) {
+  if (!groupId || !userId || !process.env.LINE_CHANNEL_ACCESS_TOKEN) return null;
+  const key = groupId + "/" + userId;
+  if (lineNames.has(key)) return lineNames.get(key)!;
+  const r = await fetch(
+    `https://api.line.me/v2/bot/group/${encodeURIComponent(groupId)}/member/${encodeURIComponent(userId)}`,
+    { signal: AbortSignal.timeout(5000), headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` } },
+  ).catch(() => null);
+  const name = r?.ok ? String(((await r.json()) as { displayName?: string }).displayName || "") || null : null;
+  lineNames.set(key, name);
+  return name;
+}
+/** The few messages before this one in the same group, so "อนุมัติ" or "ได้เลย" read in context. */
+async function earlierMessages(sb: ReturnType<typeof supabaseAdmin>, job: Ingestion & { group_id?: string | null }) {
+  if (!job.group_id) return [];
+  const { data } = await sb
+    .from("ingestions")
+    .select("raw, source_user, created_at")
+    .eq("company_id", job.company_id)
+    .eq("group_id", job.group_id)
+    .lt("created_at", job.created_at)
+    .order("created_at", { ascending: false })
+    .limit(6);
+  const rows = (data || []).reverse();
+  return Promise.all(rows.map(async (m) => ({ sender: await lineName(job.group_id, m.source_user), text: String(m.raw || "").slice(0, 300) })));
+}
 async function replyInsteadOfPush(
   sb: ReturnType<typeof supabaseAdmin>,
   job: Ingestion & { reply_token?: string | null },

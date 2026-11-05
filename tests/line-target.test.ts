@@ -130,3 +130,72 @@ test("AI extraction knows when a LINE message was written (Bangkok day)", async 
   assert.match(c, /พรุ่งนี้ = \+1/);
   assert.match(c, /minus 543/);
 });
+
+test("AI-sorted LINE group: pairs without a template, skips small talk, files work on its own page", async () => {
+  const { pageTemplate } = await import("../src/lib/line-sort");
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Sort')as id")).id;
+    await db.exec("reset role;set role service_role;");
+    // A group code with no template pairs the group in sorting mode; user codes still cannot pair groups.
+    await db.query("insert into line_pairings(token_hash,company_id,template_id,user_id,expires_at)values('g1',$1,null,null,now()+interval '10 minutes'),('u1',$1,null,$2,now()+interval '10 minutes')", [c, owner]);
+    await db.query("select pair_line_group('g1','Cgroup1')");
+    await rejects(db.query("select pair_line_group('u1','Cgroup2')"), /รหัสหมดอายุ/);
+    assert.equal((await one<{ template_id: string | null }>(db, "select template_id from line_groups where group_id='Cgroup1'")).template_id, null);
+
+    const sortSnapshot = { id: null, name: "AI แยกอัตโนมัติ", department: "Operations", fields: [], steps: [], mode: "sort" };
+    const queue = async (raw: string) =>
+      (await one<{ id: string; lease_id: string }>(db,
+        "insert into ingestions(company_id,template,department,raw,status,source,group_id,lease_id)values($1,$2,'Operations',$3,'processing','LINE','Cgroup1',gen_random_uuid())returning id,lease_id",
+        [c, sortSnapshot, raw]));
+
+    // Small talk: skipped, nothing to review, nothing pushed to the group.
+    const chat = await queue("รับทราบค่ะ");
+    await db.query("select complete_sorted_ingestion($1,$2,null,null,$3,'[]','ai-sort')", [chat.id, chat.lease_id, { note: "ข้อความทั่วไป" }]);
+    assert.equal((await one<{ status: string }>(db, "select status from ingestions where id=$1", [chat.id])).status, "skipped");
+    assert.equal((await db.query("select 1 from notification_outbox where id=$1", [chat.id])).rows.length, 0);
+
+    // Work: moves to the page's department, gets the page's form, and the group hears it was saved.
+    const work = await queue("@พิม ส่งแบบบูธพรุ่งนี้ 10 โมง");
+    const t = pageTemplate("tasks");
+    const values = { name: "ส่งแบบบูธ", assignee: "พิม", dueDate: "2026-11-06", department: "Operations", projectId: "ไม่มีโครงการนี้" };
+    await db.query("select complete_sorted_ingestion($1,$2,'tasks',$3,$4,'[]','ai-sort')", [work.id, work.lease_id, t, values]);
+    const i = await one<{ status: string; target_kind: string; department: string }>(db, "select status,target_kind,department from ingestions where id=$1", [work.id]);
+    assert.deepEqual([i.status, i.target_kind, i.department], ["review", "tasks", "Operations"]);
+    assert.equal((await db.query("select 1 from notification_outbox where id=$1", [work.id])).rows.length, 1);
+    const odd = await queue("x");
+    await rejects(db.query("select complete_sorted_ingestion($1,$2,'nope',$3,'{}','[]','ai-sort')", [odd.id, odd.lease_id, t]), /ไม่พบหน้าปลายทาง/);
+
+    // Approval creates the task on its page; an unknown project name is dropped, required dropdowns get defaults.
+    await login(owner, "owner@test.local");
+    await db.query("select decide_ingestion($1,$2,'approved',$3,'')", [c, work.id, values]);
+    await db.exec("reset role;");
+    const task = await one<{ data: Record<string, unknown>; department: string }>(db, "select data,department from entities where company_id=$1 and kind='tasks'", [c]);
+    assert.equal(task.data.name, "ส่งแบบบูธ");
+    assert.equal(task.data.assignee, "พิม");
+    assert.equal(task.data.dueDate, "2026-11-06");
+    assert.equal(task.data.projectId, undefined);
+    assert.ok(task.data.status && task.data.priority);
+    assert.equal(task.data.ingestionId, work.id);
+    assert.equal((await one<{ error: string | null }>(db, "select error from ingestions where id=$1", [work.id])).error, null);
+  } finally {
+    await db.close();
+  }
+});
+
+test("sorted page forms keep chat fields and only ask for what the group must send", async () => {
+  const { pageTemplate, sortPages } = await import("../src/lib/line-sort");
+  for (const { kind } of sortPages) {
+    const t = pageTemplate(kind);
+    assert.ok(t.fields.length > 0, kind);
+    for (const f of t.fields) {
+      assert.ok(["text", "number", "date", "choice"].includes(f.type), `${kind}.${f.key}`);
+      if (f.type === "choice") assert.ok(f.options?.length, `${kind}.${f.key} options`);
+      assert.ok(!(f.required && ["name", "date", "department"].includes(f.key)), `${kind}.${f.key} defaults on approval`);
+    }
+  }
+  const leave = pageTemplate("leaves");
+  assert.deepEqual(leave.fields.find((f) => f.key === "employeeId"), { key: "employeeId", label: "พนักงาน (ชื่อ)", type: "text", required: true });
+  assert.ok(!pageTemplate("expenses").fields.some((f) => ["receiptId", "lines", "aiNotes"].includes(f.key)));
+});

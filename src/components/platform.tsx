@@ -765,7 +765,7 @@ export function SlipChecker() {
   );
 }
 
-type Group = { group_id: string; template_id: string; name: string; approve_keywords: string[] };
+type Group = { group_id: string; template_id: string | null; name: string; approve_keywords: string[] };
 /** Map each LINE group to a department form and set its manager approval keywords. */
 export function LineGroupSettings({ templates, groups, changed, notify }: { templates: { id: string; name: string; department: string }[]; groups: Group[]; changed: () => void; notify: (s: string) => void }) {
   const [error, setError] = useState("");
@@ -804,7 +804,8 @@ export function LineGroupSettings({ templates, groups, changed, notify }: { temp
             </label>
             <label>
               แผนก / ฟอร์ม
-              <select name="templateId" defaultValue={g.template_id}>
+              <select name="templateId" defaultValue={g.template_id ?? ""}>
+                <option value="">🤖 AI แยกอัตโนมัติ</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.department} · {t.name}

@@ -619,7 +619,7 @@ export function Integrations({
     [groups, setGroups] = useState<
       {
         group_id: string;
-        template_id: string;
+        template_id: string | null;
         name: string;
         approve_keywords: string[];
       }[]
@@ -645,7 +645,8 @@ export function Integrations({
         setTemplates(t);
         // ?template=<id> comes from a page's "รับข้อมูลจากกลุ่ม LINE" button.
         const wanted = new URLSearchParams(window.location.search).get("template");
-        setSelected(t.find((x: Template) => x.id === wanted)?.id || t[0]?.id || "");
+        // No template = AI sorts every message onto its page; a page's button may ask for its own form.
+        setSelected(t.find((x: Template) => x.id === wanted)?.id || "");
         setGroups(i.groups);
         setNotifications(i.notifications);
       })
@@ -656,7 +657,7 @@ export function Integrations({
     try {
       const d = await api("/integrations", {
         method: "POST",
-        body: { action, templateId: selected },
+        body: { action, templateId: selected || null },
       });
       setCommand(d.command);
     } catch (e) {
@@ -686,6 +687,7 @@ export function Integrations({
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
               >
+                <option value="">🤖 AI แยกอัตโนมัติ: ส่งแต่ละข้อความเข้าหน้าที่ถูก (แนะนำ)</option>
                 {templates.map((t) => (
                   <option value={t.id} key={t.id}>
                     {t.name}
@@ -695,7 +697,7 @@ export function Integrations({
             </label>
             <button
               className="primary full"
-              disabled={busy || !selected}
+              disabled={busy}
               onClick={() => pair("group")}
             >
               <Link size={15} />

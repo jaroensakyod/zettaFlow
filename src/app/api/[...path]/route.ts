@@ -1080,7 +1080,7 @@ async function handle(req: NextRequest) {
         }
         const input = z
           .object({
-            templateId: z.uuid(),
+            templateId: z.preprocess((v) => (v === "" ? null : v), z.uuid().nullable()),
             name: z.string().max(100).default(""),
             keywords: z.array(z.string().trim().min(2).max(50)).min(1).max(10),
           })
@@ -1113,7 +1113,8 @@ async function handle(req: NextRequest) {
       const token = randomBytes(24).toString("hex");
       const sb = supabaseAdmin();
       let templateId: null | string = null;
-      if (!userLink) {
+      // A group code without a template pairs the group in AI sorting mode.
+      if (!userLink && input.templateId) {
         templateId = z.uuid().parse(input.templateId);
         assert(
           (await templates(ctx)).some((t) => t.id === templateId),

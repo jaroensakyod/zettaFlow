@@ -111,12 +111,15 @@ export async function POST(req: Request) {
         .eq("source_event", sourceEvent)
         .maybeSingle();
       if (existing) continue;
-      const { data: template } = await sb
-        .from("data_templates")
-        .select("*")
-        .eq("id", group.template_id)
-        .eq("company_id", group.company_id)
-        .single();
+      // No template = AI sorts each message onto its page (or skips small talk) in the worker.
+      const { data: template } = group.template_id
+        ? await sb
+            .from("data_templates")
+            .select("*")
+            .eq("id", group.template_id)
+            .eq("company_id", group.company_id)
+            .single()
+        : { data: { id: null, name: "AI แยกอัตโนมัติ", department: "Operations", fields: [], steps: [], mode: "sort" } };
       if (!template) continue;
       let attachmentId = null;
       if (["image", "file"].includes(message.type)) {
