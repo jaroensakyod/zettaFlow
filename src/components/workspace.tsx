@@ -63,6 +63,7 @@ import { FlowAssistant } from "./flow-assistant";
 import { SubscriptionPanel, SlipChecker } from "./platform";
 import { SupportChat, AdminConsole } from "./engage";
 import { AiWorkspace } from "./ai-workspace";
+import { LinePending } from "./line-review";
 import { CoinBadge, CoinStore, Departments } from "./coins";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
@@ -662,16 +663,22 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} refresh={lastSync.getTime()} />
             </>
           ) : view === "customers" || view === "suppliers" || view === "employees" ? (
-            <Directory key={view} kind={view} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
+            <>
+              <LinePending key={"line:" + view} kind={view} ctx={ctx} notify={notify} changed={load} />
+              <Directory key={view} kind={view} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
+            </>
           ) : catalog[view] ? (
-            <Records
-              key={fullView}
-              kind={view}
-              ctx={ctx}
-              notify={notify}
-              changed={load}
-              only={listFilter}
-            />
+            <>
+              <LinePending key={"line:" + view} kind={view} ctx={ctx} notify={notify} changed={load} />
+              <Records
+                key={fullView}
+                kind={view}
+                ctx={ctx}
+                notify={notify}
+                changed={load}
+                only={listFilter}
+              />
+            </>
           ) : view === "ai-inbox" || view === "templates" ? (
             <AiWorkspace ctx={ctx} view={view} notify={notify} changed={load} />
           ) : view === "company" ? (

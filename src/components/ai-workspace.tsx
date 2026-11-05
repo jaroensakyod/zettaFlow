@@ -5,8 +5,6 @@ import {
   Sparkles,
   ArrowRight,
   Trash2,
-  Paperclip,
-  CheckCircle2,
   FileText,
   Edit3,
   ArrowUp,
@@ -16,10 +14,10 @@ import {
 } from "lucide-react";
 import { api, Modal, Empty, Loading, displayDate, money } from "./shared";
 import { uploadFile } from "./platform";
-import { FieldControl } from "./records";
 import { TemplateTarget } from "./template-target";
+import { IngestionReview } from "./line-review";
 import type { Context, Template, Ingestion } from "@/lib/types";
-import { departmentNames, statusLabels, type Field } from "@/lib/catalog";
+import { departmentNames, statusLabels } from "@/lib/catalog";
 export function AiWorkspace({
   ctx,
   view,
@@ -41,7 +39,6 @@ export function AiWorkspace({
     [record, setRecord] = useState<Ingestion | null>(null),
     [fields, setFields] = useState<Template["fields"]>([]),
     [steps, setSteps] = useState<Template["steps"]>([]),
-    [values, setValues] = useState<Record<string, unknown>>({}),
     [selected, setSelected] = useState(""),
     [aiReady, setAiReady] = useState(false),
     [formError, setFormError] = useState(""),
@@ -117,11 +114,8 @@ export function AiWorkspace({
   }
   function openReview(i: Ingestion) {
     setRecord(i);
-    setValues({ ...i.values });
-    setFormError("");
     setModal("review");
   }
-  const canDecide = ["owner", "manager"].includes(ctx.member.role);
   if (loading) return <Loading />;
   return (
     <>
@@ -663,151 +657,17 @@ export function AiWorkspace({
         </Modal>
       )}
       {modal === "review" && record && (
-        <Modal title="ตรวจทานข้อมูล" onClose={() => setModal(null)}>
-          <div className="record-meta">
-            {record.template.name} · {record.source} ·{" "}
-            {displayDate(record.created_at)}
-            {(record.source_user || record.created_by) && (
-              <>
-                {" "}
-                · ผู้ส่ง{" "}
-                {String(record.source_user || record.created_by).slice(0, 12)}
-              </>
-            )}
-          </div>
-          <pre className="source-text">{record.raw || "เอกสารแนบ"}</pre>
-          {record.attachment_id && (
-            <a
-              className="secondary"
-              href={"/api/files/" + record.attachment_id}
-            >
-              <Paperclip size={15} />
-              เอกสารต้นฉบับ
-            </a>
-          )}
-          {record.error && <p className="form-error">{record.error}</p>}
-          {record.status === "failed" && ctx.member.role !== "viewer" && (
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await api("/ingestions/" + record.id + "/retry", {
-                    method: "POST",
-                    body: {},
-                  });
-                  setModal(null);
-                  await load();
-                  notify("ส่งประมวลผลใหม่แล้ว");
-                } catch (e) {
-                  setFormError((e as Error).message);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              ลองประมวลผลใหม่
-            </button>
-          )}
-          {record.template.steps.length > 0 && (
-            <div className="note">
-              หลังอนุมัติ ระบบจะจับคู่โครงการจากชื่อที่ตรงกัน
-              หรือสร้างโครงการใหม่ ถ้ามีชื่อซ้ำต้องระบุฟิลด์ project_id สำหรับ
-              Template พื้นที่ขาย ระบบจะบันทึกดีลและสร้างงานของทีมด้วย
-            </div>
-          )}
-          {record.missing.length > 0 && (
-            <div className="note">
-              ข้อมูลที่ขาด: {record.missing.join(", ")}
-            </div>
-          )}
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setBusy(true);
-              try {
-                await api("/ingestions/" + record.id, {
-                  method: "PATCH",
-                  body: { status: "approved", values, reason: "" },
-                });
-                setModal(null);
-                await load();
-                changed();
-                notify("อนุมัติและสร้าง Workflow แล้ว");
-              } catch (err) {
-                setFormError((err as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <fieldset
-              disabled={!canDecide || record.status !== "review" || busy}
-            >
-              <div className="form-grid">
-                {record.template.fields.map((f) => (
-                  <FieldControl
-                    key={f.key}
-                    field={
-                      (f.type === "choice"
-                        ? { ...f, type: "select" }
-                        : { ...f, type: f.type }) as Field
-                    }
-                    value={values[f.key]}
-                    set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
-                    options={[]}
-                  />
-                ))}
-              </div>
-            </fieldset>
-            {canDecide && record.status === "review" && (
-              <>
-                <label>
-                  เหตุผลเมื่อไม่อนุมัติ
-                  <input name="reason" />
-                </label>
-                <div className="modal-footer">
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={busy}
-                    onClick={async (e) => {
-                      const form = e.currentTarget.closest("form")!;
-                      setBusy(true);
-                      try {
-                        await api("/ingestions/" + record.id, {
-                          method: "PATCH",
-                          body: {
-                            status: "rejected",
-                            values: {},
-                            reason: new FormData(form).get("reason"),
-                          },
-                        });
-                        setModal(null);
-                        await load();
-                        notify("บันทึกการไม่อนุมัติแล้ว");
-                      } catch (err) {
-                        setFormError((err as Error).message);
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    ไม่อนุมัติ
-                  </button>
-                  <button className="primary" disabled={busy}>
-                    <CheckCircle2 size={15} />
-                    อนุมัติและสร้างงาน
-                  </button>
-                </div>
-              </>
-            )}
-            <p className="form-error" role="alert">
-              {formError}
-            </p>
-          </form>
-        </Modal>
+        <IngestionReview
+          record={record}
+          ctx={ctx}
+          onClose={() => setModal(null)}
+          onDone={async (message) => {
+            setModal(null);
+            await load();
+            changed();
+            notify(message);
+          }}
+        />
       )}
     </>
   );

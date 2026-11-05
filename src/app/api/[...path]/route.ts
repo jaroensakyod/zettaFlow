@@ -902,7 +902,9 @@ async function handle(req: NextRequest) {
         return response({ ok: true });
       }
       if (method === "GET") {
-        const rows = await ingestions(ctx);
+        // ?kind=<page> lists what LINE groups sent for that page and is still open.
+        const kind = req.nextUrl.searchParams.get("kind");
+        const rows = await ingestions(ctx, kind && catalog[kind] ? kind : undefined);
         if (
           !ctx.demo &&
           process.env.SUPABASE_SERVICE_ROLE_KEY &&

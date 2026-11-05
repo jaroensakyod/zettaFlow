@@ -10,6 +10,7 @@ import { CategorySelect } from "./category-select";
 import { computeExpense, vatModes, whtForm, linesTotal, linesMismatch, FULL_TAX_INVOICE, awaitingReview, type VatMode } from "@/lib/tax";
 import { buildJournal, expenseAccount, type Account, type CostCenter } from "@/lib/ledger";
 import { api, money, displayDate, Empty, Loading } from "./shared";
+import { LinePending } from "./line-review";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
 
@@ -48,6 +49,8 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [drag, setDrag] = useState(false),
+    // Receipts and slips a LINE group sent for this page, still awaiting approval in the inbox.
+    [lineCount, setLineCount] = useState(0),
     formRef = useRef<HTMLFormElement>(null);
   const writable = ctx.member.role !== "viewer" && (ctx.member.role === "owner" || ctx.member.departments.includes("Finance"));
   const load = useCallback(async () => {
@@ -230,7 +233,7 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
               {(Object.keys(filters) as (keyof typeof filters)[]).map((k) => (
                 <button key={k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>
                   {filters[k]}
-                  {k === "pending" && !!data.pending && <i>{data.pending}</i>}
+                  {k === "pending" && !!(data.pending + lineCount) && <i>{data.pending + lineCount}</i>}
                 </button>
               ))}
             </div>
@@ -239,8 +242,9 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                 โปรเจกต์: {data.projects.find((p) => p.id === project)?.name} ✕
               </button>
             )}
+            {filter !== "saved" && <LinePending kind="expenses" ctx={ctx} notify={notify} changed={() => { load(); changed(); }} onCount={setLineCount} />}
             {!rows.length ? (
-              <Empty title={filter === "pending" ? "ไม่มีใบที่รอตรวจ" : "ยังไม่มีใบเสร็จ"} description="ส่งใบเสร็จเข้าระบบแล้ว AI จะกรอกข้อมูลให้ตรวจ" />
+              lineCount > 0 && filter !== "saved" ? null : <Empty title={filter === "pending" ? "ไม่มีใบที่รอตรวจ" : "ยังไม่มีใบเสร็จ"} description="ส่งใบเสร็จเข้าระบบแล้ว AI จะกรอกข้อมูลให้ตรวจ" />
             ) : (
               <ul>
                 {rows.map((e) => (

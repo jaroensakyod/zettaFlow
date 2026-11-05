@@ -119,7 +119,7 @@ export type Ingestion = {
   values: Record<string, unknown>;
   missing: string[];
   status:
-    "queued" | "processing" | "review" | "approved" | "rejected" | "failed";
+    "queued" | "processing" | "review" | "approved" | "rejected" | "failed" | "skipped";
   source: string;
   created_at: string;
   error?: string;
@@ -129,6 +129,8 @@ export type Ingestion = {
   source_user?: string;
   created_by?: string;
   lease_until?: string;
+  /** Page an AI-sorted LINE message goes to on approval. */
+  target_kind?: string | null;
 };
 export type Attachment = {
   id: string;

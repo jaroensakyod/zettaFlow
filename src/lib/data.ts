@@ -720,18 +720,23 @@ export async function saveTemplate(ctx: Context, input: unknown, id?: string) {
   dbError(error);
   return data;
 }
-export async function ingestions(ctx: Context) {
+/** Data Inbox items; with `kind`, only the open ones headed for that page (AI-sorted, or a template that targets it). */
+export async function ingestions(ctx: Context, kind?: string) {
   if (ctx.demo)
-    return (await demoRead()).ingestions.filter((i) =>
-      canRead(ctx, i.template.department),
+    return (await demoRead()).ingestions.filter(
+      (i) => canRead(ctx, i.template.department) && (!kind || (i as Ingestion & { target_kind?: string }).target_kind === kind),
     );
   const sb = await supabaseServer();
-  const { data, error } = await sb
-    .from("ingestions")
-    .select("*")
-    .eq("company_id", ctx.company.id)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  let q = sb.from("ingestions").select("*").eq("company_id", ctx.company.id);
+  if (kind) {
+    const { data: targeted, error: e } = await sb.from("data_templates").select("id").eq("company_id", ctx.company.id).eq("target_kind", kind);
+    dbError(e);
+    const ids = (targeted || []).map((t) => t.id as string);
+    q = q
+      .in("status", ["queued", "processing", "review", "failed"])
+      .or([`target_kind.eq.${kind}`, ...(ids.length ? [`template->>id.in.(${ids.join(",")})`] : [])].join(","));
+  }
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(100);
   dbError(error);
   return (data || []) as Ingestion[];
 }
