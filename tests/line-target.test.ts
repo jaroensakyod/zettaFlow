@@ -121,3 +121,12 @@ test("a linked record sent as a name (customer) is resolved inside the same comp
     await db.close();
   }
 });
+
+test("AI extraction knows when a LINE message was written (Bangkok day)", async () => {
+  const { dateContext } = await import("../src/lib/ai");
+  // 23:30 UTC on the 5th is already the 6th in Bangkok.
+  const c = dateContext("2026-11-05T23:30:00Z");
+  assert.match(c, /written on 2026-11-06 \(Friday, Asia\/Bangkok\)/);
+  assert.match(c, /พรุ่งนี้ = \+1/);
+  assert.match(c, /minus 543/);
+});
