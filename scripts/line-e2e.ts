@@ -107,7 +107,8 @@ if (!secret) {
     console.log("\nNo pairing code given: stopping before pairing. Create one in Settings › Integrations › สร้างรหัสเชื่อมกลุ่ม.");
   } else {
     const pair = await send([event("#connect " + code)]);
-    check("pairs the test group", pair.status === 200, `HTTP ${pair.status}`);
+    // LINE only sees 200 either way; the result goes back as a chat reply we cannot read here.
+    check("pairing command delivered", pair.status === 200, `HTTP ${pair.status} — confirm the group shows in Settings › LINE & Integrations`);
 
     const messages = [
       "@พิม ช่วยส่งแบบ 3D บูธให้ลูกค้าภายในพรุ่งนี้ 10 โมงนะ ด่วน (ทดสอบ E2E)",
