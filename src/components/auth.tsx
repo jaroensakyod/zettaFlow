@@ -32,7 +32,12 @@ export function Auth({
         ? "ลิงก์ยืนยันหรือรีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาเข้าสู่ระบบหรือขอลิงก์ใหม่"
         : "",
     ),
-    [message, setMessage] = useState(""),
+    [message, setMessage] = useState(() =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("password_changed")
+        ? "เปลี่ยนรหัสผ่านแล้ว เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย"
+        : "",
+    ),
     [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,8 +55,11 @@ export function Auth({
           name: form.get("name"),
         },
       });
-      if (result.verify)
-        setMessage("สร้างบัญชีแล้ว กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ");
+      if (result.verify) {
+        // Sign-up done: switch straight to the login form (email stays filled in).
+        setMode("login");
+        setMessage("สร้างบัญชีแล้ว กรุณากดยืนยันในอีเมล แล้วเข้าสู่ระบบที่นี่");
+      }
       else if (mode === "reset") setMessage(result.message);
       else onLogin();
     } catch (e) {
@@ -265,7 +273,11 @@ export function ResetPassword() {
                 password: new FormData(e.currentTarget).get("password"),
               },
             });
-            setMessage("เปลี่ยนรหัสผ่านแล้ว กลับไปเข้าสู่ระบบได้");
+            // End the recovery session so the user signs in with the new password.
+            await api("/auth", { method: "POST", body: { action: "logout" } }).catch(() => {});
+            setMessage("เปลี่ยนรหัสผ่านแล้ว กำลังไปหน้าเข้าสู่ระบบ…");
+            window.location.assign("/workspace/dashboard?password_changed=1");
+            return;
           } catch (err) {
             setMessage((err as Error).message);
           } finally {
