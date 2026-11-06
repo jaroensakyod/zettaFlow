@@ -1,6 +1,6 @@
 // Sample companies, posts and sponsored cards for เครือข่ายธุรกิจ: the public mockup (/feed/preview) and the
 // real feed while the network has no posts yet (always labelled ตัวอย่าง). Every company here is fictional.
-import { BriefcaseBusiness, Handshake, MessageSquare, Newspaper, Plus, Share2, Sparkles, ThumbsUp } from "lucide-react";
+import { Bookmark, BriefcaseBusiness, Eye, Handshake, Heart, MessageSquare, Newspaper, Plus, Share2, Sparkles } from "lucide-react";
 import type { FeedAd } from "@/lib/ads";
 
 export type SamplePost = {
@@ -87,20 +87,31 @@ export function PostMock({ p, sample }: { p: SamplePost; sample?: boolean }) {
         </div>
       )}
       <div className="li-counts">
-        <span>
-          <ThumbsUp size={13} /> {p.likes}
+        <span className="li-stat like">
+          <Heart size={14} /> {p.likes}
         </span>
-        <span>{p.comments} ความคิดเห็น</span>
+        <span className="li-stat">
+          <MessageSquare size={14} /> {p.comments}
+        </span>
+        <span className="li-stat">
+          <Share2 size={14} /> {Math.round(p.likes / 3)}
+        </span>
+        <span className="li-stat views">
+          <Eye size={14} /> {p.likes * 37}
+        </span>
       </div>
       <div className="li-actions">
         <button type="button">
-          <ThumbsUp size={16} /> ถูกใจ
+          <Heart size={18} /> ถูกใจ
         </button>
         <button type="button">
-          <MessageSquare size={16} /> แสดงความคิดเห็น
+          <MessageSquare size={18} /> แสดงความคิดเห็น
         </button>
         <button type="button">
-          <Share2 size={16} /> แชร์
+          <Share2 size={18} /> แชร์
+        </button>
+        <button type="button">
+          <Bookmark size={18} /> บันทึก
         </button>
       </div>
     </article>

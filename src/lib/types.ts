@@ -38,8 +38,11 @@ export type FeedPost = {
   meta: { title?: string; location?: string; budget?: string; employment?: "full" | "part" | "contract" | "freelance" };
   images: string[];
   created_at: string;
-  company: { name: string; industry: string; province: string; has_logo: boolean };
+  company: { name: string; industry: string; province: string; has_logo: boolean; line?: string };
   likes: number;
+  views: number;
+  shares: number;
+  saved: boolean;
   liked: boolean;
   comment_count: number;
   comments: FeedComment[];
@@ -48,6 +51,15 @@ export type FeedPost = {
   can_delete: boolean;
   proposal_count: number;
   proposed: boolean;
+};
+export type FeedAlert = {
+  kind: "interest" | "reply" | "message" | "network";
+  id: string;
+  at: string;
+  who: string;
+  title: string;
+  post_id?: string;
+  status?: "shortlisted" | "declined";
 };
 export type FeedProposal = {
   id: string;

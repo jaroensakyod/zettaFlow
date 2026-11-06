@@ -19,9 +19,20 @@ import {
   Megaphone,
   Link2,
   ArrowRight,
+  Heart,
+  Eye,
+  Bookmark,
+  MoreHorizontal,
+  ChevronLeft,
+  Bell,
+  Inbox,
+  UserPlus,
+  MessageCircle,
+  CircleCheck,
+  Info,
 } from "lucide-react";
 import { businessTypeGroups, industryMatches } from "@/lib/catalog";
-import type { Context, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "@/lib/types";
+import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "@/lib/types";
 import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
@@ -38,6 +49,7 @@ const tabs = [
   ["partner", "หาพาร์ทเนอร์"],
   ["following", "บริษัทที่ติดตาม"],
   ["mine", "ของบริษัทเรา"],
+  ["saved", "ที่บันทึกไว้"],
 ] as const;
 type Tab = (typeof tabs)[number][0];
 const kinds: [FeedKind, string, typeof ImageIcon][] = [
@@ -116,6 +128,34 @@ export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: s
   );
 }
 
+type AlertGroup = "all" | FeedAlert["kind"] | "system";
+type AlertItem = { group: AlertGroup; key: string; at: string; who: string; title: string; status?: string; url?: string };
+const alertGroups: [AlertGroup, string, typeof ImageIcon][] = [
+  ["all", "ทั้งหมด", Inbox],
+  ["interest", "ผู้สนใจติดต่อ", Handshake],
+  ["reply", "การตอบรับงาน", CircleCheck],
+  ["message", "ข้อความใหม่", MessageCircle],
+  ["network", "คำขอเข้าร่วมเครือข่าย", UserPlus],
+  ["system", "ระบบและประกาศ", Info],
+];
+const alertLine = (a: AlertItem) =>
+  a.group === "interest"
+    ? a.who + " สนใจติดต่อประกาศของคุณ"
+    : a.group === "reply"
+      ? a.who + (a.status === "shortlisted" ? " ตอบรับข้อเสนอของคุณ" : " ปฏิเสธข้อเสนอของคุณ")
+      : a.group === "message"
+        ? a.who + " แสดงความคิดเห็นในโพสต์ของคุณ"
+        : a.group === "network"
+          ? a.who + " เริ่มติดตามบริษัทของคุณ"
+          : "ประกาศจาก EliteFlow";
+/** LINE add-friend link from a company's LINE ID (@oa, personal ID, or a line.me / lin.ee link). */
+export const lineLink = (id: string) => {
+  const v = id.trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return /^https:\/\/(line\.me|lin\.ee)\//i.test(v) ? v : "";
+  return "https://line.me/R/ti/p/" + (v.startsWith("@") ? "@" + encodeURIComponent(v.slice(1)) : "~" + encodeURIComponent(v));
+};
+
 export function Feed({
   ctx,
   notify,
@@ -136,7 +176,51 @@ export function Feed({
     [search, setSearch] = useState(""),
     [industry, setIndustry] = useState(""),
     [composing, setComposing] = useState<FeedKind | null>(null),
+    [alerts, setAlerts] = useState<FeedAlert[]>([]),
+    [promos, setPromos] = useState<Promo[]>([]),
+    [alertsOpen, setAlertsOpen] = useState<AlertGroup | null>(null),
+    [seen, setSeen] = useState<Record<string, string>>({}),
     [error, setError] = useState("");
+  const seenKey = "feed-seen:" + ctx.company.id + ":" + ctx.user.id;
+  useEffect(() => {
+    try {
+      setSeen(JSON.parse(localStorage.getItem(seenKey) || "{}"));
+    } catch {
+      setSeen({});
+    }
+  }, [seenKey]);
+  // Alerts the person has not opened yet, per group.
+  const alertItems: AlertItem[] = [
+    ...alerts.map((a) => ({ group: a.kind as AlertGroup, key: a.kind + a.id + a.at, at: a.at, who: a.who, title: a.title, status: a.status })),
+    ...promos.map((x) => ({ group: "system" as AlertGroup, key: "system" + x.id, at: x.starts_at || "", who: "EliteFlow", title: x.title, url: x.cta_url })),
+  ];
+  const unseen = (g: AlertGroup) =>
+    alertItems.filter((a) => (g === "all" || a.group === g) && a.at > (seen[a.group] || "")).length;
+  const openAlerts = (g: AlertGroup) => {
+    setAlertsOpen(g);
+    const now = new Date().toISOString(),
+      next = { ...seen, ...Object.fromEntries((g === "all" ? alertGroups.slice(1).map(([k]) => k) : [g]).map((k) => [k, now])) };
+    setSeen(next);
+    try {
+      localStorage.setItem(seenKey, JSON.stringify(next));
+    } catch {}
+  };
+  // One view per post that scrolled into sight, sent in small batches.
+  const viewed = useRef(new Set<string>()),
+    pending = useRef(new Set<string>()),
+    flush = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sawPost = useCallback((id: string) => {
+    if (viewed.current.has(id)) return;
+    viewed.current.add(id);
+    pending.current.add(id);
+    if (flush.current) return;
+    flush.current = setTimeout(() => {
+      const posts = [...pending.current];
+      pending.current.clear();
+      flush.current = null;
+      api("/feed/views", { method: "POST", body: { posts } }).catch(() => {});
+    }, 2500);
+  }, []);
   const load = useCallback(async (t: Tab, before?: string) => {
     const rows: FeedPost[] = await api(
       `/feed?filter=${t}` + (before ? "&before=" + encodeURIComponent(before) : ""),
@@ -151,6 +235,7 @@ export function Feed({
   }, [tab, load]);
   const loadSide = useCallback(() => {
     api("/feed/suggest").then(setSuggest).catch(() => {});
+    api("/feed/alerts").then(setAlerts).catch(() => {});
     api("/feed?filter=offers")
       .then((rows: FeedPost[]) => setChances(rows.filter((x) => !x.mine).slice(0, 3)))
       .catch(() => {});
@@ -162,6 +247,7 @@ export function Feed({
         .then((d: { promos?: Promo[] }) => (d.promos || []).filter((x) => x.placement === "feed" || x.placement === "both"))
         .catch(() => [] as Promo[]),
     ]).then(([bought, promos]: [FeedAd[], Promo[]]) => {
+      setPromos(promos);
       setAds([...bought, ...promos.map((x) => ({ id: x.id, title: x.title, body: x.body, cta_label: x.cta_label, cta_url: x.cta_url, tone: x.tone }))]);
       // One view per company ad per load (the database keeps one per company per day).
       for (const a of bought) api(`/ads/${a.id}/track`, { method: "POST", body: { kind: "view" } }).catch(() => {});
@@ -201,9 +287,6 @@ export function Feed({
   };
   const profile = ctx.company.profile,
     logo = String(profile.logo || ""),
-    cover = String(profile.cover || ""),
-    tagline = [profile.industry, profile.province].filter(Boolean).join(" · "),
-    about = String(profile.description || ""),
     myIndustry = String(profile.industry || ""),
     q = search.trim().toLowerCase(),
     shown = (posts || []).filter(
@@ -215,17 +298,21 @@ export function Feed({
   return (
     <div className="li">
       <aside className="li-left">
+        <section className="card li-alerts" aria-label="การแจ้งเตือน">
+          <h2>
+            <Bell size={18} />
+            การแจ้งเตือน
+            {unseen("all") > 0 && <b className="li-alert-count">{unseen("all")}</b>}
+          </h2>
+          {alertGroups.map(([key, label, Ico]) => (
+            <button key={key} className={alertsOpen === key ? "active" : ""} onClick={() => openAlerts(key)}>
+              <Ico size={16} />
+              <span>{label}</span>
+              {unseen(key) > 0 && <b className="li-alert-count">{unseen(key)}</b>}
+            </button>
+          ))}
+        </section>
         <section className="card li-profile">
-          <div
-            className="li-profile-cover"
-            style={cover ? { backgroundImage: `url("${cover}")` } : undefined}
-          />
-          <div className="li-profile-logo">
-            <CompanyLogo id={ctx.company.id} name={ctx.company.name} logo={logo} size={72} />
-          </div>
-          <h2>{ctx.company.name}</h2>
-          <p className="li-tagline">{tagline || "เพิ่มประเภทธุรกิจและจังหวัดในโปรไฟล์"}</p>
-          {about && <p className="li-about">{about}</p>}
           <div className="li-profile-links">
             <button onClick={() => setTab("mine")}>
               อัปเดตของบริษัทเรา
@@ -310,6 +397,7 @@ export function Feed({
                 ctx={ctx}
                 notify={notify}
                 navigate={navigate}
+                onSeen={sawPost}
                 hint={!p.mine && !p.following && !!myIndustry && p.company.industry === myIndustry ? "แนะนำ · ธุรกิจประเภทเดียวกับคุณ" : ""}
                 onFollow={() => follow(p.company_id)}
                 onChange={(patch) => update(p.id, patch)}
@@ -331,14 +419,18 @@ export function Feed({
                   ? "ไม่มีอัปเดตที่ตรงกับตัวกรอง"
                   : tab === "following"
                     ? "ยังไม่ได้ติดตามบริษัทไหน"
-                    : "ยังไม่มีอัปเดต"
+                    : tab === "saved"
+                      ? "ยังไม่ได้บันทึกโพสต์ไหน"
+                      : "ยังไม่มีอัปเดต"
               }
               description={
                 posts.length
                   ? "ลองล้างคำค้นหรือเลือกประเภทธุรกิจอื่น"
                   : tab === "following"
                     ? "กดติดตามบริษัทจากรายการแนะนำ แล้วอัปเดตของเขาจะมาอยู่ที่นี่"
-                    : "ลงอัปเดตแนะนำบริษัทของคุณเป็นคนแรก"
+                    : tab === "saved"
+                      ? "กด “บันทึก” ใต้โพสต์ที่อยากกลับมาดูภายหลัง"
+                      : "ลงอัปเดตแนะนำบริษัทของคุณเป็นคนแรก"
               }
             />
           </section>
@@ -374,6 +466,7 @@ export function Feed({
                 notify={notify}
                 navigate={navigate}
                 hint="แนะนำสำหรับคุณ"
+                onSeen={sawPost}
                 onFollow={() => {
                   follow(p.company_id);
                   setDiscover((d) => d.filter((x) => x.company_id !== p.company_id));
@@ -487,6 +580,45 @@ export function Feed({
         <p className="li-footer">EliteFlow · เครือข่ายธุรกิจสำหรับบริษัทไทย</p>
       </aside>
 
+      {alertsOpen && (
+        <Modal title={"การแจ้งเตือน · " + alertGroups.find(([k]) => k === alertsOpen)![1]} onClose={() => setAlertsOpen(null)}>
+          <div className="li-alert-list">
+            {alertItems
+              .filter((a) => alertsOpen === "all" || a.group === alertsOpen)
+              .sort((a, b) => b.at.localeCompare(a.at))
+              .map((a) => {
+                const Ico = alertGroups.find(([k]) => k === a.group)![2];
+                return (
+                  <button
+                    key={a.key}
+                    className="li-alert-item"
+                    onClick={() => {
+                      setAlertsOpen(null);
+                      if (a.group === "interest" || a.group === "reply") navigate("jobs");
+                      else if (a.group === "message") setTab("mine");
+                      else if (a.group === "system" && a.url) {
+                        if (a.url.startsWith("http")) window.open(a.url, "_blank", "noopener");
+                        else navigate(a.url.replace(/^\/?(workspace\/)?/, ""));
+                      }
+                    }}
+                  >
+                    <span className={"li-alert-icon " + a.group}>
+                      <Ico size={16} />
+                    </span>
+                    <span>
+                      <strong>{alertLine(a)}</strong>
+                      <small>{a.title}</small>
+                    </span>
+                    <time>{a.at ? since(a.at) : ""}</time>
+                  </button>
+                );
+              })}
+            {!alertItems.some((a) => alertsOpen === "all" || a.group === alertsOpen) && (
+              <Empty title="ยังไม่มีการแจ้งเตือน" description="เมื่อมีบริษัทสนใจ ตอบรับ แสดงความคิดเห็น หรือติดตามคุณ จะขึ้นที่นี่" />
+            )}
+          </div>
+        </Modal>
+      )}
       {composing && (
         <Composer
           ctx={ctx}
@@ -677,6 +809,7 @@ function PostCard({
   onFollow,
   onChange,
   onDelete,
+  onSeen,
   hint = "",
 }: {
   /** Small label above the post, e.g. why it is recommended. */
@@ -688,12 +821,32 @@ function PostCard({
   onFollow: () => void;
   onChange: (patch: Partial<FeedPost>) => void;
   onDelete: () => void;
+  /** Called once the post is on screen, to count a view. */
+  onSeen?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false),
     [expanded, setExpanded] = useState(false),
     [comment, setComment] = useState(""),
     [sending, setSending] = useState(false),
-    inputRef = useRef<HTMLInputElement>(null);
+    [slide, setSlide] = useState(0),
+    [menu, setMenu] = useState(false),
+    inputRef = useRef<HTMLInputElement>(null),
+    cardRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || !onSeen) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          onSeen(p.id);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.5 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [p.id, onSeen]);
   const ask = () => {
     setOpen(true);
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -707,11 +860,42 @@ function PostCard({
       notify((e as Error).message);
     }
   };
+  const save = async () => {
+    onChange({ saved: !p.saved });
+    try {
+      const { saved } = await api(`/feed/${p.id}/save`, { method: "POST" });
+      onChange({ saved });
+      notify(saved ? "บันทึกโพสต์แล้ว ดูได้ที่ “ที่บันทึกไว้”" : "เอาออกจากที่บันทึกไว้แล้ว");
+    } catch (e) {
+      onChange({ saved: p.saved });
+      notify((e as Error).message);
+    }
+  };
+  const share = async () => {
+    const text = `${headline(p)} — ${p.company.name}`,
+      url = `${location.origin}/feed`;
+    try {
+      if (navigator.share) await navigator.share({ title: headline(p), text, url });
+      else {
+        await navigator.clipboard.writeText(text + "\n" + url);
+        notify("คัดลอกลิงก์ไว้แชร์แล้ว");
+      }
+    } catch {
+      return; // closed the share sheet
+    }
+    api(`/feed/${p.id}/share`, { method: "POST" })
+      .then((r: { shares: number }) => onChange({ shares: r.shares }))
+      .catch(() => {});
+  };
   const offer = p.kind !== "post",
     text = offer ? p.body : excerpt(p),
-    long = text.length > 280 || text.split("\n").length > 4;
+    long = text.length > 280 || text.split("\n").length > 4,
+    line = !p.mine ? lineLink(p.company.line || "") : "",
+    count = p.images.length,
+    at = Math.min(slide, Math.max(count - 1, 0)),
+    img = (path: string) => "/api/feed/image/" + path;
   return (
-    <article className="card li-post">
+    <article className="card li-post" ref={cardRef}>
       {hint && (
         <p className="li-post-hint">
           <Sparkles size={13} /> {hint}
@@ -732,25 +916,74 @@ function PostCard({
             {p.following ? "ติดตามแล้ว" : "ติดตาม"}
           </button>
         )}
-        {p.can_delete && (
-          <button
-            className="icon-button li-delete"
-            aria-label="ลบอัปเดตนี้"
-            onClick={async () => {
-              if (!confirm("ลบอัปเดตนี้?")) return;
-              try {
-                await api("/feed/" + p.id, { method: "DELETE" });
-                onDelete();
-                notify("ลบอัปเดตแล้ว");
-              } catch (e) {
-                notify((e as Error).message);
-              }
-            }}
-          >
-            <Trash2 size={15} />
+        <div className="li-post-menu">
+          <button className="icon-button" aria-label="ตัวเลือกโพสต์" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            <MoreHorizontal size={18} />
           </button>
-        )}
+          {menu && (
+            <div className="li-post-menu-list" role="menu" onMouseLeave={() => setMenu(false)}>
+              <button role="menuitem" onClick={() => { setMenu(false); save(); }}>
+                <Bookmark size={15} /> {p.saved ? "เอาออกจากที่บันทึกไว้" : "บันทึกโพสต์"}
+              </button>
+              <button role="menuitem" onClick={() => { setMenu(false); share(); }}>
+                <Share2 size={15} /> แชร์
+              </button>
+              {p.can_delete && (
+                <button
+                  role="menuitem"
+                  className="danger"
+                  onClick={async () => {
+                    setMenu(false);
+                    if (!confirm("ลบอัปเดตนี้?")) return;
+                    try {
+                      await api("/feed/" + p.id, { method: "DELETE" });
+                      onDelete();
+                      notify("ลบอัปเดตแล้ว");
+                    } catch (e) {
+                      notify((e as Error).message);
+                    }
+                  }}
+                >
+                  <Trash2 size={15} /> ลบอัปเดตนี้
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </header>
+      {count > 0 && (
+        <div className="li-gallery">
+          <div className="li-slide">
+            <a href={img(p.images[at])} target="_blank" rel="noreferrer">
+              <img src={img(p.images[at])} alt={`รูปที่ ${at + 1} จาก ${p.company.name}`} loading="lazy" />
+            </a>
+            {count > 1 && (
+              <>
+                <button className="li-slide-nav prev" aria-label="รูปก่อนหน้า" onClick={() => setSlide((at - 1 + count) % count)}>
+                  <ChevronLeft size={18} />
+                </button>
+                <button className="li-slide-nav next" aria-label="รูปถัดไป" onClick={() => setSlide((at + 1) % count)}>
+                  <ChevronRight size={18} />
+                </button>
+                <span className="li-slide-count">
+                  {at + 1}/{count}
+                </span>
+              </>
+            )}
+          </div>
+          {(count > 1 || line) && (
+            <div className="li-thumbs">
+              {count > 1 &&
+                p.images.map((path, n) => (
+                  <button key={path} className={n === at ? "on" : ""} aria-label={`ดูรูปที่ ${n + 1}`} onClick={() => setSlide(n)}>
+                    <img src={img(path)} alt="" loading="lazy" />
+                  </button>
+                ))}
+              {line && <LineButton href={line} />}
+            </div>
+          )}
+        </div>
+      )}
       {!offer && p.meta.title && <h3 className="li-post-title">{p.meta.title}</h3>}
       {text && (
         <div className="li-post-text">
@@ -760,15 +993,6 @@ function PostCard({
               {expanded ? "ย่อ" : "…ดูเพิ่มเติม"}
             </button>
           )}
-        </div>
-      )}
-      {p.images.length > 0 && (
-        <div className={"li-media n" + Math.min(p.images.length, 4)}>
-          {p.images.map((path, n) => (
-            <a key={path} href={"/api/feed/image/" + path} target="_blank" rel="noreferrer">
-              <img src={"/api/feed/image/" + path} alt={`รูปที่ ${n + 1} จาก ${p.company.name}`} loading="lazy" />
-            </a>
-          ))}
         </div>
       )}
       {offer && (
@@ -796,50 +1020,42 @@ function PostCard({
           )}
         </div>
       )}
-      {(p.likes > 0 || p.comment_count > 0) && (
-        <div className="li-counts">
-          {p.likes > 0 && (
-            <span>
-              <i>
-                <ThumbsUp size={10} />
-              </i>
-              {p.likes} สนใจ
-            </span>
-          )}
-          {p.comment_count > 0 && (
-            <button onClick={() => setOpen(!open)}>{p.comment_count} ถามตอบ</button>
-          )}
+      {line && !count && (
+        <div className="li-line-row">
+          <LineButton href={line} />
         </div>
       )}
+      <div className="li-counts">
+        <span className="li-stat like">
+          <Heart size={14} /> {p.likes.toLocaleString()}
+        </span>
+        <button className="li-stat" onClick={() => setOpen(!open)}>
+          <MessageSquare size={14} /> {p.comment_count.toLocaleString()}
+        </button>
+        <span className="li-stat">
+          <Share2 size={14} /> {(p.shares || 0).toLocaleString()}
+        </span>
+        <span className="li-stat views" title="จำนวนคนที่เห็นโพสต์นี้">
+          <Eye size={14} /> {(p.views || 0).toLocaleString()}
+        </span>
+      </div>
       <div className="li-actions">
         <button className={p.liked ? "on" : ""} aria-pressed={p.liked} onClick={interest}>
-          <ThumbsUp size={18} />
-          สนใจ
+          <Heart size={18} />
+          ถูกใจ
         </button>
         <button aria-expanded={open} onClick={ask}>
           <MessageSquare size={18} />
-          ถามตอบ
+          แสดงความคิดเห็น
         </button>
-        {offer && !p.mine ? (
-          <button onClick={() => navigate("jobs")}>
-            <Handshake size={18} />
-            {p.kind === "job" ? "สมัครงาน" : "เสนอตัว"}
-          </button>
-        ) : (
-          <button
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(`${headline(p)} — ${p.company.name}\n${location.origin}/feed`);
-                notify("คัดลอกไว้ส่งต่อแล้ว");
-              } catch {
-                notify("คัดลอกไม่ได้");
-              }
-            }}
-          >
-            <Share2 size={18} />
-            ส่งต่อ
-          </button>
-        )}
+        <button onClick={share}>
+          <Share2 size={18} />
+          แชร์
+        </button>
+        <button className={p.saved ? "on" : ""} aria-pressed={p.saved} onClick={save}>
+          <Bookmark size={18} />
+          {p.saved ? "บันทึกแล้ว" : "บันทึก"}
+        </button>
       </div>
       {open && (
         <div className="li-thread">
@@ -899,5 +1115,16 @@ function PostCard({
         </div>
       )}
     </article>
+  );
+}
+
+/** LINE add-friend button of the posting company (ติดต่อเราเลย). */
+function LineButton({ href }: { href: string }) {
+  return (
+    <a className="li-line-btn" href={href} target="_blank" rel="noreferrer noopener">
+      <span className="li-line-logo">LINE</span>
+      ติดต่อเราเลย
+      <ChevronRight size={16} />
+    </a>
   );
 }

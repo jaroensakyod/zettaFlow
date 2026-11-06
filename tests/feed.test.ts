@@ -148,7 +148,32 @@ test("company feed: cross-company visibility, posting rights, likes, comments, f
     await login(stranger);
     await assert.rejects(db.query("select feed_proposals($1)", [a]));
 
+    // Views (once per person), shares, saved posts.
+    await assert.rejects(db.query("select feed_view($1)", [[pid]]));
+    await assert.rejects(db.query("select feed_alerts($1)", [a]));
+    await login(bob);
+    await db.query("select feed_view($1)", [[pid, job]]);
+    await db.query("select feed_view($1)", [[pid]]);
+    assert.equal(Number(await val("select feed_share($1)", [pid])), 1);
+    assert.equal(await val("select feed_save($1)", [pid]), true);
+    const saved = await val<{ id: string; saved: boolean; views: number; shares: number }[]>("select feed_list($1,'saved')", [b]);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].id, pid);
+    assert.equal(saved[0].saved, true);
+    assert.equal(saved[0].views, 1);
+    assert.equal(saved[0].shares, 1);
+    assert.equal(await val("select feed_save($1)", [pid]), false);
+    assert.equal(((await val<unknown[]>("select feed_list($1,'saved')", [b])) as unknown[]).length, 0);
+    await assert.rejects(db.query("select feed_alerts($1)", [a]));
+    // Bob hears that Alice shortlisted his proposal.
+    const bobAlerts = await val<{ kind: string; who: string; status?: string }[]>("select feed_alerts($1)", [b]);
+    assert.deepEqual(bobAlerts.map((x) => [x.kind, x.who, x.status]), [["reply", "Alice Co", "shortlisted"]]);
+    // Alice hears about Bob's proposal, comment and follow.
     await login(alice);
+    const aliceAlerts = await val<{ kind: string; who: string }[]>("select feed_alerts($1)", [a]);
+    assert.deepEqual(aliceAlerts.map((x) => x.kind).sort(), ["interest", "message", "network"]);
+    assert.ok(aliceAlerts.every((x) => x.who === "Bob Co"));
+
     await db.query("select feed_delete($1)", [pid]);
     assert.equal(((await val<unknown[]>("select feed_list($1,'post')", [a])) as unknown[]).length, 0);
   } finally {

@@ -65,6 +65,10 @@ import {
   feedProposals,
   feedPropose,
   feedProposalStatus,
+  feedView,
+  feedShare,
+  feedSave,
+  feedAlerts,
 } from "@/lib/feed";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
@@ -345,6 +349,11 @@ async function handle(req: NextRequest) {
         });
       }
       if (path[1] === "suggest") return response(await feedSuggest(ctx));
+      if (path[1] === "alerts") return response(await feedAlerts(ctx));
+      if (path[1] === "views" && method === "POST") {
+        await feedView(ctx, await body(req));
+        return response({ ok: true });
+      }
       if (path[1] === "proposals") {
         if (method === "GET")
           return response(await feedProposals(ctx, req.nextUrl.searchParams.get("post")));
@@ -374,6 +383,8 @@ async function handle(req: NextRequest) {
         return response({ ok: true });
       }
       if (path[2] === "like") return response(await feedLike(ctx, path[1]));
+      if (path[2] === "share") return response(await feedShare(ctx, path[1]));
+      if (path[2] === "save") return response(await feedSave(ctx, path[1]));
       if (path[2] === "propose")
         return response(await feedPropose(ctx, path[1], await body(req)), 201);
       if (path[2] === "comments")

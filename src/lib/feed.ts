@@ -7,10 +7,10 @@ import { supabaseServer } from "./supabase/server";
 import { demoRead, demoMutate, type DemoState } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
-import type { Context, FeedComment, FeedKind, FeedPost, FeedProposal, FeedSuggestion } from "./types";
+import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedProposal, FeedSuggestion } from "./types";
 
 const BUCKET = "eliteflow-posts";
-const filters = ["all", "following", "post", "job", "partner", "mine", "offers"] as const;
+const filters = ["all", "following", "post", "job", "partner", "mine", "offers", "saved"] as const;
 const imageTypes: Record<string, string> = {
   "image/webp": "webp",
   "image/png": "png",
@@ -39,7 +39,7 @@ const validImage = (bytes: Buffer, mime: string) =>
 // ---------- Demo mode: the local company plus a few sample companies ----------
 type DemoPost = Omit<
   FeedPost,
-  "likes" | "liked" | "comment_count" | "comments" | "following" | "mine" | "can_delete" | "company" | "proposal_count" | "proposed"
+  "likes" | "liked" | "comment_count" | "comments" | "following" | "mine" | "can_delete" | "company" | "proposal_count" | "proposed" | "views" | "shares" | "saved"
 > & { author_id: string; archived_at?: string | null };
 type DemoCompany = { id: string; name: string; industry: string; province: string };
 type DemoFeed = {
@@ -91,6 +91,9 @@ function demoView(ctx: Context, s: DemoState & DemoFeed, p: DemoPost): FeedPost 
       province: company.province,
       has_logo: p.company_id === s.company.id && !!s.company.profile.logo,
     },
+    views: 0,
+    shares: 0,
+    saved: false,
     likes: (s.feedLikes || []).filter((l) => l.post_id === p.id).length,
     liked: (s.feedLikes || []).some((l) => l.post_id === p.id && l.user_id === ctx.user.id),
     comment_count: comments.length,
@@ -132,7 +135,7 @@ export async function feedList(ctx: Context, filterInput: string | null, before:
               ? p.company_id === ctx.company.id
               : filter === "offers"
                 ? p.kind !== "post"
-                : true,
+                : filter !== "saved",
       )
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, filter === "offers" ? 50 : 20)
@@ -276,6 +279,39 @@ export async function feedFollow(ctx: Context, target: string): Promise<boolean>
   const { data, error } = await sb.rpc("feed_follow", { p_company: ctx.company.id, p_target: id });
   dbError(error);
   return Boolean(data);
+}
+
+/** Posts that scrolled into sight: one view per person per post. */
+export async function feedView(ctx: Context, input: unknown) {
+  const { posts } = z.object({ posts: z.array(z.uuid()).max(50) }).parse(input);
+  if (ctx.demo || !posts.length) return;
+  const sb = await supabaseServer();
+  const { error } = await sb.rpc("feed_view", { p_posts: posts });
+  dbError(error);
+}
+export async function feedShare(ctx: Context, postId: string): Promise<{ shares: number }> {
+  const id = z.uuid().parse(postId);
+  if (ctx.demo) return { shares: 1 };
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("feed_share", { p_post: id });
+  dbError(error);
+  return { shares: Number(data) };
+}
+export async function feedSave(ctx: Context, postId: string): Promise<{ saved: boolean }> {
+  const id = z.uuid().parse(postId);
+  if (ctx.demo) return { saved: true };
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("feed_save", { p_post: id });
+  dbError(error);
+  return { saved: Boolean(data) };
+}
+/** What happened around our company in the network, for the notification list in the feed. */
+export async function feedAlerts(ctx: Context): Promise<FeedAlert[]> {
+  if (ctx.demo) return [];
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("feed_alerts", { p_company: ctx.company.id });
+  dbError(error);
+  return (data || []) as FeedAlert[];
 }
 
 // ---------- Media ----------

@@ -7123,3 +7123,315 @@ a.line-hub-page:hover { background: #e6dcff; text-decoration: underline; }
 .line-tabs button.active.approved { background: #e2f6ea; color: #1d7a43; border-color: #b9e5c9; }
 .line-tabs button.active.rejected { background: #f1f0f5; color: #5d5874; border-color: #dcd8e6; }
 .line-pending .line-history { border-top: 0; }
+/* feed: notifications (design update p.5) */
+.li-profile .li-profile-links {
+  margin-top: 0;
+  border-top: 0;
+}
+.li-alerts {
+  display: grid;
+  padding: 0 0 8px;
+  overflow: hidden;
+}
+.li-alerts h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: #2c2550;
+  background: linear-gradient(120deg, #efe9ff, #f7f3ff);
+}
+.li-alerts h2 svg {
+  color: var(--accent);
+}
+.li-alerts h2 .li-alert-count {
+  margin-left: auto;
+}
+.li-alerts button {
+  justify-content: flex-start;
+  gap: 10px;
+  margin: 0 8px;
+  background: none;
+  color: #45415a;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.li-alerts button span {
+  flex: 1;
+  text-align: left;
+}
+.li-alerts button svg {
+  color: #8a84a3;
+}
+.li-alerts button:hover {
+  background: #f6f5fa;
+}
+.li-alerts button.active,
+.li-alerts button:first-of-type {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.li-alerts button.active svg,
+.li-alerts button:first-of-type svg {
+  color: var(--accent);
+}
+.li-alert-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: #e5484d;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+}
+.li-alert-list {
+  display: grid;
+  gap: 4px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.li-alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  padding: 10px;
+  border-radius: 10px;
+  justify-content: flex-start;
+}
+.li-alert-item:hover {
+  background: #f6f5fa;
+}
+.li-alert-item > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.li-alert-item strong {
+  font-size: 13px;
+  color: #25233a;
+}
+.li-alert-item small {
+  font-size: 12px;
+  color: #6b6880;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.li-alert-item time {
+  font-size: 11px;
+  color: #8a84a3;
+  flex-shrink: 0;
+}
+.li-alert-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.li-alert-icon.reply {
+  background: #e6f6ee;
+  color: #1d8a55;
+}
+.li-alert-icon.message {
+  background: #e8f0fd;
+  color: #2b6cc4;
+}
+.li-alert-icon.network {
+  background: #fdecef;
+  color: #c43b5a;
+}
+.li-alert-icon.system {
+  background: #fff4dc;
+  color: #a86b00;
+}
+/* feed: post menu, gallery, LINE button, stats */
+.li-post-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.li-post-menu .icon-button {
+  padding: 6px;
+  color: #6b6880;
+}
+.li-post-menu-list {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 5;
+  display: grid;
+  min-width: 190px;
+  padding: 6px;
+  background: white;
+  border: 1px solid #e4e2ec;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(30, 20, 60, 0.14);
+}
+.li-post-menu-list button {
+  justify-content: flex-start;
+  gap: 8px;
+  background: none;
+  color: #45415a;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.li-post-menu-list button:hover {
+  background: #f6f5fa;
+}
+.li-post-menu-list button.danger {
+  color: #c4333a;
+}
+.li-gallery {
+  margin-top: 12px;
+}
+.li-slide {
+  position: relative;
+  background: #f4f2f9;
+}
+.li-slide a {
+  display: block;
+}
+.li-slide img {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: contain;
+}
+.li-slide-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2c2550;
+  box-shadow: 0 2px 8px rgba(30, 20, 60, 0.2);
+}
+.li-slide-nav.prev {
+  left: 10px;
+}
+.li-slide-nav.next {
+  right: 10px;
+}
+.li-slide-count {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: rgba(20, 16, 40, 0.6);
+  color: white;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.li-thumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 0;
+  overflow-x: auto;
+}
+.li-thumbs button {
+  flex-shrink: 0;
+  padding: 0;
+  width: 72px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: #f4f2f9;
+  opacity: 0.75;
+}
+.li-thumbs button.on {
+  border-color: var(--accent);
+  opacity: 1;
+}
+.li-thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.li-line-row {
+  display: flex;
+  padding: 10px 16px 0;
+}
+.li-line-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 7px 14px 7px 7px;
+  border-radius: 99px;
+  background: linear-gradient(120deg, #8b5cf6, #b26bf0);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+.li-line-btn:hover {
+  filter: brightness(1.06);
+}
+.li-line-logo {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: white;
+  color: #06c755;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.li-counts {
+  justify-content: flex-start;
+  gap: 16px;
+}
+.li-counts .li-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 12px;
+  color: #6b6880;
+}
+.li-counts .li-stat.like svg {
+  color: #e5484d;
+  fill: #e5484d;
+}
+.li-counts .li-stat.views {
+  margin-left: auto;
+}
+.li-actions button.on svg {
+  fill: currentColor;
+}
+@media (max-width: 720px) {
+  .li-actions button {
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+  }
+  .li-thumbs button {
+    width: 56px;
+    height: 42px;
+  }
+}

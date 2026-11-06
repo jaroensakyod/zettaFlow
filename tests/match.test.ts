@@ -23,6 +23,9 @@ const post = (over: Partial<FeedPost> = {}): FeedPost => ({
   can_delete: false,
   proposal_count: 0,
   proposed: false,
+  views: 0,
+  shares: 0,
+  saved: false,
   ...over,
 });
 
