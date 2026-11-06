@@ -26,6 +26,7 @@ import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
 import { AdCard } from "./ad-card";
+import { SampleFeed, sampleAds, sampleLogo, sampleSuggest } from "./feed-samples";
 
 /** Every this many posts the feed shows one sponsored card. */
 const AD_EVERY = 5;
@@ -320,6 +321,8 @@ export function Feed({
               })()}
             </Fragment>
           ))
+        ) : !posts.length && !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? (
+          <SampleFeed kind={tab} AdCard={(x) => <AdCard {...x} />} />
         ) : (
           <section className="card">
             <Empty
@@ -385,7 +388,17 @@ export function Feed({
       </section>
 
       <aside className="li-right">
-        {ads.length > 0 && <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact onClick={adClick(ads[ads.length > 1 ? 1 : 0])} />}
+        {ads.length > 0 ? (
+          <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact onClick={adClick(ads[ads.length > 1 ? 1 : 0])} />
+        ) : (
+          posts &&
+          !posts.length && (
+            <div className="sample-wrap">
+              <span className="sample-badge">ตัวอย่างโฆษณา</span>
+              <AdCard ad={sampleAds[1]} compact preview />
+            </div>
+          )
+        )}
         <button className="card li-advertise" onClick={() => navigate("ads")}>
           <Megaphone size={16} />
           <span>
@@ -443,6 +456,21 @@ export function Feed({
             ))
           ) : (
             <div className="li-side-empty">
+              {posts && !posts.length && (
+                <div className="sample-suggest">
+                  <span className="sample-badge">ตัวอย่าง</span>
+                  {sampleSuggest.slice(0, 2).map((c) => (
+                    <div className="li-suggest" key={c.name}>
+                      {sampleLogo(c.name, c.tint, 40)}
+                      <span>
+                        <strong>{c.name}</strong>
+                        <small>{c.meta}</small>
+                        <em className="li-suggest-why">{c.why}</em>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p>ยังไม่มีบริษัทอื่นในเครือข่ายที่คุณยังไม่ได้ติดตาม เครือข่ายจะโตขึ้นเมื่อคู่ค้าของคุณเข้ามาใช้งาน</p>
               <button
                 className="li-follow-pill"

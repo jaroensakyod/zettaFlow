@@ -7087,3 +7087,11 @@ a.line-hub-page:hover { background: #e6dcff; text-decoration: underline; }
 .feed-preview-start div span { display: inline-flex; align-items: center; gap: 6px; }
 .feed-preview-callout { margin: 4px 4px -4px; font-size: 12px; font-weight: 600; color: #b25a00; }
 @media (max-width: 760px) { .feed-preview-bar { padding: 10px 16px; } .feed-preview-tag { order: 3; } .feed-preview-hero h1 { font-size: 22px; } }
+
+/* Sample content on an empty feed — always labelled ตัวอย่าง */
+.sample-note { display: flex; gap: 8px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #fff7e3; border: 1px solid #f5dc9a; color: #6b4a00; font-size: 13px; line-height: 1.55; }
+.sample-note svg { flex: none; margin-top: 2px; }
+.sample-badge { display: inline-block; font-size: 11px; font-weight: 700; color: #9a6a00; background: #fff4d6; border: 1px solid #f5dc9a; border-radius: 999px; padding: 1px 10px; margin: 0 0 6px; }
+.li-post > .sample-badge { margin: 12px 16px 0; }
+.sample-wrap { display: grid; gap: 4px; margin: 12px 0; }
+.sample-suggest { display: grid; gap: 8px; opacity: .85; width: 100%; }
