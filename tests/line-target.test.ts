@@ -340,8 +340,10 @@ test("a leave sent by a LINE member linked to an employee is matched by their LI
     await login(owner, "owner@test.local");
     await db.query("select decide_ingestion($1,$2,'approved',$3,'')", [c, id, values]);
     await db.exec("reset role;");
-    const leave = await one<{ emp: string }>(db, "select data->>'employeeId' emp from entities where company_id=$1 and kind='leaves' and data->>'ingestionId'=$2", [c, id]);
+    const leave = await one<{ emp: string; status: string }>(db, "select data->>'employeeId' emp,data->>'status' status from entities where company_id=$1 and kind='leaves' and data->>'ingestionId'=$2", [c, id]);
     assert.equal(leave.emp, emp);
+    // Approved from LINE = an approved leave, not "รอดำเนินการ".
+    assert.equal(leave.status, "approved");
   } finally {
     await db.close();
   }
