@@ -7110,3 +7110,16 @@ a.line-hub-page:hover { background: #e6dcff; text-decoration: underline; }
 .source-line b { color: #fff; background: #06c755; border-radius: 6px; padding: 0 6px; font-size: 11px; line-height: 18px; }
 .source-line.compact { display: flex; margin-top: 3px; font-size: 11.5px; color: #7a7491; }
 .source-banner { margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; background: #effaf3; border: 1px solid #c8eed6; font-size: 13px; color: #1d5b39; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* LINE review: the photo/PDF that came with the message, shown in place */
+.attachment-preview { display: grid; gap: 8px; margin: 8px 0; }
+.attachment-preview img { max-width: 100%; max-height: 420px; object-fit: contain; border-radius: 10px; border: 1px solid #ece8f6; background: #fff; }
+.attachment-preview object { width: 100%; height: 480px; border-radius: 10px; border: 1px solid #ece8f6; }
+.attachment-preview > a.secondary { justify-self: start; }
+.line-tabs { display: flex; gap: 4px; margin: 8px 0 2px; flex-wrap: wrap; }
+.line-tabs button { border: 1px solid #e4dcfb; background: #fff; color: #5d5874; border-radius: 999px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
+.line-tabs button i { font-style: normal; font-size: 11px; margin-left: 2px; background: #f1edfb; border-radius: 999px; padding: 0 6px; }
+.line-tabs button.active { background: #ede6ff; color: #5b21b6; font-weight: 600; border-color: #c9b8f7; }
+.line-tabs button.active.approved { background: #e2f6ea; color: #1d7a43; border-color: #b9e5c9; }
+.line-tabs button.active.rejected { background: #f1f0f5; color: #5d5874; border-color: #dcd8e6; }
+.line-pending .line-history { border-top: 0; }

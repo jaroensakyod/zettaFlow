@@ -1017,10 +1017,13 @@ async function handle(req: NextRequest) {
     if (path[0] === "files") {
       if (method === "GET" && path[1]) {
         const { file, bytes } = await download(ctx, z.uuid().parse(path[1]));
+        // Photos and PDFs open in the page (receipt panels, LINE review); everything else, or ?download=1, downloads.
+        const inline = ["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(file.mime) && !req.nextUrl.searchParams.has("download");
         return new Response(new Uint8Array(bytes), {
           headers: {
             "Content-Type": file.mime,
-            "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+            "Content-Disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+            "X-Content-Type-Options": "nosniff",
             "Cache-Control": "private, no-store",
           },
         });

@@ -65,10 +65,18 @@ const config: NextConfig = {
   async headers() {
     return [
       {
+        // Uploaded files may be shown inside our own pages (PDF receipts); everything else may not be framed.
+        source: "/((?!api/files/).*)",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+      {
+        source: "/api/files/:path*",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
+      {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "same-origin" },
           {
             key: "Permissions-Policy",

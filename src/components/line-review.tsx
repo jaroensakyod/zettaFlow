@@ -1,7 +1,7 @@
 "use client";
 // LINE items awaiting approval: the review dialog (shared with Data Inbox) and the list each page shows above its records.
 import { useCallback, useEffect, useState } from "react";
-import { Paperclip, CheckCircle2, Inbox, History, ChevronDown, UserPlus } from "lucide-react";
+import { Paperclip, CheckCircle2, Inbox, UserPlus } from "lucide-react";
 import { api, Modal, displayDate } from "./shared";
 import { FieldControl } from "./records";
 import type { Context, Ingestion } from "@/lib/types";
@@ -124,6 +124,34 @@ function RelationPicker({
 }
 import { formatMoney, isForeign } from "@/lib/fx";
 
+/** The photo or PDF sent with a LINE message, shown in the dialog (no download needed). */
+function AttachmentPreview({ id }: { id: string }) {
+  const [mime, setMime] = useState("");
+  useEffect(() => {
+    fetch("/api/files/" + id, { method: "HEAD" })
+      .then((r) => setMime(r.headers.get("content-type") || ""))
+      .catch(() => setMime(""));
+  }, [id]);
+  const src = "/api/files/" + id;
+  return (
+    <div className="attachment-preview">
+      {mime.startsWith("image/") ? (
+        <a href={src} target="_blank" rel="noreferrer">
+          <img src={src} alt="เอกสารต้นฉบับ" />
+        </a>
+      ) : mime === "application/pdf" ? (
+        <object data={src} type="application/pdf" aria-label="เอกสารต้นฉบับ">
+          <a href={src} target="_blank" rel="noreferrer">เปิดเอกสาร</a>
+        </object>
+      ) : null}
+      <a className="secondary" href={src} target="_blank" rel="noreferrer">
+        <Paperclip size={15} />
+        เปิดเอกสารต้นฉบับในแท็บใหม่
+      </a>
+    </div>
+  );
+}
+
 export function IngestionReview({
   record,
   ctx,
@@ -168,12 +196,7 @@ export function IngestionReview({
       </div>
       {record.decided_at && <p className={"decision-line " + record.status}>{decisionText(record)}</p>}
       <pre className="source-text">{record.raw || "เอกสารแนบ"}</pre>
-      {record.attachment_id && (
-        <a className="secondary" href={"/api/files/" + record.attachment_id}>
-          <Paperclip size={15} />
-          เอกสารต้นฉบับ
-        </a>
-      )}
+      {record.attachment_id && <AttachmentPreview id={record.attachment_id} />}
       {record.error && <p className="form-error">{record.error}</p>}
       {record.status === "failed" && ctx.member.role !== "viewer" && (
         <button
@@ -282,7 +305,7 @@ export function LinePending({
 }) {
   const [items, setItems] = useState<Ingestion[]>([]),
     [history, setHistory] = useState<Ingestion[]>([]),
-    [showHistory, setShowHistory] = useState(false),
+    [view, setView] = useState<"open" | "approved" | "rejected">("open"),
     [open, setOpen] = useState<Ingestion | null>(null);
   const load = useCallback(async () => {
     try {
@@ -305,17 +328,30 @@ export function LinePending({
     return () => clearInterval(t);
   }, [load]);
   if (!items.length && !history.length) return null;
+  const approved = history.filter((i) => i.status === "approved"),
+    rejected = history.filter((i) => i.status === "rejected");
   return (
     <section className="card line-pending">
       <h3>
-        <Inbox size={16} /> {items.length ? "รอตรวจจาก LINE" : "จาก LINE"} <i>{items.length}</i>
-        {history.length > 0 && (
-          <button type="button" className="line-history-toggle" aria-expanded={showHistory} onClick={() => setShowHistory((v) => !v)}>
-            <History size={14} /> ประวัติ {history.length} <ChevronDown size={14} className={showHistory ? "up" : ""} />
-          </button>
-        )}
+        <Inbox size={16} /> จาก LINE
       </h3>
-      {!items.length && <p className="line-pending-empty">ไม่มีรายการรอตรวจ</p>}
+      {/* รอตรวจ / อนุมัติแล้ว / ไม่อนุมัติ: what still waits, and what was decided (by whom, when). */}
+      <div className="line-tabs" role="tablist">
+        {(
+          [
+            ["open", "รอตรวจ", items.length],
+            ["approved", "อนุมัติแล้ว", approved.length],
+            ["rejected", "ไม่อนุมัติ", rejected.length],
+          ] as const
+        ).map(([k, label, n]) => (
+          <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? "active " + k : k} onClick={() => setView(k)}>
+            {label} <i>{n}</i>
+          </button>
+        ))}
+      </div>
+      {view === "open" && !items.length && <p className="line-pending-empty">ไม่มีรายการรอตรวจ</p>}
+      {view !== "open" && !(view === "approved" ? approved : rejected).length && <p className="line-pending-empty">ยังไม่มีรายการ</p>}
+      {view === "open" && (
       <ul>
         {items.map((i) => (
           <li key={i.id}>
@@ -339,9 +375,10 @@ export function LinePending({
           </li>
         ))}
       </ul>
-      {showHistory && (
+      )}
+      {view !== "open" && (
         <ul className="line-history">
-          {history.map((i) => (
+          {(view === "approved" ? approved : rejected).map((i) => (
             <li key={i.id}>
               <button onClick={() => setOpen(i)}>
                 <span>
