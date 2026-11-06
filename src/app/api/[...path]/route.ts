@@ -70,6 +70,7 @@ import {
   feedSave,
   feedAlerts,
 } from "@/lib/feed";
+import { b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
 import { taxReport, expiries } from "@/lib/dept-views";
@@ -863,6 +864,15 @@ async function handle(req: NextRequest) {
         dbError(error);
       }
       return response({ ok: true });
+    }
+    // B2B chat: GET /b2b (inbox), GET /b2b/unread, POST /b2b/open {company, post?},
+    // GET /b2b/<thread> (messages, marks read), POST /b2b/<thread> {body, post?}.
+    if (path[0] === "b2b") {
+      if (!path[1] && method === "GET") return response(await b2bInbox(ctx));
+      if (path[1] === "unread") return response({ unread: await b2bUnread(ctx) });
+      if (path[1] === "open" && method === "POST") return response(await b2bOpen(ctx, await body(req)));
+      if (path[1] && method === "GET") return response(await b2bRead(ctx, path[1]));
+      if (path[1] && method === "POST") return response(await b2bSend(ctx, path[1], await body(req)), 201);
     }
     if (path[0] === "chat") {
       const department =

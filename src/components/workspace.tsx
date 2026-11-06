@@ -77,8 +77,8 @@ import { departmentOf } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { CompanySettings, Team, Integrations } from "./settings";
+import { ChatHub } from "./b2b-chat";
 import {
-  Chat,
   Calendar,
   Reports,
   Assistant,
@@ -132,9 +132,9 @@ const extra: Record<
     description: "กำหนดการโครงการ อีเวนต์ และวันครบกำหนด",
   },
   chat: {
-    label: "แชททีม",
+    label: "แชท",
     icon: "MessageCircle",
-    description: "พื้นที่พูดคุยของทีม แยกตามแผนกและบริษัท",
+    description: "คุยกันในทีมตามแผนก และคุยกับบริษัทอื่นในเครือข่ายธุรกิจ",
   },
   reports: {
     label: "รายงาน & Export",
@@ -702,7 +702,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               <Integrations ctx={ctx} notify={notify} />
             </>
           ) : view === "chat" ? (
-            <Chat ctx={ctx} notify={notify} />
+            <ChatHub ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "calendar" ? (
             <Calendar navigate={navigate} />
           ) : view === "reports" ? (

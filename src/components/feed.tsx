@@ -133,7 +133,7 @@ export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: s
 }
 
 type AlertGroup = "all" | FeedAlert["kind"] | "system";
-type AlertItem = { group: AlertGroup; key: string; at: string; who: string; title: string; status?: string; url?: string };
+type AlertItem = { group: AlertGroup; key: string; at: string; who: string; title: string; status?: string; url?: string; thread?: string };
 const alertGroups: [AlertGroup, string, typeof ImageIcon][] = [
   ["all", "ทั้งหมด", Inbox],
   ["interest", "ผู้สนใจติดต่อ", Handshake],
@@ -148,7 +148,7 @@ const alertLine = (a: AlertItem) =>
     : a.group === "reply"
       ? a.who + (a.status === "shortlisted" ? " ตอบรับข้อเสนอของคุณ" : " ปฏิเสธข้อเสนอของคุณ")
       : a.group === "message"
-        ? a.who + " แสดงความคิดเห็นในโพสต์ของคุณ"
+        ? a.who + (a.thread ? " ส่งข้อความถึงบริษัทของคุณ" : " แสดงความคิดเห็นในโพสต์ของคุณ")
         : a.group === "network"
           ? a.who + " เริ่มติดตามบริษัทของคุณ"
           : "ประกาศจาก EliteFlow";
@@ -181,6 +181,7 @@ export function Feed({
     [industry, setIndustry] = useState(""),
     [composing, setComposing] = useState<FeedKind | null>(null),
     [alerts, setAlerts] = useState<FeedAlert[]>([]),
+    [chatUnread, setChatUnread] = useState(0),
     [promos, setPromos] = useState<Promo[]>([]),
     [alertsOpen, setAlertsOpen] = useState<AlertGroup | null>(null),
     [seen, setSeen] = useState<Record<string, string>>({}),
@@ -195,7 +196,7 @@ export function Feed({
   }, [seenKey]);
   // Alerts the person has not opened yet, per group.
   const alertItems: AlertItem[] = [
-    ...alerts.map((a) => ({ group: a.kind as AlertGroup, key: a.kind + a.id + a.at, at: a.at, who: a.who, title: a.title, status: a.status })),
+    ...alerts.map((a) => ({ group: a.kind as AlertGroup, key: a.kind + a.id + a.at, at: a.at, who: a.who, title: a.title, status: a.status, thread: a.thread_id })),
     ...promos.map((x) => ({ group: "system" as AlertGroup, key: "system" + x.id, at: x.starts_at || "", who: "EliteFlow", title: x.title, url: x.cta_url })),
   ];
   const unseen = (g: AlertGroup) =>
@@ -240,6 +241,7 @@ export function Feed({
   const loadSide = useCallback(() => {
     api("/feed/suggest").then(setSuggest).catch(() => {});
     api("/feed/alerts").then(setAlerts).catch(() => {});
+    api("/b2b/unread").then((r: { unread: number }) => setChatUnread(r.unread)).catch(() => {});
     api("/feed?filter=offers")
       .then((rows: FeedPost[]) => setChances(rows.filter((x) => !x.mine).slice(0, 3)))
       .catch(() => {});
@@ -331,6 +333,10 @@ export function Feed({
               งาน &amp; ข้อเสนอ
               <ChevronRight size={15} />
             </button>
+            <button onClick={() => navigate("chat?b2b=")}>
+              <span>ข้อความกับบริษัทอื่น</span>
+              {chatUnread > 0 ? <b className="li-alert-count">{chatUnread}</b> : <ChevronRight size={15} />}
+            </button>
           </div>
           <button className="li-profile-edit" onClick={() => navigate("company")}>
             แก้ไขหน้าบริษัท
@@ -404,6 +410,7 @@ export function Feed({
                 notify={notify}
                 navigate={navigate}
                 onSeen={sawPost}
+                onMessage={() => navigate(`chat?with=${p.company_id}&post=${p.id}`)}
                 hint={!p.mine && !p.following && !!myIndustry && p.company.industry === myIndustry ? "แนะนำ · ธุรกิจประเภทเดียวกับคุณ" : ""}
                 onFollow={() => follow(p.company_id)}
                 onChange={(patch) => update(p.id, patch)}
@@ -483,6 +490,7 @@ export function Feed({
                 navigate={navigate}
                 hint="แนะนำสำหรับคุณ"
                 onSeen={sawPost}
+                onMessage={() => navigate(`chat?with=${p.company_id}&post=${p.id}`)}
                 onFollow={() => {
                   follow(p.company_id);
                   setDiscover((d) => d.filter((x) => x.company_id !== p.company_id));
@@ -555,10 +563,16 @@ export function Feed({
                   <strong>{c.name}</strong>
                   <small>{[c.industry || "บริษัทในเครือข่าย", c.province].filter(Boolean).join(" · ")}</small>
                   {c.reason && <em className="li-suggest-why">{c.reason}</em>}
-                  <button className="li-follow-pill" onClick={() => follow(c.id)}>
-                    <Plus size={14} />
-                    ติดตาม
-                  </button>
+                  <span className="li-suggest-actions">
+                    <button className="li-follow-pill" onClick={() => follow(c.id)}>
+                      <Plus size={14} />
+                      ติดตาม
+                    </button>
+                    <button className="li-follow-pill" onClick={() => navigate("chat?with=" + c.id)}>
+                      <MessageCircle size={14} />
+                      ข้อความ
+                    </button>
+                  </span>
                 </span>
               </div>
             ))
@@ -610,6 +624,7 @@ export function Feed({
                     onClick={() => {
                       setAlertsOpen(null);
                       if (a.group === "interest" || a.group === "reply") navigate("jobs");
+                      else if (a.thread) navigate("chat?b2b=" + a.thread);
                       else if (a.group === "message") setTab("mine");
                       else if (a.group === "system" && a.url) {
                         if (a.url.startsWith("http")) window.open(a.url, "_blank", "noopener");
@@ -825,8 +840,11 @@ function PostCard({
   onChange,
   onDelete,
   onSeen,
+  onMessage,
   hint = "",
 }: {
+  /** Opens B2B chat with the posting company. */
+  onMessage?: () => void;
   /** Small label above the post, e.g. why it is recommended. */
   hint?: string;
   post: FeedPost;
@@ -925,6 +943,12 @@ function PostCard({
             {since(p.created_at)} · โดย {p.author_name}
           </small>
         </div>
+        {!p.mine && onMessage && (
+          <button className="li-follow li-message" onClick={onMessage}>
+            <MessageCircle size={15} />
+            ส่งข้อความ
+          </button>
+        )}
         {!p.mine && (
           <button className={"li-follow" + (p.following ? " on" : "")} onClick={onFollow}>
             {p.following ? <Check size={15} /> : <Plus size={15} />}

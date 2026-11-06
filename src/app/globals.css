@@ -7435,3 +7435,254 @@ a.line-hub-page:hover { background: #e6dcff; text-decoration: underline; }
     height: 42px;
   }
 }
+/* แชท page: team rooms / B2B chat */
+.chat-hub {
+  display: grid;
+  gap: 12px;
+}
+.chat-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  width: fit-content;
+  background: #f1eef8;
+  border-radius: 12px;
+}
+.chat-tabs button {
+  gap: 7px;
+  background: none;
+  color: #5e5874;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 9px;
+}
+.chat-tabs button.active {
+  background: white;
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(30, 20, 60, 0.1);
+}
+.b2b {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  padding: 0;
+  overflow: hidden;
+  height: min(680px, calc(100vh - 190px));
+  min-height: 480px;
+}
+.b2b-list {
+  border-right: 1px solid var(--line);
+  background: #fcfbfe;
+  overflow: auto;
+  padding: 14px 10px;
+}
+.b2b-list h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 6px 12px;
+  font-size: 14px;
+  color: #2c2550;
+}
+.b2b-thread {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  background: none;
+  color: inherit;
+  padding: 10px;
+  border-radius: 10px;
+}
+.b2b-thread:hover {
+  background: #f3f1f9;
+}
+.b2b-thread.active {
+  background: var(--accent-soft);
+}
+.b2b-thread > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.b2b-thread strong {
+  font-size: 13.5px;
+  color: #25233a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.b2b-thread small {
+  font-size: 12px;
+  color: #6b6880;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.b2b-thread-meta {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.b2b-thread-meta time {
+  font-size: 11px;
+  color: #8a84a3;
+}
+.b2b-empty {
+  display: grid;
+  gap: 8px;
+  padding: 18px 8px;
+  text-align: center;
+  color: #6b6880;
+  font-size: 13px;
+}
+.b2b-empty p {
+  margin: 0;
+  font-weight: 700;
+  color: #45415a;
+}
+.b2b-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.b2b-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.b2b-head > span {
+  display: grid;
+}
+.b2b-head strong {
+  font-size: 15px;
+  color: #25233a;
+}
+.b2b-head small {
+  font-size: 12px;
+  color: #6b6880;
+}
+.b2b-back {
+  display: none;
+}
+.b2b-messages {
+  flex: 1;
+  overflow: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #faf9fd;
+}
+.b2b-msg {
+  align-self: flex-start;
+  max-width: 78%;
+  display: grid;
+  gap: 4px;
+}
+.b2b-msg.mine {
+  align-self: flex-end;
+  justify-items: end;
+}
+.b2b-msg small {
+  font-size: 11px;
+  color: #8a84a3;
+}
+.b2b-msg p {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: white;
+  border: 1px solid #e8e5f0;
+  color: #2c2a3a;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.b2b-msg.mine p {
+  border-radius: 14px 14px 4px 14px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.b2b-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #5b4bb0;
+  background: #efeafd;
+  padding: 3px 9px;
+  border-radius: 99px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.b2b-compose {
+  display: grid;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+}
+.b2b-compose .b2b-ref.compose {
+  width: fit-content;
+}
+.b2b-compose > div {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.b2b-compose textarea {
+  flex: 1;
+  resize: none;
+  font-size: 14px;
+}
+.b2b-placeholder {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.li-message {
+  color: #45415a;
+}
+.li-suggest-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.li-profile-links button .li-alert-count {
+  margin-left: auto;
+}
+@media (max-width: 720px) {
+  .b2b {
+    grid-template-columns: 1fr;
+    height: calc(100vh - 170px);
+  }
+  .b2b.open .b2b-list {
+    display: none;
+  }
+  .b2b:not(.open) .b2b-main {
+    display: none;
+  }
+  .b2b-back {
+    display: inline-flex;
+  }
+  .b2b-msg {
+    max-width: 88%;
+  }
+  .li-message {
+    padding: 6px;
+    font-size: 0;
+    gap: 0;
+  }
+}
