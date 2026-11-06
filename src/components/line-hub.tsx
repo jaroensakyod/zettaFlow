@@ -1,8 +1,9 @@
 "use client";
 // หน้า LINE: which groups are connected, what each group sent, and where every message went
 // (which page, waiting for approval, missing data, or small talk that was not recorded).
+// Each group's settings (name in the system, AI sorting or a fixed form, approve words) live on the group itself.
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, MessagesSquare, Paperclip, RefreshCw, Users } from "lucide-react";
+import { ArrowRight, FlaskConical, MessagesSquare, Paperclip, RefreshCw, Save, Settings2, Trash2, Users } from "lucide-react";
 import { api, displayDate, Empty, Loading } from "./shared";
 import type { Context } from "@/lib/types";
 import type { LineMessage } from "@/lib/line-hub";
@@ -10,16 +11,27 @@ import type { LineMessage } from "@/lib/line-hub";
 type Group = {
   group_id: string;
   name: string;
+  lineName: string;
   picture: string | null;
+  template_id: string | null;
+  templateName: string | null;
+  approve_keywords: string[];
+  test: boolean;
+  found: boolean;
+  preview: string;
   total: number;
   week: number;
   waiting: number;
   incomplete: number;
   lastAt: string | null;
 };
+type Form = { id: string; name: string; department: string };
 
 const time = (iso: string) =>
   new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+
+/** What a person recognises the group by: its name in the system, else its LINE name. */
+const title = (g: Group, i: number) => g.name || g.lineName || (g.test ? `กลุ่มทดสอบ ${i + 1}` : `กลุ่ม ${i + 1} (ยังไม่ได้ตั้งชื่อ)`);
 
 function state(m: LineMessage): { label: string; tone: string } {
   if (m.status === "approved") return { label: "บันทึกแล้ว", tone: "done" };
@@ -37,27 +49,32 @@ function link(m: LineMessage) {
 }
 const filters = { all: "ทั้งหมด", recorded: "บันทึกแล้ว", pending: "รอตรวจ", skipped: "ไม่บันทึก" } as const;
 
-export function LineHub({ ctx }: { ctx: Context }) {
+export function LineHub({ ctx, notify }: { ctx: Context; notify: (s: string) => void }) {
   const [groups, setGroups] = useState<Group[] | null>(null),
+    [forms, setForms] = useState<Form[]>([]),
     [selected, setSelected] = useState(""),
     [messages, setMessages] = useState<LineMessage[] | null>(null),
     [filter, setFilter] = useState<keyof typeof filters>("all"),
+    [editing, setEditing] = useState(false),
     [error, setError] = useState(""),
     [tick, setTick] = useState(0);
-  const allowed = ["owner", "manager"].includes(ctx.member.role);
+  const allowed = ["owner", "manager"].includes(ctx.member.role),
+    owner = ctx.member.role === "owner";
 
   useEffect(() => {
     if (!allowed) return;
     api("/line-groups")
       .then((g: Group[]) => {
         setGroups(g);
-        setSelected((s) => s || g[0]?.group_id || "");
+        setSelected((s) => (g.some((x) => x.group_id === s) ? s : g[0]?.group_id || ""));
       })
       .catch((e) => setError((e as Error).message));
-  }, [allowed, tick]);
+    if (owner) api("/templates").then(setForms).catch(() => {});
+  }, [allowed, owner, tick]);
   useEffect(() => {
     if (!selected) return;
     setMessages(null);
+    setEditing(false);
     api("/line-groups?group=" + encodeURIComponent(selected))
       .then(setMessages)
       .catch((e) => setError((e as Error).message));
@@ -71,13 +88,46 @@ export function LineHub({ ctx }: { ctx: Context }) {
     [messages, filter],
   );
   if (!allowed) return null;
-  const group = groups?.find((g) => g.group_id === selected);
+  const index = groups?.findIndex((g) => g.group_id === selected) ?? -1,
+    group = index >= 0 ? groups![index] : undefined;
+
+  async function saveGroup(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!group) return;
+    const f = new FormData(e.currentTarget);
+    try {
+      await api("/integrations/" + encodeURIComponent(group.group_id), {
+        method: "PATCH",
+        body: {
+          name: String(f.get("name") || "").trim(),
+          templateId: f.get("templateId"),
+          keywords: String(f.get("keywords")).split(",").map((s) => s.trim()).filter(Boolean),
+        },
+      });
+      notify("บันทึกการตั้งค่ากลุ่มแล้ว");
+      setEditing(false);
+      setTick((n) => n + 1);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+  async function unlink() {
+    if (!group || !confirm(`ยกเลิกการเชื่อม "${title(group, index)}"? ข้อความใหม่จากกลุ่มนี้จะไม่ถูกบันทึกอีก`)) return;
+    try {
+      await api("/integrations/" + encodeURIComponent(group.group_id), { method: "DELETE" });
+      notify("ยกเลิกการเชื่อมกลุ่มแล้ว");
+      setSelected("");
+      setTick((n) => n + 1);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   return (
     <section className="card line-hub">
       <div className="card-heading">
         <h2>
-          <MessagesSquare size={18} /> กลุ่ม LINE ที่เชื่อมต่อ {groups && <span className="line-hub-count">{groups.length} กลุ่ม</span>}
+          <MessagesSquare size={18} /> กลุ่ม LINE ที่เชื่อมต่อ {groups && <span className="line-hub-count">{groups.filter((g) => !g.test).length} กลุ่ม</span>}
         </h2>
         <button className="icon-button" aria-label="โหลดใหม่" onClick={() => setTick((n) => n + 1)}>
           <RefreshCw size={16} />
@@ -91,24 +141,89 @@ export function LineHub({ ctx }: { ctx: Context }) {
       ) : (
         <div className="line-hub-body">
           <ul className="line-hub-groups">
-            {groups.map((g) => (
+            {groups.map((g, i) => (
               <li key={g.group_id}>
-                <button className={g.group_id === selected ? "active" : ""} onClick={() => setSelected(g.group_id)}>
-                  {g.picture ? <img src={g.picture} alt="" width={36} height={36} /> : <span className="line-hub-avatar"><Users size={16} /></span>}
-                  <span>
-                    <b>{g.name || "กลุ่มไม่มีชื่อ"}</b>
+                <button className={(g.group_id === selected ? "active " : "") + (g.test ? "test" : "")} onClick={() => setSelected(g.group_id)}>
+                  {g.picture ? (
+                    <img src={g.picture} alt="" width={36} height={36} />
+                  ) : (
+                    <i className={"line-hub-avatar" + (g.test ? " test" : "")}>{g.test ? <FlaskConical size={16} /> : <Users size={16} />}</i>
+                  )}
+                  <span className="line-hub-gtext">
+                    <b>{title(g, i)}</b>
+                    <small>{g.test ? "กลุ่มทดสอบจากสคริปต์ · ไม่มีอยู่จริงใน LINE" : g.preview ? "“" + g.preview + "”" : "ยังไม่มีข้อความ"}</small>
                     <small>
-                      7 วัน {g.week} ข้อความ{g.lastAt ? " · ล่าสุด " + displayDate(g.lastAt) : ""}
+                      {g.templateName ? "📋 " + g.templateName : "🤖 AI แยกอัตโนมัติ"} · {g.lastAt ? "ล่าสุด " + displayDate(g.lastAt) : "—"}
                     </small>
                   </span>
-                  {g.waiting > 0 && <em className={g.incomplete ? "warn" : "wait"}>{g.waiting}</em>}
+                  {g.waiting > 0 && (
+                    <em className={g.incomplete ? "warn" : "wait"} title="รายการรอตรวจ">
+                      {g.waiting}
+                    </em>
+                  )}
                 </button>
               </li>
             ))}
           </ul>
           <div className="line-hub-messages">
+            {group && (
+              <header className="line-hub-head">
+                <div>
+                  <b>{title(group, index)}</b>
+                  <small>
+                    {group.lineName && group.name && group.lineName !== group.name ? "ชื่อใน LINE: " + group.lineName + " · " : ""}
+                    {group.templateName ? "ใช้ฟอร์ม " + group.templateName : "AI แยกแต่ละข้อความเข้าหน้าที่ถูก"} · อนุมัติด้วยคำว่า “{group.approve_keywords[0] || "อนุมัติ"}”
+                  </small>
+                </div>
+                {owner && (
+                  <button className="secondary" onClick={() => setEditing((v) => !v)}>
+                    <Settings2 size={15} /> {editing ? "ปิดการตั้งค่า" : "ตั้งค่ากลุ่มนี้"}
+                  </button>
+                )}
+              </header>
+            )}
+            {group?.test && (
+              <p className="line-hub-note">
+                กลุ่มนี้สร้างโดยสคริปต์ทดสอบระบบ (scripts/line-e2e.ts) ไม่ใช่กลุ่ม LINE จริง ถ้าไม่ใช้แล้วกด “ตั้งค่ากลุ่มนี้” → “ยกเลิกการเชื่อม” ได้เลย
+              </p>
+            )}
+            {group && !group.test && !group.found && (
+              <p className="line-hub-note">ดึงชื่อกลุ่มจาก LINE ไม่ได้ บอทอาจถูกนำออกจากกลุ่มแล้ว ตั้งชื่อเองได้ที่ “ตั้งค่ากลุ่มนี้”</p>
+            )}
+            {group && editing && (
+              <form className="line-hub-settings" onSubmit={saveGroup} key={group.group_id}>
+                <label>
+                  ชื่อกลุ่มในระบบ
+                  <input name="name" defaultValue={group.name} placeholder={group.lineName || "เช่น ฝ่ายบัญชี / หน้าร้านสาขา 1"} maxLength={100} />
+                </label>
+                <label>
+                  ข้อความในกลุ่มนี้ให้บันทึกแบบไหน
+                  <select name="templateId" defaultValue={group.template_id ?? ""}>
+                    <option value="">🤖 AI แยกอัตโนมัติ: ส่งแต่ละข้อความเข้าหน้าที่ถูก (แนะนำ)</option>
+                    {forms.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        📋 ใช้ฟอร์มเดียวทุกข้อความ: {t.department} · {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  คำที่ผู้จัดการพิมพ์เพื่ออนุมัติ (คั่นด้วย ,)
+                  <input name="keywords" defaultValue={group.approve_keywords.join(", ")} required />
+                </label>
+                <div className="row-actions">
+                  <button className="primary">
+                    <Save size={14} /> บันทึก
+                  </button>
+                  <button type="button" className="secondary danger" onClick={unlink}>
+                    <Trash2 size={14} /> ยกเลิกการเชื่อมกลุ่มนี้
+                  </button>
+                </div>
+                <small className="line-hub-id">รหัสกลุ่ม LINE: {group.group_id}</small>
+              </form>
+            )}
             <div className="line-hub-toolbar">
-              <b>{group?.name || "ข้อความ"}</b>
+              <b>ข้อความ</b>
               <div className="line-hub-filters" role="tablist">
                 {Object.entries(filters).map(([k, l]) => (
                   <button key={k} role="tab" aria-selected={filter === k} className={filter === k ? "active" : ""} onClick={() => setFilter(k as keyof typeof filters)}>

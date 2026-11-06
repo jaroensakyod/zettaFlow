@@ -15,7 +15,6 @@ import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { FieldControl } from "./records";
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
 import type { Context, Member, Template } from "@/lib/types";
-import { LineGroupSettings } from "./platform";
 const imageLimits = {
   logo: { width: 320, height: 320, max: 60000 },
   cover: { width: 1200, height: 400, max: 150000 },
@@ -616,15 +615,6 @@ export function Integrations({
       worker: boolean;
     } | null>(null),
     [templates, setTemplates] = useState<Template[]>([]),
-    [groups, setGroups] = useState<
-      {
-        group_id: string;
-        template_id: string | null;
-        name: string;
-        approve_keywords: string[];
-      }[]
-    >([]),
-    [reload, setReload] = useState(0),
     [notifications, setNotifications] = useState<
       { id: string; status: string; attempts: number }[]
     >([]),
@@ -647,11 +637,11 @@ export function Integrations({
         const wanted = new URLSearchParams(window.location.search).get("template");
         // No template = AI sorts every message onto its page; a page's button may ask for its own form.
         setSelected(t.find((x: Template) => x.id === wanted)?.id || "");
-        setGroups(i.groups);
+
         setNotifications(i.notifications);
       })
       .catch((e) => setError(e.message));
-  }, [ctx.member.role, reload]);
+  }, [ctx.member.role]);
   async function pair(action: string) {
     setBusy(true);
     try {
@@ -670,15 +660,16 @@ export function Integrations({
     <div className="two-column">
       <section className="card">
         <div className="card-heading">
-          <h2>LINE Messaging API</h2>
+          <h2>เชื่อมกลุ่ม LINE ใหม่</h2>
           <span className={"badge " + (config?.line ? "approved" : "pending")}>
             {config?.line ? "ตั้งค่าแล้ว" : "รอการตั้งค่า"}
           </span>
         </div>
-        <p className="body-copy">
-          เพิ่มบอทในกลุ่ม LINE แล้วสร้างรหัสเชื่อมต่อ
-          กลุ่มจะถูกจับคู่กับบริษัทและ Data Template ของคุณ
-        </p>
+        <ol className="body-copy line-steps">
+          <li>เพิ่มบอท EliteFlow เข้ากลุ่ม LINE</li>
+          <li>กด “สร้างรหัสเชื่อมกลุ่ม” แล้วคัดลอกคำสั่งไปพิมพ์ในกลุ่มนั้น</li>
+          <li>กลุ่มจะขึ้นในรายการด้านบน ตั้งชื่อและวิธีบันทึกได้ที่ “ตั้งค่ากลุ่มนี้”</li>
+        </ol>
         {ctx.member.role === "owner" && (
           <>
             <label>
@@ -726,17 +717,9 @@ export function Integrations({
         <p className="form-error" role="alert">
           {error}
         </p>
-        <h3 className="form-section-title">กลุ่มที่เชื่อมแล้ว</h3>
         <p className="note">
-          แต่ละกลุ่มใช้ฟอร์มของแผนกตัวเอง ผู้จัดการพิมพ์คีย์เวิร์ด (เช่น "อนุมัติปล่อยของ") เพื่ออนุมัติรายการล่าสุด
-          และถามบอทได้ เช่น "มีงานรออนุมัติกี่งาน?"
+          ในกลุ่ม ผู้จัดการพิมพ์คำอนุมัติ (เช่น “อนุมัติ”) เพื่ออนุมัติรายการล่าสุด และถามบอทได้ เช่น “มีงานรออนุมัติกี่งาน?”
         </p>
-        <LineGroupSettings
-          templates={templates}
-          groups={groups}
-          notify={notify}
-          changed={() => setReload((n) => n + 1)}
-        />
       </section>
       <section className="card">
         <div className="card-heading">

@@ -6939,8 +6939,11 @@ fieldset.exf-card:disabled { opacity: 1; }
 .line-hub-groups button { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border: 1px solid #ece8f6; border-radius: 12px; background: #fff; cursor: pointer; }
 .line-hub-groups button.active { border-color: #b9a5f2; background: #f6f2ff; }
 .line-hub-groups img, .line-hub-avatar { width: 36px; height: 36px; border-radius: 50%; flex: none; object-fit: cover; }
-.line-hub-avatar { display: grid; place-items: center; background: #06c755; color: #fff; }
-.line-hub-groups span { display: grid; min-width: 0; flex: 1; }
+.line-hub-avatar { display: grid; place-items: center; background: #06c755; color: #fff; font-style: normal; }
+.line-hub-avatar.test { background: #ece9f4; color: #8a85a0; }
+.line-hub-groups button.test { opacity: .75; border-style: dashed; }
+.line-hub-gtext { display: grid; min-width: 0; flex: 1; gap: 1px; }
+.line-hub-gtext small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .line-hub-groups b { font-size: 14px; color: #1f1a35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .line-hub-groups small { font-size: 12px; color: #8a85a0; }
 .line-hub-groups em { font-style: normal; font-size: 12px; font-weight: 600; min-width: 22px; text-align: center; border-radius: 999px; padding: 2px 7px; }
@@ -6968,3 +6971,14 @@ fieldset.exf-card:disabled { opacity: 1; }
   .line-hub-body { grid-template-columns: 1fr; }
   .line-hub-groups { grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); overflow-x: auto; }
 }
+
+.line-hub-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #ece8f6; }
+.line-hub-head > div { display: grid; gap: 2px; min-width: 0; }
+.line-hub-head b { font-size: 16px; color: #1f1a35; }
+.line-hub-head small { font-size: 12.5px; color: #7a7491; }
+.line-hub-note { margin: 0 0 10px; font-size: 13px; color: #8a5a00; background: #fff7e3; border-radius: 10px; padding: 8px 12px; }
+.line-hub-settings { display: grid; gap: 10px; background: #fff; border: 1px solid #e4dcfb; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.line-hub-settings label { display: grid; gap: 4px; font-size: 13px; color: #4b4566; }
+.line-hub-settings .danger { color: #b04a1c; }
+.line-hub-id { font-size: 11px; color: #a19cb5; word-break: break-all; }
+.line-steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; }

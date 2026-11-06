@@ -27,29 +27,38 @@ const canSee = (ctx: Context) => assert(["owner", "manager"].includes(ctx.member
 export async function lineGroupsOverview(ctx: Context) {
   canSee(ctx);
   const sb = await supabaseServer();
-  const [{ data: groups, error }, { data: rows, error: e2 }] = await Promise.all([
+  const [{ data: groups, error }, { data: rows, error: e2 }, { data: forms }] = await Promise.all([
     sb.from("line_groups").select("*").eq("company_id", ctx.company.id),
     sb
       .from("ingestions")
-      .select("group_id, status, missing, created_at")
+      .select("group_id, status, missing, created_at, raw")
       .eq("company_id", ctx.company.id)
       .not("group_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(3000),
+    sb.from("data_templates").select("id, name").eq("company_id", ctx.company.id),
   ]);
   dbError(error);
   dbError(e2);
   const weekAgo = Date.now() - 7 * 86400000;
-  return Promise.all(
+  const list = await Promise.all(
     (groups || []).map(async (g) => {
       const mine = (rows || []).filter((r) => r.group_id === g.group_id);
-      const info = await lineGroup(g.group_id);
+      // Groups made by scripts/line-e2e.ts have ids "Ce2e…" and do not exist in LINE.
+      const test = String(g.group_id).startsWith("Ce2e");
+      const info = test ? null : await lineGroup(g.group_id);
+      const latest = mine.find((r) => String(r.raw || "").trim());
       return {
         group_id: g.group_id as string,
         name: (g.name as string) || info?.name || "",
         lineName: info?.name || "",
         picture: info?.picture || null,
         template_id: g.template_id as string | null,
+        templateName: g.template_id ? String((forms || []).find((f) => f.id === g.template_id)?.name || "ฟอร์ม") : null,
+        test,
+        /** LINE knows this group (the bot is in it). False for test groups or when the bot was removed. */
+        found: !!info,
+        preview: latest ? String(latest.raw).slice(0, 60) : "",
         approve_keywords: (g.approve_keywords as string[]) || [],
         total: mine.length,
         week: mine.filter((r) => Date.parse(r.created_at) > weekAgo).length,
@@ -59,6 +68,8 @@ export async function lineGroupsOverview(ctx: Context) {
       };
     }),
   );
+  // Real groups first, most recently active first.
+  return list.sort((a, b) => Number(a.test) - Number(b.test) || String(b.lastAt || "").localeCompare(String(a.lastAt || "")));
 }
 
 export type LineMessage = {

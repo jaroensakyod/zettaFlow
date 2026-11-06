@@ -692,7 +692,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <Team ctx={ctx} notify={notify} />
           ) : view === "integrations" ? (
             <>
-              <LineHub ctx={ctx} />
+              <LineHub ctx={ctx} notify={notify} />
               <Integrations ctx={ctx} notify={notify} />
             </>
           ) : view === "chat" ? (
