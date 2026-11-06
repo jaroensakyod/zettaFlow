@@ -256,6 +256,7 @@ function SupportInbox({ notify }: { notify: (s: string) => void }) {
 }
 
 type Row = Partial<Promo & Announcement> & { id?: string };
+const placementLabels: Record<string, string> = { landing: "หน้าเว็บไซต์ (โปรโมชัน)", feed: "เครือข่ายธุรกิจ (โฆษณา)", both: "ทั้งสองที่" };
 function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; notify: (s: string) => void }) {
   const [rows, setRows] = useState<Row[]>([]),
     [edit, setEdit] = useState<Row | null>(null),
@@ -268,8 +269,8 @@ function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; not
   return (
     <section className="card">
       <div className="section-actions">
-        <h2>{promo ? "โปรโมชันบนหน้าแรก" : "ประกาศในระบบ (ป๊อปอัป)"}</h2>
-        <button className="primary" onClick={() => setEdit({ active: true, popup: true, tone: "violet", level: "info" })}>
+        <h2>{promo ? "โปรโมชันและโฆษณา" : "ประกาศในระบบ (ป๊อปอัป)"}</h2>
+        <button className="primary" onClick={() => setEdit({ active: true, popup: true, tone: "violet", level: "info", placement: "landing" })}>
           <Plus size={14} /> เพิ่ม
         </button>
       </div>
@@ -279,6 +280,7 @@ function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; not
         <div className="section-actions" key={r.id}>
           <span>
             <b>{r.title}</b> <small className="muted">{r.body}</small>{" "}
+            {promo && <span className="status-pill">{placementLabels[r.placement || "landing"]}</span>}{" "}
             <span className={"status-pill " + (r.active ? "good" : "bad")}>{r.active ? "แสดงอยู่" : "ซ่อน"}</span>
           </span>
           <div className="row-actions">
@@ -311,7 +313,7 @@ function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; not
                 body: f.get("body"),
                 active: f.get("active") === "on",
               };
-              if (promo) Object.assign(body, { cta_label: f.get("cta_label"), cta_url: f.get("cta_url"), tone: f.get("tone"), ordinal: Number(f.get("ordinal") || 0), ends_at: end ? new Date(end).toISOString() : null });
+              if (promo) Object.assign(body, { cta_label: f.get("cta_label"), cta_url: f.get("cta_url"), tone: f.get("tone"), placement: f.get("placement"), ordinal: Number(f.get("ordinal") || 0), ends_at: end ? new Date(end).toISOString() : null });
               else Object.assign(body, { level: f.get("level"), popup: f.get("popup") === "on", expires_at: end ? new Date(end).toISOString() : null });
               try {
                 await api(`/admin/${kind}${edit.id ? "/" + edit.id : ""}`, { method: edit.id ? "PATCH" : "POST", body });
@@ -353,6 +355,16 @@ function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; not
                 <label>
                   ลำดับ
                   <input name="ordinal" type="number" min={0} max={100} defaultValue={edit.ordinal ?? 0} />
+                </label>
+                <label>
+                  แสดงที่
+                  <select name="placement" defaultValue={edit.placement || "landing"}>
+                    {Object.entries(placementLabels).map(([k, l]) => (
+                      <option key={k} value={k}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
             ) : (

@@ -39,7 +39,7 @@ export function PricingCards() {
                 </li>
               ))}
             </ul>
-            <Link href="/eliteflow?signup=1" className={p.popular ? "lp-btn primary" : "lp-btn ghost"}>
+            <Link href="/feed?signup=1" className={p.popular ? "lp-btn primary" : "lp-btn ghost"}>
               ทดลองฟรี 14 วัน <ArrowRight size={16} />
             </Link>
           </article>
@@ -104,7 +104,7 @@ export function PromoStrip() {
   useEffect(() => {
     fetch("/api/public-content", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { promos: [] }))
-      .then((d) => setItems(d.promos || []))
+      .then((d) => setItems((d.promos || []).filter((p: { placement?: string }) => p.placement !== "feed")))
       .catch(() => {});
   }, []);
   useEffect(() => {

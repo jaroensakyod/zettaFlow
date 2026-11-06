@@ -388,7 +388,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     (next: string) => {
       setMenu(false);
       setSearchOpen(false);
-      router.push(next === "feed" ? "/eliteflow" : "/workspace/" + next);
+      router.push(next === "feed" ? "/feed" : "/workspace/" + next);
     },
     [router],
   );

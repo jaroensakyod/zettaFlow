@@ -127,7 +127,7 @@ if (!secret) {
     check("question to the bot", q.status === 200, `HTTP ${q.status}`);
 
     console.log(
-      `\nNow open ${base}/eliteflow → the template's department → review queue:` +
+      `\nNow open ${base}/feed → the template's department → review queue:` +
         `\n  3 items marked (ทดสอบ E2E) should appear within a minute, once each.` +
         `\nTest group id: ${groupId} (remove it in Settings › Integrations when done).`,
     );

@@ -465,7 +465,7 @@ export function ZettaWorkspace({
           </button>
           <button
             className="z-elite-link"
-            onClick={() => router.push("/eliteflow")}
+            onClick={() => router.push("/feed")}
           >
             EliteFlow Workspace
             <ArrowRight size={14} />
@@ -528,7 +528,7 @@ export function ZettaWorkspace({
             <span>DEMO</span>ระบบตัวอย่าง อ่านอย่างเดียว · ข้อมูลสมมติ
             <a
               className="z-demo-cta"
-              href="/eliteflow"
+              href="/feed"
               onClick={async (e) => {
                 e.preventDefault();
                 await fetch("/api/auth", {
@@ -536,7 +536,7 @@ export function ZettaWorkspace({
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ action: "logout" }),
                 }).catch(() => {});
-                location.href = "/eliteflow";
+                location.href = "/feed";
               }}
             >
               สมัครใช้งานจริงฟรี →

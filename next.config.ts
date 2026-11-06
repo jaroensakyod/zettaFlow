@@ -33,6 +33,8 @@ const config: NextConfig = {
       "reset-password.html": "/reset-password",
     };
     return [
+      // เครือข่ายธุรกิจ moved from /eliteflow to /feed; old links and bookmarks keep working (query kept).
+      { source: "/eliteflow", destination: "/feed", permanent: true },
       ...Object.entries(map).map(([source, destination]) => ({
         source: "/" + source,
         destination,

@@ -70,6 +70,10 @@ export type FeedSuggestion = {
   name: string;
   industry: string;
   has_logo: boolean;
+  province?: string;
+  posts?: number;
+  /** Why it is suggested, e.g. ธุรกิจประเภทเดียวกับคุณ. */
+  reason?: string;
 };
 export type Member = {
   id: string;

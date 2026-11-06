@@ -256,14 +256,20 @@ export function LineHub({ ctx, notify }: { ctx: Context; notify: (s: string) => 
                         {m.raw ? m.raw : m.attachment_id ? "" : "(ไม่มีข้อความ)"}
                       </p>
                       <div className="line-hub-dest">
-                        {m.page && (
-                          <span className="line-hub-page">
-                            <ArrowRight size={13} /> {m.page}
-                          </span>
-                        )}
+                        {/* The page name itself opens it: the record it became, or the page where it waits for review. */}
+                        {m.page &&
+                          (href ? (
+                            <a className="line-hub-page" href={href} title={m.record ? "เปิดรายการนี้" : "ไปตรวจในหน้า " + m.page}>
+                              <ArrowRight size={13} /> {m.page}
+                            </a>
+                          ) : (
+                            <span className="line-hub-page">
+                              <ArrowRight size={13} /> {m.page}
+                            </span>
+                          ))}
                         <em className={s.tone}>{s.label}</em>
                         {m.error && m.status !== "approved" && <small className="line-hub-err">{m.error}</small>}
-                        {href && (
+                        {href && !m.page && (
                           <a className="text-button" href={href}>
                             {m.record ? "เปิดรายการ" : "ไปตรวจ"} →
                           </a>

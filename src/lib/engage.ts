@@ -15,6 +15,8 @@ export type Promo = {
   cta_label: string;
   cta_url: string;
   tone: "violet" | "pink" | "blue" | "green";
+  /** landing = public home page banner, feed = sponsored card in เครือข่ายธุรกิจ, both. */
+  placement?: "landing" | "feed" | "both";
   active: boolean;
   starts_at: string;
   ends_at: string | null;
@@ -45,7 +47,7 @@ type DemoEngage = {
 };
 const now = () => new Date().toISOString();
 const samplePromos = (): Promo[] => [
-  { id: "p1", title: "ทดลองฟรี 14 วัน พร้อม AI Add-on ครบทุกตัว", body: "เชื่อม LINE กลุ่มแรกได้ภายใน 5 นาที ไม่ต้องใช้บัตรเครดิต", cta_label: "เริ่มเลย", cta_url: "/eliteflow", tone: "violet", active: true, starts_at: now(), ends_at: null, ordinal: 0 },
+  { id: "p1", title: "ทดลองฟรี 14 วัน พร้อม AI Add-on ครบทุกตัว", body: "เชื่อม LINE กลุ่มแรกได้ภายใน 5 นาที ไม่ต้องใช้บัตรเครดิต", cta_label: "เริ่มเลย", cta_url: "/feed", tone: "violet", active: true, starts_at: now(), ends_at: null, ordinal: 0 },
   { id: "p2", title: "จ่ายรายปี ฟรี 2 เดือน", body: "รวม Add-on ที่เลือกด้วย", cta_label: "ดูราคา", cta_url: "/zetta#pricing", tone: "pink", active: true, starts_at: now(), ends_at: null, ordinal: 1 },
 ];
 const sampleAnnouncements = (): Announcement[] => [
@@ -145,6 +147,7 @@ const promoSchema = z.object({
   cta_label: z.string().trim().max(40).default(""),
   cta_url: z.string().trim().max(300).regex(/^(https:\/\/|\/|$)/, "ลิงก์ต้องขึ้นต้นด้วย https:// หรือ /").default(""),
   tone: z.enum(["violet", "pink", "blue", "green"]).default("violet"),
+  placement: z.enum(["landing", "feed", "both"]).default("landing"),
   active: z.boolean().default(true),
   ends_at: z.iso.datetime({ offset: true }).nullable().default(null),
   ordinal: z.number().int().min(0).max(100).default(0),

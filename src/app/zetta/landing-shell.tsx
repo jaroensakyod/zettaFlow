@@ -1,8 +1,8 @@
 // Shared EliteFlow marketing header, footer and logo for the public pages (/ and /pricing).
 import Link from "next/link";
 
-export const SIGNUP = "/eliteflow?signup=1";
-export const LOGIN = "/eliteflow";
+export const SIGNUP = "/feed?signup=1";
+export const LOGIN = "/feed";
 
 export function Logo() {
   return (

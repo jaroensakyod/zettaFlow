@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   Image as ImageIcon,
   BriefcaseBusiness,
@@ -16,10 +16,34 @@ import {
   ThumbsUp,
   MessageSquare,
   Share2,
+  Megaphone,
+  Link2,
+  ArrowRight,
 } from "lucide-react";
 import { businessTypeGroups, industryMatches } from "@/lib/catalog";
 import type { Context, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "@/lib/types";
 import { api, Empty, Loading, Modal } from "./shared";
+import type { Promo } from "@/lib/engage";
+
+/** โฆษณา: promotions the EliteFlow team set to show in เครือข่ายธุรกิจ (Admin Console → โปรโมชันและโฆษณา). */
+function AdCard({ ad, compact }: { ad: Promo; compact?: boolean }) {
+  return (
+    <section className={"card li-ad " + ad.tone + (compact ? " compact" : "")} aria-label="ผู้สนับสนุน">
+      <span className="li-ad-tag">
+        <Megaphone size={13} /> ผู้สนับสนุน
+      </span>
+      <strong>{ad.title}</strong>
+      {ad.body && <p>{ad.body}</p>}
+      {ad.cta_label && ad.cta_url && (
+        <a className="li-ad-cta" href={ad.cta_url} target={ad.cta_url.startsWith("http") ? "_blank" : undefined} rel="noreferrer sponsored">
+          {ad.cta_label} <ArrowRight size={14} />
+        </a>
+      )}
+    </section>
+  );
+}
+/** Every this many posts the feed shows one sponsored card. */
+const AD_EVERY = 5;
 
 const tabs = [
   ["all", "ทั้งหมด"],
@@ -121,6 +145,8 @@ export function Feed({
     [loadingMore, setLoadingMore] = useState(false),
     [suggest, setSuggest] = useState<FeedSuggestion[]>([]),
     [chances, setChances] = useState<FeedPost[]>([]),
+    [ads, setAds] = useState<Promo[]>([]),
+    [discover, setDiscover] = useState<FeedPost[]>([]),
     [search, setSearch] = useState(""),
     [industry, setIndustry] = useState(""),
     [composing, setComposing] = useState<FeedKind | null>(null),
@@ -142,7 +168,27 @@ export function Feed({
     api("/feed?filter=offers")
       .then((rows: FeedPost[]) => setChances(rows.filter((x) => !x.mine).slice(0, 3)))
       .catch(() => {});
+    fetch("/api/public-content", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { promos: [] }))
+      .then((d: { promos?: Promo[] }) => setAds((d.promos || []).filter((x) => x.placement === "feed" || x.placement === "both")))
+      .catch(() => {});
   }, []);
+  // บริษัทที่ติดตาม: below the followed companies' posts, suggest posts from companies not followed yet
+  // (same business type first) so the tab is never a dead end.
+  useEffect(() => {
+    if (tab !== "following") return;
+    const mine = String(ctx.company.profile.industry || "");
+    api("/feed?filter=all")
+      .then((rows: FeedPost[]) =>
+        setDiscover(
+          rows
+            .filter((x) => !x.mine && !x.following)
+            .sort((a, b) => Number(b.company.industry === mine && !!mine) - Number(a.company.industry === mine && !!mine))
+            .slice(0, 5),
+        ),
+      )
+      .catch(() => setDiscover([]));
+  }, [tab, ctx.company.profile.industry]);
   useEffect(loadSide, [loadSide]);
   const update = (id: string, patch: Partial<FeedPost>) =>
     setPosts((list) => list?.map((p) => (p.id === id ? { ...p, ...patch } : p)) || null);
@@ -260,17 +306,20 @@ export function Feed({
             <Loading />
           </section>
         ) : shown.length ? (
-          shown.map((p) => (
-            <PostCard
-              key={p.id}
-              post={p}
-              ctx={ctx}
-              notify={notify}
-              navigate={navigate}
-              onFollow={() => follow(p.company_id)}
-              onChange={(patch) => update(p.id, patch)}
-              onDelete={() => setPosts((list) => list?.filter((x) => x.id !== p.id) || null)}
-            />
+          shown.map((p, i) => (
+            <Fragment key={p.id}>
+              <PostCard
+                post={p}
+                ctx={ctx}
+                notify={notify}
+                navigate={navigate}
+                hint={!p.mine && !p.following && !!myIndustry && p.company.industry === myIndustry ? "แนะนำ · ธุรกิจประเภทเดียวกับคุณ" : ""}
+                onFollow={() => follow(p.company_id)}
+                onChange={(patch) => update(p.id, patch)}
+                onDelete={() => setPosts((list) => list?.filter((x) => x.id !== p.id) || null)}
+              />
+              {ads.length > 0 && (i + 1) % AD_EVERY === 0 && <AdCard ad={ads[Math.floor(i / AD_EVERY) % ads.length]} />}
+            </Fragment>
           ))
         ) : (
           <section className="card">
@@ -310,9 +359,34 @@ export function Feed({
             {loadingMore ? "กำลังโหลด…" : "ดูอัปเดตก่อนหน้า"}
           </button>
         )}
+        {tab === "following" && posts && discover.length > 0 && (
+          <>
+            <h2 className="li-discover-title">
+              <Sparkles size={16} /> แนะนำจากบริษัทที่คุณยังไม่ได้ติดตาม
+            </h2>
+            {discover.map((p) => (
+              <PostCard
+                key={"d" + p.id}
+                post={p}
+                ctx={ctx}
+                notify={notify}
+                navigate={navigate}
+                hint="แนะนำสำหรับคุณ"
+                onFollow={() => {
+                  follow(p.company_id);
+                  setDiscover((d) => d.filter((x) => x.company_id !== p.company_id));
+                }}
+                onChange={(patch) => setDiscover((d) => d.map((x) => (x.id === p.id ? { ...x, ...patch } : x)))}
+                onDelete={() => setDiscover((d) => d.filter((x) => x.id !== p.id))}
+              />
+            ))}
+          </>
+        )}
+        {posts && !shown.length && ads[0] && <AdCard ad={ads[0]} />}
       </section>
 
       <aside className="li-right">
+        {ads.length > 0 && <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact />}
         <section className="card li-side">
           <div className="li-side-head">
             <h2>
@@ -351,7 +425,8 @@ export function Feed({
                 <CompanyLogo id={c.id} name={c.name} logo={c.has_logo} size={44} />
                 <span>
                   <strong>{c.name}</strong>
-                  <small>{c.industry || "บริษัทในเครือข่าย"}</small>
+                  <small>{[c.industry || "บริษัทในเครือข่าย", c.province].filter(Boolean).join(" · ")}</small>
+                  {c.reason && <em className="li-suggest-why">{c.reason}</em>}
                   <button className="li-follow-pill" onClick={() => follow(c.id)}>
                     <Plus size={14} />
                     ติดตาม
@@ -360,7 +435,18 @@ export function Feed({
               </div>
             ))
           ) : (
-            <p className="li-side-empty">ติดตามครบทุกบริษัทที่มีอัปเดตแล้ว</p>
+            <div className="li-side-empty">
+              <p>ยังไม่มีบริษัทอื่นในเครือข่ายที่คุณยังไม่ได้ติดตาม เครือข่ายจะโตขึ้นเมื่อคู่ค้าของคุณเข้ามาใช้งาน</p>
+              <button
+                className="li-follow-pill"
+                onClick={async () => {
+                  await navigator.clipboard.writeText("มาเชื่อมเครือข่ายธุรกิจกับ " + ctx.company.name + " บน EliteFlow: " + location.origin + "/zetta").catch(() => {});
+                  notify("คัดลอกลิงก์ชวนคู่ค้าแล้ว");
+                }}
+              >
+                <Link2 size={14} /> คัดลอกลิงก์ชวนคู่ค้า
+              </button>
+            </div>
           )}
         </section>
         <p className="li-footer">EliteFlow · เครือข่ายธุรกิจสำหรับบริษัทไทย</p>
@@ -556,7 +642,10 @@ function PostCard({
   onFollow,
   onChange,
   onDelete,
+  hint = "",
 }: {
+  /** Small label above the post, e.g. why it is recommended. */
+  hint?: string;
   post: FeedPost;
   ctx: Context;
   notify: (s: string) => void;
@@ -588,6 +677,11 @@ function PostCard({
     long = text.length > 280 || text.split("\n").length > 4;
   return (
     <article className="card li-post">
+      {hint && (
+        <p className="li-post-hint">
+          <Sparkles size={13} /> {hint}
+        </p>
+      )}
       <header className="li-post-head">
         <CompanyLogo id={p.company_id} name={p.company.name} logo={p.company.has_logo} size={48} />
         <div className="li-post-who">
@@ -700,7 +794,7 @@ function PostCard({
           <button
             onClick={async () => {
               try {
-                await navigator.clipboard.writeText(`${headline(p)} — ${p.company.name}\n${location.origin}/eliteflow`);
+                await navigator.clipboard.writeText(`${headline(p)} — ${p.company.name}\n${location.origin}/feed`);
                 notify("คัดลอกไว้ส่งต่อแล้ว");
               } catch {
                 notify("คัดลอกไม่ได้");
