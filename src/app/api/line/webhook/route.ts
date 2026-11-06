@@ -10,12 +10,23 @@ import {
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
-import { deptThai, parseDecision } from "@/lib/line-message";
+import { decidedText, deptThai, groupRejection, parseDecision } from "@/lib/line-message";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 /** Short enough to keep LINE's free reply, long enough for a caption that follows a photo. */
 const BURST_WAIT_MS = 6000;
+/** What was decided, for the bot's answer: item name, its page, who asked and who decided. */
+async function decidedItem(sb: ReturnType<typeof supabaseAdmin>, id: string) {
+  const { data } = await sb.from("ingestions").select("values, target_kind, sender_name, decided_name").eq("id", id).maybeSingle();
+  return {
+    name: String((data?.values as { name?: string } | null)?.name || ""),
+    kind: (data?.target_kind as string | null) || null,
+    requester: (data?.sender_name as string | null) || null,
+    decider: (data?.decided_name as string | null) || null,
+  };
+}
+
 export async function POST(req: Request) {
   try {
     assert(
@@ -140,12 +151,20 @@ export async function POST(req: Request) {
                 event.replyToken,
                 error
                   ? "ทำรายการไม่สำเร็จ: " + error.message
-                  : decision.status === "approved"
-                    ? "✅ อนุมัติแล้ว แจ้งกลับไปที่กลุ่มที่ขอเรียบร้อย"
-                    : "❌ ไม่อนุมัติแล้ว แจ้งเหตุผลกลับไปที่กลุ่มที่ขอเรียบร้อย",
+                  : decidedText(decision.status, await decidedItem(sb, item.id), decision.status === "rejected" ? decision.reason : "") +
+                    "\n(แจ้งผลกลับกลุ่มที่ขอแล้ว)",
               );
               after(processNotifications);
             }
+          } else if (item.status === "review" && userId && (() => {
+            const d = parseDecision(message.text);
+            return d?.status === "approved" || d?.status === "rejected";
+          })()) {
+            // A manager answering the notice in the group that asked: "อนุมัติ" / "ไม่อนุมัติ เพราะ…" decides it here.
+            const d = parseDecision(message.text) as { status: "approved" } | { status: "rejected"; reason: string };
+            const reason = d.status === "rejected" ? d.reason : "";
+            const { error } = await sb.rpc("line_decide", { p_group: groupId, p_user: userId, p_id: item.id, p_status: d.status, p_reason: reason });
+            await lineReply(event.replyToken, error ? "ทำรายการไม่สำเร็จ: " + error.message : decidedText(d.status, await decidedItem(sb, item.id), reason));
           } else if (["review", "failed"].includes(item.status)) {
             await reread("[แก้ไข/เพิ่มเติม] " + message.text, event.replyToken || null);
           }
@@ -165,10 +184,32 @@ export async function POST(req: Request) {
             event.replyToken,
             error
               ? "อนุมัติไม่สำเร็จ: " + error.message
-              : "✅ อนุมัติรายการล่าสุดแล้ว ระบบบันทึกเข้าหน้าที่เกี่ยวข้องและแจ้งทีมต่อให้",
+              : decidedText("approved", await decidedItem(sb, String(approved))),
           );
           continue;
         }
+      }
+      // "ไม่อนุมัติ เพราะ…" / "ไม่ให้" typed in the group: the manager rejects the latest item waiting there.
+      const rejection = message.type === "text" && userId ? groupRejection(message.text) : null;
+      if (rejection !== null && userId) {
+        const { data: latest } = await sb
+          .from("ingestions")
+          .select("id, values")
+          .eq("group_id", groupId)
+          .eq("status", "review")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!latest) {
+          await lineReply(event.replyToken, "ไม่มีรายการที่รออนุมัติในกลุ่มนี้");
+          continue;
+        }
+        const { error } = await sb.rpc("line_decide", { p_group: groupId, p_user: userId, p_id: latest.id, p_status: "rejected", p_reason: rejection });
+        await lineReply(
+          event.replyToken,
+          error ? "ไม่อนุมัติไม่สำเร็จ: " + error.message : decidedText("rejected", await decidedItem(sb, latest.id), rejection),
+        );
+        continue;
       }
       if (message.type === "text" && isQuestion(message.text)) {
         const { data: stats } = await sb.rpc("line_quick_stats", { p_group: groupId });

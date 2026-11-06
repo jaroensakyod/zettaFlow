@@ -92,10 +92,33 @@ export function approverNotice(input: {
     .slice(0, 4500);
 }
 
+/**
+ * A rejection typed straight into the group (no Reply): only the unmistakable forms, so everyday chat such as
+ * "ยกเลิกนัดพรุ่งนี้" is not read as a decision.
+ */
+export function groupRejection(text: string): string | null {
+  const m = text.trim().match(/^(?:ไม่อนุมัติ|ไม่ให้)(?:\s+|$)(?:เพราะ|เนื่องจาก|:)?\s*([\s\S]*)$/);
+  return m ? m[1].trim() : null;
+}
+/** The bot's answer in the group after a manager decided there: what, which page, who asked, who decided. */
+export function decidedText(
+  status: "approved" | "rejected",
+  item: { name?: string | null; kind?: string | null; requester?: string | null; decider?: string | null },
+  reason?: string,
+) {
+  const page = item.kind && catalog[item.kind]?.label;
+  return [
+    (status === "approved" ? "✅ อนุมัติแล้ว: " : "❌ ไม่อนุมัติ: ") + (item.name || "รายการล่าสุด") + (page ? " (" + page + ")" : ""),
+    ...(status === "rejected" ? ["เหตุผล: " + (reason || "ไม่ระบุ")] : []),
+    ...(item.requester ? ["👤 ผู้ขอ: " + item.requester] : []),
+    ...(item.decider ? [(status === "approved" ? "✔️ อนุมัติโดย: " : "✖️ ไม่อนุมัติโดย: ") + item.decider] : []),
+  ].join("\n");
+}
+
 /** What a manager typed when replying to an approver notice. */
 export function parseDecision(text: string): { status: "approved" } | { status: "rejected"; reason: string } | { status: "edit"; note: string } | null {
   const t = text.trim();
-  const no = t.match(/^(ไม่อนุมัติ|ยกเลิก|ปฏิเสธ|reject)\s*(?:เพราะ|เนื่องจาก|:)?\s*([\s\S]*)$/i);
+  const no = t.match(/^(ไม่อนุมัติ|ไม่ให้|ยกเลิก|ปฏิเสธ|reject)\s*(?:เพราะ|เนื่องจาก|:)?\s*([\s\S]*)$/i);
   if (no) return { status: "rejected", reason: no[2].trim() };
   if (/^(อนุมัติ|approve|ok|โอเค)/i.test(t)) return { status: "approved" };
   const edit = t.match(/^(แก้ไข|แก้)\s*([\s\S]+)$/);

@@ -45,3 +45,27 @@ test("a manager's reply is read as approve, reject with reason, or edit", async 
   assert.deepEqual(parseDecision("แก้ ยอด 4,500"), { status: "edit", note: "ยอด 4,500" });
   assert.equal(parseDecision("ได้ครับ"), null);
 });
+
+test("a rejection typed straight into the group is read only in its clear forms", async () => {
+  const { groupRejection, parseDecision } = await import("../src/lib/line-message");
+  assert.equal(groupRejection("ไม่อนุมัติ"), "");
+  assert.equal(groupRejection("ไม่ให้"), "");
+  assert.equal(groupRejection("ไม่อนุมัติ เพราะงบหมด"), "งบหมด");
+  assert.equal(groupRejection("ไม่ให้ ยอดเกิน"), "ยอดเกิน");
+  assert.equal(groupRejection("ยกเลิกนัดพรุ่งนี้"), null);
+  assert.equal(groupRejection("ไม่ให้เข้า"), null);
+  assert.equal(groupRejection("อนุมัติ"), null);
+  assert.deepEqual(parseDecision("ไม่ให้"), { status: "rejected", reason: "" });
+});
+
+test("the answer after a decision says what, which page, who asked and who decided", async () => {
+  const { decidedText } = await import("../src/lib/line-message");
+  const ok = decidedText("approved", { name: "ขอลาออก", kind: "leaves", requester: "SIRI", decider: "deepseek" });
+  assert.match(ok, /✅ อนุมัติแล้ว: ขอลาออก \(การลา\)/);
+  assert.match(ok, /👤 ผู้ขอ: SIRI/);
+  assert.match(ok, /อนุมัติโดย: deepseek/);
+  const no = decidedText("rejected", { name: "ขอเบิก 20", kind: "expenses", requester: "SIRI", decider: "deepseek" }, "งบหมด");
+  assert.match(no, /❌ ไม่อนุมัติ: ขอเบิก 20 \(ค่าใช้จ่าย\)/);
+  assert.match(no, /เหตุผล: งบหมด/);
+  assert.match(no, /ไม่อนุมัติโดย: deepseek/);
+});
