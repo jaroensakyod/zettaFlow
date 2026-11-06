@@ -126,21 +126,32 @@ import { formatMoney, isForeign } from "@/lib/fx";
 
 /** The photo or PDF sent with a LINE message, shown in the dialog (no download needed). */
 function AttachmentPreview({ id }: { id: string }) {
-  const [mime, setMime] = useState("");
+  const [file, setFile] = useState<{ mime: string; url: string } | null>(null);
+  // Loaded once and shown from memory: no second download, and the link below still opens it full size.
   useEffect(() => {
-    fetch("/api/files/" + id, { method: "HEAD" })
-      .then((r) => setMime(r.headers.get("content-type") || ""))
-      .catch(() => setMime(""));
+    let url = "";
+    fetch("/api/files/" + id)
+      .then(async (r) => (r.ok ? r.blob() : null))
+      .then((b) => {
+        if (!b) return;
+        url = URL.createObjectURL(b);
+        setFile({ mime: b.type, url });
+      })
+      .catch(() => {});
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
   }, [id]);
-  const src = "/api/files/" + id;
+  const src = "/api/files/" + id,
+    mime = file?.mime || "";
   return (
     <div className="attachment-preview">
       {mime.startsWith("image/") ? (
-        <a href={src} target="_blank" rel="noreferrer">
-          <img src={src} alt="เอกสารต้นฉบับ" />
+        <a href={src} target="_blank" rel="noreferrer" title="กดเพื่อดูรูปขนาดเต็ม">
+          <img src={file!.url} alt="เอกสารต้นฉบับ" />
         </a>
       ) : mime === "application/pdf" ? (
-        <object data={src} type="application/pdf" aria-label="เอกสารต้นฉบับ">
+        <object data={file!.url} type="application/pdf" aria-label="เอกสารต้นฉบับ">
           <a href={src} target="_blank" rel="noreferrer">เปิดเอกสาร</a>
         </object>
       ) : null}
