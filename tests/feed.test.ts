@@ -57,6 +57,12 @@ test("company feed: cross-company visibility, posting rights, likes, comments, f
       db.query("select feed_post($1,$2,'job','hiring','{}','{}')", [a, pid]),
       /หัวข้อ/,
     );
+    // Up to 10 photos (0–9); an 11th is refused.
+    const ten = "20000000-0000-4000-8000-0000000000aa";
+    const photos = (n: number) => Array.from({ length: n }, (_, i) => `${a}/${ten}/${i % 10}.webp`);
+    await assert.rejects(db.query("select feed_post($1,$2,'post','x','{}',$3)", [a, ten, photos(11)]), /10/);
+    await db.query("select feed_post($1,$2,'post','x','{}',$3)", [a, ten, photos(10)]);
+    await db.query("select feed_delete($1)", [ten]);
     await db.query("select feed_post($1,$2,'post','โชว์รูมใหม่','{}',$3)", [
       a,
       pid,

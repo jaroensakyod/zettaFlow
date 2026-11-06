@@ -244,3 +244,6 @@ export type Message = {
   name: string;
   created_at: string;
 };
+
+/** Most photos one feed post can carry (also enforced by feed_post in SQL). */
+export const FEED_MAX_IMAGES = 10;

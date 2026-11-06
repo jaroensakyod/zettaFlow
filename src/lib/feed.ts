@@ -8,6 +8,7 @@ import { demoRead, demoMutate, type DemoState } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
 import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedProposal, FeedSuggestion } from "./types";
+import { FEED_MAX_IMAGES } from "./types";
 
 const BUCKET = "eliteflow-posts";
 const filters = ["all", "following", "post", "job", "partner", "mine", "offers", "saved"] as const;
@@ -174,7 +175,7 @@ export async function feedPost(ctx: Context, form: FormData) {
   });
   if (input.kind !== "post") assert(input.meta.title, "ใส่หัวข้อประกาศ");
   const files = form.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
-  assert(files.length <= 4, "แนบรูปได้สูงสุด 4 รูป");
+  assert(files.length <= FEED_MAX_IMAGES, `แนบรูปได้สูงสุด ${FEED_MAX_IMAGES} รูป`);
   const id = randomUUID(),
     images: { path: string; bytes: Buffer; mime: string }[] = [];
   for (const [n, file] of files.entries()) {
@@ -316,7 +317,7 @@ export async function feedAlerts(ctx: Context): Promise<FeedAlert[]> {
 
 // ---------- Media ----------
 export async function feedImage(ctx: Context, path: string) {
-  assert(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-3]\.(webp|png|jpg)$/.test(path), "ไม่พบรูป", 404);
+  assert(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9]\.(webp|png|jpg)$/.test(path), "ไม่พบรูป", 404);
   const ext = path.split(".").pop()!,
     mime = Object.keys(imageTypes).find((k) => imageTypes[k] === ext)!;
   if (ctx.demo)

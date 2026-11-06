@@ -32,12 +32,13 @@ import {
   Info,
 } from "lucide-react";
 import { businessTypeGroups, industryMatches } from "@/lib/catalog";
+import { FEED_MAX_IMAGES } from "@/lib/types";
 import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "@/lib/types";
 import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
 import { AdCard } from "./ad-card";
-import { SampleFeed, sampleAds, sampleLogo, sampleSuggest } from "./feed-samples";
+import { PostMock, SampleFeed, sampleAds, sampleLogo, samplePosts, sampleSuggest } from "./feed-samples";
 
 /** Every this many posts the feed shows one sponsored card. */
 const AD_EVERY = 5;
@@ -85,17 +86,20 @@ export const headline = (p: FeedPost) => p.meta.title || p.body.split("\n")[0];
 // Body text under the headline: the whole body when the post has its own title, else what follows the first line.
 const excerpt = (p: FeedPost) =>
   p.meta.title ? p.body : p.body.slice(p.body.split("\n")[0].length).trim();
-// Re-encodes a photo as WebP, at most 1600px on the long side, so uploads stay small.
+// Re-encodes a photo as WebP of at most ~400 KB (1600px, smaller if needed), so 10 photos fit one upload (4.5 MB).
+const PHOTO_BYTES = 400000;
 async function shrink(file: File) {
   const bitmap = await createImageBitmap(file),
-    scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height)),
     canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  for (const quality of [0.82, 0.7, 0.55]) {
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", quality));
-    if (blob && blob.size <= 1400000) return blob;
+  for (const side of [1600, 1280, 1024]) {
+    const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.82, 0.7, 0.55]) {
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", quality));
+      if (blob && blob.size <= PHOTO_BYTES) return blob;
+    }
   }
   throw Error("รูปใหญ่เกินไป");
 }
@@ -294,7 +298,8 @@ export function Feed({
         industryMatches(industry, p.company.industry) &&
         (!q || [p.company.name, p.meta.title || "", p.body].join(" ").toLowerCase().includes(q)),
     ),
-    writer = ctx.member.role !== "viewer";
+    writer = ctx.member.role !== "viewer",
+    samples = !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? samplePosts.filter((x) => tab === "all" || x.kind === tab) : [];
   return (
     <div className="li">
       <aside className="li-left">
@@ -390,7 +395,8 @@ export function Feed({
             <Loading />
           </section>
         ) : shown.length ? (
-          shown.map((p, i) => (
+          <>
+          {shown.map((p, i) => (
             <Fragment key={p.id}>
               <PostCard
                 post={p}
@@ -407,8 +413,18 @@ export function Feed({
                 const a = ads[Math.floor(i / AD_EVERY) % ads.length];
                 return <AdCard ad={a} onClick={adClick(a)} />;
               })()}
+              {/* While the network is small, a labelled sample post follows each real one. */}
+              {samples[i] && <PostMock p={samples[i]} sample />}
+              {samples[i] && i === 1 && !ads.length && (
+                <div className="sample-wrap">
+                  <span className="sample-badge">ตัวอย่างโฆษณา</span>
+                  <AdCard ad={sampleAds[0]} preview />
+                </div>
+              )}
             </Fragment>
-          ))
+          ))}
+          {!more && samples.slice(shown.length).map((x) => <PostMock key={x.title} p={x} sample />)}
+          </>
         ) : !posts.length && !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? (
           <SampleFeed kind={tab} AdCard={(x) => <AdCard {...x} />} />
         ) : (
@@ -484,8 +500,7 @@ export function Feed({
         {ads.length > 0 ? (
           <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact onClick={adClick(ads[ads.length > 1 ? 1 : 0])} />
         ) : (
-          posts &&
-          !posts.length && (
+          posts && (
             <div className="sample-wrap">
               <span className="sample-badge">ตัวอย่างโฆษณา</span>
               <AdCard ad={sampleAds[1]} compact preview />
@@ -549,7 +564,7 @@ export function Feed({
             ))
           ) : (
             <div className="li-side-empty">
-              {posts && !posts.length && (
+              {posts && (
                 <div className="sample-suggest">
                   <span className="sample-badge">ตัวอย่าง</span>
                   {sampleSuggest.slice(0, 2).map((c) => (
@@ -756,10 +771,10 @@ export function Composer({
               </button>
             </span>
           ))}
-          {images.length < 4 && (
+          {images.length < FEED_MAX_IMAGES && (
             <button type="button" className="net-add-image" onClick={() => fileRef.current?.click()}>
               <ImageIcon size={18} />
-              เพิ่มรูป ({images.length}/4)
+              เพิ่มรูป ({images.length}/{FEED_MAX_IMAGES})
             </button>
           )}
           <input
@@ -770,7 +785,7 @@ export function Composer({
             className="sr-only"
             tabIndex={-1}
             onChange={async (e) => {
-              const picked = [...(e.target.files || [])].slice(0, 4 - images.length);
+              const picked = [...(e.target.files || [])].slice(0, FEED_MAX_IMAGES - images.length);
               e.target.value = "";
               try {
                 const out: { blob: Blob; url: string }[] = [];
