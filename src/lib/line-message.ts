@@ -24,22 +24,26 @@ export function lineNotice(input: {
   values: Record<string, unknown>;
   missing: string[];
   keyword?: string | null;
+  /** LINE display name of the member who sent the message. */
+  requester?: string | null;
 }) {
   const page = (input.kind && catalog[input.kind]?.label) || input.form || "กล่องรอตรวจ";
   const what = summary(input.values);
   const url = pageUrl(input.kind);
+  const who = input.requester ? ["👤 ผู้ขอ: " + input.requester] : [];
   const lines = input.missing.length
     ? [
         `⚠️ บันทึกเข้า「${page}」แล้ว แต่ยังขาด: ${input.missing.join(", ")}`,
+        ...who,
         ...(what ? ["📝 " + what] : []),
         "👉 กด Reply ข้อความนี้ แล้วพิมพ์ข้อมูลที่ขาด เช่น “ยอด 4,000 บาท”",
         ...(url ? ["หรือกรอกในเว็บ: " + url] : []),
       ]
     : [
         `✅ บันทึกเข้า「${page}」แล้ว รอผู้จัดการอนุมัติ`,
+        ...who,
         ...(what ? ["📝 " + what] : []),
         `ผู้จัดการพิมพ์ “${input.keyword || "อนุมัติ"}” เพื่ออนุมัติ`,
-        "✏️ ข้อมูลผิด? กด Reply ข้อความนี้แล้วพิมพ์ที่ถูก" + (url ? " หรือแก้ในเว็บ: " + url : ""),
       ];
   return lines.join("\n").slice(0, 4500);
 }

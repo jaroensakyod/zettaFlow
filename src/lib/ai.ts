@@ -385,7 +385,13 @@ async function rewriteNotice(
   const { data: g } = await sb.from("line_groups").select("approve_keywords").eq("group_id", job.group_id).maybeSingle();
   await sb
     .from("notification_outbox")
-    .update({ body: lineNotice({ ...input, keyword: (g?.approve_keywords as string[] | null)?.[0] }) })
+    .update({
+      body: lineNotice({
+        ...input,
+        keyword: (g?.approve_keywords as string[] | null)?.[0],
+        requester: await lineName(job.group_id, (job as { source_user?: string | null }).source_user),
+      }),
+    })
     .eq("id", job.id)
     .eq("status", "queued");
 }
