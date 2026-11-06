@@ -135,6 +135,10 @@ export type Ingestion = {
   lease_until?: string;
   /** Page an AI-sorted LINE message goes to on approval. */
   target_kind?: string | null;
+  /** Who decided it, when, and whether on the web or in LINE. */
+  decided_name?: string | null;
+  decided_at?: string | null;
+  decided_via?: string | null;
 };
 export type Attachment = {
   id: string;

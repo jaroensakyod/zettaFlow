@@ -47,3 +47,58 @@ export function lineNotice(input: {
       ];
   return lines.join("\n").slice(0, 4500);
 }
+
+/** Thai department names for LINE messages (same as dept_th in SQL). */
+export const deptThai: Record<string, string> = {
+  Finance: "ฝ่ายบัญชีและการเงิน",
+  HR: "ฝ่ายบุคคล",
+  Warehouse: "คลังสินค้า",
+  Sales: "ฝ่ายขาย",
+  Marketing: "การตลาด",
+  IT: "ฝ่าย IT",
+  Operations: "ฝ่ายปฏิบัติการ",
+  Purchasing: "จัดซื้อ",
+  Legal: "กฎหมาย",
+  Event: "อีเวนต์",
+  Admin: "บริหารองค์กร",
+  Design: "ออกแบบ",
+  "Customer Service": "บริการลูกค้า",
+  Data: "ข้อมูล",
+  "Business Development": "พัฒนาธุรกิจ",
+};
+
+/** Posted in the approving department's group when another group asks for something it has to decide. */
+export function approverNotice(input: {
+  kind?: string | null;
+  values: Record<string, unknown>;
+  requester?: string | null;
+  /** Name of the group (or its department) that asked. */
+  from: string;
+}) {
+  const page = (input.kind && catalog[input.kind]?.label) || "รายการ";
+  const what = summary(input.values);
+  const url = pageUrl(input.kind);
+  return [
+    `📥 คำขอใหม่จาก ${input.from}`,
+    `📋 ${page}${what ? ": " + what : ""}`,
+    ...(input.requester ? ["👤 ผู้ขอ: " + input.requester] : []),
+    "ผู้มีสิทธิ์กด Reply ข้อความนี้ แล้วพิมพ์",
+    "• “อนุมัติ”",
+    "• “ไม่อนุมัติ เพราะ…”",
+    "• “แก้ …” เช่น “แก้ ยอด 4,500”",
+    ...(url ? ["หรือดูในเว็บ: " + url] : []),
+  ]
+    .join("\n")
+    .slice(0, 4500);
+}
+
+/** What a manager typed when replying to an approver notice. */
+export function parseDecision(text: string): { status: "approved" } | { status: "rejected"; reason: string } | { status: "edit"; note: string } | null {
+  const t = text.trim();
+  const no = t.match(/^(ไม่อนุมัติ|ยกเลิก|ปฏิเสธ|reject)\s*(?:เพราะ|เนื่องจาก|:)?\s*([\s\S]*)$/i);
+  if (no) return { status: "rejected", reason: no[2].trim() };
+  if (/^(อนุมัติ|approve|ok|โอเค)/i.test(t)) return { status: "approved" };
+  const edit = t.match(/^(แก้ไข|แก้)\s*([\s\S]+)$/);
+  if (edit) return { status: "edit", note: edit[2].trim() };
+  return null;
+}

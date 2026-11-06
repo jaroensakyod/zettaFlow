@@ -26,3 +26,22 @@ test("a foreign amount keeps its currency", () => {
   const t = lineNotice({ kind: "expenses", values: { name: "Cloudflare", amount: 373.52, amountForeign: 11.17, currency: "USD" }, missing: [] });
   assert.match(t, /Cloudflare · \$11\.17/);
 });
+
+test("a request posted to the approving department names who asked, what and how to answer", async () => {
+  const { approverNotice } = await import("../src/lib/line-message");
+  const t = approverNotice({ kind: "expenses", values: { name: "ซื้ออะไหล่", amount: 5000 }, requester: "ช่างเอ", from: "ฝ่ายปฏิบัติการ · แผนกซ่อม" });
+  assert.match(t, /คำขอใหม่จาก ฝ่ายปฏิบัติการ · แผนกซ่อม/);
+  assert.match(t, /ค่าใช้จ่าย: ซื้ออะไหล่ · ฿5,000/);
+  assert.match(t, /👤 ผู้ขอ: ช่างเอ/);
+  assert.match(t, /“อนุมัติ”/);
+});
+
+test("a manager's reply is read as approve, reject with reason, or edit", async () => {
+  const { parseDecision } = await import("../src/lib/line-message");
+  assert.deepEqual(parseDecision("อนุมัติ"), { status: "approved" });
+  assert.deepEqual(parseDecision("อนุมัติค่ะ"), { status: "approved" });
+  assert.deepEqual(parseDecision("ไม่อนุมัติ เพราะงบเดือนนี้หมด"), { status: "rejected", reason: "งบเดือนนี้หมด" });
+  assert.deepEqual(parseDecision("ยกเลิก"), { status: "rejected", reason: "" });
+  assert.deepEqual(parseDecision("แก้ ยอด 4,500"), { status: "edit", note: "ยอด 4,500" });
+  assert.equal(parseDecision("ได้ครับ"), null);
+});

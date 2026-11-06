@@ -21,7 +21,7 @@ export const sortPages: { kind: string; hint: string }[] = [
 ];
 
 // Bookkeeping fields nobody types into a chat.
-const skipKeys = new Set(["aiNotes", "aiUncertain", "reviewStatus", "accountCode", "costCenter", "code", "checklist", "approvals", "history", "cover", "photo"]);
+const skipKeys = new Set(["status", "aiNotes", "aiUncertain", "reviewStatus", "accountCode", "costCenter", "code", "checklist", "approvals", "history", "cover", "photo"]);
 
 /** The page's fields as a review form. Defaults the approval fills itself (ชื่อ, วันที่, dropdown status) are not required. */
 export function pageTemplate(kind: string): Template {

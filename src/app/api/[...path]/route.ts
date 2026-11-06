@@ -913,7 +913,7 @@ async function handle(req: NextRequest) {
       if (method === "GET") {
         // ?kind=<page> lists what LINE groups sent for that page and is still open.
         const kind = req.nextUrl.searchParams.get("kind");
-        const rows = await ingestions(ctx, kind && catalog[kind] ? kind : undefined);
+        const rows = await ingestions(ctx, kind && catalog[kind] ? kind : undefined, req.nextUrl.searchParams.get("history") === "1");
         if (
           !ctx.demo &&
           process.env.SUPABASE_SERVICE_ROLE_KEY &&
@@ -960,6 +960,8 @@ async function handle(req: NextRequest) {
         })
         .parse(await body(req));
       await decide(ctx, z.uuid().parse(path[1]), input);
+      // The decision is announced back in the LINE group that asked (queued by the database).
+      if (!ctx.demo) after(processNotifications);
       return response({ ok: true });
     }
     if (path[0] === "transfers") {
@@ -1100,6 +1102,7 @@ async function handle(req: NextRequest) {
             templateId: z.preprocess((v) => (v === "" ? null : v), z.uuid().nullable()),
             name: z.string().max(100).default(""),
             keywords: z.array(z.string().trim().min(2).max(50)).min(1).max(10),
+            department: z.string().max(60).nullable().default(null),
           })
           .parse(await body(req));
         const { error } = await sb.rpc("update_line_group", {
@@ -1108,6 +1111,7 @@ async function handle(req: NextRequest) {
           p_template: input.templateId,
           p_name: input.name,
           p_keywords: input.keywords,
+          p_department: input.department || null,
         });
         dbError(error);
         return response({ ok: true });

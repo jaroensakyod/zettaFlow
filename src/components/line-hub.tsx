@@ -7,6 +7,7 @@ import { ArrowRight, FlaskConical, MessagesSquare, Paperclip, RefreshCw, Save, S
 import { api, displayDate, Empty, Loading } from "./shared";
 import type { Context } from "@/lib/types";
 import type { LineMessage } from "@/lib/line-hub";
+import { deptThai } from "@/lib/line-message";
 
 type Group = {
   group_id: string;
@@ -16,6 +17,8 @@ type Group = {
   template_id: string | null;
   templateName: string | null;
   approve_keywords: string[];
+  /** Department this group belongs to; requests for that department's pages are announced here. */
+  department: string | null;
   test: boolean;
   found: boolean;
   preview: string;
@@ -33,8 +36,10 @@ const time = (iso: string) =>
 /** What a person recognises the group by: its name in the system, else its LINE name. */
 const title = (g: Group, i: number) => g.name || g.lineName || (g.test ? `กลุ่มทดสอบ ${i + 1}` : `กลุ่ม ${i + 1} (ยังไม่ได้ตั้งชื่อ)`);
 
+const deptName = (d: string | null | undefined) => (d ? deptThai[d] || d : "");
 function state(m: LineMessage): { label: string; tone: string } {
-  if (m.status === "approved") return { label: "บันทึกแล้ว", tone: "done" };
+  if (m.status === "approved") return { label: m.decided?.name ? "อนุมัติโดย " + m.decided.name : "บันทึกแล้ว", tone: "done" };
+  if (m.status === "rejected") return { label: (m.decided?.name ? "ไม่อนุมัติโดย " + m.decided.name : "ไม่อนุมัติ") + (m.error ? " — " + m.error : ""), tone: "muted" };
   if (m.status === "review") return m.missing.length ? { label: "ขาด: " + m.missing.join(", "), tone: "warn" } : { label: "รออนุมัติ", tone: "wait" };
   if (m.status === "skipped") return { label: "ข้อความทั่วไป · ไม่บันทึก", tone: "muted" };
   if (m.status === "rejected") return { label: "ไม่อนุมัติ", tone: "muted" };
@@ -102,6 +107,7 @@ export function LineHub({ ctx, notify }: { ctx: Context; notify: (s: string) => 
           name: String(f.get("name") || "").trim(),
           templateId: f.get("templateId"),
           keywords: String(f.get("keywords")).split(",").map((s) => s.trim()).filter(Boolean),
+          department: String(f.get("department") || "") || null,
         },
       });
       notify("บันทึกการตั้งค่ากลุ่มแล้ว");
@@ -153,6 +159,7 @@ export function LineHub({ ctx, notify }: { ctx: Context; notify: (s: string) => 
                     <b>{title(g, i)}</b>
                     <small>{g.test ? "กลุ่มทดสอบจากสคริปต์ · ไม่มีอยู่จริงใน LINE" : g.preview ? "“" + g.preview + "”" : "ยังไม่มีข้อความ"}</small>
                     <small>
+                      {g.department ? "🏢 " + deptName(g.department) + " · " : ""}
                       {g.templateName ? "📋 " + g.templateName : "🤖 AI แยกอัตโนมัติ"} · {g.lastAt ? "ล่าสุด " + displayDate(g.lastAt) : "—"}
                     </small>
                   </span>
@@ -171,6 +178,7 @@ export function LineHub({ ctx, notify }: { ctx: Context; notify: (s: string) => 
                 <div>
                   <b>{title(group, index)}</b>
                   <small>
+                    {group.department ? "กลุ่มของ" + deptName(group.department) + " · " : "ยังไม่ได้ระบุแผนก · "}
                     {group.lineName && group.name && group.lineName !== group.name ? "ชื่อใน LINE: " + group.lineName + " · " : ""}
                     {group.templateName ? "ใช้ฟอร์ม " + group.templateName : "AI แยกแต่ละข้อความเข้าหน้าที่ถูก"} · อนุมัติด้วยคำว่า “{group.approve_keywords[0] || "อนุมัติ"}”
                   </small>
@@ -195,6 +203,18 @@ export function LineHub({ ctx, notify }: { ctx: Context; notify: (s: string) => 
                 <label>
                   ชื่อกลุ่มในระบบ
                   <input name="name" defaultValue={group.name} placeholder={group.lineName || "เช่น ฝ่ายบัญชี / หน้าร้านสาขา 1"} maxLength={100} />
+                </label>
+                <label>
+                  กลุ่มนี้เป็นของแผนก
+                  <select name="department" defaultValue={group.department ?? ""}>
+                    <option value="">— ไม่ระบุ —</option>
+                    {Object.entries(deptThai).map(([k, l]) => (
+                      <option key={k} value={k}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="line-hub-help">คำขอจากกลุ่มอื่นที่ต้องให้แผนกนี้อนุมัติ (เช่น เบิกงบ → ฝ่ายบัญชี) จะถูกส่งมาที่กลุ่มนี้ ผู้จัดการกด Reply เพื่ออนุมัติ ไม่อนุมัติ หรือแก้ แล้วระบบแจ้งผลกลับกลุ่มที่ขอ</small>
                 </label>
                 <label>
                   ข้อความในกลุ่มนี้ให้บันทึกแบบไหน
@@ -267,8 +287,13 @@ export function LineHub({ ctx, notify }: { ctx: Context; notify: (s: string) => 
                               <ArrowRight size={13} /> {m.page}
                             </span>
                           ))}
+                        {m.department && group?.department && m.department !== group.department && (
+                          <span className="line-hub-route" title="ส่งต่อให้แผนกนี้อนุมัติ">
+                            ส่งต่อ {deptName(m.department)}
+                          </span>
+                        )}
                         <em className={s.tone}>{s.label}</em>
-                        {m.error && m.status !== "approved" && <small className="line-hub-err">{m.error}</small>}
+                        {m.error && !["approved", "rejected"].includes(m.status) && <small className="line-hub-err">{m.error}</small>}
                         {href && !m.page && (
                           <a className="text-button" href={href}>
                             {m.record ? "เปิดรายการ" : "ไปตรวจ"} →

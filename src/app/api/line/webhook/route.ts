@@ -10,7 +10,7 @@ import {
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
-import { pageUrl } from "@/lib/line-message";
+import { deptThai, pageUrl, parseDecision } from "@/lib/line-message";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -75,31 +75,35 @@ export async function POST(req: Request) {
         );
         continue;
       }
-      // Reply (quote) on the bot's notice = add the missing data or correct the item; it is read again.
+      // Reply (quote) on a bot message about an item:
+      //  • on the notice in the group that asked → add the missing data or correct it; the item is read again;
+      //  • on a request posted in the approving department's group → "อนุมัติ", "ไม่อนุมัติ เพราะ…" or "แก้ …".
       if (message.type === "text" && message.quotedMessageId) {
-        const { data: item } = await sb
-          .from("ingestions")
-          .select("id, raw, status, target_kind")
+        const quoted = String(message.quotedMessageId);
+        const { data: link } = await sb
+          .from("line_bot_messages")
+          .select("ingestion_id, role")
           .eq("group_id", groupId)
-          .eq("bot_message_id", String(message.quotedMessageId))
+          .eq("message_id", quoted)
           .maybeSingle();
+        const { data: item } = link
+          ? await sb.from("ingestions").select("id, raw, status, target_kind, department").eq("id", link.ingestion_id).maybeSingle()
+          : await sb.from("ingestions").select("id, raw, status, target_kind, department").eq("group_id", groupId).eq("bot_message_id", quoted).maybeSingle();
         if (item) {
-          if (item.status === "approved") {
-            const url = pageUrl(item.target_kind);
-            await lineReply(event.replyToken, "รายการนี้อนุมัติแล้ว แก้ไขได้ในเว็บ" + (url ? ": " + url : ""));
-          } else if (["review", "failed"].includes(item.status)) {
+          const role = link?.role || "source";
+          const reread = async (note: string, replyToken: string | null) => {
             await sb.from("notification_outbox").delete().eq("id", item.id);
             const { error } = await sb
               .from("ingestions")
               .update({
-                raw: (String(item.raw || "") + "\n[แก้ไข/เพิ่มเติม] " + message.text).slice(0, 15000),
+                raw: (String(item.raw || "") + "\n" + note).slice(0, 15000),
                 status: "queued",
                 missing: [],
                 error: null,
                 attempts: 0,
                 lease_until: null,
                 bot_message_id: null,
-                reply_token: event.replyToken || null,
+                reply_token: replyToken,
               })
               .eq("id", item.id)
               .in("status", ["review", "failed"]);
@@ -108,6 +112,43 @@ export async function POST(req: Request) {
               await processJobs(item.id);
               await processNotifications();
             });
+          };
+          if (role === "approver") {
+            const decision = parseDecision(message.text);
+            if (!decision) {
+              await lineReply(event.replyToken, "พิมพ์ “อนุมัติ”, “ไม่อนุมัติ เพราะ…” หรือ “แก้ …” ตอบข้อความคำขอนะคะ");
+            } else if (decision.status === "edit") {
+              if (!["review", "failed"].includes(item.status)) await lineReply(event.replyToken, "รายการนี้ตัดสินไปแล้ว แก้ไม่ได้");
+              else {
+                // Read again with the correction; the group that asked gets the corrected notice, and the request comes back here.
+                await reread("[แก้ไขโดย" + (deptThai[String(item.department)] || "ผู้อนุมัติ") + "] " + decision.note, null);
+                await lineReply(event.replyToken, "✏️ รับคำแก้ไขแล้ว ระบบกำลังอ่านใหม่ แล้วจะส่งคำขอที่แก้แล้วมาให้อนุมัติอีกครั้ง");
+              }
+            } else if (userId) {
+              const { error } = await sb.rpc("line_decide", {
+                p_group: groupId,
+                p_user: userId,
+                p_id: item.id,
+                p_status: decision.status,
+                p_reason: decision.status === "rejected" ? decision.reason : "",
+              });
+              await lineReply(
+                event.replyToken,
+                error
+                  ? "ทำรายการไม่สำเร็จ: " + error.message
+                  : decision.status === "approved"
+                    ? "✅ อนุมัติแล้ว แจ้งกลับไปที่กลุ่มที่ขอเรียบร้อย"
+                    : "❌ ไม่อนุมัติแล้ว แจ้งเหตุผลกลับไปที่กลุ่มที่ขอเรียบร้อย",
+              );
+              after(processNotifications);
+            }
+          } else if (item.status === "approved") {
+            const url = pageUrl(item.target_kind);
+            await lineReply(event.replyToken, "รายการนี้อนุมัติแล้ว แก้ไขได้ในเว็บ" + (url ? ": " + url : ""));
+          } else if (item.status === "rejected") {
+            await lineReply(event.replyToken, "รายการนี้ไม่ได้รับอนุมัติแล้ว ถ้าต้องการขอใหม่ ส่งเป็นข้อความใหม่ในกลุ่มได้เลย");
+          } else if (["review", "failed"].includes(item.status)) {
+            await reread("[แก้ไข/เพิ่มเติม] " + message.text, event.replyToken || null);
           }
           continue;
         }

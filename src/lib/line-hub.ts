@@ -60,6 +60,7 @@ export async function lineGroupsOverview(ctx: Context) {
         found: !!info,
         preview: latest ? String(latest.raw).slice(0, 60) : "",
         approve_keywords: (g.approve_keywords as string[]) || [],
+        department: (g.department as string | null) || null,
         total: mine.length,
         week: mine.filter((r) => Date.parse(r.created_at) > weekAgo).length,
         waiting: mine.filter((r) => r.status === "review").length,
@@ -84,6 +85,8 @@ export type LineMessage = {
   kind: string | null;
   page: string;
   record: { id: string; kind: string } | null;
+  decided: { name: string | null; at: string | null; via: string | null } | null;
+  department: string | null;
 };
 
 export async function lineGroupMessages(ctx: Context, groupId: string): Promise<LineMessage[]> {
@@ -91,7 +94,7 @@ export async function lineGroupMessages(ctx: Context, groupId: string): Promise<
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("ingestions")
-    .select("id, created_at, source_user, raw, attachment_id, status, missing, error, target_kind, template, values")
+    .select("id, created_at, source_user, raw, attachment_id, status, missing, error, target_kind, template, values, department, decided_name, decided_at, decided_via")
     .eq("company_id", ctx.company.id)
     .eq("group_id", groupId)
     .order("created_at", { ascending: false })
@@ -120,6 +123,8 @@ export async function lineGroupMessages(ctx: Context, groupId: string): Promise<
         kind,
         page: (kind && catalog[kind]?.label) || (template.name && template.name !== "AI แยกอัตโนมัติ" ? template.name : ""),
         record: byIngestion.get(i.id) || null,
+        decided: i.decided_at ? { name: i.decided_name, at: i.decided_at, via: i.decided_via } : null,
+        department: i.department || null,
       };
     }),
   );

@@ -1,7 +1,7 @@
 "use client";
 // LINE items awaiting approval: the review dialog (shared with Data Inbox) and the list each page shows above its records.
 import { useCallback, useEffect, useState } from "react";
-import { Paperclip, CheckCircle2, Inbox } from "lucide-react";
+import { Paperclip, CheckCircle2, Inbox, History, ChevronDown } from "lucide-react";
 import { api, Modal, displayDate } from "./shared";
 import { FieldControl } from "./records";
 import type { Context, Ingestion } from "@/lib/types";
@@ -42,6 +42,7 @@ export function IngestionReview({
         {record.template.name} · {record.source} · {displayDate(record.created_at)}
         {(record.source_user || record.created_by) && <> · ผู้ส่ง {String(record.source_user || record.created_by).slice(0, 12)}</>}
       </div>
+      {record.decided_at && <p className={"decision-line " + record.status}>{decisionText(record)}</p>}
       <pre className="source-text">{record.raw || "เอกสารแนบ"}</pre>
       {record.attachment_id && (
         <a className="secondary" href={"/api/files/" + record.attachment_id}>
@@ -118,7 +119,16 @@ export function IngestionReview({
   );
 }
 
-/** What LINE groups sent for this page and is still waiting; hidden when there is none. */
+const stamp = (iso: string) =>
+  new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+/** "✅ อนุมัติโดย สมชาย · 6 พ.ย. 69 13:51 · ผ่าน LINE" (+ reason when rejected). */
+export function decisionText(i: Ingestion) {
+  const head = i.status === "approved" ? "✅ อนุมัติโดย " : "❌ ไม่อนุมัติโดย ";
+  const parts = [head + (i.decided_name || "ผู้อนุมัติ"), i.decided_at ? stamp(i.decided_at) : "", i.decided_via === "line" ? "ผ่าน LINE" : i.decided_via === "web" ? "ผ่านเว็บ" : ""];
+  return parts.filter(Boolean).join(" · ") + (i.status === "rejected" && i.error ? " — เหตุผล: " + i.error : "");
+}
+
+/** What LINE groups sent for this page: what is still waiting, and the history of what was approved or rejected. */
 export function LinePending({
   kind,
   ctx,
@@ -133,11 +143,17 @@ export function LinePending({
   onCount?: (n: number) => void;
 }) {
   const [items, setItems] = useState<Ingestion[]>([]),
+    [history, setHistory] = useState<Ingestion[]>([]),
+    [showHistory, setShowHistory] = useState(false),
     [open, setOpen] = useState<Ingestion | null>(null);
   const load = useCallback(async () => {
     try {
-      const rows: Ingestion[] = await api("/ingestions?kind=" + encodeURIComponent(kind));
+      const [rows, done]: Ingestion[][] = await Promise.all([
+        api("/ingestions?kind=" + encodeURIComponent(kind)),
+        api("/ingestions?history=1&kind=" + encodeURIComponent(kind)).catch(() => []),
+      ]);
       setItems(rows);
+      setHistory(done);
       onCount?.(rows.length);
     } catch {
       // The page itself still works; this list is extra.
@@ -150,12 +166,18 @@ export function LinePending({
     }, 15000);
     return () => clearInterval(t);
   }, [load]);
-  if (!items.length) return null;
+  if (!items.length && !history.length) return null;
   return (
     <section className="card line-pending">
       <h3>
-        <Inbox size={16} /> รอตรวจจาก LINE <i>{items.length}</i>
+        <Inbox size={16} /> {items.length ? "รอตรวจจาก LINE" : "จาก LINE"} <i>{items.length}</i>
+        {history.length > 0 && (
+          <button type="button" className="line-history-toggle" aria-expanded={showHistory} onClick={() => setShowHistory((v) => !v)}>
+            <History size={14} /> ประวัติ {history.length} <ChevronDown size={14} className={showHistory ? "up" : ""} />
+          </button>
+        )}
       </h3>
+      {!items.length && <p className="line-pending-empty">ไม่มีรายการรอตรวจ</p>}
       <ul>
         {items.map((i) => (
           <li key={i.id}>
@@ -179,6 +201,27 @@ export function LinePending({
           </li>
         ))}
       </ul>
+      {showHistory && (
+        <ul className="line-history">
+          {history.map((i) => (
+            <li key={i.id}>
+              <button onClick={() => setOpen(i)}>
+                <span>
+                  <b>{String(i.values?.name || i.values?.payee || i.raw || i.template.name).slice(0, 80)}</b>
+                  <small>{decisionText(i)}</small>
+                  <small>
+                    ส่งมา {displayDate(i.created_at)} · {i.attachment_id ? "📎 " : ""}
+                    {(i.raw || "เอกสารแนบ").slice(0, 60)}
+                  </small>
+                </span>
+                <span>
+                  <em className={i.status === "approved" ? "done" : "muted"}>{i.status === "approved" ? "อนุมัติแล้ว" : "ไม่อนุมัติ"}</em>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {open && (
         <IngestionReview
           record={open}

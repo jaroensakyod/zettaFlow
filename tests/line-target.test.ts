@@ -69,7 +69,7 @@ test("an approved LINE/web item lands on the template's target page, mapped and 
   }
 });
 
-test("a value the page rejects is noted on the item instead of blocking approval", async () => {
+test("approving an item whose record cannot be created fails with the reason and keeps it for review", async () => {
   const { db, login } = await setup();
   try {
     await login(owner, "owner@test.local");
@@ -81,12 +81,38 @@ test("a value the page rejects is noted on the item instead of blocking approval
     await db.exec("reset role;");
     await db.query("update ingestions set status='review',values='{\"vehicle\":\"กระบะ\"}' where id=$1", [id]);
     await login(owner, "owner@test.local");
-    await db.query("select decide_ingestion($1,$2,'approved','{\"vehicle\":\"กระบะ\"}','')", [c, id]);
+    await assert.rejects(db.query("select decide_ingestion($1,$2,'approved','{\"vehicle\":\"กระบะ\"}','')", [c, id]), /บันทึกไม่สำเร็จ|ไม่พบ/);
     await db.exec("reset role;");
-    const i = await one<{ status: string; error: string }>(db, "select status,error from ingestions where id=$1", [id]);
-    assert.equal(i.status, "approved");
-    assert.match(i.error, /vehicles/);
+    const i = await one<{ status: string; decided_at: string | null }>(db, "select status,decided_at from ingestions where id=$1", [id]);
+    assert.equal(i.status, "review");
+    assert.equal(i.decided_at, null);
     assert.equal((await db.query("select 1 from entities where company_id=$1 and kind='vehicles'", [c])).rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
+test("a decision is stamped with who and how, and announced back in the LINE group that asked", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('D')as id")).id;
+    const fields = [{ key: "name", label: "ชื่อ", type: "text", required: true }];
+    const t = (await one<{ id: string }>(db, "select (save_template($1,'เบิกงบ','Finance',$2,'[]')).id", [c, JSON.stringify(fields)])).id;
+    const id = (await one<{ id: string }>(db, "select (submit_ingestion($1,$2,'ขอเบิกงบซื้ออะไหล่')).id", [c, t])).id;
+    await db.exec("reset role;");
+    await db.query("update ingestions set status='review',group_id='G-repair',values='{\"name\":\"ซื้ออะไหล่\"}' where id=$1", [id]);
+    await login(owner, "owner@test.local");
+    await db.query("select decide_ingestion($1,$2,'rejected','{}','งบเดือนนี้หมด')", [c, id]);
+    await db.exec("reset role;");
+    const i = await one<{ status: string; decided_via: string; decided_by: string }>(db, "select status,decided_via,decided_by from ingestions where id=$1", [id]);
+    assert.equal(i.status, "rejected");
+    assert.equal(i.decided_via, "web");
+    assert.equal(i.decided_by, owner);
+    const n = await one<{ target: string; body: string; role: string }>(db, "select target,body,role from notification_outbox where ingestion_id=$1", [id]);
+    assert.equal(n.target, "G-repair");
+    assert.match(n.body, /ไม่อนุมัติ: ซื้ออะไหล่/);
+    assert.match(n.body, /งบเดือนนี้หมด/);
   } finally {
     await db.close();
   }

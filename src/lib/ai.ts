@@ -20,7 +20,7 @@ import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES } from "./billing";
 import { sortMessage } from "./line-sort";
 import { lineReplyId, sentMessageId } from "./line";
-import { lineNotice } from "./line-message";
+import { approverNotice, deptThai, lineNotice } from "./line-message";
 import { aiEnabled, aiGenerate, type AiPart } from "./llm";
 export const tokenHash = (s: string) =>
   createHash("sha256").update(s).digest("hex");
@@ -210,6 +210,7 @@ export async function processJobs(id?: string) {
         if (r.kind) {
           await rewriteNotice(sb, job, { kind: r.kind, values: r.values, missing: r.missing });
           await replyInsteadOfPush(sb, job);
+          await routeToApprovers(sb, job, { kind: r.kind, values: r.values, missing: r.missing });
         }
         continue;
       }
@@ -242,6 +243,7 @@ export async function processJobs(id?: string) {
       const t = job.template as Template & { target_kind?: string | null };
       await rewriteNotice(sb, job, { kind: t.target_kind || null, form: t.name, values: result.values, missing: result.missing });
       await replyInsteadOfPush(sb, job);
+      await routeToApprovers(sb, job, { kind: t.target_kind || null, values: result.values, missing: result.missing });
     } catch (e) {
       await sb
         .from("ingestions")
@@ -370,7 +372,49 @@ async function replyInsteadOfPush(
       .from("notification_outbox")
       .update({ status: "queued" })
       .eq("id", item.id);
-  else if (sent.id) await sb.from("ingestions").update({ bot_message_id: sent.id }).eq("id", job.id);
+  else if (sent.id) {
+    await sb.from("ingestions").update({ bot_message_id: sent.id }).eq("id", job.id);
+    await rememberBotMessage(sb, { messageId: sent.id, groupId: String(job.group_id), companyId: job.company_id, ingestionId: job.id, role: "source" });
+  }
+}
+/** Which bot message (in which group) speaks about which item, so a Reply to it can be traced. */
+async function rememberBotMessage(
+  sb: ReturnType<typeof supabaseAdmin>,
+  m: { messageId: string; groupId: string; companyId: string; ingestionId: string; role: "source" | "approver" },
+) {
+  await sb
+    .from("line_bot_messages")
+    .upsert({ message_id: m.messageId, group_id: m.groupId, company_id: m.companyId, ingestion_id: m.ingestionId, role: m.role })
+    .then(() => {}, () => {});
+}
+/**
+ * Cross-department: an item filed to another department's page (แผนกซ่อม asks for budget → ค่าใช้จ่าย, Finance)
+ * is announced in every LINE group set to that department, where a manager replies to approve, reject or correct it.
+ */
+async function routeToApprovers(
+  sb: ReturnType<typeof supabaseAdmin>,
+  job: Ingestion & { group_id?: string | null },
+  input: { kind: string | null; values: Record<string, unknown>; missing: string[] },
+) {
+  if (!job.group_id || input.missing.length) return;
+  const { data: item } = await sb.from("ingestions").select("department").eq("id", job.id).maybeSingle();
+  const department = item?.department as string | undefined;
+  if (!department) return;
+  const [{ data: targets }, { data: source }] = await Promise.all([
+    sb.from("line_groups").select("group_id").eq("company_id", job.company_id).eq("department", department).neq("group_id", job.group_id),
+    sb.from("line_groups").select("name, department").eq("group_id", job.group_id).maybeSingle(),
+  ]);
+  if (!targets?.length) return;
+  const from = [source?.department ? deptThai[source.department] || source.department : "", source?.name || ""].filter(Boolean).join(" · ") || "กลุ่ม LINE";
+  const body = approverNotice({
+    kind: input.kind,
+    values: input.values,
+    from,
+    requester: await lineName(job.group_id, (job as { source_user?: string | null }).source_user),
+  });
+  await sb.from("notification_outbox").insert(
+    targets.map((t) => ({ company_id: job.company_id, target: t.group_id, body, ingestion_id: job.id, role: "approver" })),
+  );
 }
 /**
  * The database queues a plain notice; replace it with one that names the page, what was read, what is missing,
@@ -417,7 +461,12 @@ export async function processNotifications() {
       });
       // A notice for an item (same id) remembers the LINE message, so a Reply to it can be matched.
       const id = r.ok ? await sentMessageId(r) : null;
-      if (id) await sb.from("ingestions").update({ bot_message_id: id }).eq("id", item.id);
+      if (id) {
+        // A completion notice has the item's own id; routed requests and decisions carry ingestion_id.
+        const ingestionId = item.ingestion_id || item.id;
+        if (!item.ingestion_id) await sb.from("ingestions").update({ bot_message_id: id }).eq("id", item.id);
+        await rememberBotMessage(sb, { messageId: id, groupId: item.target, companyId: item.company_id, ingestionId, role: item.role === "approver" ? "approver" : "source" });
+      }
       await sb
         .from("notification_outbox")
         .update({
