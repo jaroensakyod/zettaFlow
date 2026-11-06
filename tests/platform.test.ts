@@ -93,7 +93,7 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
         c,
         JSON.stringify([{ key: "a", label: "A", type: "text", required: false }]),
       ]),
-      /โควตา/,
+      /โควตา|ช่วงทดลองใช้ได้สูงสุด 5/,
     );
     // expired trial blocks new documents
     await login(null);

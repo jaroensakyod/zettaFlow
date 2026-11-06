@@ -188,6 +188,7 @@ export async function scanExpenseDocument(ctx: Context, input: unknown, sent?: F
   } catch {}
   let usage: AiUsage | null = null;
   const raw = await aiGenerate({
+    feature: "scan",
     instructions: scanRules,
     parts: [{ text: `ไฟล์: ${file.name}` }, { file: { mime: file.mime, name: file.name, bytes } }],
     schema: { name: "expense_document", schema: scanSchema },

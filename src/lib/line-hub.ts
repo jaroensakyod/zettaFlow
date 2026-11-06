@@ -86,6 +86,8 @@ export type LineMessage = {
   page: string;
   record: { id: string; kind: string } | null;
   decided: { name: string | null; at: string | null; via: string | null } | null;
+  /** Read together with a message sent seconds earlier/later by the same person. */
+  merged: boolean;
   department: string | null;
 };
 
@@ -125,6 +127,7 @@ export async function lineGroupMessages(ctx: Context, groupId: string): Promise<
         record: byIngestion.get(i.id) || null,
         decided: i.decided_at ? { name: i.decided_name, at: i.decided_at, via: i.decided_via } : null,
         department: i.department || null,
+        merged: !!(i.values as { mergedInto?: string } | null)?.mergedInto,
       };
     }),
   );

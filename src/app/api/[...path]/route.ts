@@ -1,4 +1,5 @@
 import { currencies, thbRate } from "@/lib/fx";
+import { forCompany } from "@/lib/llm";
 import { adStudio, buyAd, liveAds, setAdStatus, trackAd } from "@/lib/ads";
 import { lineGroupMessages, lineGroupsOverview } from "@/lib/line-hub";
 import { NextResponse, after, type NextRequest } from "next/server";
@@ -47,7 +48,7 @@ import {
   validDate,
 } from "@/lib/domain";
 import { catalog, companyFields } from "@/lib/catalog";
-import { submit, processJobs, processNotifications, tokenHash } from "@/lib/ai";
+import { submit, processJobs, processNotifications, tokenHash, lineName } from "@/lib/ai";
 import { upload, files, download, prepareUpload, finishUpload, MAX_UPLOAD } from "@/lib/files";
 import { flowReply, businessAnswer } from "@/lib/flow";
 import { aiEnabled } from "@/lib/llm";
@@ -267,6 +268,8 @@ async function handle(req: NextRequest) {
       );
     }
     const ctx = await context();
+    // AI calls in this request count against this company's trial and are logged per company.
+    if (!ctx.demo) forCompany(ctx.company.id);
     // Public showcase is read-only: only reads and side-effect-free helpers.
     if (
       ctx.demo &&
@@ -929,7 +932,14 @@ async function handle(req: NextRequest) {
       if (method === "GET") {
         // ?kind=<page> lists what LINE groups sent for that page and is still open.
         const kind = req.nextUrl.searchParams.get("kind");
-        const rows = await ingestions(ctx, kind && catalog[kind] ? kind : undefined, req.nextUrl.searchParams.get("history") === "1");
+        const listed = await ingestions(ctx, kind && catalog[kind] ? kind : undefined, req.nextUrl.searchParams.get("history") === "1");
+        // Show the LINE display name of whoever sent it, not the raw LINE id.
+        const rows = await Promise.all(
+          listed.map(async (i) => {
+            const g = (i as { group_id?: string | null }).group_id;
+            return g && i.source_user ? { ...i, sender_name: await lineName(g, i.source_user) } : i;
+          }),
+        );
         if (
           !ctx.demo &&
           process.env.SUPABASE_SERVICE_ROLE_KEY &&

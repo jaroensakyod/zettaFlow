@@ -14,6 +14,8 @@ import { deptThai, pageUrl, parseDecision } from "@/lib/line-message";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
+/** Short enough to keep LINE's free reply, long enough for a caption that follows a photo. */
+const BURST_WAIT_MS = 6000;
 export async function POST(req: Request) {
   try {
     assert(
@@ -261,6 +263,11 @@ export async function POST(req: Request) {
         source_user: userId || null,
         reply_token: event.replyToken || null,
       });
+      // Expired plan or a free trial at its ceiling: tell the group instead of failing the webhook.
+      if (error && /ช่วงทดลอง/.test(error.message)) {
+        await lineReply(event.replyToken, "⚠️ " + error.message);
+        continue;
+      }
       if (error && /แพ็กเกจหมดอายุ/.test(error.message)) {
         await lineReply(event.replyToken, "⚠️ แพ็กเกจ EliteFlow ของบริษัทหมดอายุ กรุณาให้เจ้าของบริษัทต่ออายุในเว็บ");
         continue;
@@ -268,6 +275,8 @@ export async function POST(req: Request) {
       if (error && error.code !== "23505") dbError(error);
     }
     after(async () => {
+      // Wait a few seconds so a burst from one person (a slip, then its caption) is read as one item.
+      await new Promise((ok) => setTimeout(ok, BURST_WAIT_MS));
       await processJobs();
       await processNotifications();
     });

@@ -225,6 +225,8 @@ export const modules: Module[] = [
       f("approvals", "สิทธิ์การอนุมัติ", "text", false, { hidden: true }),
       f("history", "ประวัติการทำงาน", "textarea", false, { hidden: true }),
       f("cover", "รูปปก", "image", false, { hidden: true }),
+      // LINE user id of this person (set when added from a LINE item); their next LINE requests match them automatically.
+      f("lineUserId", "LINE ของพนักงาน", "text", false, { hidden: true }),
       status(["active", "probation", "on_leave", "inactive"]),
       ...contact,
     ],

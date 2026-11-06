@@ -1,6 +1,46 @@
 // One door to the AI model for every feature (น้องโฟลว์, Data Inbox extraction, form drafting).
 // Google Gemini (GEMINI_API_KEY) is preferred: cheap and fast. OpenAI (OPENAI_API_KEY) stays as a fallback.
-import { assert } from "./domain";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { assert, AppError } from "./domain";
+import { supabaseAdmin } from "./supabase/server";
+
+/**
+ * Which company an AI call is for. Set once per request (API) or per job (LINE worker); every aiGenerate under it is
+ * checked against the free-trial ceiling and logged in ai_usage with tokens and an estimated cost.
+ */
+export const aiScope = new AsyncLocalStorage<{ company: string }>();
+export const forCompany = (company: string | null | undefined) => {
+  if (company) aiScope.enterWith({ company });
+};
+/** USD per 1M tokens (input, output incl. thinking). Unknown models are logged without a cost. */
+const prices: Record<string, [number, number]> = {
+  "gemini-3.5-flash-lite": [0.3, 2.5],
+  "gemini-3.1-flash-lite": [0.25, 1.5],
+  "gemini-3.5-flash": [0.5, 4],
+  "gpt-4.1-mini": [0.4, 1.6],
+};
+export const aiCost = (u: AiUsage) => {
+  const p = prices[u.model];
+  if (!p) return null;
+  const cached = Math.min(u.cached || 0, u.input);
+  return Math.round((((u.input - cached) * p[0] + cached * p[0] * 0.1 + u.output * p[1]) / 1e6) * 1e6) / 1e6;
+};
+type TrialMeter = { used: number; limit: number | null };
+/** Free trial: stop before the call when the company has used its AI allowance. Paid plans are not limited here. */
+async function checkTrial(company: string, feature: string, hasFile: boolean) {
+  const { data } = await supabaseAdmin().rpc("trial_usage", { c: company });
+  const t = data as Record<string, TrialMeter> | null;
+  if (!t) return;
+  const over = (m?: TrialMeter) => !!m && m.limit !== null && m.used >= m.limit;
+  if (over(t.ai_calls) || (hasFile && over(t.ai_files)) || (feature === "chat" && over(t.ai_chat)))
+    throw new AppError("ช่วงทดลองใช้ AI ครบโควตาแล้ว กรุณาเลือกแพ็กเกจเพื่อใช้งานต่อ", 402);
+}
+function logUsage(company: string, feature: string, hasFile: boolean, u: AiUsage) {
+  void supabaseAdmin()
+    .from("ai_usage")
+    .insert({ company_id: company, feature, model: u.model, input_tokens: u.input, output_tokens: u.output, cached_tokens: u.cached || 0, has_file: hasFile, cost_usd: aiCost(u) })
+    .then(() => {}, () => {});
+}
 
 export type AiPart = { text: string } | { file: { mime: string; name: string; bytes: Buffer } };
 type Request = {
@@ -14,8 +54,11 @@ type Request = {
   timeoutMs?: number;
   /** Receives the tokens this call used, for cost reporting. */
   onUsage?: (u: AiUsage) => void;
+  /** What the call is for (chat, sort, extract, scan, draft) — logged and used for the trial's chat ceiling. */
+  feature?: string;
 };
-export type AiUsage = { model: string; input: number; output: number };
+/** input counts every prompt token; cached is the part Gemini served from its cache (billed at about a tenth). */
+export type AiUsage = { model: string; input: number; output: number; cached?: number };
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 export const aiProvider = () =>
@@ -25,6 +68,14 @@ export const aiEnabled = () => aiProvider() !== null;
 export async function aiGenerate(req: Request): Promise<string> {
   const provider = aiProvider();
   assert(provider, "ยังไม่ได้ตั้งค่า AI", 503);
+  const scope = aiScope.getStore(),
+    feature = req.feature || "other",
+    hasFile = req.parts.some((p) => "file" in p);
+  if (scope && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    await checkTrial(scope.company, feature, hasFile);
+    const report = req.onUsage;
+    req = { ...req, onUsage: (u) => (logUsage(scope.company, feature, hasFile, u), report?.(u)) };
+  }
   const text = provider === "gemini" ? await gemini(req) : await openAi(req);
   assert(text, "AI ไม่คืนข้อมูลที่ตรวจสอบได้", 502);
   return text;
@@ -52,7 +103,30 @@ async function geminiUpload(file: { mime: string; name: string; bytes: Buffer })
   return f.uri;
 }
 
-async function gemini({ instructions, parts, maxTokens, schema, precise, timeoutMs = 45000, onUsage }: Request) {
+/**
+ * Thinking is billed as output (the expensive side). Reading a receipt or filing a message into a form needs almost
+ * none; a chat answer gets a little. GEMINI_THINKING_LEVEL=off sends nothing (the model's default).
+ * A model that rejects the setting is retried once without it, and the setting is then left off.
+ */
+let thinkingRejected = false;
+const thinkingFor = (feature: string | undefined, schema: unknown) => {
+  const env = process.env.GEMINI_THINKING_LEVEL;
+  if (thinkingRejected || env === "off") return null;
+  return env || (feature === "chat" || !schema ? "low" : "minimal");
+};
+
+async function gemini(req: Request) {
+  const level = thinkingFor(req.feature, req.schema);
+  try {
+    return await geminiCall(req, level);
+  } catch (e) {
+    if (!level || !(e instanceof AppError) || !/thinking/i.test(String((e as AppError & { detail?: string }).detail))) throw e;
+    thinkingRejected = true;
+    return geminiCall(req, null);
+  }
+}
+
+async function geminiCall({ instructions, parts, maxTokens, schema, precise, timeoutMs = 45000, onUsage }: Request, thinking: string | null) {
   const model =
     (precise && process.env.GEMINI_OCR_MODEL) || process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   const r = await fetch(
@@ -62,6 +136,7 @@ async function gemini({ instructions, parts, maxTokens, schema, precise, timeout
       signal: AbortSignal.timeout(timeoutMs),
       headers: { "x-goog-api-key": process.env.GEMINI_API_KEY!, "Content-Type": "application/json" },
       body: JSON.stringify({
+        // Static instructions first and unchanged between calls, so Gemini's implicit cache can serve them.
         systemInstruction: { parts: [{ text: instructions }] },
         contents: [
           {
@@ -80,14 +155,23 @@ async function gemini({ instructions, parts, maxTokens, schema, precise, timeout
         generationConfig: {
           ...(maxTokens && { maxOutputTokens: maxTokens }),
           ...(schema && { responseMimeType: "application/json", responseJsonSchema: schema.schema }),
+          ...(thinking && { thinkingConfig: { thinkingLevel: thinking } }),
         },
       }),
     },
   );
-  if (!r.ok) console.error("Gemini " + r.status + " (" + model + "): " + (await r.text()).slice(0, 500));
-  assert(r.ok, "AI ไม่พร้อม กรุณาตรวจการตั้งค่าหรือโควตา", 502);
+  if (!r.ok) {
+    const detail = (await r.text()).slice(0, 500);
+    console.error("Gemini " + r.status + " (" + model + "): " + detail);
+    throw Object.assign(new AppError("AI ไม่พร้อม กรุณาตรวจการตั้งค่าหรือโควตา", 502), { detail: r.status === 400 ? detail : "" });
+  }
   const d = await r.json();
-  onUsage?.({ model, input: d.usageMetadata?.promptTokenCount || 0, output: (d.usageMetadata?.candidatesTokenCount || 0) + (d.usageMetadata?.thoughtsTokenCount || 0) });
+  onUsage?.({
+    model,
+    input: d.usageMetadata?.promptTokenCount || 0,
+    output: (d.usageMetadata?.candidatesTokenCount || 0) + (d.usageMetadata?.thoughtsTokenCount || 0),
+    cached: d.usageMetadata?.cachedContentTokenCount || 0,
+  });
   return (d.candidates?.[0]?.content?.parts || [])
     .filter((p: { thought?: boolean; text?: string }) => !p.thought && p.text)
     .map((p: { text: string }) => p.text)

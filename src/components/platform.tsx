@@ -407,7 +407,17 @@ type BillingData = {
   }[];
   platformAdmin: boolean;
   entitlements: Record<string, boolean>;
+  /** Free-trial meters (null on a paid plan). */
+  trial?: Record<string, { used: number; limit: number | null }> | null;
 };
+const trialLabels: [string, string][] = [
+  ["documents", "รายการจาก LINE และเว็บ"],
+  ["ai_files", "ไฟล์/รูปที่ AI อ่าน"],
+  ["ai_chat", "คำถามถึงน้องโฟลว์"],
+  ["ai_calls", "การใช้ AI ทั้งหมด"],
+  ["line_groups", "กลุ่ม LINE"],
+  ["users", "ผู้ใช้"],
+];
 const usageLabels: [keyof Usage, string][] = [
   ["workflows", "AI Workflows (Template)"],
   ["documents", "เอกสาร/เดือน"],
@@ -471,6 +481,34 @@ export function SubscriptionPanel({
             </small>
           </div>
         </div>
+        {data.trial && (
+          <>
+            <h3 className="form-section-title">โควตาช่วงทดลองใช้ฟรี 14 วัน</h3>
+            <div className="usage-grid">
+              {trialLabels.map(([k, label]) => {
+                const m = data.trial![k];
+                if (!m) return null;
+                const pct = m.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
+                return (
+                  <div className="widget-card" key={"t" + k}>
+                    <small>{label}</small>
+                    <strong>
+                      {m.used.toLocaleString("th-TH")}
+                      <small style={{ display: "inline" }}> / {m.limit ?? "ไม่จำกัด"}</small>
+                    </strong>
+                    {m.limit !== null && (
+                      <div className={"meter" + (m.used >= m.limit ? " over" : "")}>
+                        <span style={{ width: pct + "%" }} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="note">ครบโควตาช่วงทดลองแล้ว ระบบจะหยุดเฉพาะส่วนนั้น ข้อมูลที่บันทึกไว้ยังอยู่ครบ เลือกแพ็กเกจด้านล่างเพื่อใช้งานต่อได้ทันที</p>
+          </>
+        )}
+        {!data.trial && (
         <div className="usage-grid">
           {usageLabels.map(([k, label]) => {
             const used = data.usage[k],
@@ -492,6 +530,7 @@ export function SubscriptionPanel({
             );
           })}
         </div>
+        )}
         <p className="note">
           AI เดือนนี้: อ่านรูป (OCR) {data.usage.ocr.toLocaleString("th-TH")} รูป · วิเคราะห์ PDF {data.usage.ai_runs.toLocaleString("th-TH")} ไฟล์
           {" "}({(data.usage as Usage & { pages?: number }).pages ?? 0} หน้า, สูงสุด 10 หน้า/ไฟล์)

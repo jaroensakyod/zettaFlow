@@ -1,11 +1,127 @@
 "use client";
 // LINE items awaiting approval: the review dialog (shared with Data Inbox) and the list each page shows above its records.
 import { useCallback, useEffect, useState } from "react";
-import { Paperclip, CheckCircle2, Inbox, History, ChevronDown } from "lucide-react";
+import { Paperclip, CheckCircle2, Inbox, History, ChevronDown, UserPlus } from "lucide-react";
 import { api, Modal, displayDate } from "./shared";
 import { FieldControl } from "./records";
 import type { Context, Ingestion } from "@/lib/types";
-import type { Field } from "@/lib/catalog";
+import { catalog, departmentNames, type Field } from "@/lib/catalog";
+import { deptLabels } from "./home-dashboard";
+
+type Option = { id: string; kind: string; name: string };
+/**
+ * A linked record (พนักงาน, ลูกค้า …) read from LINE as a name: pick one from the list, or — for พนักงาน — add the
+ * person on the spot. Someone added from a LINE item keeps their LINE account, so their next requests match them.
+ */
+function RelationPicker({
+  field,
+  resource,
+  value,
+  set,
+  options,
+  lineUser,
+  disabled,
+  onAdded,
+}: {
+  field: { key: string; label: string; required?: boolean };
+  resource: string;
+  value: string;
+  set: (v: string) => void;
+  options: Option[];
+  lineUser?: string | null;
+  disabled?: boolean;
+  onAdded: (o: Option) => void;
+}) {
+  const [adding, setAdding] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const names = options.filter((o) => o.kind === resource).map((o) => o.name);
+  const known = !value || names.some((n) => n.toLowerCase() === value.trim().toLowerCase());
+  const page = catalog[resource]?.label || resource;
+  async function add(e: React.MouseEvent<HTMLButtonElement>) {
+    const box = e.currentTarget.closest(".relation-add") as HTMLElement;
+    const get = (n: string) => (box.querySelector(`[name="${n}"]`) as HTMLInputElement | HTMLSelectElement).value.trim();
+    const name = get("newName");
+    if (!name) return setError("ใส่ชื่อ");
+    setBusy(true);
+    setError("");
+    try {
+      const rec: { id: string } = await api("/entities/employees", {
+        method: "POST",
+        body: { data: { name, department: get("newDept"), employmentType: get("newType"), status: "active", ...(lineUser ? { lineUserId: lineUser } : {}) } },
+      });
+      onAdded({ id: rec.id, kind: "employees", name });
+      set(name);
+      setAdding(false);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="relation-field">
+      <label>
+        {field.label.replace(/ \(ชื่อ\)$/, "")}
+        {field.required && " *"}
+        <input list={"rel-" + field.key} value={value} disabled={disabled} placeholder={"เลือกหรือพิมพ์ชื่อ" + page} onChange={(e) => set(e.target.value)} />
+        <datalist id={"rel-" + field.key}>
+          {names.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+      </label>
+      {!known && !disabled && (
+        <div className="relation-missing">
+          <span>
+            ไม่พบ “{value}” ในรายชื่อ{page} เลือกชื่อที่มีอยู่จากรายการ{resource === "employees" ? " หรือเพิ่มเป็นพนักงานใหม่" : ""}
+          </span>
+          {resource === "employees" && !adding && (
+            <button type="button" className="secondary" onClick={() => setAdding(true)}>
+              <UserPlus size={14} /> เพิ่ม “{value}” เป็นพนักงานใหม่
+            </button>
+          )}
+        </div>
+      )}
+      {adding && (
+        <div className="relation-add">
+          <label>
+            ชื่อ-นามสกุล
+            <input name="newName" defaultValue={value} />
+          </label>
+          <label>
+            แผนก
+            <select name="newDept" defaultValue="Operations">
+              {departmentNames.map((d) => (
+                <option key={d} value={d}>
+                  {deptLabels[d] || d}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            ประเภทการจ้าง
+            <select name="newType" defaultValue="ประจำ">
+              <option>ประจำ</option>
+              <option>สัญญาจ้าง</option>
+              <option>พาร์ตไทม์</option>
+            </select>
+          </label>
+          {lineUser && <small>ระบบจะจำ LINE ของคนนี้ไว้ ครั้งหน้าส่งคำขอมาจะจับคู่ให้อัตโนมัติ</small>}
+          {error && <small className="form-error">{error}</small>}
+          <div className="row-actions">
+            <button type="button" className="primary" disabled={busy} onClick={add}>
+              บันทึกพนักงาน
+            </button>
+            <button type="button" className="secondary" onClick={() => setAdding(false)}>
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 import { formatMoney, isForeign } from "@/lib/fx";
 
 export function IngestionReview({
@@ -20,6 +136,14 @@ export function IngestionReview({
   /** Called after approve / reject / retry with a message for the toast. */
   onDone: (message: string) => void | Promise<void>;
 }) {
+  const [options, setOptions] = useState<Option[]>([]);
+  useEffect(() => {
+    api("/options").then(setOptions).catch(() => {});
+  }, []);
+  // Which fields of the target page link to another record (พนักงาน, ลูกค้า …).
+  const relations = Object.fromEntries(
+    ((record.target_kind && catalog[record.target_kind]?.fields) || []).filter((f) => f.type === "relation" && f.resource).map((f) => [f.key, f.resource as string]),
+  );
   const [values, setValues] = useState<Record<string, unknown>>({ ...record.values }),
     [busy, setBusy] = useState(false),
     [formError, setFormError] = useState("");
@@ -40,7 +164,7 @@ export function IngestionReview({
     <Modal title="ตรวจทานข้อมูล" onClose={onClose}>
       <div className="record-meta">
         {record.template.name} · {record.source} · {displayDate(record.created_at)}
-        {(record.source_user || record.created_by) && <> · ผู้ส่ง {String(record.source_user || record.created_by).slice(0, 12)}</>}
+        {(record.source_user || record.created_by) && <> · ผู้ส่ง {(record as Ingestion & { sender_name?: string | null }).sender_name || String(record.source_user || record.created_by).slice(0, 12)}</>}
       </div>
       {record.decided_at && <p className={"decision-line " + record.status}>{decisionText(record)}</p>}
       <pre className="source-text">{record.raw || "เอกสารแนบ"}</pre>
@@ -75,7 +199,20 @@ export function IngestionReview({
       >
         <fieldset disabled={!canDecide || record.status !== "review" || busy}>
           <div className="form-grid">
-            {record.template.fields.map((f) => (
+            {record.template.fields.map((f) =>
+              relations[f.key] ? (
+                <RelationPicker
+                  key={f.key}
+                  field={f}
+                  resource={relations[f.key]}
+                  value={String(values[f.key] ?? "")}
+                  set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
+                  options={options}
+                  lineUser={record.source === "LINE" ? record.source_user : null}
+                  disabled={!canDecide || record.status !== "review" || busy}
+                  onAdded={(o) => setOptions((os) => [...os, o])}
+                />
+              ) : (
               <FieldControl
                 key={f.key}
                 field={(f.type === "choice" ? { ...f, type: "select" } : { ...f, type: f.type }) as Field}
@@ -83,7 +220,8 @@ export function IngestionReview({
                 set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
                 options={[]}
               />
-            ))}
+              ),
+            )}
           </div>
         </fieldset>
         {canDecide && record.status === "review" && (

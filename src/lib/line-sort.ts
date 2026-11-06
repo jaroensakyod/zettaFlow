@@ -67,6 +67,7 @@ export async function classify(input: SortInput) {
   if (input.attachment) parts.push({ file: input.attachment });
   const out = JSON.parse(
     await aiGenerate({
+      feature: "sort",
       instructions:
         "You file messages from a Thai company's LINE group into its business system. Pick the ONE page the message creates a record on, or \"none\". " +
         "\"none\" for acknowledgements (รับทราบ, ได้ค่ะ, โอเค), thanks, jokes, greetings, stickers, chit-chat, questions, and plain status updates that ask nobody to do anything and record no money, stock, leave or sale. " +
@@ -93,8 +94,21 @@ export async function classify(input: SortInput) {
   return { kind: kinds.includes(out.page) ? out.page : null, title: String(out.title || "").slice(0, 200) };
 }
 
-/** Step 2: read the chosen page's fields. Small talk returns kind null and costs one short call. */
+/**
+ * Chat that never records anything — acknowledgements, thanks, laughter, emoji — is skipped without calling AI.
+ * Deliberately narrow: anything with a number, a date word or more than a few words still goes to AI.
+ */
+const smallTalk = /^(?:(?:ok(?:ay)?|โอเค|โอเคค่ะ|โอเคครับ|ได้(?:เลย)?|ได้ค่ะ|ได้ครับ|ค่ะ|คะ|ครับ|คับ|จ้า|จ้ะ|นะ|รับทราบ|ทราบแล้ว|เรียบร้อย|ขอบคุณ(?:มาก)?(?:ค่ะ|ครับ)?|ขอบใจ|thx|thanks?|thank you|เยี่ยม|สุดยอด|เก่งมาก|ดีมาก|อรุณสวัสดิ์|สวัสดี(?:ค่ะ|ครับ)?|ฝันดี|555+|ฮ่า+|อิอิ|ฮา+|\+1|👍|🙏|😂|🤣|😊|❤️|✅|[!?.])+)$/iu;
+export const isSmallTalk = (text: string) => {
+  const t = text.trim().toLowerCase().replace(/\s+/g, "");
+  // 555 is laughter, not an amount; any other digit means it may be work.
+  return !!t && t.length <= 40 && !/\d/.test(t.replace(/5{3,}/g, "")) && smallTalk.test(t);
+};
+
+/** Step 2: read the chosen page's fields. Small talk returns kind null and costs at most one short call. */
 export async function sortMessage(input: SortInput) {
+  if (!input.attachment && isSmallTalk(input.raw))
+    return { kind: null, template: null, values: { note: "ข้อความทั่วไป ไม่บันทึก" }, missing: [] as string[], engine: "skip" };
   const { kind, title } = await classify(input);
   if (!kind) return { kind: null, template: null, values: { note: "ข้อความทั่วไป ไม่บันทึก" }, missing: [] as string[], engine: "ai-sort" };
   const template = pageTemplate(kind);

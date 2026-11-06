@@ -295,3 +295,74 @@ test("buying a feed ad takes coins, shows it to other companies only, and refuse
     await db.close();
   }
 });
+
+test("a free trial stops at its ceilings; a paid plan does not", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Trial Co')as id")).id;
+    const fields = [{ key: "name", label: "ชื่อ", type: "text", required: true }];
+    const t = (await one<{ id: string }>(db, "select (save_template($1,'งาน','Operations',$2,'[]')).id", [c, JSON.stringify(fields)])).id;
+    await db.exec("reset role;");
+    await db.query("update trial_limits set amount=2 where resource='documents'");
+    await db.query("insert into line_groups(group_id,company_id)values('Gt1',$1),('Gt2',$1)", [c]);
+    await assert.rejects(db.query("insert into line_groups(group_id,company_id)values('Gt3',$1)", [c]), /ช่วงทดลองใช้ได้สูงสุด 2 กลุ่ม LINE/);
+    await login(owner, "owner@test.local");
+    await db.query("select submit_ingestion($1,$2,'a')", [c, t]);
+    await db.query("select submit_ingestion($1,$2,'b')", [c, t]);
+    await assert.rejects(db.query("select submit_ingestion($1,$2,'c')", [c, t]), /ช่วงทดลองใช้ครบ 2 รายการ/);
+    const usage = (await one<{ x: Record<string, { used: number; limit: number }> }>(db, "select trial_usage($1)as x", [c])).x;
+    assert.equal(usage.documents.used, 2);
+    assert.equal(usage.line_groups.limit, 2);
+    await db.exec("reset role;");
+    await db.query("update subscriptions set status='active',current_period_end=now()+interval '30 days' where company_id=$1", [c]);
+    await db.query("insert into line_groups(group_id,company_id)values('Gt3',$1)", [c]);
+    await login(owner, "owner@test.local");
+    await db.query("select submit_ingestion($1,$2,'c')", [c, t]);
+    assert.equal((await one<{ x: unknown }>(db, "select trial_usage($1)as x", [c])).x, null);
+  } finally {
+    await db.close();
+  }
+});
+
+test("a leave sent by a LINE member linked to an employee is matched by their LINE account", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('HR Co')as id")).id;
+    const fields = [{ key: "name", label: "หัวข้อการลา", type: "text", required: true }, { key: "employeeId", label: "พนักงาน (ชื่อ)", type: "text", required: true }];
+    const t = (await one<{ id: string }>(db, "select (save_template($1,'ลา','HR',$2,'[]')).id", [c, JSON.stringify([fields[0]])])).id;
+    const id = (await one<{ id: string }>(db, "select (submit_ingestion($1,$2,'ลาพรุ่งนี้')).id", [c, t])).id;
+    await db.exec("reset role;");
+    const emp = (await one<{ id: string }>(db, "insert into entities(company_id,kind,department,data)values($1,'employees','HR',$2)returning id", [c, { name: "สมชาย ใจดี", department: "Operations", employmentType: "ประจำ", status: "active", lineUserId: "U-line-1" }])).id;
+    const values = { name: "ลาพรุ่งนี้", employeeId: "M", type: "ลากิจ", startDate: "2026-11-07", endDate: "2026-11-07" };
+    await db.query("update ingestions set status='review',target_kind='leaves',department='HR',source_user='U-line-1',template=jsonb_set(template,'{fields}',$2::jsonb),values=$3 where id=$1", [id, JSON.stringify([...fields, { key: "type", label: "ประเภท", type: "text" }, { key: "startDate", label: "วันเริ่ม", type: "date" }, { key: "endDate", label: "วันสิ้นสุด", type: "date" }]), values]);
+    await login(owner, "owner@test.local");
+    await db.query("select decide_ingestion($1,$2,'approved',$3,'')", [c, id, values]);
+    await db.exec("reset role;");
+    const leave = await one<{ emp: string }>(db, "select data->>'employeeId' emp from entities where company_id=$1 and kind='leaves' and data->>'ingestionId'=$2", [c, id]);
+    assert.equal(leave.emp, emp);
+  } finally {
+    await db.close();
+  }
+});
+
+test("items missing data are reminded once, as one message per group", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Nudge Co')as id")).id;
+    const t = (await one<{ id: string }>(db, "select (save_template($1,'งาน','Operations',$2,'[]')).id", [c, JSON.stringify([{ key: "name", label: "ชื่อ", type: "text", required: true }])])).id;
+    const a = (await one<{ id: string }>(db, "select (submit_ingestion($1,$2,'a')).id", [c, t])).id;
+    const b = (await one<{ id: string }>(db, "select (submit_ingestion($1,$2,'b')).id", [c, t])).id;
+    await db.exec("reset role;");
+    await db.query("update ingestions set status='review',group_id='G-n',missing='[\"ยอดเงิน\"]',values=jsonb_build_object('name',raw),created_at=now()-interval '13 hours' where id in($1,$2)", [a, b]);
+    assert.equal((await one<{ n: number }>(db, "select queue_nudges()as n")).n, 1);
+    const n = await one<{ target: string; body: string }>(db, "select target,body from notification_outbox where target='G-n'");
+    assert.match(n.body, /มี 2 รายการยังขาดข้อมูล/);
+    assert.match(n.body, /• a — ขาด ยอดเงิน/);
+    assert.equal((await one<{ n: number }>(db, "select queue_nudges()as n")).n, 0);
+  } finally {
+    await db.close();
+  }
+});

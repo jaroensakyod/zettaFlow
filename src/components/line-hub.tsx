@@ -41,7 +41,7 @@ function state(m: LineMessage): { label: string; tone: string } {
   if (m.status === "approved") return { label: m.decided?.name ? "อนุมัติโดย " + m.decided.name : "บันทึกแล้ว", tone: "done" };
   if (m.status === "rejected") return { label: (m.decided?.name ? "ไม่อนุมัติโดย " + m.decided.name : "ไม่อนุมัติ") + (m.error ? " — " + m.error : ""), tone: "muted" };
   if (m.status === "review") return m.missing.length ? { label: "ขาด: " + m.missing.join(", "), tone: "warn" } : { label: "รออนุมัติ", tone: "wait" };
-  if (m.status === "skipped") return { label: "ข้อความทั่วไป · ไม่บันทึก", tone: "muted" };
+  if (m.status === "skipped") return m.merged ? { label: "อ่านรวมกับข้อความที่ส่งติดกัน", tone: "muted" } : { label: "ข้อความทั่วไป · ไม่บันทึก", tone: "muted" };
   if (m.status === "rejected") return { label: "ไม่อนุมัติ", tone: "muted" };
   if (m.status === "failed") return { label: "อ่านไม่สำเร็จ", tone: "warn" };
   return { label: "กำลังอ่าน…", tone: "wait" };
