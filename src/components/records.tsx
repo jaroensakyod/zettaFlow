@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { catalog, statusLabels, type Field } from "@/lib/catalog";
 import type { Entity, Context } from "@/lib/types";
-import { api, Modal, Empty, Loading, money, displayDate } from "./shared";
+import { api, Modal, Empty, Loading, money, displayDate, SourceLine } from "./shared";
 import { uploadFile } from "./platform";
 import { CategorySelect } from "./category-select";
 import { LineFeedButton } from "./template-target";
@@ -239,6 +239,11 @@ export function EntityEditor({
   }
   return (
     <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose}>
+      {row?.data.sourceVia === "LINE" && (
+        <p className="source-banner">
+          ที่มา: <SourceLine data={row.data} />
+        </p>
+      )}
       <form onSubmit={save}>
         <fieldset disabled={!writable || busy}>
           <div className="form-grid">
@@ -618,6 +623,7 @@ export function Records({
                         className={index === 0 ? "primary-cell" : ""}
                       >
                         {index === 0 ? (
+                          <>
                           <button
                             className="row-link"
                             onClick={() => open("edit", item)}
@@ -633,6 +639,8 @@ export function Records({
                             )}
                             {format(key, item.data[key])}
                           </button>
+                          <SourceLine data={item.data} compact />
+                          </>
                         ) : module.computed?.[key] ? (
                           money(module.computed[key].calc(item.data))
                         ) : (

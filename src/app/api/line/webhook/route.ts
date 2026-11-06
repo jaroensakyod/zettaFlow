@@ -43,11 +43,13 @@ export async function POST(req: Request) {
           p_hash: tokenHash(message.text.slice(9).trim()),
           p_group: groupId,
         });
+        const { data: paired } = error ? { data: null } : await sb.from("line_groups").select("department").eq("group_id", groupId).maybeSingle();
+        const dept = paired?.department ? deptThai[paired.department] || paired.department : "";
         await lineReply(
           event.replyToken,
           error
             ? "เชื่อมกลุ่มไม่สำเร็จ: " + error.message
-            : "✅ เชื่อมกลุ่มนี้กับ EliteFlow แล้ว ส่งข้อความ รูป หรือ PDF เพื่อบันทึกข้อมูลได้เลย",
+            : "✅ เชื่อมกลุ่มนี้กับ EliteFlow แล้ว" + (dept ? " เป็นกลุ่มของ" + dept : "") + " ส่งข้อความ รูป หรือ PDF เพื่อบันทึกข้อมูลได้เลย",
         );
         continue;
       }

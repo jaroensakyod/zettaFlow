@@ -19,7 +19,7 @@ import { supabaseServer } from "./supabase/server";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES } from "./billing";
 import { sortMessage } from "./line-sort";
-import { lineReplyId, sentMessageId } from "./line";
+import { lineGroup, lineReplyId, sentMessageId } from "./line";
 import { approverNotice, deptThai, lineNotice } from "./line-message";
 import { aiEnabled, aiGenerate, forCompany, type AiPart } from "./llm";
 export const tokenHash = (s: string) =>
@@ -217,6 +217,11 @@ export async function processJobs(id?: string) {
     forCompany(claimed.company_id);
     try {
       const job = await mergeBurst(sb, claimed, (jobs || []) as Job[], handled);
+      // Who sent it and from which group — kept on the item and stamped on the record it becomes.
+      if (job.group_id) {
+        const [sender, group] = await Promise.all([lineName(job.group_id, job.source_user), lineGroup(job.group_id)]);
+        await sb.from("ingestions").update({ sender_name: sender, group_name: group?.name || null }).eq("id", job.id);
+      }
       let attachment: { mime: string; name: string; bytes: Buffer } | undefined;
       if (job.attachment_id) {
         const { data: file, error: e } = await sb

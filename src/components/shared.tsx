@@ -107,3 +107,25 @@ export function PasswordInput(props: Omit<React.InputHTMLAttributes<HTMLInputEle
     </span>
   );
 }
+
+/** Where a record came from, for records created from a LINE message: group, its department and who sent it. */
+export function SourceLine({ data, compact }: { data: Record<string, unknown>; compact?: boolean }) {
+  if (data.sourceVia !== "LINE") return null;
+  const dept = String(data.sourceDepartment || "");
+  const parts = [
+    dept ? (deptThaiNames[dept] || dept) : "",
+    data.sourceGroup ? "กลุ่ม " + String(data.sourceGroup) : "",
+    data.sourceSender ? "ส่งโดย " + String(data.sourceSender) : "",
+  ].filter(Boolean);
+  return (
+    <span className={"source-line" + (compact ? " compact" : "")} title="ที่มาของรายการนี้">
+      <b>LINE</b>
+      {parts.length ? " · " + parts.join(" · ") : ""}
+    </span>
+  );
+}
+const deptThaiNames: Record<string, string> = {
+  Finance: "ฝ่ายบัญชีและการเงิน", HR: "ฝ่ายบุคคล", Warehouse: "คลังสินค้า", Sales: "ฝ่ายขาย", Marketing: "การตลาด", IT: "ฝ่าย IT",
+  Operations: "ฝ่ายปฏิบัติการ", Purchasing: "จัดซื้อ", Legal: "กฎหมาย", Event: "อีเวนต์", Admin: "บริหารองค์กร", Design: "ออกแบบ",
+  "Customer Service": "บริการลูกค้า", Data: "ข้อมูล", "Business Development": "พัฒนาธุรกิจ",
+};

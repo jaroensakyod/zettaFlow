@@ -9,7 +9,7 @@ import { categoryLabel } from "@/lib/expense-categories";
 import { CategorySelect } from "./category-select";
 import { computeExpense, vatModes, whtForm, linesTotal, linesMismatch, FULL_TAX_INVOICE, awaitingReview, type VatMode } from "@/lib/tax";
 import { buildJournal, expenseAccount, type Account, type CostCenter } from "@/lib/ledger";
-import { api, money, displayDate, Empty, Loading } from "./shared";
+import { api, money, displayDate, Empty, Loading, SourceLine } from "./shared";
 import { LinePending } from "./line-review";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
@@ -271,6 +271,7 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                       <span>
                         <b>{String(e.data.payee || e.data.name)}</b>
                         <small>
+                          {e.data.sourceVia === "LINE" && <SourceLine data={e.data} compact />}
                           {displayDate(e.data.date)} · {categoryLabel(String(e.data.category))}
                           {!!e.data.projectId && " · " + (projects.find((p) => p.id === e.data.projectId)?.name || "โปรเจกต์")}
                         </small>
@@ -329,6 +330,8 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                   <small>
                     {awaitingReview(selected.data) ? "รอตรวจ" : "บันทึกแล้ว"}
                     {draft.supplierId ? " · Supplier ในทะเบียน" : ""}
+                    {" "}
+                    <SourceLine data={selected.data} compact />
                   </small>
                 </div>
                 {navigate && (

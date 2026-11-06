@@ -366,3 +366,48 @@ test("items missing data are reminded once, as one message per group", async () 
     await db.close();
   }
 });
+
+test("a LINE group code made for a department pairs the group into that department", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Pair Co')as id")).id;
+    await db.exec("reset role;");
+    await db.query("insert into line_pairings(token_hash,company_id,department,expires_at)values('h-it',$1,'IT',now()+interval '10 minutes')", [c]);
+    await db.query("select pair_line_group('h-it','G-it')");
+    assert.equal((await one<{ department: string }>(db, "select department from line_groups where group_id='G-it'")).department, "IT");
+    await assert.rejects(db.query("select pair_line_group('h-it','G-it2')"), /รหัสหมดอายุ/);
+  } finally {
+    await db.close();
+  }
+});
+
+test("a record made from LINE keeps where it came from (group, department, sender), even after a web edit", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Source Co')as id")).id;
+    const fields = [{ key: "name", label: "ชื่อ", type: "text", required: true }, { key: "department", label: "แผนก", type: "text", required: true }];
+    const t = (await one<{ id: string }>(db, "select (save_template($1,'งาน','Operations',$2,'[]')).id", [c, JSON.stringify(fields)])).id;
+    await db.query("select set_template_target($1,$2,'tasks','{}')", [c, t]);
+    const id = (await one<{ id: string }>(db, "select (submit_ingestion($1,$2,'ซ่อมแอร์')).id", [c, t])).id;
+    await db.exec("reset role;");
+    await db.query("insert into line_groups(group_id,company_id,name,department)values('G-src',$1,'ITEliteFlow','IT')", [c]);
+    await db.query("update ingestions set status='review',group_id='G-src',sender_name='สมชาย',values='{\"name\":\"ซ่อมแอร์\",\"department\":\"Operations\"}' where id=$1", [id]);
+    await login(owner, "owner@test.local");
+    await db.query("select decide_ingestion($1,$2,'approved','{\"name\":\"ซ่อมแอร์\",\"department\":\"Operations\"}','')", [c, id]);
+    await db.exec("reset role;");
+    const e = await one<{ id: string; version: number; data: Record<string, string> }>(db, "select id,version,data from entities where company_id=$1 and data->>'ingestionId'=$2", [c, id]);
+    assert.equal(e.data.sourceVia, "LINE");
+    assert.equal(e.data.sourceGroup, "ITEliteFlow");
+    assert.equal(e.data.sourceDepartment, "IT");
+    assert.equal(e.data.sourceSender, "สมชาย");
+    await db.query("update entities set data=jsonb_build_object('name','ซ่อมแอร์ห้องประชุม','department','Operations','status','pending') where id=$1", [e.id]);
+    const after = await one<{ data: Record<string, string> }>(db, "select data from entities where id=$1", [e.id]);
+    assert.equal(after.data.name, "ซ่อมแอร์ห้องประชุม");
+    assert.equal(after.data.sourceGroup, "ITEliteFlow");
+    assert.equal(after.data.ingestionId, id);
+  } finally {
+    await db.close();
+  }
+});

@@ -47,7 +47,7 @@ import {
   safeCsv,
   validDate,
 } from "@/lib/domain";
-import { catalog, companyFields } from "@/lib/catalog";
+import { catalog, companyFields, departmentNames } from "@/lib/catalog";
 import { submit, processJobs, processNotifications, tokenHash, lineName } from "@/lib/ai";
 import { upload, files, download, prepareUpload, finishUpload, MAX_UPLOAD } from "@/lib/files";
 import { flowReply, businessAnswer } from "@/lib/flow";
@@ -1168,10 +1168,13 @@ async function handle(req: NextRequest) {
           "ไม่พบ Template",
         );
       }
+      // The department chosen with the group code: the group is paired straight into it.
+      const department = !userLink && input.department ? z.enum(departmentNames as unknown as [string, ...string[]]).parse(input.department) : null;
       const { error } = await sb.from("line_pairings").insert({
         token_hash: tokenHash(token),
         company_id: ctx.company.id,
         template_id: templateId,
+        department,
         user_id: userLink ? ctx.user.id : null,
         expires_at: new Date(Date.now() + 600000).toISOString(),
       });

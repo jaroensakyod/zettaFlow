@@ -62,3 +62,19 @@ export async function sentMessageId(r: Response) {
     return null;
   }
 }
+
+const groupInfo = new Map<string, { name: string; picture: string | null } | null>();
+/** Group name and picture as LINE shows them (free API call). Null when LINE is not configured or the bot left. */
+export async function lineGroup(groupId: string) {
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return null;
+  if (groupInfo.has(groupId)) return groupInfo.get(groupId)!;
+  const r = await fetch(`https://api.line.me/v2/bot/group/${encodeURIComponent(groupId)}/summary`, {
+    signal: AbortSignal.timeout(5000),
+    headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` },
+  }).catch(() => null);
+  const j = r?.ok ? ((await r.json()) as { groupName?: string; pictureUrl?: string }) : null;
+  const info = j?.groupName ? { name: j.groupName, picture: j.pictureUrl || null } : null;
+  groupInfo.set(groupId, info);
+  return info;
+}
+

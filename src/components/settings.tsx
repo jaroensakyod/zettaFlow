@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { deptThai } from "@/lib/line-message";
 import {
   Plus,
   Settings2,
@@ -619,6 +620,7 @@ export function Integrations({
       { id: string; status: string; attempts: number }[]
     >([]),
     [selected, setSelected] = useState(""),
+    [department, setDepartment] = useState(""),
     [command, setCommand] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -647,7 +649,7 @@ export function Integrations({
     try {
       const d = await api("/integrations", {
         method: "POST",
-        body: { action, templateId: selected || null },
+        body: { action, templateId: selected || null, department: action === "group" ? department || null : null },
       });
       setCommand(d.command);
     } catch (e) {
@@ -667,13 +669,25 @@ export function Integrations({
         </div>
         <ol className="body-copy line-steps">
           <li>เพิ่มบอท EliteFlow เข้ากลุ่ม LINE</li>
-          <li>กด “สร้างรหัสเชื่อมกลุ่ม” แล้วคัดลอกคำสั่งไปพิมพ์ในกลุ่มนั้น</li>
-          <li>กลุ่มจะขึ้นในรายการด้านบน ตั้งชื่อและวิธีบันทึกได้ที่ “ตั้งค่ากลุ่มนี้”</li>
+          <li>เลือกฝ่ายของกลุ่ม แล้วกด “สร้างรหัสเชื่อมกลุ่ม” คัดลอกคำสั่งไปพิมพ์ในกลุ่มนั้น</li>
+          <li>กลุ่มจะขึ้นในรายการด้านบน แก้ชื่อ ฝ่าย และวิธีบันทึกได้ที่ “ตั้งค่ากลุ่มนี้”</li>
         </ol>
         {ctx.member.role === "owner" && (
           <>
             <label>
-              Template ของกลุ่ม
+              กลุ่มนี้เป็นของฝ่าย
+              <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+                <option value="">— ไม่ระบุ (เลือกทีหลังได้) —</option>
+                {Object.entries(deptThai).map(([k, l]) => (
+                  <option key={k} value={k}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+              <small className="line-hub-help">คำขอจากกลุ่มอื่นที่ต้องให้ฝ่ายนี้อนุมัติ จะถูกส่งมาที่กลุ่มนี้</small>
+            </label>
+            <label>
+              วิธีบันทึกข้อความในกลุ่ม
               <select
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
