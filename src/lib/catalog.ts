@@ -1,4 +1,5 @@
 import { currentExpenseCategories, legacyExpenseCategories } from "./expense-categories";
+import { currencies } from "./fx";
 export type Field = {
   key: string;
   label: string;
@@ -458,6 +459,10 @@ export const modules: Module[] = [
       f("receiptId", "ไฟล์ใบเสร็จ", "image", false, { hidden: true }),
       f("lines", "รายการสินค้า", "lines", false, { hidden: true }),
       f("amount", "ยอดตามเอกสาร", "number", true, { min: 0 }),
+      // A foreign-currency document keeps its own figure; `amount` above is then that figure in baht (src/lib/fx.ts).
+      f("currency", "สกุลเงินในเอกสาร (เว้นว่าง = บาท)", "select", false, { options: [...currencies] }),
+      f("amountForeign", "ยอดตามเอกสารในสกุลเงินต่างประเทศ", "number", false, { min: 0 }),
+      f("fxRate", "อัตราแลกเปลี่ยน (บาทต่อ 1 หน่วย)", "number", false, { min: 0 }),
       f("vatMode", "VAT", "select", false, { options: ["included", "excluded", "none"] }),
       f("whtRate", "หัก ณ ที่จ่าย (%)", "select", false, { options: ["0", "1", "2", "3", "5"] }),
       f("payStatus", "การชำระ", "select", false, { options: [...payStatuses] }),

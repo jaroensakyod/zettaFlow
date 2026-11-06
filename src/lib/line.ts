@@ -36,7 +36,11 @@ export function answerQuestion(text: string, s: QuickStats) {
   return lines.join("\n");
 }
 export async function lineReply(replyToken: string | undefined, text: string) {
-  if (!replyToken || !process.env.LINE_CHANNEL_ACCESS_TOKEN) return false;
+  return (await lineReplyId(replyToken, text)).ok;
+}
+/** Reply and return the id LINE gave the sent message (so a member's Reply to it can be traced back). */
+export async function lineReplyId(replyToken: string | undefined | null, text: string): Promise<{ ok: boolean; id: string | null }> {
+  if (!replyToken || !process.env.LINE_CHANNEL_ACCESS_TOKEN) return { ok: false, id: null };
   const r = await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
     signal: AbortSignal.timeout(10000),
@@ -46,5 +50,15 @@ export async function lineReply(replyToken: string | undefined, text: string) {
     },
     body: JSON.stringify({ replyToken, messages: [{ type: "text", text: text.slice(0, 4900) }] }),
   }).catch(() => null);
-  return !!r?.ok;
+  if (!r?.ok) return { ok: false, id: null };
+  return { ok: true, id: await sentMessageId(r) };
+}
+/** LINE answers reply/push with {"sentMessages":[{"id": ...}]}. */
+export async function sentMessageId(r: Response) {
+  try {
+    const id = ((await r.json()) as { sentMessages?: { id?: string }[] }).sentMessages?.[0]?.id;
+    return id ? String(id) : null;
+  } catch {
+    return null;
+  }
 }

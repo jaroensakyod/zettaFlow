@@ -38,7 +38,9 @@ test("expense rows keep their category, unit, currency and discount through vali
 
 test("the database migration accepts the same expense fields as the app", async () => {
   const sql = await readFile("supabase/migrations/0024_expense_form.sql", "utf8");
-  for (const f of catalog.expenses.fields) assert.ok(sql.includes(`"key":"${f.key}"`), f.key + " missing from 0024");
+  // The latest migration that rewrites the expense page schema (0031 added currency / amountForeign / fxRate).
+  const latest = await readFile("supabase/migrations/0031_expense_currency.sql", "utf8");
+  for (const f of catalog.expenses.fields) assert.ok(latest.includes(`"key":"${f.key}"`), f.key + " missing from 0031");
   for (const k of ["category", "unit", "currency", "discount", "discountType"]) assert.ok(sql.includes(`'${k}',x->'${k}'`), k + " dropped by validate_payload");
 });
 

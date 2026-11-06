@@ -11,6 +11,7 @@ import { currentExpenseCategories as expenseCategories } from "./expense-categor
 import { aiEnabled, aiGenerate, type AiUsage } from "./llm";
 import { decodeQr, parseSlipQr, type SlipQr } from "./slip";
 import { MAX_PDF_PAGES, pdfPages } from "./billing";
+import { currencies, isForeign } from "./fx";
 import type { Context, Entity, Template } from "./types";
 
 /** Draft keys the AI may flag as unsure (shown with an orange frame on the review form). */
@@ -32,7 +33,8 @@ function receiptTemplate(projects: string[]): Template {
       { key: "date", label: "วันที่เอกสาร (แปลง พ.ศ. เป็น ค.ศ.)", type: "date", required: true },
       { key: "items", label: "สรุปรายการสินค้า/บริการ สั้นๆ", type: "text", required: false },
       { key: "lines", label: 'รายการสินค้าเป็น JSON array เช่น [{"name":"กระดาษ A4","qty":2,"price":120}] ราคาต่อหน่วยตามที่พิมพ์', type: "text", required: false },
-      { key: "amount", label: "ยอดรวมสุทธิที่พิมพ์บนเอกสาร (ก่อนหัก ณ ที่จ่าย)", type: "number", required: true },
+      { key: "amount", label: "ยอดรวมสุทธิที่พิมพ์บนเอกสาร (ก่อนหัก ณ ที่จ่าย) ในสกุลเงินของเอกสาร ไม่ต้องแปลงเป็นบาท", type: "number", required: true },
+      { key: "currency", label: "สกุลเงินของยอดบนเอกสาร ($ = USD, € = EUR; เอกสารไทยหรือ ฿/บาท = THB)", type: "choice", required: false, options: [...currencies] },
       { key: "vatMode", label: "VAT: included = ยอดรวม VAT แล้ว, excluded = ยอดยังไม่รวม VAT, none = ไม่มี VAT", type: "choice", required: false, options: ["included", "excluded", "none"] },
       { key: "whtRate", label: "อัตราหัก ณ ที่จ่ายที่ระบุบนเอกสาร (%)", type: "choice", required: false, options: ["0", "1", "2", "3", "5"] },
       { key: "category", label: "หมวดค่าใช้จ่ายที่ใกล้ที่สุด", type: "choice", required: false, options: [...expenseCategories] },
@@ -94,6 +96,8 @@ export async function readReceipt(ctx: Context, input: unknown) {
       date: v.date || "",
       lines: parseLines(v.lines),
       amount: v.amount ?? "",
+      // Foreign document: saveEntity turns this into baht at the document-date rate (src/lib/fx.ts).
+      ...(isForeign(v.currency) ? { currency: v.currency, amountForeign: v.amount ?? "", lines: parseLines(v.lines).map((l) => ({ ...l, currency: String(v.currency) })) } : {}),
       vatMode: v.vatMode || "none",
       whtRate: v.whtRate || "0",
       category: v.category || "อื่นๆ",
@@ -116,9 +120,10 @@ export async function readReceipt(ctx: Context, input: unknown) {
 const scanSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["kind", "vendor", "taxId", "phone", "docType", "docNo", "date", "vatMode", "whtRate", "category", "billDiscount", "total", "lines", "notes", "uncertain"],
+  required: ["kind", "vendor", "taxId", "phone", "docType", "docNo", "date", "currency", "vatMode", "whtRate", "category", "billDiscount", "total", "lines", "notes", "uncertain"],
   properties: {
     kind: { type: "string", enum: ["receipt", "tax_invoice", "invoice", "transfer_slip", "other"] },
+    currency: { type: "string", enum: [...currencies], description: "currency of the printed prices ($ = USD, € = EUR); Thai documents and ฿/บาท are THB. Never convert amounts." },
     vendor: { type: ["string", "null"], description: "seller / shop / payee name; for a transfer slip the receiver" },
     taxId: { type: ["string", "null"], description: "seller's 13-digit tax id" },
     phone: { type: ["string", "null"], description: "seller's phone" },
@@ -198,6 +203,7 @@ export async function scanExpenseDocument(ctx: Context, input: unknown, sent?: F
     docType: string | null;
     docNo: string | null;
     date: string | null;
+    currency: string;
     vatMode: "included" | "excluded" | "none";
     whtRate: string;
     category: string;
@@ -218,7 +224,7 @@ export async function scanExpenseDocument(ctx: Context, input: unknown, sent?: F
       unit: String(l.unit || "").trim().slice(0, 30),
       qty: r2(Number(l.qty)),
       price: net(l.unitPrice),
-      currency: "THB",
+      currency: isForeign(v.currency) ? v.currency : "THB",
       discount: net(l.discount),
       discountType: "amount",
     }));
@@ -240,6 +246,7 @@ export async function scanExpenseDocument(ctx: Context, input: unknown, sent?: F
       whtRate: ["1", "2", "3", "5"].includes(v.whtRate) ? v.whtRate : null,
       vat: v.vatMode === "none" ? 0 : 7,
       discount: billDiscount,
+      currency: isForeign(v.currency) ? v.currency : "THB",
     },
     lines,
     kind: qr ? "transfer_slip" : v.kind,

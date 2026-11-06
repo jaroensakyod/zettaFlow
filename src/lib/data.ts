@@ -30,6 +30,7 @@ import {
   formatCode,
 } from "./domain";
 import { catalog } from "./catalog";
+import { applyFx } from "./fx";
 import type { Context, Entity, Template, Ingestion, HomeData } from "./types";
 export function dbError(error: { message: string; code?: string } | null) {
   if (error?.code === "23505")
@@ -174,7 +175,7 @@ export async function saveEntity(
   id?: string,
   version?: number,
 ) {
-  const data = validateEntity(kind, input),
+  const data = validateEntity(kind, await applyFx(kind, input)),
     department = entityDepartment(kind, data);
   assert(canWrite(ctx, department), "ไม่มีสิทธิ์แก้ไขแผนกนี้", 403);
   if (!id && needsApprover(kind, data.status) && !["owner", "manager"].includes(ctx.member.role))
@@ -759,8 +760,12 @@ export async function decide(
   const items = await ingestions(ctx);
   const i = items.find((i) => i.id === id);
   assert(i, "ไม่พบรายการ", 404);
-  if (input.status === "approved")
+  if (input.status === "approved") {
+    // A foreign-currency receipt from LINE lands in ค่าใช้จ่าย with `amount` in baht.
+    const target = i.target_kind || (i.template as { target_kind?: string | null }).target_kind;
+    if (target === "expenses") input = { ...input, values: (await applyFx("expenses", input.values)) as Record<string, unknown> };
     validateValues(i.template, input.values, true);
+  }
   const sb = await supabaseServer();
   const { error } = await sb.rpc("decide_ingestion", {
     p_company: ctx.company.id,

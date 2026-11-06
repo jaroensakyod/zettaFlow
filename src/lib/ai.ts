@@ -19,7 +19,8 @@ import { supabaseServer } from "./supabase/server";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES } from "./billing";
 import { sortMessage } from "./line-sort";
-import { lineReply } from "./line";
+import { lineReplyId, sentMessageId } from "./line";
+import { lineNotice } from "./line-message";
 import { aiEnabled, aiGenerate, type AiPart } from "./llm";
 export const tokenHash = (s: string) =>
   createHash("sha256").update(s).digest("hex");
@@ -206,7 +207,10 @@ export async function processJobs(id?: string) {
           p_engine: r.engine,
         });
         dbError(e);
-        if (r.kind) await replyInsteadOfPush(sb, job);
+        if (r.kind) {
+          await rewriteNotice(sb, job, { kind: r.kind, values: r.values, missing: r.missing });
+          await replyInsteadOfPush(sb, job);
+        }
         continue;
       }
       const { data: precise } = await sb.rpc("has_addon", {
@@ -235,6 +239,8 @@ export async function processJobs(id?: string) {
         p_engine: result.engine,
       });
       dbError(e);
+      const t = job.template as Template & { target_kind?: string | null };
+      await rewriteNotice(sb, job, { kind: t.target_kind || null, form: t.name, values: result.values, missing: result.missing });
       await replyInsteadOfPush(sb, job);
     } catch (e) {
       await sb
@@ -312,7 +318,7 @@ async function verifySlipJob(
  */
 const lineNames = new Map<string, string | null>();
 /** Display name of a group member (free API call, not a message). Null for unknown or test groups. */
-async function lineName(groupId?: string | null, userId?: string | null) {
+export async function lineName(groupId?: string | null, userId?: string | null) {
   if (!groupId || !userId || !process.env.LINE_CHANNEL_ACCESS_TOKEN) return null;
   const key = groupId + "/" + userId;
   if (lineNames.has(key)) return lineNames.get(key)!;
@@ -342,7 +348,8 @@ async function replyInsteadOfPush(
   sb: ReturnType<typeof supabaseAdmin>,
   job: Ingestion & { reply_token?: string | null },
 ) {
-  if (!job.reply_token || Date.now() - Date.parse(job.created_at) > 50000) return;
+  // A stale token just fails; the notice then stays queued and goes out as a push.
+  if (!job.reply_token) return;
   const { data: item } = await sb
     .from("notification_outbox")
     .select("id, body")
@@ -357,11 +364,30 @@ async function replyInsteadOfPush(
     .eq("status", "queued")
     .select("id");
   if (!claimed?.length) return;
-  if (!(await lineReply(job.reply_token, item.body)))
+  const sent = await lineReplyId(job.reply_token, item.body);
+  if (!sent.ok)
     await sb
       .from("notification_outbox")
       .update({ status: "queued" })
       .eq("id", item.id);
+  else if (sent.id) await sb.from("ingestions").update({ bot_message_id: sent.id }).eq("id", job.id);
+}
+/**
+ * The database queues a plain notice; replace it with one that names the page, what was read, what is missing,
+ * the group's approve keyword and how to fix it. Only while it is still queued (not yet sent).
+ */
+async function rewriteNotice(
+  sb: ReturnType<typeof supabaseAdmin>,
+  job: Ingestion & { group_id?: string | null },
+  input: { kind: string | null; form?: string; values: Record<string, unknown>; missing: string[] },
+) {
+  if (!job.group_id) return;
+  const { data: g } = await sb.from("line_groups").select("approve_keywords").eq("group_id", job.group_id).maybeSingle();
+  await sb
+    .from("notification_outbox")
+    .update({ body: lineNotice({ ...input, keyword: (g?.approve_keywords as string[] | null)?.[0] }) })
+    .eq("id", job.id)
+    .eq("status", "queued");
 }
 export async function processNotifications() {
   if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return 0;
@@ -383,6 +409,9 @@ export async function processNotifications() {
           messages: [{ type: "text", text: item.body }],
         }),
       });
+      // A notice for an item (same id) remembers the LINE message, so a Reply to it can be matched.
+      const id = r.ok ? await sentMessageId(r) : null;
+      if (id) await sb.from("ingestions").update({ bot_message_id: id }).eq("id", item.id);
       await sb
         .from("notification_outbox")
         .update({

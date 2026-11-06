@@ -6,6 +6,7 @@ import { api, Modal, displayDate } from "./shared";
 import { FieldControl } from "./records";
 import type { Context, Ingestion } from "@/lib/types";
 import type { Field } from "@/lib/catalog";
+import { formatMoney, isForeign } from "@/lib/fx";
 
 export function IngestionReview({
   record,
@@ -167,7 +168,9 @@ export function LinePending({
                 </small>
               </span>
               <span>
-                {typeof i.values?.amount === "number" && <b>฿{Number(i.values.amount).toLocaleString("th-TH")}</b>}
+                {typeof (i.values?.amountForeign ?? i.values?.amount) === "number" && (
+                  <b>{isForeign(i.values.currency) ? formatMoney(i.values.amountForeign ?? i.values.amount, i.values.currency) : "฿" + Number(i.values.amount).toLocaleString("th-TH")}</b>
+                )}
                 <em className={i.status === "review" && !i.missing.length ? "wait" : "warn"}>
                   {i.status === "review" ? (i.missing.length ? "ข้อมูลไม่ครบ" : "รออนุมัติ") : i.status === "failed" ? "อ่านไม่สำเร็จ" : "กำลังอ่าน"}
                 </em>

@@ -6748,6 +6748,13 @@ fieldset.exf-card:disabled { opacity: 1; }
 .exf-total b small { font-size: 22px; font-weight: 800; }
 .exf-net { margin: 10px 2px 0; font-size: 12.5px; color: #5d5874; display: flex; justify-content: space-between; gap: 8px; }
 .exf-net b { color: #1f1a35; }
+.exf-fx { margin: 10px 2px 0; font-size: 12.5px; color: #5d5874; display: grid; gap: 6px; }
+.exf-fx label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.exf-fx input { width: 96px; text-align: right; }
+.exf-fx p { margin: 0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; }
+.exf-fx b { color: #1f1a35; }
+.exf-fx small { flex-basis: 100%; color: #8a85a0; font-size: 11.5px; }
+.acc-thb { display: block; font-weight: 400; font-size: 11px; color: #8a85a0; }
 .exf-hint { margin: 10px 2px 0; font-size: 12px; color: #b26b00; line-height: 1.45; }
 
 .exf-table-wrap { overflow-x: auto; border: 1px solid var(--exf-line); border-radius: 10px; }
@@ -6922,3 +6929,42 @@ fieldset.exf-card:disabled { opacity: 1; }
 .line-pending em { font-style: normal; font-size: 10px; border-radius: 6px; padding: 1px 6px; }
 .line-pending em.wait { background: #fff4dd; color: #a86500; }
 .line-pending em.warn { background: #fde8e8; color: #b42318; }
+
+/* หน้า LINE: connected groups (left) and what each group sent / where it went (right). */
+.line-hub { margin-bottom: 18px; }
+.line-hub .card-heading h2 { display: flex; align-items: center; gap: 8px; }
+.line-hub-count { font-size: 12px; font-weight: 500; color: #7a7491; background: #f3f0fb; border-radius: 999px; padding: 2px 10px; }
+.line-hub-body { display: grid; grid-template-columns: minmax(220px, 280px) 1fr; gap: 16px; }
+.line-hub-groups { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; align-content: start; }
+.line-hub-groups button { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border: 1px solid #ece8f6; border-radius: 12px; background: #fff; cursor: pointer; }
+.line-hub-groups button.active { border-color: #b9a5f2; background: #f6f2ff; }
+.line-hub-groups img, .line-hub-avatar { width: 36px; height: 36px; border-radius: 50%; flex: none; object-fit: cover; }
+.line-hub-avatar { display: grid; place-items: center; background: #06c755; color: #fff; }
+.line-hub-groups span { display: grid; min-width: 0; flex: 1; }
+.line-hub-groups b { font-size: 14px; color: #1f1a35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.line-hub-groups small { font-size: 12px; color: #8a85a0; }
+.line-hub-groups em { font-style: normal; font-size: 12px; font-weight: 600; min-width: 22px; text-align: center; border-radius: 999px; padding: 2px 7px; }
+.line-hub em.wait { background: #fff4d6; color: #9a6a00; }
+.line-hub em.warn { background: #ffe6dc; color: #b04a1c; }
+.line-hub em.done { background: #e2f6ea; color: #1d7a43; }
+.line-hub em.muted { background: #f1f0f5; color: #7a7491; }
+.line-hub-messages { min-width: 0; border: 1px solid #ece8f6; border-radius: 14px; padding: 12px 14px; background: #fcfbff; }
+.line-hub-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.line-hub-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+.line-hub-filters button { border: 0; background: transparent; border-radius: 999px; padding: 5px 12px; font-size: 13px; color: #6d6787; cursor: pointer; }
+.line-hub-filters button.active { background: #ede6ff; color: #5b37c9; font-weight: 600; }
+.line-hub-messages ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 560px; overflow-y: auto; }
+.line-hub-messages li { background: #fff; border: 1px solid #efecf7; border-radius: 12px; padding: 10px 12px; }
+.line-hub-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #8a85a0; }
+.line-hub-meta span { font-weight: 600; color: #4b4566; }
+.line-hub-messages p { margin: 6px 0; font-size: 14px; color: #1f1a35; white-space: pre-wrap; word-break: break-word; }
+.line-hub-file { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; font-size: 12px; color: #5b37c9; background: #f3efff; border-radius: 6px; padding: 2px 8px; }
+.line-hub-dest { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; }
+.line-hub-dest em { font-style: normal; border-radius: 999px; padding: 2px 10px; }
+.line-hub-page { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: #5b37c9; }
+.line-hub-err { color: #b04a1c; flex-basis: 100%; }
+.line-hub-dest .text-button { margin-left: auto; }
+@media (max-width: 760px) {
+  .line-hub-body { grid-template-columns: 1fr; }
+  .line-hub-groups { grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); overflow-x: auto; }
+}

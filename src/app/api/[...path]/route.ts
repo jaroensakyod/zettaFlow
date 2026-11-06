@@ -1,3 +1,5 @@
+import { currencies, thbRate } from "@/lib/fx";
+import { lineGroupMessages, lineGroupsOverview } from "@/lib/line-hub";
 import { NextResponse, after, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -134,6 +136,13 @@ async function handle(req: NextRequest) {
         "Origin ไม่ถูกต้อง",
         403,
       );
+    }
+    if (path[0] === "fx" && method === "GET") {
+      // Baht per 1 unit of a document currency on its date, for the expense form.
+      const q = req.nextUrl.searchParams;
+      const currency = z.enum(currencies).parse(q.get("currency"));
+      const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().parse(q.get("date") || undefined);
+      return response({ currency, date, rate: await thbRate(currency, date) });
     }
     if (path[0] === "config")
       return response({
@@ -1041,6 +1050,12 @@ async function handle(req: NextRequest) {
           "Cache-Control": "private,no-store",
         },
       });
+    }
+    if (path[0] === "line-groups" && method === "GET") {
+      // หน้า LINE: groups with activity, or one group's messages (?group=…).
+      if (ctx.demo) return response([]);
+      const group = req.nextUrl.searchParams.get("group");
+      return response(group ? await lineGroupMessages(ctx, z.string().min(1).max(100).parse(group)) : await lineGroupsOverview(ctx));
     }
     if (path[0] === "integrations") {
       if (method === "GET") {

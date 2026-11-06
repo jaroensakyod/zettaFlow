@@ -10,6 +10,7 @@ import {
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
+import { pageUrl } from "@/lib/line-message";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
           event.replyToken,
           error
             ? "เชื่อมกลุ่มไม่สำเร็จ: " + error.message
-            : "✅ เชื่อมกลุ่มนี้กับ ZettaFlow แล้ว ส่งข้อความ รูป หรือ PDF เพื่อบันทึกข้อมูลได้เลย",
+            : "✅ เชื่อมกลุ่มนี้กับ EliteFlow แล้ว ส่งข้อความ รูป หรือ PDF เพื่อบันทึกข้อมูลได้เลย",
         );
         continue;
       }
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
         });
         await lineReply(
           event.replyToken,
-          error ? "ผูกบัญชีไม่สำเร็จ: " + error.message : "✅ ผูกบัญชี LINE กับผู้ใช้ ZettaFlow แล้ว",
+          error ? "ผูกบัญชีไม่สำเร็จ: " + error.message : "✅ ผูกบัญชี LINE กับผู้ใช้ EliteFlow แล้ว",
         );
         continue;
       }
@@ -74,6 +75,43 @@ export async function POST(req: Request) {
         );
         continue;
       }
+      // Reply (quote) on the bot's notice = add the missing data or correct the item; it is read again.
+      if (message.type === "text" && message.quotedMessageId) {
+        const { data: item } = await sb
+          .from("ingestions")
+          .select("id, raw, status, target_kind")
+          .eq("group_id", groupId)
+          .eq("bot_message_id", String(message.quotedMessageId))
+          .maybeSingle();
+        if (item) {
+          if (item.status === "approved") {
+            const url = pageUrl(item.target_kind);
+            await lineReply(event.replyToken, "รายการนี้อนุมัติแล้ว แก้ไขได้ในเว็บ" + (url ? ": " + url : ""));
+          } else if (["review", "failed"].includes(item.status)) {
+            await sb.from("notification_outbox").delete().eq("id", item.id);
+            const { error } = await sb
+              .from("ingestions")
+              .update({
+                raw: (String(item.raw || "") + "\n[แก้ไข/เพิ่มเติม] " + message.text).slice(0, 15000),
+                status: "queued",
+                missing: [],
+                error: null,
+                attempts: 0,
+                lease_until: null,
+                bot_message_id: null,
+                reply_token: event.replyToken || null,
+              })
+              .eq("id", item.id)
+              .in("status", ["review", "failed"]);
+            dbError(error);
+            after(async () => {
+              await processJobs(item.id);
+              await processNotifications();
+            });
+          }
+          continue;
+        }
+      }
       if (message.type === "text" && userId) {
         const { data: approved, error } = await sb.rpc("line_keyword_approve", {
           p_group: groupId,
@@ -85,7 +123,7 @@ export async function POST(req: Request) {
             event.replyToken,
             error
               ? "อนุมัติไม่สำเร็จ: " + error.message
-              : `✅ อนุมัติรายการ ${String(approved).slice(0, 8)} แล้ว ระบบแจ้งงานต่อให้ทีมที่เกี่ยวข้อง`,
+              : "✅ อนุมัติรายการล่าสุดแล้ว ระบบบันทึกเข้าหน้าที่เกี่ยวข้องและแจ้งทีมต่อให้",
           );
           continue;
         }
@@ -183,7 +221,7 @@ export async function POST(req: Request) {
         reply_token: event.replyToken || null,
       });
       if (error && /แพ็กเกจหมดอายุ/.test(error.message)) {
-        await lineReply(event.replyToken, "⚠️ แพ็กเกจ ZettaFlow ของบริษัทหมดอายุ กรุณาให้เจ้าของบริษัทต่ออายุในเว็บ");
+        await lineReply(event.replyToken, "⚠️ แพ็กเกจ EliteFlow ของบริษัทหมดอายุ กรุณาให้เจ้าของบริษัทต่ออายุในเว็บ");
         continue;
       }
       if (error && error.code !== "23505") dbError(error);

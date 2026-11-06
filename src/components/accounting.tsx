@@ -13,6 +13,7 @@ import { api, money, displayDate, Empty, Loading } from "./shared";
 import { LinePending } from "./line-review";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
+import { currencies, formatMoney, isForeign } from "@/lib/fx";
 
 type Overview = {
   month: string;
@@ -123,6 +124,23 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
   const setLine = (i: number, patch: Partial<Line>) =>
     setDraft((d) => ({ ...d!, lines: d!.lines!.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
   const accounts = data?.accounts || [];
+  // Foreign-currency document: the figure on it is amountForeign; `amount` (what calc and the books use) is baht.
+  const fx = isForeign(draft?.currency);
+  const setFx = (patch: Record<string, unknown>) =>
+    setDraft((d) => {
+      const n = { ...d!, ...patch };
+      if (isForeign(n.currency) && Number(n.fxRate) > 0) n.amount = Math.round(Number(n.amountForeign) * Number(n.fxRate) * 100) / 100;
+      return n;
+    });
+  async function pickCurrency(c: string) {
+    if (!draft) return;
+    if (!isForeign(c)) return setDraft((d) => ({ ...d!, amount: isForeign(d!.currency) ? d!.amountForeign : d!.amount, currency: "", amountForeign: "", fxRate: "" }));
+    setFx({ currency: c, amountForeign: fx ? draft.amountForeign : draft.amount, fxRate: "" });
+    try {
+      const r: { rate: number } = await api(`/fx?currency=${c}&date=${draft.date || ""}`);
+      setFx({ fxRate: r.rate });
+    } catch {}
+  }
   const calc = draft ? computeExpense(Number(draft.amount), (draft.vatMode as VatMode) || "none", Number(draft.whtRate) || 0, String(draft.docType || "")) : null;
   const journal = draft ? buildJournal(draft, accounts) : null;
   const unsure = new Set(String(draft?.aiUncertain || "").split(",").filter(Boolean));
@@ -258,7 +276,14 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                         </small>
                       </span>
                       <span>
-                        <b>฿{money(gross(e.data))}</b>
+                        {isForeign(e.data.currency) ? (
+                          <b title={"≈ ฿" + money(gross(e.data))}>
+                            {formatMoney(e.data.amountForeign, e.data.currency)}
+                            <small className="acc-thb">≈฿{money(gross(e.data))}</small>
+                          </b>
+                        ) : (
+                          <b>฿{money(gross(e.data))}</b>
+                        )}
                         <em className={awaitingReview(e.data) ? "wait" : "done"}>{awaitingReview(e.data) ? "รอตรวจ" : "บันทึกแล้ว"}</em>
                       </span>
                     </button>
@@ -470,10 +495,34 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                   </fieldset>
                   <fieldset disabled={!writable || busy}>
                     <legend>4. VAT และหัก ณ ที่จ่าย</legend>
-                    <label className={flag("amount")}>
-                      ยอดตามเอกสาร
-                      <input type="number" step="any" min={0} required value={String(draft.amount ?? "")} onChange={(e) => set("amount", e.target.value)} />
+                    <label>
+                      สกุลเงินในเอกสาร
+                      <select value={fx ? String(draft.currency) : "THB"} onChange={(e) => pickCurrency(e.target.value)}>
+                        {currencies.map((c) => (
+                          <option key={c}>{c}</option>
+                        ))}
+                      </select>
                     </label>
+                    {fx ? (
+                      <>
+                        <label className={flag("amount")}>
+                          ยอดตามเอกสาร ({String(draft.currency)})
+                          <input type="number" step="any" min={0} required value={String(draft.amountForeign ?? "")} onChange={(e) => setFx({ amountForeign: e.target.value })} />
+                        </label>
+                        <label>
+                          อัตรา (บาท ต่อ 1 {String(draft.currency)})
+                          <input type="number" step="any" min={0} value={String(draft.fxRate ?? "")} placeholder="ดึงอัตราอัตโนมัติตอนบันทึก" onChange={(e) => setFx({ fxRate: e.target.value })} />
+                        </label>
+                        <p className="wide acc-hint">
+                          {formatMoney(draft.amountForeign, draft.currency)} = ฿{money(Number(draft.amount))} · อัตรา ECB ของวันที่เอกสาร แก้ได้ถ้าธนาคารตัดจริงคนละอัตรา
+                        </p>
+                      </>
+                    ) : (
+                      <label className={flag("amount")}>
+                        ยอดตามเอกสาร
+                        <input type="number" step="any" min={0} required value={String(draft.amount ?? "")} onChange={(e) => set("amount", e.target.value)} />
+                      </label>
+                    )}
                     <label className={flag("vatMode")}>
                       ราคาในเอกสาร
                       <select value={String(draft.vatMode || "none")} onChange={(e) => set("vatMode", e.target.value)}>
@@ -516,9 +565,10 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
                         <b>฿{money(calc.net)}</b>
                       </dd>
                     </dl>
-                    {linesMismatch(draft.lines, Number(draft.amount)) && (
+                    {linesMismatch(draft.lines, Number(fx ? draft.amountForeign : draft.amount)) && (
                       <p className="wide acc-warn">
-                        <AlertTriangle size={15} /> ยอดรวมตามรายการ ฿{money(linesTotal(draft.lines))} ไม่ตรงกับยอดในใบเสร็จ ฿{money(Number(draft.amount))}
+                        <AlertTriangle size={15} /> ยอดรวมตามรายการ {formatMoney(linesTotal(draft.lines), fx ? draft.currency : "THB")} ไม่ตรงกับยอดในใบเสร็จ{" "}
+                        {formatMoney(fx ? draft.amountForeign : draft.amount, fx ? draft.currency : "THB")}
                       </p>
                     )}
                   </fieldset>

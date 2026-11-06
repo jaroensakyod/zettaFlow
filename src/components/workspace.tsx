@@ -22,7 +22,7 @@ import {
   Scale,
   CalendarOff,
   Files,
-  MessageCircle,
+  MessageCircle, MessagesSquare,
   PanelsTopLeft,
   Plug,
   Building2,
@@ -64,6 +64,7 @@ import { SubscriptionPanel, SlipChecker } from "./platform";
 import { SupportChat, AdminConsole } from "./engage";
 import { AiWorkspace } from "./ai-workspace";
 import { LinePending } from "./line-review";
+import { LineHub } from "./line-hub";
 import { CoinBadge, CoinStore, Departments } from "./coins";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
@@ -98,6 +99,7 @@ const primary: [string, string, LucideIcon][] = [
   ["employees", "พนักงาน", Users],
   ["projects", "โปรเจกต์", Folder],
   ["chat", "แชท", MessageCircle],
+  ["integrations", "LINE", MessagesSquare],
 ];
 const extra: Record<
   string,
@@ -149,9 +151,9 @@ const extra: Record<
     description: "กำหนดฟิลด์ข้อมูลและงานหลังอนุมัติด้วยตัวเอง",
   },
   integrations: {
-    label: "LINE & Integrations",
+    label: "LINE",
     icon: "Plug",
-    description: "เชื่อมต่อบริการและตรวจสถานะการประมวลผล",
+    description: "กลุ่ม LINE ที่เชื่อม ข้อความที่ส่งเข้ามา และแต่ละข้อความถูกบันทึกไปที่หน้าไหน",
   },
   company: {
     label: "โปรไฟล์บริษัท",
@@ -689,7 +691,10 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "team" ? (
             <Team ctx={ctx} notify={notify} />
           ) : view === "integrations" ? (
-            <Integrations ctx={ctx} notify={notify} />
+            <>
+              <LineHub ctx={ctx} />
+              <Integrations ctx={ctx} notify={notify} />
+            </>
           ) : view === "chat" ? (
             <Chat ctx={ctx} notify={notify} />
           ) : view === "calendar" ? (

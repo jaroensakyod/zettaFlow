@@ -14,10 +14,11 @@ import { api } from "./shared";
 import { CategorySelect } from "./category-select";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
+import { currencies, formatMoney, isForeign } from "@/lib/fx";
 
 type Option = { id: string; kind: string; name: string };
 type Scan = {
-  fields: { docType: string | null; docNo: string | null; date: string | null; payee: string | null; supplierId: string | null; taxId: string | null; phone: string | null; category: string | null; whtRate: string | null; vat: 0 | 7; discount: number };
+  fields: { docType: string | null; docNo: string | null; date: string | null; payee: string | null; supplierId: string | null; taxId: string | null; phone: string | null; category: string | null; whtRate: string | null; vat: 0 | 7; discount: number; currency?: string };
   lines: Line[];
   slip: { transRef: string; bank: string } | null;
   notes: string;
@@ -52,6 +53,9 @@ type Draft = {
   whtRate: string;
   notes: string;
   receiptId: string;
+  /** Currency of the document (all rows); totals below are in it and `amount` is saved in baht at fxRate. */
+  currency: string;
+  fxRate: number;
 };
 
 const docLabels: Record<string, string> = {
@@ -110,6 +114,8 @@ export function ExpenseForm({
       whtRate: "0",
       notes: "",
       receiptId: "",
+      currency: "THB",
+      fxRate: 0,
     }),
     [rows, setRows] = useState<Row[]>([blankRow()]),
     [editCode, setEditCode] = useState(false),
@@ -174,13 +180,15 @@ export function ExpenseForm({
             whtRate: String(x.whtRate || "0"),
             notes: String(x.notes || ""),
             receiptId: String(x.receiptId || ""),
+            currency: isForeign(x.currency) ? String(x.currency) : "THB",
+            fxRate: Number(x.fxRate) || 0,
           }));
           const lines = Array.isArray(x.lines) ? (x.lines as Line[]) : [];
           setRows(
             lines.length
               ? lines.map((l) => ({ ...blankRow(), ...l }))
               : // An expense saved without items (e.g. read by AI from a receipt): one row carrying the document amount.
-                [{ ...blankRow(), name: String(x.name || ""), category: "", price: x.vatMode === "included" ? computeExpense(Number(x.amount), "included").base : Number(x.amount) || 0 }],
+                [{ ...blankRow(), name: String(x.name || ""), category: "", price: (() => { const a = Number(isForeign(x.currency) ? x.amountForeign : x.amount) || 0; return x.vatMode === "included" ? computeExpense(a, "included").base : a; })() }],
           );
           api("/files?entity=" + found.id)
             .then((f: { id: string; name: string; mime: string }[]) => setFiles(f.map((x) => ({ ...x, src: "/api/files/" + x.id, linked: true }))))
@@ -206,6 +214,18 @@ export function ExpenseForm({
     const calc = computeExpense(after, d.vat ? "excluded" : "none", Number(d.whtRate) || 0, d.docType);
     return { subtotal, off, after, ...calc };
   }, [rows, d.discount, d.discountType, d.vat, d.whtRate, d.docType]);
+
+  const foreign = isForeign(d.currency);
+  useEffect(() => {
+    if (!foreign || d.fxRate > 0) return;
+    let live = true;
+    api(`/fx?currency=${d.currency}&date=${d.date}`)
+      .then((r: { rate: number }) => live && setD((x) => (x.currency === d.currency && !(x.fxRate > 0) ? { ...x, fxRate: r.rate } : x)))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [foreign, d.currency, d.date, d.fxRate]);
 
   // Picking a supplier or employee fills in tax id and phone from their record.
   async function pickParty(kind: "suppliers" | "employees", optionId: string) {
@@ -302,6 +322,10 @@ export function ExpenseForm({
       if (f.docType && fresh) n.docType = f.docType;
       if (f.date && (fresh || !x.date)) n.date = f.date;
       if (fresh) n.vat = f.vat;
+      if (fresh && f.currency && f.currency !== x.currency) {
+        n.currency = f.currency;
+        n.fxRate = 0;
+      }
       if (f.docNo && !x.docNo) n.docNo = f.docNo;
       if (f.category && !x.category) n.category = f.category;
       if (f.whtRate && x.whtRate === "0") n.whtRate = f.whtRate;
@@ -361,13 +385,17 @@ export function ExpenseForm({
           name: l.name.trim(),
           qty: Number(l.qty) || 0,
           price: Number(l.price) || 0,
+          currency: d.currency,
           discount: Number(l.discount) || 0,
           unit: l.unit?.trim() || undefined,
           category: l.category || undefined,
         })),
         discount: Number(d.discount) || 0,
         discountType: d.discountType,
-        amount: sums.after,
+        // One currency per document: a foreign one keeps its figure and is saved in baht at the rate shown.
+        ...(foreign
+          ? { currency: d.currency, amountForeign: sums.after, ...(d.fxRate > 0 && { fxRate: d.fxRate }), amount: d.fxRate > 0 ? Math.round(sums.after * d.fxRate * 100) / 100 : sums.after }
+          : { amount: sums.after }),
         vatMode: d.vat ? "excluded" : "none",
         whtRate: d.whtRate,
         receiptId: d.receiptId,
@@ -573,9 +601,22 @@ export function ExpenseForm({
           <div className="exf-total">
             <span>ยอดรวมทั้งสิ้น</span>
             <b>
-              {two(sums.gross)} <small>฿</small>
+              {foreign ? formatMoney(sums.gross, d.currency) : <>{two(sums.gross)} <small>฿</small></>}
             </b>
           </div>
+          {foreign && (
+            <div className="exf-fx">
+              <label>
+                อัตราแลกเปลี่ยน 1 {d.currency} =
+                <input type="number" min={0} step="any" aria-label="อัตราแลกเปลี่ยน" value={d.fxRate || ""} placeholder="กำลังดึงอัตรา…" disabled={locked} onChange={(e) => set("fxRate", Number(e.target.value))} />
+                บาท
+              </label>
+              <p>
+                เป็นเงินบาท <b>{d.fxRate > 0 ? two(sums.gross * d.fxRate) + " ฿" : "—"}</b>
+                <small>อัตรา ECB ของวันที่เอกสาร แก้ได้ถ้าธนาคารตัดจริงคนละอัตรา</small>
+              </p>
+            </div>
+          )}
           {sums.wht > 0 && (
             <p className="exf-net">
               ยอดที่ต้องจ่ายจริงหลังหัก ณ ที่จ่าย <b>{two(sums.net)} ฿</b>
@@ -759,8 +800,10 @@ export function ExpenseForm({
                       <input aria-label="จำนวน" type="number" required min={0} step="any" value={r.qty} onChange={(e) => setRow(r.key, { qty: Number(e.target.value) })} />
                     </td>
                     <td>
-                      <select aria-label="หน่วยเงิน" required value={r.currency || "THB"} onChange={(e) => setRow(r.key, { currency: e.target.value })}>
-                        <option>THB</option>
+                      <select aria-label="หน่วยเงิน" required value={d.currency} onChange={(e) => setD((x) => ({ ...x, currency: e.target.value, fxRate: 0 }))}>
+                        {currencies.map((c) => (
+                          <option key={c}>{c}</option>
+                        ))}
                       </select>
                     </td>
                     <td>
