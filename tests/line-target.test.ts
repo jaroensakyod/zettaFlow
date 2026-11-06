@@ -266,3 +266,32 @@ test("a receipt photo from LINE follows the approved expense", async () => {
     await db.close();
   }
 });
+
+test("buying a feed ad takes coins, shows it to other companies only, and refuses when coins run short", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const a = (await one<{ id: string }>(db, "select create_company('Advertiser')as id")).id;
+    const b = (await one<{ id: string }>(db, "select create_company('Viewer')as id")).id;
+    await db.exec("reset role;");
+    await db.query("insert into coin_wallets(company_id,balance)values($1,70)on conflict(company_id)do update set balance=70", [a]);
+    await login(owner, "owner@test.local");
+    const ad = { title: "รับออกแบบบูธ", body: "ครบจบในที่เดียว", cta_label: "ดูผลงาน", cta_url: "https://example.com", tone: "pink" };
+    const bought = await one<{ id: string; coins: number }>(db, "select * from buy_feed_ad($1,'d7',$2)", [a, JSON.stringify(ad)]);
+    assert.equal(bought.coins, 60);
+    const seen = (await one<{ x: { title: string; company: string }[] }>(db, "select feed_ads_live($1)as x", [b])).x;
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].title, "รับออกแบบบูธ");
+    assert.equal(seen[0].company, "Advertiser");
+    assert.equal((await one<{ x: unknown[] }>(db, "select feed_ads_live($1)as x", [a])).x.length, 0);
+    await db.query("select feed_ad_track($1,$2,'view')", [b, bought.id]);
+    await db.query("select feed_ad_track($1,$2,'view')", [b, bought.id]);
+    const mine = (await one<{ x: { views: number }[] }>(db, "select my_feed_ads($1)as x", [a])).x;
+    assert.equal(mine[0].views, 1);
+    await assert.rejects(db.query("select buy_feed_ad($1,'d7',$2)", [a, JSON.stringify(ad)]), /เหรียญไม่พอ/);
+    await db.exec("reset role;");
+    assert.equal((await one<{ balance: number }>(db, "select balance from coin_wallets where company_id=$1", [a])).balance, 10);
+  } finally {
+    await db.close();
+  }
+});

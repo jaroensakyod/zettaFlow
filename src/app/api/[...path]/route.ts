@@ -1,4 +1,5 @@
 import { currencies, thbRate } from "@/lib/fx";
+import { adStudio, buyAd, liveAds, setAdStatus, trackAd } from "@/lib/ads";
 import { lineGroupMessages, lineGroupsOverview } from "@/lib/line-hub";
 import { NextResponse, after, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
@@ -418,6 +419,21 @@ async function handle(req: NextRequest) {
       if (path[1] === "topup") return response(await requestTopup(ctx, await body(req)), 201);
       if (path[1] === "buy")
         return response(await buyModule(ctx, z.string().regex(/^[a-z_]{1,40}$/).parse(path[2])), 201);
+    }
+    if (path[0] === "ads") {
+      // ลงโฆษณา: GET studio (packages, my ads, coins), POST buy, PATCH pause/resume,
+      // GET /ads/live for the feed, POST /ads/<id>/track {kind: view|click}.
+      if (path[1] === "live") return response(await liveAds(ctx));
+      if (path[2] === "track") {
+        await trackAd(ctx, path[1], await body(req));
+        return response({ ok: true });
+      }
+      if (method === "GET") return response(await adStudio(ctx));
+      if (method === "POST") return response(await buyAd(ctx, await body(req)), 201);
+      if (method === "PATCH") {
+        await setAdStatus(ctx, path[1], await body(req));
+        return response({ ok: true });
+      }
     }
     if (path[0] === "tax-report") return response(await taxReport(ctx));
     if (path[0] === "expiries") return response(await expiries(ctx));

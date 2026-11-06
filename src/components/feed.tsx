@@ -24,24 +24,9 @@ import { businessTypeGroups, industryMatches } from "@/lib/catalog";
 import type { Context, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "@/lib/types";
 import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
+import type { FeedAd } from "@/lib/ads";
+import { AdCard } from "./ad-card";
 
-/** โฆษณา: promotions the EliteFlow team set to show in เครือข่ายธุรกิจ (Admin Console → โปรโมชันและโฆษณา). */
-function AdCard({ ad, compact }: { ad: Promo; compact?: boolean }) {
-  return (
-    <section className={"card li-ad " + ad.tone + (compact ? " compact" : "")} aria-label="ผู้สนับสนุน">
-      <span className="li-ad-tag">
-        <Megaphone size={13} /> ผู้สนับสนุน
-      </span>
-      <strong>{ad.title}</strong>
-      {ad.body && <p>{ad.body}</p>}
-      {ad.cta_label && ad.cta_url && (
-        <a className="li-ad-cta" href={ad.cta_url} target={ad.cta_url.startsWith("http") ? "_blank" : undefined} rel="noreferrer sponsored">
-          {ad.cta_label} <ArrowRight size={14} />
-        </a>
-      )}
-    </section>
-  );
-}
 /** Every this many posts the feed shows one sponsored card. */
 const AD_EVERY = 5;
 
@@ -145,7 +130,7 @@ export function Feed({
     [loadingMore, setLoadingMore] = useState(false),
     [suggest, setSuggest] = useState<FeedSuggestion[]>([]),
     [chances, setChances] = useState<FeedPost[]>([]),
-    [ads, setAds] = useState<Promo[]>([]),
+    [ads, setAds] = useState<FeedAd[]>([]),
     [discover, setDiscover] = useState<FeedPost[]>([]),
     [search, setSearch] = useState(""),
     [industry, setIndustry] = useState(""),
@@ -168,11 +153,22 @@ export function Feed({
     api("/feed?filter=offers")
       .then((rows: FeedPost[]) => setChances(rows.filter((x) => !x.mine).slice(0, 3)))
       .catch(() => {});
-    fetch("/api/public-content", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : { promos: [] }))
-      .then((d: { promos?: Promo[] }) => setAds((d.promos || []).filter((x) => x.placement === "feed" || x.placement === "both")))
-      .catch(() => {});
+    // Company ads (bought with coins) first, then the EliteFlow team's feed promotions.
+    Promise.all([
+      api("/ads/live").catch(() => [] as FeedAd[]),
+      fetch("/api/public-content", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { promos: [] }))
+        .then((d: { promos?: Promo[] }) => (d.promos || []).filter((x) => x.placement === "feed" || x.placement === "both"))
+        .catch(() => [] as Promo[]),
+    ]).then(([bought, promos]: [FeedAd[], Promo[]]) => {
+      setAds([...bought, ...promos.map((x) => ({ id: x.id, title: x.title, body: x.body, cta_label: x.cta_label, cta_url: x.cta_url, tone: x.tone }))]);
+      // One view per company ad per load (the database keeps one per company per day).
+      for (const a of bought) api(`/ads/${a.id}/track`, { method: "POST", body: { kind: "view" } }).catch(() => {});
+    });
   }, []);
+  const adClick = (a: FeedAd) => () => {
+    if (a.company_id) api(`/ads/${a.id}/track`, { method: "POST", body: { kind: "click" } }).catch(() => {});
+  };
   // บริษัทที่ติดตาม: below the followed companies' posts, suggest posts from companies not followed yet
   // (same business type first) so the tab is never a dead end.
   useEffect(() => {
@@ -318,7 +314,10 @@ export function Feed({
                 onChange={(patch) => update(p.id, patch)}
                 onDelete={() => setPosts((list) => list?.filter((x) => x.id !== p.id) || null)}
               />
-              {ads.length > 0 && (i + 1) % AD_EVERY === 0 && <AdCard ad={ads[Math.floor(i / AD_EVERY) % ads.length]} />}
+              {ads.length > 0 && (i + 1) % AD_EVERY === 0 && (() => {
+                const a = ads[Math.floor(i / AD_EVERY) % ads.length];
+                return <AdCard ad={a} onClick={adClick(a)} />;
+              })()}
             </Fragment>
           ))
         ) : (
@@ -382,11 +381,19 @@ export function Feed({
             ))}
           </>
         )}
-        {posts && !shown.length && ads[0] && <AdCard ad={ads[0]} />}
+        {posts && !shown.length && ads[0] && <AdCard ad={ads[0]} onClick={adClick(ads[0])} />}
       </section>
 
       <aside className="li-right">
-        {ads.length > 0 && <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact />}
+        {ads.length > 0 && <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact onClick={adClick(ads[ads.length > 1 ? 1 : 0])} />}
+        <button className="card li-advertise" onClick={() => navigate("ads")}>
+          <Megaphone size={16} />
+          <span>
+            <b>ลงโฆษณาในเครือข่ายธุรกิจ</b>
+            <small>ให้บริษัทอื่นเห็นสินค้าและบริการของคุณ เริ่ม 30 เหรียญ</small>
+          </span>
+          <ChevronRight size={16} />
+        </button>
         <section className="card li-side">
           <div className="li-side-head">
             <h2>

@@ -66,6 +66,7 @@ import { AiWorkspace } from "./ai-workspace";
 import { LinePending } from "./line-review";
 import { LineHub } from "./line-hub";
 import { CoinBadge, CoinStore, Departments } from "./coins";
+import { AdStudio } from "./ads";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
 import { DepartmentMegaMenu, DEPT_KEY } from "./dept-menu";
@@ -86,7 +87,7 @@ import {
 const toolKeys = [
   "calendar", "chat", "projects", "dealers", "deals", "freelancers", "slips", "reports",
   "ai-inbox", "templates", "assistant", "integrations",
-  "departments", "company", "team", "store", "pricing", "admin",
+  "departments", "company", "team", "store", "ads", "pricing", "admin",
 ];
 // Shortcuts shown in the top bar; everything else lives under the แผนก menu.
 const primary: [string, string, LucideIcon][] = [
@@ -189,6 +190,11 @@ const extra: Record<
     label: "แผนกทั้งหมด",
     icon: "Grid2X2",
     description: "เลือกแผนกเพื่อเปิดระบบงานของแผนกนั้น",
+  },
+  ads: {
+    label: "ลงโฆษณา",
+    icon: "Megaphone",
+    description: "ซื้อการ์ดผู้สนับสนุนในหน้าเครือข่ายธุรกิจด้วยเหรียญ ให้บริษัทอื่นเห็นสินค้าและบริการของคุณ",
   },
   store: {
     label: "Module Store",
@@ -703,6 +709,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <Reports notify={notify} />
           ) : view === "store" ? (
             <CoinStore ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "ads" ? (
+            <AdStudio ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "tax" ? (
             <TaxReport navigate={navigate} />
           ) : view === "expiries" ? (
