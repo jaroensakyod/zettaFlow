@@ -10,7 +10,7 @@ import {
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
-import { deptThai, pageUrl, parseDecision } from "@/lib/line-message";
+import { deptThai, parseDecision } from "@/lib/line-message";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -144,15 +144,12 @@ export async function POST(req: Request) {
               );
               after(processNotifications);
             }
-          } else if (item.status === "approved") {
-            const url = pageUrl(item.target_kind);
-            await lineReply(event.replyToken, "รายการนี้อนุมัติแล้ว แก้ไขได้ในเว็บ" + (url ? ": " + url : ""));
-          } else if (item.status === "rejected") {
-            await lineReply(event.replyToken, "รายการนี้ไม่ได้รับอนุมัติแล้ว ถ้าต้องการขอใหม่ ส่งเป็นข้อความใหม่ในกลุ่มได้เลย");
           } else if (["review", "failed"].includes(item.status)) {
             await reread("[แก้ไข/เพิ่มเติม] " + message.text, event.replyToken || null);
           }
-          continue;
+          // A reply on the notice of an item already decided gets no bot answer; it is read like any new
+          // message below (small talk such as "ขอบคุณ" is skipped, a new request is filed as usual).
+          if (role === "approver" || ["review", "failed"].includes(item.status)) continue;
         }
       }
       if (message.type === "text" && userId) {
