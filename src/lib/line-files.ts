@@ -95,3 +95,50 @@ export function documentText(file: { mime: string; name: string; bytes: Buffer }
   return null;
 }
 export const isAudio = (mime: string) => mime.startsWith("audio/");
+
+/** Images up to this size are kept as sent (small screenshots, slips). */
+export const SHRINK_FROM_BYTES = 500_000;
+/** Longest side after shrinking: receipts and small print stay readable for people and the AI. */
+export const SHRINK_MAX_SIDE = 2000;
+
+/**
+ * Phone photos from LINE are stored as JPEG (quality 82, at most 2000 px) instead of the original, usually 60–75%
+ * smaller. JPEG rather than WebP because the slip QR reader (slip.ts decodeQr) reads only JPEG/PNG. A picture whose QR
+ * code reads before but not after is kept as sent, and so is anything sharp cannot process.
+ */
+export async function shrinkImage(bytes: Buffer, mime: string): Promise<{ bytes: Buffer; mime: string; shrunk: boolean }> {
+  const keep = { bytes, mime, shrunk: false };
+  // PNG = screenshots (bank slips, app screens): kept as sent so a QR code is never at risk. Camera photos are JPEG.
+  if (!["image/jpeg", "image/webp"].includes(mime) || bytes.length <= SHRINK_FROM_BYTES) return keep;
+  try {
+    const sharp = (await import("sharp")).default;
+    const out = await sharp(bytes, { failOn: "none" })
+      .rotate() // honour the phone's EXIF orientation before it is dropped
+      .resize({ width: SHRINK_MAX_SIDE, height: SHRINK_MAX_SIDE, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer();
+    if (out.length >= bytes.length) return keep;
+    const before = await quickQr(sharp, bytes);
+    if (before && (await quickQr(sharp, out)) !== before) return keep;
+    return { bytes: out, mime: "image/jpeg", shrunk: true };
+  } catch {
+    return keep;
+  }
+}
+
+/** QR text read at the size the stored copy will have (≤2000 px), so a code readable there survives the shrink. */
+async function quickQr(sharp: typeof import("sharp").default, bytes: Buffer): Promise<string | null> {
+  try {
+    const jsQR = (await import("jsqr")).default;
+    const { data, info } = await sharp(bytes, { failOn: "none" })
+      .rotate()
+      .resize({ width: SHRINK_MAX_SIDE, height: SHRINK_MAX_SIDE, fit: "inside", withoutEnlargement: true })
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    return jsQR(new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), info.width, info.height)?.data ?? null;
+  } catch {
+    return null;
+  }
+}

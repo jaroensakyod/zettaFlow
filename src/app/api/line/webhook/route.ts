@@ -11,7 +11,7 @@ import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
 import { decidedText, deptThai, groupRejection, parseDecision } from "@/lib/line-message";
-import { classifyLineFile, LINE_MAX_BYTES, VOICE_MAX_MS } from "@/lib/line-files";
+import { classifyLineFile, LINE_MAX_BYTES, shrinkImage, VOICE_MAX_MS } from "@/lib/line-files";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -302,20 +302,23 @@ export async function POST(req: Request) {
           await lineReply(event.replyToken, "⚠️ " + kind.error);
           continue;
         }
-        const mime = kind.mime;
+        // Phone photos are stored smaller (JPEG ≤2000 px); slips whose QR would no longer read stay as sent.
+        const stored =
+          kind.kind === "image" ? await shrinkImage(bytes, kind.mime) : { bytes, mime: kind.mime, shrunk: false };
+        const mime = stored.mime;
         attachmentId = randomUUID();
         const path = `${group.company_id}/${template.department}/${attachmentId}`;
         const { error } = await sb.storage
           .from("eliteflow-files")
-          .upload(path, bytes, { contentType: mime, upsert: false });
+          .upload(path, stored.bytes, { contentType: mime, upsert: false });
         dbError(error);
         const { error: e } = await sb.from("attachments").insert({
           id: attachmentId,
           company_id: group.company_id,
           department: template.department,
-          name: fileName,
+          name: stored.shrunk ? fileName.replace(/\.(png|webp|jpe?g)$/i, "") + ".jpg" : fileName,
           mime,
-          size,
+          size: stored.bytes.length,
           path,
         });
         dbError(e);
