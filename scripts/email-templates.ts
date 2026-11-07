@@ -35,7 +35,7 @@ export const templates: Record<string, { subject: string; body: string }> = {
     body: layout({
       title: "ตั้งรหัสผ่านใหม่",
       intro: "เราได้รับคำขอตั้งรหัสผ่านใหม่สำหรับบัญชี {{ .Email }} กดปุ่มด้านล่างเพื่อตั้งรหัสผ่านใหม่ ลิงก์นี้ใช้ได้ครั้งเดียวและหมดอายุภายใน 1 ชั่วโมง",
-      button: { label: "ตั้งรหัสผ่านใหม่", url: "{{ .ConfirmationURL }}" },
+      button: { label: "ตั้งรหัสผ่านใหม่", url: "{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery" },
       note: ignore,
     }),
   },
@@ -44,7 +44,7 @@ export const templates: Record<string, { subject: string; body: string }> = {
     body: layout({
       title: "ยืนยันอีเมลของคุณ",
       intro: "ขอบคุณที่สมัคร EliteFlow กดปุ่มด้านล่างเพื่อยืนยันอีเมล {{ .Email }} แล้วเข้าสู่ระบบเพื่อเริ่มสร้าง workspace ของบริษัทได้เลย",
-      button: { label: "ยืนยันอีเมล", url: "{{ .ConfirmationURL }}" },
+      button: { label: "ยืนยันอีเมล", url: "{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email" },
       note: "ถ้าคุณไม่ได้สมัคร EliteFlow ไม่ต้องทำอะไร บัญชีจะไม่ถูกเปิดใช้งาน",
     }),
   },
@@ -53,7 +53,7 @@ export const templates: Record<string, { subject: string; body: string }> = {
     body: layout({
       title: "คุณได้รับคำเชิญเข้าทีม",
       intro: "มีผู้เชิญอีเมล {{ .Email }} เข้าร่วม workspace บน EliteFlow กดปุ่มด้านล่างเพื่อตอบรับคำเชิญและตั้งค่าบัญชีของคุณ",
-      button: { label: "ตอบรับคำเชิญ", url: "{{ .ConfirmationURL }}" },
+      button: { label: "ตอบรับคำเชิญ", url: "{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite" },
       note: "ถ้าคุณไม่รู้จักผู้เชิญ ไม่ต้องทำอะไรกับอีเมลนี้",
     }),
   },

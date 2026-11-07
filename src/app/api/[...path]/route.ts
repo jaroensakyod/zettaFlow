@@ -201,6 +201,17 @@ async function handle(req: NextRequest) {
           message: "หากมีบัญชี ระบบจะส่งอีเมลตั้งรหัสผ่านใหม่",
         });
       }
+      // Email link opened on /auth/confirm: the person pressed the button, so mail scanners that only GET the
+      // link cannot use up the one-time token.
+      if (action === "verify") {
+        const { token_hash, type } = z
+          .object({ token_hash: z.string().min(10).max(500), type: z.enum(["recovery", "signup", "email", "invite", "magiclink", "email_change"]) })
+          .parse(input);
+        const { error } = await sb.auth.verifyOtp({ token_hash, type });
+        if (error) return response({ error: "ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ใหม่ได้เลย", expired: true }, 400);
+        await sb.rpc("accept_invitations");
+        return response({ next: type === "recovery" ? "/reset-password" : "/workspace/dashboard" });
+      }
       if (action === "password") {
         const password = z.string().min(7).max(200).parse(input.password);
         const { error } = await sb.auth.updateUser({ password });

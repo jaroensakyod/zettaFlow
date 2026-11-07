@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Layers,
@@ -255,9 +255,55 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     </div>
   );
 }
-export function ResetPassword() {
+/** Ask for a fresh reset link (used when a link expired or was already used). */
+function NewResetLink({ note }: { note: string }) {
   const [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="onboard-card"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          const r = await api("/auth", { method: "POST", body: { action: "reset", email: new FormData(e.currentTarget).get("email") } });
+          setMessage(r.message + " กดลิงก์จากอีเมลล่าสุดเท่านั้น");
+        } catch (err) {
+          setMessage((err as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <h1>ลิงก์ใช้ไม่ได้แล้ว</h1>
+      <p className="muted">{note}</p>
+      <label>
+        อีเมลของบัญชี
+        <input name="email" type="email" required autoComplete="email" />
+      </label>
+      <p role="status">{message}</p>
+      <button className="primary full" disabled={busy}>
+        ส่งลิงก์ตั้งรหัสผ่านใหม่
+      </button>
+      <a href="/workspace/dashboard">ไปหน้าเข้าสู่ระบบ</a>
+    </form>
+  );
+}
+const expiredNote =
+  "ลิงก์ตั้งรหัสผ่านหมดอายุหรือถูกใช้ไปแล้ว (ลิงก์ใช้ได้ครั้งเดียว ภายใน 1 ชั่วโมง และถ้ากดขอหลายครั้งจะใช้ได้เฉพาะอีเมลล่าสุด) กรอกอีเมลเพื่อรับลิงก์ใหม่";
+export function ResetPassword() {
+  const [message, setMessage] = useState(""),
+    [busy, setBusy] = useState(false),
+    [expired, setExpired] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(location.search).has("expired")) setExpired(true);
+  }, []);
+  if (expired)
+    return (
+      <div className="onboarding">
+        <NewResetLink note={expiredNote} />
+      </div>
+    );
   return (
     <div className="onboarding">
       <form
@@ -279,7 +325,10 @@ export function ResetPassword() {
             window.location.assign("/workspace/dashboard?password_changed=1");
             return;
           } catch (err) {
-            setMessage((err as Error).message);
+            const text = (err as Error).message;
+            // No recovery session (opened /reset-password directly or the session ended): ask for a new link.
+            if (/session|เข้าสู่ระบบ|JWT|401/i.test(text)) setExpired(true);
+            else setMessage(text);
           } finally {
             setBusy(false);
           }
@@ -301,6 +350,42 @@ export function ResetPassword() {
         </button>
         <a href="/">กลับไป EliteFlow</a>
       </form>
+    </div>
+  );
+}
+
+/** /auth/confirm?token_hash=…&type=…: the email link opens this page; the token is used only when the person presses the button. */
+export function ConfirmLink() {
+  const [busy, setBusy] = useState(false),
+    [failed, setFailed] = useState(""),
+    [type, setType] = useState("");
+  useEffect(() => {
+    setType(new URLSearchParams(location.search).get("type") || "");
+  }, []);
+  if (failed) return <div className="onboarding"><NewResetLink note={failed} /></div>;
+  return (
+    <div className="onboarding">
+      <div className="onboard-card">
+        <h1>{type === "recovery" ? "ตั้งรหัสผ่านใหม่" : "ยืนยันอีเมล"}</h1>
+        <p className="muted">กดปุ่มด้านล่างเพื่อดำเนินการต่อ</p>
+        <button
+          className="primary full"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            const q = new URLSearchParams(location.search);
+            try {
+              const r = await api("/auth", { method: "POST", body: { action: "verify", token_hash: q.get("token_hash"), type: q.get("type") } });
+              window.location.assign(r.next);
+            } catch (err) {
+              setFailed((err as Error).message === "ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ใหม่ได้เลย" ? expiredNote : (err as Error).message);
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "กำลังตรวจสอบ…" : type === "recovery" ? "ไปตั้งรหัสผ่านใหม่" : "ยืนยันอีเมล"}
+        </button>
+      </div>
     </div>
   );
 }
