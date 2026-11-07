@@ -77,10 +77,6 @@ export function AdStudio({ ctx, notify, navigate }: { ctx: Context; notify: (s: 
           <h2>ลงโฆษณาในเครือข่ายธุรกิจ</h2>
           <p>
             การ์ด “ผู้สนับสนุน” จะแสดงในหน้าเครือข่ายธุรกิจของบริษัทอื่น ทั้งในฟีดและแถบด้านขวา บริษัทประเภทธุรกิจที่คุณเลือกจะเห็นก่อน
-            <a href="/feed/preview" target="_blank" rel="noreferrer">
-              {" "}
-              ดูตัวอย่างหน้าเครือข่าย →
-            </a>
           </p>
         </div>
         <span className="ads-balance">

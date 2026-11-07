@@ -172,7 +172,8 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
     // Sample mode: "auto" shows the mockup while the company has no groups; the header button forces it on / off.
     [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto");
   const sampleData = useMemo(() => lineSample(), []);
-  const sample = sampleMode === "on" || (sampleMode === "auto" && !!data && !data.groups.length);
+// Samples / mockups exist only in the public demo; a real company always sees its own data (or an empty state).
+  const sample = ctx.demo && (sampleMode === "on" || (sampleMode === "auto" && !!data && !data.groups.length));
   const view = sample ? sampleData : data;
   const reload = useCallback(() => setTick((n) => n + 1), []);
 
@@ -253,7 +254,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
   /** Sample rows never reach the API: say so instead of opening / editing / unlinking. */
   const sampleOnly = () => notify("นี่คือข้อมูลตัวอย่าง — เชื่อมต่อกลุ่ม LINE จริงเพื่อจัดการกลุ่ม");
   const openRow = (id: string, editing: boolean) => (sample ? sampleOnly() : setDetail({ id, editing }));
-  const sampleToggle = (
+  const sampleToggle = ctx.demo && (
     <button
       className={"lp-sample-toggle" + (sample ? " on" : "")}
       aria-pressed={sample}

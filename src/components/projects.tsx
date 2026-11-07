@@ -321,7 +321,8 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
   useEffect(() => {
     load();
   }, [load]);
-  const showing = !!data && (preview ?? !data.projects.length);
+  // Sample projects only in the public demo; a real company sees its own projects or the empty state.
+  const showing = ctx.demo && !!data && (preview ?? !data.projects.length);
   const shown = showing ? sampleOverview : data;
   const open = (id: string) => router.push("/workspace/projects?id=" + id);
   const writable = canEdit(ctx);
@@ -478,7 +479,7 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
               </button>
             </span>
           )}
-          <button
+          {ctx.demo && <button
             className={"pj-tool pj-sample-toggle" + (showing ? " on" : "")}
             aria-pressed={showing}
             onClick={() => setPreview(!showing)}
@@ -486,7 +487,7 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
           >
             <Sparkles size={15} />
             {showing ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
-          </button>
+          </button>}
           {writable && (
             <button className="pj-primary" onClick={() => setEditing("new")} disabled={showing} title={showing ? "ปิดตัวอย่างก่อน แล้วจึงเพิ่มโครงการจริง" : undefined}>
               <Plus size={16} />

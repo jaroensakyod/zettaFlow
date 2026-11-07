@@ -103,7 +103,8 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
     } catch {}
   };
   const realEmpty = !!data && financeIsEmpty(data),
-    sample = sampleMode === "on" || (sampleMode === "auto" && realEmpty),
+    // Samples only in the public demo; a real company sees its own figures or empty states.
+    sample = ctx.demo && (sampleMode === "on" || (sampleMode === "auto" && realEmpty)),
     sampleData = useMemo(() => financeSample(year, data?.today), [year, data?.today]),
     view = sample ? sampleData : data;
   const saved = (msg: string) => {
@@ -157,7 +158,7 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
             <CalendarDays size={15} />
             {thaiDate(data?.today || new Date().toISOString().slice(0, 10), { month: "short", year: "numeric" })}
           </span>
-          <button
+          {ctx.demo && <button
             className={"fc-sample-toggle" + (sample ? " on" : "")}
             aria-pressed={sample}
             onClick={() => setSampleMode(sample ? "off" : "on")}
@@ -165,7 +166,7 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
           >
             {sample ? <EyeOff size={15} /> : <Eye size={15} />}
             {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
-          </button>
+          </button>}
           <button className="fc-icon-btn fc-refresh" aria-label="รีเฟรชข้อมูล" onClick={() => load(year).then(() => notify("อัปเดตข้อมูลการเงินแล้ว"))}>
             <RefreshCw size={16} />
           </button>

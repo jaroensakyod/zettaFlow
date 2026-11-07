@@ -131,7 +131,8 @@ function B2bChat({
     input = useRef<HTMLTextAreaElement>(null),
     viewer = ctx.member.role === "viewer";
   // Samples while the company has no real conversation yet, and always in the demo.
-  const sampleMode = ctx.demo || (threads !== null && threads.length === 0),
+  // Sample conversations only in the public demo; a real company sees its own (possibly empty) inbox.
+  const sampleMode = ctx.demo,
     list: B2bThread[] | null = sampleMode ? samples : threads;
   const loadThreads = useCallback(async () => {
     const list: B2bThread[] = await api("/b2b");

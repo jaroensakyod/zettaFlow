@@ -89,6 +89,8 @@ export type FeedSuggestion = {
   /** Why it is suggested, e.g. ธุรกิจประเภทเดียวกับคุณ. */
   reason?: string;
 };
+/** A company on the network, as listed in "บริษัทในเครือข่าย". */
+export type NetworkCompany = FeedSuggestion & { about: string; joined: string; following: boolean };
 export type Member = {
   id: string;
   company_id: string;

@@ -30,10 +30,11 @@ import {
   MessageCircle,
   CircleCheck,
   Info,
+  Building2,
 } from "lucide-react";
 import { businessTypeGroups, industryMatches } from "@/lib/catalog";
 import { FEED_MAX_IMAGES } from "@/lib/types";
-import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedSuggestion } from "@/lib/types";
+import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedSuggestion, NetworkCompany } from "@/lib/types";
 import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
@@ -182,6 +183,7 @@ export function Feed({
     [composing, setComposing] = useState<FeedKind | null>(null),
     [alerts, setAlerts] = useState<FeedAlert[]>([]),
     [chatUnread, setChatUnread] = useState(0),
+    [showAll, setShowAll] = useState(false),
     [promos, setPromos] = useState<Promo[]>([]),
     [alertsOpen, setAlertsOpen] = useState<AlertGroup | null>(null),
     [seen, setSeen] = useState<Record<string, string>>({}),
@@ -301,7 +303,8 @@ export function Feed({
         (!q || [p.company.name, p.meta.title || "", p.body].join(" ").toLowerCase().includes(q)),
     ),
     writer = ctx.member.role !== "viewer",
-    samples = !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? samplePosts.filter((x) => tab === "all" || x.kind === tab) : [];
+    // Sample posts, ads and suggestions only in the public demo; real companies see the real network only.
+    samples = ctx.demo && !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? samplePosts.filter((x) => tab === "all" || x.kind === tab) : [];
   return (
     <div className="li">
       <aside className="li-left">
@@ -422,7 +425,7 @@ export function Feed({
               })()}
               {/* While the network is small, a labelled sample post follows each real one. */}
               {samples[i] && <PostMock p={samples[i]} sample />}
-              {samples[i] && i === 1 && !ads.length && (
+              {samples[i] && i === 1 && !ads.length && ctx.demo && (
                 <div className="sample-wrap">
                   <span className="sample-badge">ตัวอย่างโฆษณา</span>
                   <AdCard ad={sampleAds[0]} preview />
@@ -432,7 +435,7 @@ export function Feed({
           ))}
           {!more && samples.slice(shown.length).map((x) => <PostMock key={x.title} p={x} sample />)}
           </>
-        ) : !posts.length && !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? (
+        ) : ctx.demo && !posts.length && !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? (
           <SampleFeed kind={tab} AdCard={(x) => <AdCard {...x} />} />
         ) : (
           <section className="card">
@@ -457,6 +460,10 @@ export function Feed({
               }
             />
           </section>
+        )}
+        {/* No posts yet on a real network: introduce the real companies already here. */}
+        {!ctx.demo && posts && !posts.length && !q && !industry && ["all", "post", "job", "partner"].includes(tab) && (
+          <NetworkCompanies ctx={ctx} notify={notify} navigate={navigate} inline />
         )}
         {posts && more && (
           <button
@@ -508,7 +515,7 @@ export function Feed({
         {ads.length > 0 ? (
           <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact onClick={adClick(ads[ads.length > 1 ? 1 : 0])} />
         ) : (
-          posts && (
+          posts && ctx.demo && (
             <div className="sample-wrap">
               <span className="sample-badge">ตัวอย่างโฆษณา</span>
               <AdCard ad={sampleAds[1]} compact preview />
@@ -555,6 +562,7 @@ export function Feed({
           <div className="li-side-head">
             <h2>บริษัทแนะนำให้ติดตาม</h2>
           </div>
+          {showAll && <NetworkCompanies ctx={ctx} notify={notify} navigate={navigate} onClose={() => setShowAll(false)} />}
           {suggest.length ? (
             suggest.map((c) => (
               <div className="li-suggest" key={c.id}>
@@ -578,7 +586,7 @@ export function Feed({
             ))
           ) : (
             <div className="li-side-empty">
-              {posts && (
+              {posts && ctx.demo && (
                 <div className="sample-suggest">
                   <span className="sample-badge">ตัวอย่าง</span>
                   {sampleSuggest.slice(0, 2).map((c) => (
@@ -605,6 +613,10 @@ export function Feed({
               </button>
             </div>
           )}
+          <button className="li-side-more" onClick={() => setShowAll(true)}>
+            ดูบริษัททั้งหมดในเครือข่าย
+            <ChevronRight size={15} />
+          </button>
         </section>
         <p className="li-footer">EliteFlow · เครือข่ายธุรกิจสำหรับบริษัทไทย</p>
       </aside>
@@ -1165,5 +1177,104 @@ function LineButton({ href }: { href: string }) {
       ติดต่อเราเลย
       <ChevronRight size={16} />
     </a>
+  );
+}
+
+/**
+ * Every real company on EliteFlow (public card only): in a modal from "ดูบริษัททั้งหมดในเครือข่าย", or inline under an
+ * empty feed so a new network still shows who is here. Follow and B2B chat from each row.
+ */
+function NetworkCompanies({
+  ctx,
+  notify,
+  navigate,
+  inline = false,
+  onClose,
+}: {
+  ctx: Context;
+  notify: (s: string) => void;
+  navigate: (v: string) => void;
+  inline?: boolean;
+  onClose?: () => void;
+}) {
+  const [q, setQ] = useState(""),
+    [rows, setRows] = useState<NetworkCompany[] | null>(null),
+    [error, setError] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => {
+      api("/feed/companies" + (q.trim() ? "?q=" + encodeURIComponent(q.trim()) : ""))
+        .then((r: NetworkCompany[]) => {
+          setRows(r);
+          setError("");
+        })
+        .catch((e) => setError((e as Error).message));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  const follow = async (id: string) => {
+    try {
+      const { following } = await api("/feed/follow/" + id, { method: "POST" });
+      setRows((list) => list?.map((c) => (c.id === id ? { ...c, following } : c)) || null);
+      notify(following ? "ติดตามบริษัทแล้ว" : "เลิกติดตามแล้ว");
+    } catch (e) {
+      notify((e as Error).message);
+    }
+  };
+  const list = (
+    <div className="li-network">
+      <label className="li-search li-network-search">
+        <Search size={15} />
+        <span className="sr-only">ค้นหาบริษัท</span>
+        <input placeholder="ค้นหาชื่อบริษัท ประเภทธุรกิจ หรือจังหวัด" value={q} onChange={(e) => setQ(e.target.value)} />
+      </label>
+      {error && <p className="form-error">{error}</p>}
+      {!rows ? (
+        <Loading />
+      ) : rows.length ? (
+        <div className="li-network-grid">
+          {(inline ? rows.slice(0, 9) : rows).map((c) => (
+            <article className="li-network-card" key={c.id}>
+              <CompanyLogo id={c.id} name={c.name} logo={c.has_logo} size={48} />
+              <div>
+                <strong>{c.name}</strong>
+                <small>{[c.industry || "บริษัทในเครือข่าย", c.province].filter(Boolean).join(" · ")}</small>
+                {c.about && <p>{c.about}</p>}
+                <em>{c.posts ? `${c.posts} อัปเดต` : "เพิ่งเข้าร่วมเครือข่าย"}</em>
+              </div>
+              <span className="li-suggest-actions">
+                <button className={"li-follow-pill" + (c.following ? " on" : "")} onClick={() => follow(c.id)} disabled={ctx.member.role === "viewer"}>
+                  {c.following ? <Check size={14} /> : <Plus size={14} />}
+                  {c.following ? "ติดตามแล้ว" : "ติดตาม"}
+                </button>
+                <button className="li-follow-pill" onClick={() => navigate("chat?with=" + c.id)}>
+                  <MessageCircle size={14} />
+                  ข้อความ
+                </button>
+              </span>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <Empty
+          title={q ? "ไม่พบบริษัทที่ค้นหา" : "ยังไม่มีบริษัทอื่นในเครือข่าย"}
+          description={q ? "ลองค้นด้วยคำอื่น" : "ชวนคู่ค้าของคุณมาใช้ EliteFlow แล้วจะเห็นกันในเครือข่ายธุรกิจ"}
+        />
+      )}
+    </div>
+  );
+  if (inline)
+    return (
+      <section className="card li-network-inline" aria-label="บริษัทในเครือข่าย">
+        <h2>
+          <Building2 size={18} /> บริษัทในเครือข่าย EliteFlow
+        </h2>
+        <p className="muted">ยังไม่มีอัปเดตในเครือข่าย ทำความรู้จักบริษัทที่เข้าร่วมแล้ว กดติดตามเพื่อเห็นอัปเดตของเขา หรือทักคุยได้เลย</p>
+        {list}
+      </section>
+    );
+  return (
+    <Modal title="บริษัทในเครือข่าย EliteFlow" onClose={onClose || (() => {})}>
+      {list}
+    </Modal>
   );
 }

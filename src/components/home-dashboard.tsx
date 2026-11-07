@@ -181,7 +181,8 @@ export function HomeDashboard({
   const today = todayIso(),
     tomorrow = addDays(today, 1);
   const realEmpty = !!home && !!extra && homeIsEmpty(home, extra),
-    sample = sampleMode === "on" || (sampleMode === "auto" && realEmpty),
+    // Samples only in the public demo; a real company sees its own data or empty states.
+    sample = ctx.demo && (sampleMode === "on" || (sampleMode === "auto" && realEmpty)),
     demo = useMemo(() => homeSample(today), [today]);
   // Never mix: in sample mode every card reads the sample set only.
   const vHome = sample ? demo.home : home,
@@ -240,7 +241,7 @@ export function HomeDashboard({
           today={today}
           avatar={sample ? null : extra?.avatar || null}
           action={
-            <button className={"hd-sample-toggle" + (sample ? " on" : "")} aria-pressed={sample} onClick={() => setSampleMode(sample ? "off" : "on")}>
+            ctx.demo && <button className={"hd-sample-toggle" + (sample ? " on" : "")} aria-pressed={sample} onClick={() => setSampleMode(sample ? "off" : "on")}>
               {sample ? <EyeOff size={14} /> : <Eye size={14} />}
               {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
             </button>

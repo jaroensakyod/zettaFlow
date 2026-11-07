@@ -85,7 +85,8 @@ export function EmployeesPage({
   const writable = ctx.member.role !== "viewer" && (ctx.member.role === "owner" || ctx.member.departments.includes("HR"));
   const today = bangkokToday();
   const mock = useMemo(() => employeesSample(today), [today]);
-  const sample = sampleMode === "on" || (sampleMode === "auto" && !!rows && !rows.length && !error);
+// Samples / mockups exist only in the public demo; a real company always sees its own data (or an empty state).
+  const sample = ctx.demo && (sampleMode === "on" || (sampleMode === "auto" && !!rows && !rows.length && !error));
   const viewRel: Related = sample ? { attendance: mock.attendance, leaves: mock.leaves, kpi: mock.kpi } : rel;
   const portraits = sample ? mock.portraits : noRel;
   const selId = sample ? sampleSel || mock.rows[0].id : selectedId;
@@ -226,13 +227,15 @@ export function EmployeesPage({
             <CalendarDays size={15} />
             {new Date().toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" })}
           </span>
-          <button
-            className={"secondary ep-sample-toggle" + (sample ? " on" : "")}
-            aria-pressed={sample}
-            onClick={() => setSampleMode(sample ? "off" : "on")}
-          >
-            {sample ? <EyeOff size={15} /> : <Eye size={15} />} {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
-          </button>
+          {ctx.demo && (
+            <button
+              className={"secondary ep-sample-toggle" + (sample ? " on" : "")}
+              aria-pressed={sample}
+              onClick={() => setSampleMode(sample ? "off" : "on")}
+            >
+              {sample ? <EyeOff size={15} /> : <Eye size={15} />} {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
+            </button>
+          )}
           <button
             className="icon-button refresh-button"
             aria-label="รีเฟรช"

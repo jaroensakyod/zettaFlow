@@ -38,10 +38,6 @@ export function DocPrintButtons({ kind, record }: { kind: string; record: Pick<E
           </a>
         );
       })}
-      <a className="doc-sample-link" href={sampleDocUrl(buttons[buttons.length - 1].doc)} target="_blank" rel="noopener">
-        <Eye size={14} aria-hidden />
-        ดูตัวอย่างเอกสาร
-      </a>
     </div>
   );
 }

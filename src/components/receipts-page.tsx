@@ -73,7 +73,8 @@ export function ReceiptsPage({ ctx, notify, navigate }: { ctx: Context; notify: 
 
   const today = data?.today || new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
   const real = useMemo(() => (data?.rows || []).filter((r) => r.kind === tab), [data, tab]);
-  const sample = !!data && real.length === 0;
+  // Sample rows only in the public demo; a real company sees its own documents or an empty list.
+  const sample = ctx.demo && !!data && real.length === 0;
   const all = sample ? sampleRows(tab, today) : real;
   const q = search.trim().toLowerCase();
   const rows = all.filter(
@@ -117,9 +118,11 @@ export function ReceiptsPage({ ctx, notify, navigate }: { ctx: Context; notify: 
           <button type="button" className="secondary" onClick={() => navigate("payments")}>
             <Wallet size={15} aria-hidden /> การรับชำระเงิน
           </button>
-          <a className="rc-sample-link" href={sampleUrl(tab)} target="_blank" rel="noopener">
-            <Eye size={15} aria-hidden /> ดูตัวอย่างเอกสาร
-          </a>
+          {ctx.demo && (
+            <a className="rc-sample-link" href={sampleUrl(tab)} target="_blank" rel="noopener">
+              <Eye size={15} aria-hidden /> ดูตัวอย่างเอกสาร
+            </a>
+          )}
         </div>
       </div>
 

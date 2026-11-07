@@ -10,6 +10,8 @@ export function SampleDataCard({ ctx, notify, changed }: { ctx: Context; notify:
   const loaded = Array.isArray(ctx.company.settings.sample_ids) && (ctx.company.settings.sample_ids as unknown[]).length > 0;
   const [busy, setBusy] = useState(""),
     [error, setError] = useState("");
+  // Real companies no longer get sample data offered; the card stays only to remove sample data loaded earlier.
+  if (!loaded && !ctx.demo) return null;
   if (ctx.demo || ctx.member.role !== "owner") return null;
   const run = async (action: "load" | "clear") => {
     if (action === "load" && !confirm("ใส่ข้อมูลบริษัทตัวอย่าง (ลูกค้า พนักงาน ยอดขาย 4 เดือน ฯลฯ ประมาณ 600 รายการ) ลงในบริษัทนี้?")) return;

@@ -7,7 +7,7 @@ import { supabaseServer } from "./supabase/server";
 import { demoRead, demoMutate, type DemoState } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
-import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedProposal, FeedSuggestion } from "./types";
+import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedProposal, FeedSuggestion, NetworkCompany } from "./types";
 import { FEED_MAX_IMAGES } from "./types";
 
 const BUCKET = "eliteflow-posts";
@@ -163,6 +163,31 @@ export async function feedSuggest(ctx: Context): Promise<FeedSuggestion[]> {
   const { data, error } = await sb.rpc("feed_suggest", { p_company: ctx.company.id });
   dbError(error);
   return (data || []) as FeedSuggestion[];
+}
+
+/** Every company on the network (public card only), searchable; newest and most active first. */
+export async function feedCompanies(ctx: Context, search: string | null): Promise<NetworkCompany[]> {
+  const q = z.string().trim().max(80).catch("").parse(search || "");
+  if (ctx.demo) {
+    const s = await demoState();
+    return (s.feedCompanies || [])
+      .filter((c) => !q || [c.name, c.industry, c.province].join(" ").toLowerCase().includes(q.toLowerCase()))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        industry: c.industry,
+        province: c.province,
+        has_logo: false,
+        about: "",
+        joined: new Date().toISOString(),
+        posts: (s.feedPosts || []).filter((p) => p.company_id === c.id && !p.archived_at).length,
+        following: (s.feedFollows || []).includes(c.id),
+      }));
+  }
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("feed_companies", { p_company: ctx.company.id, p_search: q || null, p_limit: 120 });
+  dbError(error);
+  return (data || []) as NetworkCompany[];
 }
 
 // ---------- Writes ----------

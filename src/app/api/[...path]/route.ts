@@ -65,6 +65,7 @@ import {
   feedProposals,
   feedPropose,
   feedProposalStatus,
+  feedCompanies,
   feedView,
   feedShare,
   feedSave,
@@ -373,6 +374,7 @@ async function handle(req: NextRequest) {
         });
       }
       if (path[1] === "suggest") return response(await feedSuggest(ctx));
+      if (path[1] === "companies") return response(await feedCompanies(ctx, req.nextUrl.searchParams.get("q")));
       if (path[1] === "alerts") return response(await feedAlerts(ctx));
       if (path[1] === "views" && method === "POST") {
         await feedView(ctx, await body(req));
