@@ -63,6 +63,7 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "งบการเงิน & รายงาน", view: "reports?kind=expenses", icon: "ChartNoAxesCombined" },
     ],
     sidebar: [
+      { label: "Financial Center", view: "finance", icon: "Landmark" },
       {
         label: "ค่าใช้จ่าย", view: "expenses", icon: "FileSpreadsheet",
         children: [
@@ -77,6 +78,8 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "ใบเสร็จรับเงิน", view: "bills", icon: "ScrollText" },
       { label: "ภาษี & ภ.ง.ด.", view: "tax", icon: "BadgeDollarSign" },
       { label: "งบการเงิน", view: "reports?kind=payments", icon: "ChartColumn" },
+      { label: "ปิดงบประจำปี", view: "finance?tab=closing", icon: "ClipboardCheck" },
+      { label: "วางแผนงบประมาณ", view: "finance?tab=plan", icon: "Target" },
       { label: "ตั้งค่า", view: "company", icon: "Settings" },
     ],
     tagline: ["จัดการการเงิน", "ได้อย่างเป็นระบบ โปร่งใส ตรวจสอบได้"],
@@ -91,6 +94,15 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "การลา & อนุมัติ", view: "leaves", icon: "CalendarOff" },
       { label: "ประเมินผลงาน (KPI/OKR)", view: "kpi", icon: "Gauge" },
     ],
+    sidebar: [
+      { label: "ข้อมูลพนักงาน", view: "employees", icon: "UserRound" },
+      { label: "สรรหา & รับพนักงาน", view: "recruitment", icon: "UserPlus" },
+      { label: "เติบโต & สวัสดิการ", view: "payroll", icon: "Wallet" },
+      { label: "เวลาเข้า-ออกงาน", view: "attendance", icon: "Clock" },
+      { label: "การลา & อนุมัติ", view: "leaves", icon: "CalendarOff" },
+      { label: "ประเมินผลงาน (KPI/OKR)", view: "kpi", icon: "Gauge" },
+    ],
+    tagline: ["บุคคล", "บริหารบุคลากรและองค์กร"],
   },
   {
     id: "event", title: "Event", en: "อีเวนต์", subtitle: "วางแผนและจัดการงานอีเวนต์", icon: "CalendarDays", tone: "purple", overview: "events",

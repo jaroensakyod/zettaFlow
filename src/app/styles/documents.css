@@ -1,1 +1,22 @@
 /* Design update (Canva pages 6-17): documents */
+
+/* Print buttons on quotation / invoice / payment records (src/components/doc-print.tsx).
+   The A4 pages themselves are standalone HTML with their own inline CSS (src/lib/documents.ts). */
+.doc-print { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 2px; }
+.doc-print-btn {
+  --doc-c: #2563eb;
+  --doc-soft: #eef4ff;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--doc-c) 35%, transparent);
+  background: var(--doc-soft); color: var(--doc-c);
+  font-weight: 600; font-size: 13.5px; line-height: 1.2; text-decoration: none;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.doc-print-btn:hover { background: var(--doc-c); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--doc-c) 30%, transparent); }
+.doc-print-btn:focus-visible { outline: 2px solid var(--doc-c); outline-offset: 2px; }
+.doc-print-btn.doc-quotation { --doc-c: #2563eb; --doc-soft: #eef4ff; }
+.doc-print-btn.doc-invoice { --doc-c: #e8366a; --doc-soft: #fff0f4; }
+.doc-print-btn.doc-tax_invoice { --doc-c: #e0700f; --doc-soft: #fff5ec; }
+.doc-print-btn.doc-receipt { --doc-c: #1b9443; --doc-soft: #edf9f1; }
+@media print { .doc-print { display: none; } }

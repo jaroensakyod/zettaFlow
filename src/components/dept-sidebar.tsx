@@ -95,6 +95,8 @@ export function DepartmentSidebar({
       <div className="dept-side-card">
         {dept.id === "accounting" ? (
           <Illustration />
+        ) : dept.id === "hr" ? (
+          <HrIllustration />
         ) : (
           <span className="dept-side-badge" aria-hidden="true">
             <i />
@@ -153,6 +155,32 @@ function Illustration() {
       ))}
       <ellipse cx={54} cy={108} rx="13" ry="4.5" fill="#e09a1c" />
       <ellipse cx={54} cy={105} rx="13" ry="4.5" fill="url(#ds-coin)" />
+    </svg>
+  );
+}
+
+// ID badge on a lanyard (บุคคล).
+function HrIllustration() {
+  return (
+    <svg className="dept-side-art" viewBox="0 0 180 120" aria-hidden="true">
+      <defs>
+        <linearGradient id="ds-badge" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#a58bf0" />
+          <stop offset="1" stopColor="#6a48d6" />
+        </linearGradient>
+      </defs>
+      <path d="M78 4c-6 14-6 22 4 30M102 4c6 14 6 22-4 30" fill="none" stroke="#b9a6f4" strokeWidth="5" strokeLinecap="round" />
+      <rect x="82" y="28" width="16" height="10" rx="3" fill="#8f73e8" />
+      <rect x="56" y="34" width="68" height="80" rx="12" fill="url(#ds-badge)" transform="rotate(-6 90 74)" />
+      <g transform="rotate(-6 90 74)">
+        <rect x="64" y="42" width="52" height="64" rx="8" fill="#fff" />
+        <circle cx="90" cy="64" r="11" fill="#c9b8f6" />
+        <path d="M74 90a16 12 0 0 1 32 0z" fill="#c9b8f6" />
+        <rect x="74" y="95" width="32" height="4" rx="2" fill="#e4dcfb" />
+      </g>
+      <rect x="128" y="74" width="30" height="22" rx="5" fill="#ece7fd" transform="rotate(8 143 85)" />
+      <circle cx="34" cy="40" r="3" fill="#ffd56a" />
+      <path d="M40 78l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" fill="#c9b8f6" />
     </svg>
   );
 }

@@ -64,8 +64,10 @@ import { SubscriptionPanel, SlipChecker } from "./platform";
 import { SupportChat, AdminConsole } from "./engage";
 import { AiWorkspace } from "./ai-workspace";
 import { LinePending } from "./line-review";
-import { LineHub } from "./line-hub";
-import { CoinBadge, CoinStore, Departments } from "./coins";
+import { LineIntegrationPage } from "./line-integration";
+import { CoinBadge } from "./coins";
+import { DepartmentsPage, AppShop } from "./app-shop";
+import { ThemeApplier } from "./theme-apply";
 import { AdStudio } from "./ads";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
@@ -76,8 +78,11 @@ import { ExpenseForm } from "./expense-form";
 import { departmentOf } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
-import { CompanySettings, Team, Integrations } from "./settings";
+import { CompanySettings, Team } from "./settings";
 import { ChatHub } from "./b2b-chat";
+import { EmployeesPage } from "./employees-page";
+import { FinanceCenter } from "./finance-center";
+import { ProjectsPage } from "./projects";
 import {
   Calendar,
   Reports,
@@ -130,6 +135,11 @@ const extra: Record<
     label: "ปฏิทินธุรกิจ",
     icon: "CalendarDays",
     description: "กำหนดการโครงการ อีเวนต์ และวันครบกำหนด",
+  },
+  finance: {
+    label: "Financial Center",
+    icon: "Landmark",
+    description: "ภาพรวมการเงินองค์กร งบประมาณ เป้าหมาย และปิดงบประจำปี",
   },
   chat: {
     label: "แชท",
@@ -187,7 +197,7 @@ const extra: Record<
     description: "โอนสินค้าจากคลังกลางไปโปรเจกต์ และดูยอดคงเหลือแต่ละโปรเจกต์",
   },
   departments: {
-    label: "แผนกทั้งหมด",
+    label: "แผนก (Departments)",
     icon: "Grid2X2",
     description: "เลือกแผนกเพื่อเปิดระบบงานของแผนกนั้น",
   },
@@ -197,9 +207,9 @@ const extra: Record<
     description: "ซื้อการ์ดผู้สนับสนุนในหน้าเครือข่ายธุรกิจด้วยเหรียญ ให้บริษัทอื่นเห็นสินค้าและบริการของคุณ",
   },
   store: {
-    label: "Module Store",
+    label: "App Shop",
     icon: "Store",
-    description: "ซื้อระบบของแต่ละแผนกด้วยเหรียญ ซื้อครั้งเดียวใช้ได้ตลอด",
+    description: "ศูนย์รวมระบบเสริม AI Characters ธีม และฟังก์ชันเฉพาะทาง ซื้อด้วยเหรียญ",
   },
   pricing: {
     label: "แพ็กเกจบริการ",
@@ -551,6 +561,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             </button>
           </nav>
           <div className="topnav-actions">
+            <ThemeApplier />
             <CoinBadge ctx={ctx} />
             <button
               className="icon-button"
@@ -619,7 +630,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
         <main className="main" key={ctx.company.id}>
-          {!["feed", "jobs", "dashboard", "company", "expense-new"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations"].includes(view) && (
           <div className="page-heading">
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
@@ -670,7 +681,23 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               <h2 className="acc-table-title">ตารางค่าใช้จ่ายทั้งหมด</h2>
               <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} refresh={lastSync.getTime()} />
             </>
-          ) : view === "customers" || view === "suppliers" || view === "employees" ? (
+          ) : view === "projects" ? (
+            <>
+              {!searchParams.get("id") && <LinePending key={"line:" + view} kind={view} ctx={ctx} notify={notify} changed={load} />}
+              <ProjectsPage ctx={ctx} notify={notify} changed={load} navigate={navigate} />
+            </>
+          ) : view === "finance" ? (
+            <FinanceCenter key={fullView} ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "employees" ? (
+            <EmployeesPage
+              key={view}
+              ctx={ctx}
+              notify={notify}
+              changed={load}
+              navigate={navigate}
+              pending={<LinePending key="line:employees" kind="employees" ctx={ctx} notify={notify} changed={load} />}
+            />
+          ) : view === "customers" || view === "suppliers" ? (
             <>
               <LinePending key={"line:" + view} kind={view} ctx={ctx} notify={notify} changed={load} />
               <Directory key={view} kind={view} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
@@ -697,10 +724,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "team" ? (
             <Team ctx={ctx} notify={notify} />
           ) : view === "integrations" ? (
-            <>
-              <LineHub ctx={ctx} notify={notify} />
-              <Integrations ctx={ctx} notify={notify} />
-            </>
+            <LineIntegrationPage ctx={ctx} notify={notify} />
           ) : view === "chat" ? (
             <ChatHub ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "calendar" ? (
@@ -708,7 +732,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "reports" ? (
             <Reports notify={notify} />
           ) : view === "store" ? (
-            <CoinStore ctx={ctx} notify={notify} navigate={navigate} />
+            <AppShop ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "ads" ? (
             <AdStudio ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "tax" ? (
@@ -718,7 +742,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "transfers" ? (
             <TransfersPage ctx={ctx} notify={notify} changed={load} />
           ) : view === "departments" ? (
-            <Departments ctx={ctx} navigate={navigate} />
+            <DepartmentsPage ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "pricing" ? (
             <div className="elite-zone">
               <SubscriptionPanel ctx={ctx} notify={notify} />

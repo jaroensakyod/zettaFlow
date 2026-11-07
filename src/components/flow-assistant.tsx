@@ -9,6 +9,8 @@ import { api } from "./shared";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
 import { FlowMascot, type FlowAct, type FlowMood } from "./mascot";
+import { useActiveCharacter } from "./theme-apply";
+import { CharacterArt } from "./app-shop";
 
 // Browser speech APIs (Chrome / Edge / Safari). Minimal typing: not every TS DOM lib ships these.
 type Recognition = {
@@ -54,6 +56,7 @@ export function FlowAssistant({
   navigate: (v: string) => void;
   notify: (s: string) => void;
 }) {
+  const character = useActiveCharacter();
   const [open, setOpen] = useState(false),
     // Read lazily: the panel starts closed, so this never changes the server-rendered markup.
     [messages, setMessages] = useState<Msg[]>(load),
@@ -326,7 +329,11 @@ export function FlowAssistant({
                 if (el) charRef.current = el;
               }}
             >
-              <FlowMascot size={62} label="น้องโฟลว์" animated mood={mood} act={mood === "idle" ? act : ""} />
+              {character === "nong_flow" ? (
+                <FlowMascot size={62} label="น้องโฟลว์" animated mood={mood} act={mood === "idle" ? act : ""} />
+              ) : (
+                <CharacterArt id={character} size={62} framed={false} />
+              )}
             </span>
             <div>
               <strong>น้องโฟลว์</strong>

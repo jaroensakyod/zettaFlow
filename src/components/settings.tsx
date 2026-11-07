@@ -54,7 +54,11 @@ const companyTabs = [
 const tabFields: Record<string, string[]> = {
   address: ["address", "province", "zip", "shipAddress"],
   social: ["phone", "email", "website", "line", "facebook"],
-  docs: ["registration", "legal", "bank", "bankAccount"],
+  docs: [
+    "registration", "legal", "branch", "bank", "bankAccount", "bankAccountName", "bankAccountType", "promptPay",
+    "signerName", "signerPosition", "approverName", "approverPosition",
+    "docConditions", "quotationNotes", "invoiceNotes", "receiptNotes",
+  ],
 };
 const placeholders: Record<string, string> = {
   name: "เช่น บริษัท ตัวอย่าง จำกัด",

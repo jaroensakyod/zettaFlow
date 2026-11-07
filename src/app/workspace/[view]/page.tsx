@@ -6,6 +6,7 @@ export const metadata = {
   icons: { icon: "/brand/eliteflow-icon.png", apple: "/brand/eliteflow-mark.png" },
 };
 const extra = [
+  "finance",
   "feed",
   "jobs",
   "dashboard",

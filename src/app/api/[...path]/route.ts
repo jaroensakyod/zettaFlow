@@ -70,6 +70,11 @@ import {
   feedSave,
   feedAlerts,
 } from "@/lib/feed";
+import { financeOverview, saveBudgets, saveTargets, setClosingStep } from "@/lib/finance-center";
+import { linePageData } from "@/lib/line-page";
+import { homeExtra, saveNote, deleteNote, setGoal } from "@/lib/home-extra";
+import { shopState, shopActive, shopBuy, shopActivate } from "@/lib/app-shop";
+import { projectsOverview, projectDetail } from "@/lib/projects";
 import { b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
@@ -343,7 +348,13 @@ async function handle(req: NextRequest) {
         platformAdmin: platformAdmin(ctx),
       });
     }
-    if (path[0] === "home") return response(await home(ctx));
+    if (path[0] === "home") {
+      if (path[1] === "extra" && method === "GET") return response(await homeExtra(ctx));
+      if (path[1] === "notes" && method === "PUT") return response(await saveNote(ctx, await body(req)));
+      if (path[1] === "notes" && method === "DELETE") return response(await deleteNote(ctx, z.string().max(10).parse(path[2])));
+      if (path[1] === "goal" && method === "PUT") return response(await setGoal(ctx, await body(req)));
+      return response(await home(ctx));
+    }
     if (path[0] === "feed") {
       if (path[1] === "image" || path[1] === "logo") {
         const media =
@@ -429,6 +440,13 @@ async function handle(req: NextRequest) {
         return response({ ...(await billing(ctx)), platformAdmin: platformAdmin(ctx) });
       return response(await requestPayment(ctx, await body(req)), 201);
     }
+    if (path[0] === "shop") {
+      if (path[1] === "active") return response(await shopActive(ctx));
+      if (method === "GET") return response(await shopState(ctx));
+      if (path[1] === "buy" && method === "POST")
+        return response(await shopBuy(ctx, z.string().regex(/^[a-z_]{1,40}$/).parse(path[2])), 201);
+      if (path[1] === "activate" && method === "POST") return response(await shopActivate(ctx, await body(req)));
+    }
     if (path[0] === "coins") {
       if (path[1] === "admin") {
         if (method === "GET") return response(await pendingTopups(ctx));
@@ -485,6 +503,13 @@ async function handle(req: NextRequest) {
     }
     if (path[0] === "receipts")
       return response(method === "GET" ? await accountingOverview(ctx) : await importReceipt(ctx, await body(req)), method === "GET" ? 200 : 201);
+    // Financial Center: GET /finance?year=2026, POST /finance/budgets {year,budgets}, /finance/targets, /finance/closing.
+    if (path[0] === "finance") {
+      if (!path[1] && method === "GET") return response(await financeOverview(ctx, req.nextUrl.searchParams.get("year") ?? undefined));
+      if (path[1] === "budgets" && method === "POST") return response(await saveBudgets(ctx, await body(req)));
+      if (path[1] === "targets" && method === "POST") return response(await saveTargets(ctx, await body(req)));
+      if (path[1] === "closing" && method === "POST") return response(await setClosingStep(ctx, await body(req)));
+    }
     if (path[0] === "accounting") {
       const id = z.uuid().parse(path[2]);
       if (path[1] === "post" && method === "POST") return response(await postExpense(ctx, id));
@@ -590,6 +615,8 @@ async function handle(req: NextRequest) {
     if (path[0] === "options") return response(await entityOptions(ctx));
     if (path[0] === "convert" && method === "POST")
       return response(await convertEntity(ctx, z.string().max(40).parse(path[1]), z.uuid().parse(path[2])), 201);
+    if (path[0] === "projects" && method === "GET")
+      return response(path[1] ? await projectDetail(ctx, z.uuid().parse(path[1])) : await projectsOverview(ctx));
     if (path[0] === "entities") {
       if (method === "GET")
         return response(
@@ -1113,6 +1140,10 @@ async function handle(req: NextRequest) {
           "Cache-Control": "private,no-store",
         },
       });
+    }
+    if (path[0] === "line-page" && method === "GET") {
+      // LINE Integration page: groups + stats + approvers + activity + package in one read.
+      return response(await linePageData(ctx));
     }
     if (path[0] === "line-groups" && method === "GET") {
       // หน้า LINE: groups with activity, or one group's messages (?group=…).

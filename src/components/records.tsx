@@ -12,10 +12,10 @@ import {
   Check,
   PackagePlus,
   Paperclip,
-  Printer,
   Camera,
   UserRound,
 } from "lucide-react";
+import { DocPrintButtons } from "./doc-print";
 import { catalog, statusLabels, type Field } from "@/lib/catalog";
 import type { Entity, Context } from "@/lib/types";
 import { api, Modal, Empty, Loading, money, displayDate, SourceLine } from "./shared";
@@ -811,16 +811,7 @@ export function Records({
                 · {statusLabels[String(row?.data.status || "draft")]}
               </div>
             )}
-            {kind === "invoices" && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => window.print()}
-              >
-                <Printer size={15} />
-                พิมพ์ข้อมูลใบแจ้งหนี้
-              </button>
-            )}
+            {row && <DocPrintButtons kind={kind} record={row} />}
             <p role="alert" className="form-error">
               {formError}
             </p>

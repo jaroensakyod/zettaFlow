@@ -2228,3 +2228,242 @@ create or replace function public.feed_alerts(p_company uuid)returns jsonb langu
    from company_follows f join companies fc on fc.id=f.follower_id
    where f.company_id=p_company and f.created_at>now()-interval '60 days'
   )x order by at desc limit 60)y),'[]');end$$;
+
+-- Financial Center (การเงินองค์กร): yearly budget per department (+ 'Reserve' = เงินสำรององค์กร), yearly targets,
+-- and the 5-step year-end closing checklist. Finance readers see them; owners / managers with Finance access change them via RPCs.
+
+create table public.finance_budgets(company_id uuid not null references companies(id),fiscal_year int not null check(fiscal_year between 2000 and 2200),department text not null check(length(department)between 1 and 60),amount numeric not null check(amount>=0 and amount<=1e12),updated_by uuid,updated_at timestamptz not null default now(),primary key(company_id,fiscal_year,department));
+create table public.finance_targets(company_id uuid not null references companies(id),fiscal_year int not null check(fiscal_year between 2000 and 2200),revenue numeric check(revenue between 0 and 1e12),profit numeric check(abs(profit)<=1e12),expense_cap numeric check(expense_cap between 0 and 1e12),updated_by uuid,updated_at timestamptz not null default now(),primary key(company_id,fiscal_year));
+create table public.finance_closing(company_id uuid not null references companies(id),fiscal_year int not null check(fiscal_year between 2000 and 2200),step int not null check(step between 1 and 5),done_at timestamptz not null default now(),done_by uuid,primary key(company_id,fiscal_year,step));
+
+alter table finance_budgets enable row level security;alter table finance_targets enable row level security;alter table finance_closing enable row level security;
+create policy finance_budgets_read on finance_budgets for select to authenticated using(can_read_dept(company_id,'Finance'));
+create policy finance_targets_read on finance_targets for select to authenticated using(can_read_dept(company_id,'Finance'));
+create policy finance_closing_read on finance_closing for select to authenticated using(can_read_dept(company_id,'Finance'));
+revoke all on finance_budgets,finance_targets,finance_closing from anon,authenticated;
+grant select on finance_budgets,finance_targets,finance_closing to authenticated;
+grant all on finance_budgets,finance_targets,finance_closing to service_role;
+
+-- Who may plan budgets and close the year: owner, or a manager who has the Finance department.
+create function public.finance_manager(c uuid)returns boolean language sql stable security definer set search_path=public as $$select coalesce(member_role(c)in('owner','manager'),false)and can_read_dept(c,'Finance')$$;
+revoke all on function public.finance_manager(uuid)from public,anon;grant execute on function public.finance_manager(uuid)to authenticated;
+
+-- Replaces the year's budget: p_budgets = {"Sales":200000,"Reserve":100000,...}; departments left out are removed.
+create function public.finance_save_budgets(p_company uuid,p_year int,p_budgets jsonb)returns void language plpgsql security definer set search_path=public as $$begin
+ if not finance_manager(p_company)then raise exception 'ไม่มีสิทธิ์วางแผนงบประมาณ';end if;
+ if p_year not between 2000 and 2200 then raise exception 'ปีบัญชีไม่ถูกต้อง';end if;
+ if jsonb_typeof(p_budgets)<>'object'or (select count(*)from jsonb_object_keys(p_budgets))>40
+  or exists(select 1 from jsonb_each(p_budgets)x where length(x.key)not between 1 and 60 or jsonb_typeof(x.value)<>'number'or (x.value#>>'{}')::numeric not between 0 and 1e12)then raise exception 'งบประมาณไม่ถูกต้อง';end if;
+ delete from finance_budgets where company_id=p_company and fiscal_year=p_year and not p_budgets ? department;
+ insert into finance_budgets(company_id,fiscal_year,department,amount,updated_by)select p_company,p_year,x.key,(x.value#>>'{}')::numeric,auth.uid()from jsonb_each(p_budgets)x
+  on conflict(company_id,fiscal_year,department)do update set amount=excluded.amount,updated_by=excluded.updated_by,updated_at=now();
+ perform log_action(p_company,'finance_budgets_saved',p_year::text);end$$;
+revoke all on function public.finance_save_budgets(uuid,int,jsonb)from public,anon;grant execute on function public.finance_save_budgets(uuid,int,jsonb)to authenticated;
+
+-- Yearly targets; a null clears that target.
+create function public.finance_save_targets(p_company uuid,p_year int,p_revenue numeric,p_profit numeric,p_expense_cap numeric)returns void language plpgsql security definer set search_path=public as $$begin
+ if not finance_manager(p_company)then raise exception 'ไม่มีสิทธิ์วางแผนงบประมาณ';end if;
+ if p_year not between 2000 and 2200 then raise exception 'ปีบัญชีไม่ถูกต้อง';end if;
+ insert into finance_targets(company_id,fiscal_year,revenue,profit,expense_cap,updated_by)values(p_company,p_year,p_revenue,p_profit,p_expense_cap,auth.uid())
+  on conflict(company_id,fiscal_year)do update set revenue=excluded.revenue,profit=excluded.profit,expense_cap=excluded.expense_cap,updated_by=excluded.updated_by,updated_at=now();
+ perform log_action(p_company,'finance_targets_saved',p_year::text);end$$;
+revoke all on function public.finance_save_targets(uuid,int,numeric,numeric,numeric)from public,anon;grant execute on function public.finance_save_targets(uuid,int,numeric,numeric,numeric)to authenticated;
+
+-- Marks a closing step done (in order: the previous step must be done) or reopens it (only while the next step is still open).
+create function public.finance_close_step(p_company uuid,p_year int,p_step int,p_done boolean)returns void language plpgsql security definer set search_path=public as $$begin
+ if not finance_manager(p_company)then raise exception 'ไม่มีสิทธิ์ปิดงบประจำปี';end if;
+ if p_year not between 2000 and 2200 or p_step not between 1 and 5 then raise exception 'ขั้นตอนไม่ถูกต้อง';end if;
+ if p_done then
+  if p_step>1 and not exists(select 1 from finance_closing where company_id=p_company and fiscal_year=p_year and step=p_step-1)then raise exception 'ต้องทำขั้นตอนก่อนหน้าให้เสร็จก่อน';end if;
+  insert into finance_closing(company_id,fiscal_year,step,done_by)values(p_company,p_year,p_step,auth.uid())on conflict do nothing;
+ else
+  if exists(select 1 from finance_closing where company_id=p_company and fiscal_year=p_year and step=p_step+1)then raise exception 'ต้องเปิดขั้นตอนถัดไปก่อน';end if;
+  delete from finance_closing where company_id=p_company and fiscal_year=p_year and step=p_step;end if;
+ perform log_action(p_company,case when p_done then 'finance_step_done'else 'finance_step_reopened'end,p_year||'/'||p_step);end$$;
+revoke all on function public.finance_close_step(uuid,int,int,boolean)from public,anon;grant execute on function public.finance_close_step(uuid,int,int,boolean)to authenticated;
+
+-- Printable business documents: ใบกำกับภาษี (tax invoice) and ใบเสร็จรับเงิน (receipt) get their own running numbers.
+-- Both are issued from an existing record (an invoice, or an income payment / paid invoice); issuing is idempotent,
+-- so printing the same document again shows the same number. Numbers run per calendar year: TAX-2026-0001, RC-2026-0001.
+create table public.issued_documents(
+ company_id uuid not null references companies(id) on delete cascade,
+ kind text not null check(kind in('tax_invoice','receipt')),
+ entity_id uuid not null references entities(id) on delete cascade,
+ number text not null,
+ issued_at timestamptz not null default now(),
+ issued_by uuid references auth.users(id),
+ primary key(company_id,kind,entity_id),
+ unique(company_id,kind,number));
+alter table issued_documents enable row level security;
+revoke all on issued_documents from anon,authenticated;
+grant all on issued_documents to service_role;
+
+-- Issues (or returns the already issued) number. Finance writers only; the source must be a live record of the right kind.
+create function public.issue_document(p_company uuid,p_kind text,p_entity uuid)returns text language plpgsql security definer set search_path=public as $$declare e entities;n text;p text;y int;begin
+ if not can_write_dept(p_company,'Finance') then raise exception 'ไม่มีสิทธิ์';end if;
+ select * into e from entities where id=p_entity and company_id=p_company and archived_at is null for update;
+ if not found then raise exception 'ไม่พบเอกสาร';end if;
+ if p_kind='tax_invoice' then
+  if e.kind<>'invoices' then raise exception 'ออกใบกำกับภาษีได้จากใบแจ้งหนี้เท่านั้น';end if;p='TAX';
+ elsif p_kind='receipt' then
+  if not(e.kind='payments' and e.data->>'direction'='income' or e.kind='invoices' and e.data->>'status'='paid') then raise exception 'ออกใบเสร็จได้จากการรับชำระ หรือใบแจ้งหนี้ที่ชำระครบแล้ว';end if;p='RC';
+ else raise exception 'ไม่รู้จักเอกสาร';end if;
+ select number into n from issued_documents where company_id=p_company and kind=p_kind and entity_id=p_entity;
+ if n is not null then return n;end if;
+ y=extract(year from now() at time zone 'Asia/Bangkok')::int;
+ n=p||'-'||y||'-'||lpad(next_number(p_company,p,y)::text,4,'0');
+ insert into issued_documents(company_id,kind,entity_id,number,issued_by)values(p_company,p_kind,p_entity,n,auth.uid());
+ return n;end$$;
+revoke all on function public.issue_document(uuid,text,uuid)from public,anon;
+grant execute on function public.issue_document(uuid,text,uuid)to authenticated;
+
+-- The number and issue date (Bangkok) already issued for a record — {number,date}, null when not issued yet; Finance readers only.
+create function public.document_number(p_company uuid,p_kind text,p_entity uuid)returns jsonb language sql stable security definer set search_path=public as $$
+ select jsonb_build_object('number',number,'date',to_char(issued_at at time zone 'Asia/Bangkok','YYYY-MM-DD'))from issued_documents where company_id=p_company and kind=p_kind and entity_id=p_entity and can_read_dept(p_company,'Finance')$$;
+revoke all on function public.document_number(uuid,text,uuid)from public,anon;
+grant execute on function public.document_number(uuid,text,uuid)to authenticated;
+
+-- EliteFlow App Shop: AI characters and themes (buy once) and business-type systems (monthly, 30 days per purchase),
+-- paid with company coins exactly like department modules (0020). The active theme/character is one row per company.
+
+create table public.shop_items(id text primary key,kind text not null check(kind in('character','theme','system')),name text not null,price_coins int not null check(price_coins>=0),period text not null default 'once' check(period in('once','month')),active boolean not null default true,ordinal int not null default 0);
+-- Mirrors shopCatalog in src/lib/app-shop.ts (prices are read from here, never from the client).
+insert into shop_items values
+ ('nong_flow','character','น้องโฟลว์',0,'once',true,0),
+ ('siri_style','character','Siri Style',300,'once',true,1),
+ ('elite_style','character','Elite Style',300,'once',true,2),
+ ('neo_anime','character','Neo Anime',250,'once',true,3),
+ ('nova_anime','character','Nova Anime',250,'once',true,4),
+ ('flow_dog','character','Flow Dog',200,'once',true,5),
+ ('mochi_cat','character','Mochi Cat',200,'once',true,6),
+ ('elitebot','character','EliteBot',150,'once',true,7),
+ ('flow_dragon','character','Flow Dragon',250,'once',true,8),
+ ('modern_purple','theme','Modern Purple',0,'once',true,10),
+ ('luxury_black_gold','theme','Luxury Black Gold',199,'once',true,11),
+ ('clean_minimal','theme','Clean Minimal',199,'once',true,12),
+ ('soft_pink','theme','Soft Pink',199,'once',true,13),
+ ('clinic_medical','theme','Clinic Medical',199,'once',true,14),
+ ('real_estate_theme','theme','Real Estate',199,'once',true,15),
+ ('condo_rental','system','ระบบบริหารคอนโด / ปล่อยเช่า',1200,'month',true,20),
+ ('beauty_clinic','system','ระบบบริหารคลินิกความงาม',1500,'month',true,21),
+ ('restaurant_cafe','system','ระบบบริหารร้านอาหารและคาเฟ่',900,'month',true,22),
+ ('medical_clinic','system','ระบบบริหารคลินิกการแพทย์',1800,'month',true,23),
+ ('real_estate','system','ระบบอสังหาริมทรัพย์ (โครงการ)',2000,'month',true,24);
+
+create table public.company_shop_items(company_id uuid not null references companies(id),item_id text not null references shop_items(id),kind text not null,price_coins int not null,bought_at timestamptz not null default now(),expires_at timestamptz,primary key(company_id,item_id));
+-- Active look per company; null = the free default (Modern Purple / น้องโฟลว์).
+create table public.company_shop_settings(company_id uuid primary key references companies(id),theme text references shop_items(id),character text references shop_items(id),updated_by uuid,updated_at timestamptz not null default now());
+
+alter table shop_items enable row level security;alter table company_shop_items enable row level security;alter table company_shop_settings enable row level security;
+create policy shop_items_read on shop_items for select to anon,authenticated using(active);
+create policy company_shop_items_read on company_shop_items for select to authenticated using(member_role(company_id)is not null);
+create policy company_shop_settings_read on company_shop_settings for select to authenticated using(member_role(company_id)is not null);
+revoke all on shop_items,company_shop_items,company_shop_settings from anon,authenticated;
+grant select on shop_items to anon,authenticated;grant select on company_shop_items,company_shop_settings to authenticated;
+grant all on shop_items,company_shop_items,company_shop_settings to service_role;
+
+-- Owner/manager buys an item with coins (wallet row locked so two purchases cannot overspend).
+-- Once-items can be bought once; a monthly system can be renewed: 30 days added from now or from its current expiry.
+create or replace function public.shop_buy(p_company uuid,p_item text)returns company_shop_items language plpgsql security definer set search_path=public as $$declare i shop_items;w coin_wallets;o company_shop_items;r company_shop_items;begin
+ if member_role(p_company)is null or member_role(p_company)not in('owner','manager')then raise exception 'เฉพาะเจ้าของหรือผู้จัดการ';end if;
+ select * into i from shop_items where id=p_item and active;if not found then raise exception 'ไม่พบสินค้า';end if;
+ if i.price_coins=0 then raise exception 'รายการนี้ใช้ได้ฟรีอยู่แล้ว';end if;
+ select * into o from company_shop_items where company_id=p_company and item_id=p_item for update;
+ if found and i.period='once' then raise exception 'ซื้อรายการนี้แล้ว';end if;
+ select * into w from coin_wallets where company_id=p_company for update;
+ if coalesce(w.balance,0)<i.price_coins then raise exception 'เหรียญไม่พอ กรุณาเติมเหรียญ';end if;
+ update coin_wallets set balance=balance-i.price_coins,updated_at=now()where company_id=p_company;
+ insert into coin_ledger(company_id,delta,reason,ref,created_by)values(p_company,-i.price_coins,'purchase','shop:'||i.id,auth.uid());
+ insert into company_shop_items(company_id,item_id,kind,price_coins,expires_at)
+  values(p_company,i.id,i.kind,i.price_coins,case when i.period='month' then now()+interval '30 days' end)
+  on conflict(company_id,item_id)do update set price_coins=excluded.price_coins,bought_at=now(),
+   expires_at=greatest(coalesce(company_shop_items.expires_at,now()),now())+interval '30 days'
+  returning * into r;
+ perform log_action(p_company,'shop_purchased',i.id);return r;end$$;
+
+-- Owner/manager switches the active theme or character; only free defaults or owned items qualify.
+create or replace function public.shop_activate(p_company uuid,p_kind text,p_item text)returns company_shop_settings language plpgsql security definer set search_path=public as $$declare i shop_items;r company_shop_settings;begin
+ if member_role(p_company)is null or member_role(p_company)not in('owner','manager')then raise exception 'เฉพาะเจ้าของหรือผู้จัดการ';end if;
+ if p_kind not in('theme','character')then raise exception 'ประเภทไม่ถูกต้อง';end if;
+ select * into i from shop_items where id=p_item and kind=p_kind and active;if not found then raise exception 'ไม่พบสินค้า';end if;
+ if i.price_coins>0 and not exists(select 1 from company_shop_items where company_id=p_company and item_id=p_item)then raise exception 'ยังไม่ได้ซื้อรายการนี้';end if;
+ insert into company_shop_settings(company_id,theme,character,updated_by)
+  values(p_company,case when p_kind='theme'then p_item end,case when p_kind='character'then p_item end,auth.uid())
+  on conflict(company_id)do update set theme=case when p_kind='theme'then p_item else company_shop_settings.theme end,
+   character=case when p_kind='character'then p_item else company_shop_settings.character end,updated_by=auth.uid(),updated_at=now()
+  returning * into r;
+ perform log_action(p_company,'shop_activated',p_kind||':'||p_item);return r;end$$;
+revoke all on function public.shop_buy(uuid,text),public.shop_activate(uuid,text,text)from public,anon;
+grant execute on function public.shop_buy(uuid,text),public.shop_activate(uuid,text,text)to authenticated;
+
+-- Projects page (cover, subtitle, type, location, area, sales/customer targets, team, paused) and employees' strengths.
+insert into public.entity_schemas(kind,department,fields)values('projects','Operations','[{"key":"name","label":"ชื่อโครงการ","type":"text","required":true},{"key":"code","label":"รหัสโครงการ","type":"text","required":false},{"key":"subtitle","label":"คำอธิบายสั้น","type":"text","required":false},{"key":"description","label":"รายละเอียด","type":"textarea","required":false},{"key":"type","label":"ประเภทโครงการ","type":"text","required":false},{"key":"location","label":"สถานที่ / พื้นที่โครงการ","type":"text","required":false},{"key":"area","label":"ขนาดพื้นที่","type":"text","required":false},{"key":"owner","label":"ผู้รับผิดชอบ","type":"text","required":false},{"key":"priority","label":"ความสำคัญ","type":"select","required":true,"options":["normal","high","urgent"]},{"key":"startDate","label":"วันเริ่ม","type":"date","required":false},{"key":"endDate","label":"วันสิ้นสุด","type":"date","required":false},{"key":"budget","label":"งบประมาณ","type":"number","required":false,"min":0},{"key":"salesTarget","label":"เป้าการขาย","type":"number","required":false,"min":0},{"key":"customerTarget","label":"เป้าจำนวนลูกค้า","type":"number","required":false,"min":0},{"key":"cover","label":"รูปปกโครงการ","type":"image","required":false,"hidden":true},{"key":"team","label":"ทีมงาน","type":"textarea","required":false,"hidden":true},{"key":"status","label":"สถานะ","type":"select","required":true,"options":["planning","active","review","paused","completed","cancelled"]}]'::jsonb)on conflict(kind)do update set department=excluded.department,fields=excluded.fields;
+insert into public.entity_schemas(kind,department,fields)values('employees','HR','[{"key":"photo","label":"รูปพนักงาน","type":"image","required":false},{"key":"name","label":"ชื่อ-นามสกุล","type":"text","required":true},{"key":"code","label":"รหัสพนักงาน","type":"text","required":false},{"key":"nickname","label":"ชื่อเล่น","type":"text","required":false},{"key":"department","label":"แผนก","type":"text","required":true},{"key":"position","label":"ตำแหน่ง","type":"text","required":false},{"key":"employmentType","label":"ประเภทการจ้าง","type":"select","required":true,"options":["ประจำ","สัญญาจ้าง","พาร์ตไทม์"]},{"key":"startDate","label":"วันเริ่มงาน","type":"date","required":false},{"key":"salary","label":"เงินเดือน","type":"number","required":false,"min":0},{"key":"birthDate","label":"วันเกิด","type":"date","required":false},{"key":"idCard","label":"เลขบัตรประชาชน","type":"text","required":false},{"key":"bank","label":"ธนาคาร","type":"text","required":false},{"key":"bankAccount","label":"เลขบัญชี","type":"text","required":false},{"key":"emergency","label":"ผู้ติดต่อฉุกเฉิน","type":"text","required":false},{"key":"level","label":"ระดับ","type":"select","required":false,"options":["พนักงาน","หัวหน้างาน","ผู้จัดการ","ผู้บริหาร"]},{"key":"managerId","label":"หัวหน้างาน","type":"relation","required":false,"resource":"employees"},{"key":"branch","label":"สาขา","type":"text","required":false},{"key":"workHours","label":"เวลาทำงาน","type":"text","required":false},{"key":"about","label":"เกี่ยวกับ","type":"textarea","required":false},{"key":"skills","label":"ทักษะ (คั่นด้วย ,)","type":"text","required":false},{"key":"strengths","label":"บุคลิก & จุดแข็ง (บรรทัดละข้อ)","type":"textarea","required":false},{"key":"score","label":"คะแนนประเมิน (0–100)","type":"number","required":false,"min":0},{"key":"leaveQuota","label":"วันลาต่อปี","type":"number","required":false,"min":0},{"key":"checklist","label":"เอกสารที่ส่งแล้ว","type":"text","required":false,"hidden":true},{"key":"approvals","label":"สิทธิ์การอนุมัติ","type":"text","required":false,"hidden":true},{"key":"history","label":"ประวัติการทำงาน","type":"textarea","required":false,"hidden":true},{"key":"cover","label":"รูปปก","type":"image","required":false,"hidden":true},{"key":"lineUserId","label":"LINE ของพนักงาน","type":"text","required":false,"hidden":true},{"key":"status","label":"สถานะ","type":"select","required":true,"options":["active","probation","on_leave","inactive"]},{"key":"contact","label":"ผู้ติดต่อ","type":"text","required":false},{"key":"phone","label":"โทรศัพท์","type":"tel","required":false},{"key":"email","label":"อีเมล","type":"email","required":false},{"key":"line","label":"LINE ID","type":"text","required":false},{"key":"address","label":"ที่อยู่","type":"textarea","required":false},{"key":"notes","label":"หมายเหตุ","type":"textarea","required":false}]'::jsonb)on conflict(kind)do update set department=excluded.department,fields=excluded.fields;
+
+-- Home dashboard (design update, page 16): a private diary note per person per day (text + checklist), and the
+-- company's sales goal for each month (ยอดขายเป้าหมาย) that the "เป้าหมายเดือนนี้" card measures this month's sales against.
+
+create table if not exists public.user_notes(
+ id uuid primary key default gen_random_uuid(),
+ company_id uuid not null references companies(id),
+ user_id uuid not null references auth.users(id),
+ day date not null,
+ body text not null default '' check(length(body)<=4000),
+ items jsonb not null default '[]' check(jsonb_typeof(items)='array' and jsonb_array_length(items)<=30),
+ updated_at timestamptz not null default now(),
+ unique(company_id,user_id,day));
+create index if not exists user_notes_owner on user_notes(company_id,user_id,day desc);
+
+create table if not exists public.monthly_goals(
+ company_id uuid not null references companies(id),
+ month date not null check(extract(day from month)=1),
+ sales_target numeric not null check(sales_target>=0 and sales_target<=1e12),
+ updated_by uuid,
+ updated_at timestamptz not null default now(),
+ primary key(company_id,month));
+
+alter table user_notes enable row level security;alter table monthly_goals enable row level security;
+revoke all on user_notes,monthly_goals from anon;
+revoke insert,update,delete on user_notes,monthly_goals from authenticated;
+grant select on user_notes,monthly_goals to authenticated;
+grant all on user_notes,monthly_goals to service_role;
+-- Notes are visible only to the person who wrote them (not even the owner); goals to every member of the company.
+drop policy if exists user_notes_read on user_notes;
+create policy user_notes_read on user_notes for select to authenticated using(user_id=auth.uid()and member_role(company_id)is not null);
+drop policy if exists monthly_goals_read on monthly_goals;
+create policy monthly_goals_read on monthly_goals for select to authenticated using(member_role(company_id)is not null);
+
+-- Save (upsert) my note for a day. An empty body with no checklist items removes the note. Items: [{text, done}].
+create or replace function public.note_save(p_company uuid,p_day date,p_body text,p_items jsonb)returns jsonb language plpgsql security definer set search_path=public as $$declare it jsonb;clean jsonb:='[]';r user_notes;begin
+ if auth.uid()is null or member_role(p_company)is null then raise exception 'ไม่มีสิทธิ์';end if;
+ if p_day is null or p_day<date '2000-01-01' or p_day>current_date+366 then raise exception 'วันที่ไม่ถูกต้อง';end if;
+ if length(coalesce(p_body,''))>4000 then raise exception 'บันทึกยาวเกิน 4,000 ตัวอักษร';end if;
+ if p_items is not null and jsonb_typeof(p_items)<>'array' then raise exception 'รายการไม่ถูกต้อง';end if;
+ if jsonb_array_length(coalesce(p_items,'[]'))>30 then raise exception 'รายการสูงสุด 30 ข้อ';end if;
+ for it in select value from jsonb_array_elements(coalesce(p_items,'[]'))loop
+  if jsonb_typeof(it)<>'object' or jsonb_typeof(it->'text')<>'string' then raise exception 'รายการไม่ถูกต้อง';end if;
+  if length(trim(it->>'text'))=0 then continue;end if;
+  if length(it->>'text')>200 then raise exception 'แต่ละรายการไม่เกิน 200 ตัวอักษร';end if;
+  clean=clean||jsonb_build_array(jsonb_build_object('text',trim(it->>'text'),'done',coalesce(it->'done'='true'::jsonb,false)));
+ end loop;
+ if length(trim(coalesce(p_body,'')))=0 and jsonb_array_length(clean)=0 then
+  delete from user_notes where company_id=p_company and user_id=auth.uid()and day=p_day;return null;end if;
+ insert into user_notes(company_id,user_id,day,body,items,updated_at)values(p_company,auth.uid(),p_day,trim(coalesce(p_body,'')),clean,now())
+ on conflict(company_id,user_id,day)do update set body=excluded.body,items=excluded.items,updated_at=now()returning * into r;
+ return to_jsonb(r);end$$;
+
+create or replace function public.note_delete(p_company uuid,p_day date)returns void language plpgsql security definer set search_path=public as $$begin
+ if auth.uid()is null or member_role(p_company)is null then raise exception 'ไม่มีสิทธิ์';end if;
+ delete from user_notes where company_id=p_company and user_id=auth.uid()and day=p_day;end$$;
+
+-- Owner or manager sets the month's sales goal (0 clears it).
+create or replace function public.goal_set(p_company uuid,p_month date,p_target numeric)returns void language plpgsql security definer set search_path=public as $$begin
+ if coalesce(member_role(p_company),'')not in('owner','manager')then raise exception 'เฉพาะเจ้าของหรือผู้จัดการตั้งเป้าหมายได้';end if;
+ if p_month is null or p_target is null or p_target<0 or p_target>1e12 then raise exception 'เป้าหมายไม่ถูกต้อง';end if;
+ if p_target=0 then delete from monthly_goals where company_id=p_company and month=date_trunc('month',p_month)::date;
+ else insert into monthly_goals(company_id,month,sales_target,updated_by,updated_at)values(p_company,date_trunc('month',p_month)::date,p_target,auth.uid(),now())
+  on conflict(company_id,month)do update set sales_target=excluded.sales_target,updated_by=excluded.updated_by,updated_at=now();end if;
+ perform log_action(p_company,'monthly_goal_set',to_char(p_month,'YYYY-MM'));end$$;
+
+revoke all on function public.note_save(uuid,date,text,jsonb),public.note_delete(uuid,date),public.goal_set(uuid,date,numeric)from public,anon;
+grant execute on function public.note_save(uuid,date,text,jsonb),public.note_delete(uuid,date),public.goal_set(uuid,date,numeric)to authenticated;
