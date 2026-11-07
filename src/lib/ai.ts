@@ -21,7 +21,55 @@ import { pdfPages, MAX_PDF_PAGES } from "./billing";
 import { sortMessage } from "./line-sort";
 import { lineGroup, lineReplyId, sentMessageId } from "./line";
 import { approverNotice, deptThai, lineNotice } from "./line-message";
-import { aiEnabled, aiGenerate, forCompany, type AiPart } from "./llm";
+import { aiEnabled, aiGenerate, aiProvider, forCompany, type AiPart } from "./llm";
+import { documentText, isAudio } from "./line-files";
+
+type FileIn = { mime: string; name: string; bytes: Buffer };
+/** Voice message → text, word for word (Gemini reads audio; LINE voice is AAC in an MP4 box). */
+export async function transcribe(file: FileIn): Promise<string> {
+  assert(aiProvider() === "gemini", "ถอดข้อความเสียงต้องตั้งค่า Gemini (GEMINI_API_KEY)", 503);
+  const instructions =
+    "ถอดข้อความเสียงเป็นตัวอักษรตามที่พูดจริงทุกคำ ไม่สรุป ไม่แปล ไม่เติมความเห็น " +
+    "เขียนตัวเลข จำนวนเงิน วันที่ และเวลาเป็นเลขอารบิก ถ้าฟังไม่ชัดให้ใส่ [ฟังไม่ชัด] ถ้าไม่มีเสียงพูดให้ตอบว่า (ไม่มีเสียงพูด)";
+  let last: unknown;
+  // Container names vary by sender app; try the ones Gemini decodes.
+  for (const mime of [file.mime, "audio/aac", "video/mp4"].filter((m, i, a) => a.indexOf(m) === i)) {
+    try {
+      const text = await aiGenerate({
+        instructions,
+        parts: [{ text: "ถอดเสียงนี้" }, { file: { ...file, mime } }],
+        feature: "transcribe",
+        maxTokens: 4000,
+      });
+      return text.trim().slice(0, 8000);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
+
+/**
+ * Makes a LINE file readable for the AI: Excel / Word / CSV become text after the message, a voice message becomes its
+ * transcript. The result is saved on the item (so the web shows what was read) and the file is no longer sent to the AI.
+ */
+async function readableJob(
+  sb: ReturnType<typeof supabaseAdmin>,
+  job: { id: string; raw: string },
+  attachment: FileIn | undefined,
+): Promise<FileIn | undefined> {
+  if (!attachment) return attachment;
+  let extra: string | null = null;
+  if (isAudio(attachment.mime)) extra = "[ข้อความเสียง] " + (await transcribe(attachment));
+  else {
+    const text = documentText(attachment);
+    if (text !== null) extra = `[ไฟล์ ${attachment.name}]\n` + text;
+  }
+  if (extra === null) return attachment;
+  job.raw = (job.raw ? job.raw + "\n\n" : "") + extra;
+  await sb.from("ingestions").update({ raw: job.raw }).eq("id", job.id);
+  return undefined;
+}
 export const tokenHash = (s: string) =>
   createHash("sha256").update(s).digest("hex");
 export function validLineSignature(raw: Buffer, signature: string | null) {
@@ -243,6 +291,7 @@ export async function processJobs(id?: string) {
           bytes: Buffer.from(await blob.arrayBuffer()),
         };
       }
+      attachment = await readableJob(sb, job, attachment);
       if ((job.template as { mode?: string })?.mode === "sort") {
         const r0 = await sortMessage({
           raw: job.raw,

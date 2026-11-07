@@ -13,6 +13,10 @@ export async function GET(req: Request) {
     const sb = supabaseAdmin();
     const { data: nudges } = await sb.rpc("queue_nudges");
     const { data: expired } = await sb.rpc("expire_subscriptions");
+    // Voice messages from LINE: the transcript stays on the item, the audio file goes after 90 days.
+    const { data: oldVoice } = await sb.rpc("purge_voice_files", { p_days: 90 });
+    const voicePaths = ((oldVoice as string[] | null) || []).filter(Boolean);
+    if (voicePaths.length) await sb.storage.from("eliteflow-files").remove(voicePaths);
     const jobs = await processJobs(),
       notifications = await processNotifications();
     return Response.json({ jobs, notifications, nudges, expired });

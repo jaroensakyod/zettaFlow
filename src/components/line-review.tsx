@@ -154,6 +154,9 @@ function AttachmentPreview({ id }: { id: string }) {
         <object data={file!.url} type="application/pdf" aria-label="เอกสารต้นฉบับ">
           <a href={src} target="_blank" rel="noreferrer">เปิดเอกสาร</a>
         </object>
+      ) : mime.startsWith("audio/") ? (
+        // Voice message from LINE: play it here; its transcript is in the message text above.
+        <audio controls preload="metadata" src={file!.url} aria-label="ข้อความเสียงต้นฉบับ" />
       ) : null}
       <a className="secondary" href={src} target="_blank" rel="noreferrer">
         <Paperclip size={15} />

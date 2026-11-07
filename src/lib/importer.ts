@@ -33,7 +33,7 @@ export function parseCsv(text: string): string[][] {
 }
 
 /** Reads the named entries of a zip (stored or deflated) via its central directory. */
-function unzip(buf: Buffer, wanted: (name: string) => boolean) {
+export function unzip(buf: Buffer, wanted: (name: string) => boolean) {
   const out: Record<string, string> = {};
   let eocd = buf.length - 22;
   while (eocd >= 0 && buf.readUInt32LE(eocd) !== 0x06054b50) eocd--;
@@ -58,15 +58,27 @@ function unzip(buf: Buffer, wanted: (name: string) => boolean) {
   }
   return out;
 }
-const xmlText = (s: string) =>
+export const xmlText = (s: string) =>
   s.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
 const columnIndex = (ref: string) => [...ref.replace(/\d+/g, "")].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
 
 /** First worksheet of an .xlsx as rows of display strings (shared and inline strings, numbers as written). */
 export function parseXlsx(buf: Buffer): string[][] {
-  const files = unzip(buf, (n) => n === "xl/sharedStrings.xml" || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
-  const sheet = Object.keys(files).filter((n) => n.startsWith("xl/worksheets/")).sort()[0];
-  assert(sheet, "ไม่พบชีตในไฟล์ Excel");
+  return parseXlsxSheets(buf, 1)[0].rows;
+}
+
+/** Up to maxSheets worksheets of an .xlsx (in workbook order), each as rows of display strings. */
+export function parseXlsxSheets(buf: Buffer, maxSheets = 5): { name: string; rows: string[][] }[] {
+  const files = unzip(buf, (n) => n === "xl/sharedStrings.xml" || n === "xl/workbook.xml" || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const sheets = Object.keys(files)
+    .filter((n) => n.startsWith("xl/worksheets/"))
+    .sort((a, b) => Number(/(\d+)\.xml$/.exec(a)![1]) - Number(/(\d+)\.xml$/.exec(b)![1]));
+  assert(sheets.length, "ไม่พบชีตในไฟล์ Excel");
+  const names = [...(files["xl/workbook.xml"] || "").matchAll(/<sheet [^>]*name="([^"]*)"/g)].map((m) => xmlText(m[1]));
+  return sheets.slice(0, maxSheets).map((sheet, i) => ({ name: names[i] || "ชีต " + (i + 1), rows: sheetRows(files, sheet) }));
+}
+
+function sheetRows(files: Record<string, string>, sheet: string): string[][] {
   const shared = [...(files["xl/sharedStrings.xml"] || "").matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) =>
     xmlText([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((t) => t[1]).join("")),
   );

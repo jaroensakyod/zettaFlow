@@ -11,6 +11,7 @@ import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
 import { decidedText, deptThai, groupRejection, parseDecision } from "@/lib/line-message";
+import { classifyLineFile, LINE_MAX_BYTES, VOICE_MAX_MS } from "@/lib/line-files";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -60,7 +61,11 @@ export async function POST(req: Request) {
           event.replyToken,
           error
             ? "เชื่อมกลุ่มไม่สำเร็จ: " + error.message
-            : "✅ เชื่อมกลุ่มนี้กับ EliteFlow แล้ว" + (dept ? " เป็นกลุ่มของ" + dept : "") + " ส่งข้อความ รูป หรือ PDF เพื่อบันทึกข้อมูลได้เลย",
+            : "✅ เชื่อมกลุ่มนี้กับ EliteFlow แล้ว" +
+              (dept ? " เป็นกลุ่มของ" + dept : "") +
+              "\nส่งข้อความ รูป PDF Excel Word หรือข้อความเสียง (ไม่เกิน 5 นาที) เพื่อบันทึกข้อมูลได้เลย" +
+              "\n\nℹ️ แจ้งสมาชิก: ระบบจะบันทึกข้อความ ไฟล์ และข้อความเสียงที่ส่งในกลุ่มนี้ พร้อมชื่อผู้ส่ง เพื่อใช้งานภายในบริษัท " +
+              "(ข้อความเสียงจะถูกถอดเป็นตัวอักษร และลบไฟล์เสียงหลัง 90 วัน)",
         );
         continue;
       }
@@ -243,16 +248,25 @@ export async function POST(req: Request) {
         : { data: { id: null, name: "AI แยกอัตโนมัติ", department: "Operations", fields: [], steps: [], mode: "sort" } };
       if (!template) continue;
       let attachmentId = null;
-      if (["image", "file"].includes(message.type)) {
+      if (["image", "file", "audio"].includes(message.type)) {
         assert(
           process.env.LINE_CHANNEL_ACCESS_TOKEN,
           "LINE access token not configured",
           503,
         );
+        // Voice messages longer than the limit are not transcribed (cost); tell the sender instead.
+        if (message.type === "audio" && Number(message.duration || 0) > VOICE_MAX_MS) {
+          await lineReply(event.replyToken, `🎤 ข้อความเสียงยาวเกิน ${VOICE_MAX_MS / 60000} นาที — กรุณาแบ่งเป็นคลิปสั้น ๆ หรือพิมพ์แทน`);
+          continue;
+        }
+        if (message.type === "file" && Number(message.fileSize || 0) > LINE_MAX_BYTES) {
+          await lineReply(event.replyToken, `📎 ไฟล์ ${message.fileName || ""} ใหญ่เกิน ${LINE_MAX_BYTES / 1_000_000} MB — กรุณาย่อหรือแยกไฟล์ก่อนส่ง`);
+          continue;
+        }
         const response = await fetch(
           `https://api-data.line.me/v2/bot/message/${encodeURIComponent(message.id)}/content`,
           {
-            signal: AbortSignal.timeout(12000),
+            signal: AbortSignal.timeout(20000),
             headers: {
               Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
             },
@@ -260,20 +274,35 @@ export async function POST(req: Request) {
         );
         assert(response.ok, "Cannot download LINE media", 502);
         const parts: Uint8Array[] = [];
-        let size = 0;
+        let size = 0,
+          tooBig = false;
         for await (const chunk of response.body! as unknown as AsyncIterable<Uint8Array>) {
           size += chunk.length;
-          assert(size <= 4000000, "File too large", 413);
+          if (size > LINE_MAX_BYTES) {
+            tooBig = true;
+            break;
+          }
           parts.push(chunk);
         }
-        const mime = response.headers.get("content-type")?.split(";")[0] || "";
-        assert(
-          ["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(
-            mime,
-          ),
-          "Unsupported LINE attachment",
-        );
+        if (tooBig) {
+          await lineReply(event.replyToken, `📎 ไฟล์ใหญ่เกิน ${LINE_MAX_BYTES / 1_000_000} MB — กรุณาย่อหรือแยกไฟล์ก่อนส่ง`);
+          continue;
+        }
         const bytes = Buffer.concat(parts);
+        const fileName =
+          message.fileName || (message.type === "audio" ? `เสียง-${message.id}.m4a` : `${message.id}.jpg`);
+        const kind = classifyLineFile({
+          bytes,
+          mime: response.headers.get("content-type")?.split(";")[0] || "",
+          name: fileName,
+          messageType: message.type,
+        });
+        // Unsupported files get a reply in the group; never a failed webhook (LINE would resend it).
+        if ("error" in kind) {
+          await lineReply(event.replyToken, "⚠️ " + kind.error);
+          continue;
+        }
+        const mime = kind.mime;
         attachmentId = randomUUID();
         const path = `${group.company_id}/${template.department}/${attachmentId}`;
         const { error } = await sb.storage
@@ -284,7 +313,7 @@ export async function POST(req: Request) {
           id: attachmentId,
           company_id: group.company_id,
           department: template.department,
-          name: message.fileName || `${message.id}.jpg`,
+          name: fileName,
           mime,
           size,
           path,
