@@ -83,6 +83,7 @@ import { ChatHub } from "./b2b-chat";
 import { EmployeesPage } from "./employees-page";
 import { FinanceCenter } from "./finance-center";
 import { ReceiptsPage } from "./receipts-page";
+import { CompanyProfilePage } from "./company-profile";
 import { ProjectsPage } from "./projects";
 import {
   Calendar,
@@ -137,6 +138,11 @@ const extra: Record<
     label: "ปฏิทินธุรกิจ",
     icon: "CalendarDays",
     description: "กำหนดการโครงการ อีเวนต์ และวันครบกำหนด",
+  },
+  profile: {
+    label: "หน้าบริษัท",
+    icon: "Building2",
+    description: "หน้าบริษัทในเครือข่ายธุรกิจ: อัปเดต ผู้ติดตาม และบริษัทที่ติดตาม",
   },
   receipts: {
     label: "ใบเสร็จรับเงิน",
@@ -425,6 +431,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     } catch {}
   }, [fullView]);
   const sideDept = departmentOf(fullView, preferredDept);
+  const navKey = view === "profile" ? "feed" : view;
   // Menu links like "content?channel=social" or "leaves?status=pending" narrow a record list.
   const listFilter = (() => {
     const m = catalog[view];
@@ -532,14 +539,15 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             )}
             <strong>{brand}</strong>
           </button>
+          {/* Company pages belong to the business network tab. */}
           <nav className="topnav-links" aria-label="เมนูหลัก">
             {primary
               .filter(([key]) => visible(key))
               .map(([key, label, Ico]) => (
                 <button
                   key={key}
-                  className={"topnav-link" + (view === key ? " active" : "")}
-                  aria-current={view === key ? "page" : undefined}
+                  className={"topnav-link" + (navKey === key ? " active" : "")}
+                  aria-current={navKey === key ? "page" : undefined}
                   onClick={() => navigate(key)}
                 >
                   <Ico size={16} />
@@ -549,7 +557,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <button
               className={
                 "topnav-link" +
-                (menu || !primary.some(([key]) => key === view)
+                (menu || !primary.some(([key]) => key === navKey)
                   ? " active"
                   : "")
               }
@@ -639,7 +647,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
         <main className="main" key={ctx.company.id}>
-          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile"].includes(view) && (
           <div className="page-heading">
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
@@ -744,6 +752,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <AppShop ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "ads" ? (
             <AdStudio ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "profile" ? (
+            <CompanyProfilePage key={fullView} ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "receipts" ? (
             <ReceiptsPage ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "tax" ? (

@@ -66,6 +66,9 @@ import {
   feedPropose,
   feedProposalStatus,
   feedCompanies,
+  feedProfile,
+  feedFollowList,
+  companyCover,
   feedView,
   feedShare,
   feedSave,
@@ -358,11 +361,13 @@ async function handle(req: NextRequest) {
       return response(await home(ctx));
     }
     if (path[0] === "feed") {
-      if (path[1] === "image" || path[1] === "logo") {
+      if (path[1] === "image" || path[1] === "logo" || path[1] === "cover") {
         const media =
           path[1] === "image"
             ? await feedImage(ctx, path.slice(2).join("/"))
-            : await companyLogo(ctx, path[2]);
+            : path[1] === "cover"
+              ? await companyCover(ctx, path[2])
+              : await companyLogo(ctx, path[2]);
         if (!media) return new Response(null, { status: 404 });
         if ("redirect" in media) return NextResponse.redirect(media.redirect!);
         return new Response(new Uint8Array(media.bytes), {
@@ -375,6 +380,9 @@ async function handle(req: NextRequest) {
       }
       if (path[1] === "suggest") return response(await feedSuggest(ctx));
       if (path[1] === "companies") return response(await feedCompanies(ctx, req.nextUrl.searchParams.get("q")));
+      // Company profile pages: GET /feed/profile[/<id>], GET /feed/follows/<id>?dir=followers|following.
+      if (path[1] === "profile") return response(await feedProfile(ctx, path[2] || null));
+      if (path[1] === "follows") return response(await feedFollowList(ctx, path[2] || null, req.nextUrl.searchParams.get("dir")));
       if (path[1] === "alerts") return response(await feedAlerts(ctx));
       if (path[1] === "views" && method === "POST") {
         await feedView(ctx, await body(req));

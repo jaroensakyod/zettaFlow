@@ -121,12 +121,15 @@ async function demoState() {
 
 // ---------- Reads ----------
 export async function feedList(ctx: Context, filterInput: string | null, before: string | null) {
-  const filter = z.enum(filters).catch("all").parse(filterInput || "all"),
+  // company:<uuid> = one company's updates (its profile page).
+  const companyId = /^company:([0-9a-f-]{36})$/i.exec(filterInput || "")?.[1] || null;
+  const filter = companyId ? "all" : z.enum(filters).catch("all").parse(filterInput || "all"),
     cursor = before ? z.iso.datetime({ offset: true }).parse(before) : null;
   if (ctx.demo) {
     const s = await demoState();
     return (s.feedPosts || [])
       .filter((p) => !p.archived_at && (!cursor || p.created_at < cursor))
+      .filter((p) => (companyId ? p.company_id === companyId : true))
       .filter((p) =>
         filter === "following"
           ? p.company_id === ctx.company.id || (s.feedFollows || []).includes(p.company_id)
@@ -145,7 +148,7 @@ export async function feedList(ctx: Context, filterInput: string | null, before:
   const sb = await supabaseServer();
   const { data, error } = await sb.rpc("feed_list", {
     p_company: ctx.company.id,
-    p_filter: filter,
+    p_filter: companyId ? "company:" + companyId : filter,
     p_before: cursor,
     p_limit: filter === "offers" ? 50 : 20,
   });
@@ -188,6 +191,99 @@ export async function feedCompanies(ctx: Context, search: string | null): Promis
   const { data, error } = await sb.rpc("feed_companies", { p_company: ctx.company.id, p_search: q || null, p_limit: 120 });
   dbError(error);
   return (data || []) as NetworkCompany[];
+}
+
+export type CompanyProfile = {
+  id: string;
+  name: string;
+  name_en: string;
+  industry: string;
+  province: string;
+  has_logo: boolean;
+  has_cover: boolean;
+  about: string;
+  website: string;
+  facebook: string;
+  line: string;
+  joined: string;
+  posts: number;
+  followers: number;
+  following_count: number;
+  mine: boolean;
+  following: boolean;
+  follows_us: boolean;
+};
+export type FollowRow = { id: string; name: string; industry: string; province: string; has_logo: boolean; since: string; mine: boolean; following: boolean };
+
+/** A company's profile page in the network: public card, counts and follow state (own company when id is empty). */
+export async function feedProfile(ctx: Context, target: string | null): Promise<CompanyProfile> {
+  const id = target ? z.uuid().parse(target) : ctx.company.id;
+  if (ctx.demo) {
+    const s = await demoState();
+    const c = demoCompanies(s).get(id);
+    assert(c, "ไม่พบบริษัท", 404);
+    const follows = s.feedFollows || [];
+    const own = id === ctx.company.id;
+    return {
+      id,
+      name: c.name,
+      name_en: own ? String(s.company.profile.nameEn || "") : "",
+      industry: c.industry,
+      province: c.province,
+      has_logo: own && !!s.company.profile.logo,
+      has_cover: own && !!s.company.profile.cover,
+      about: own ? String(s.company.profile.description || "") : "",
+      website: own ? String(s.company.profile.website || "") : "",
+      facebook: "",
+      line: "",
+      joined: new Date().toISOString(),
+      posts: (s.feedPosts || []).filter((p) => p.company_id === id && !p.archived_at).length,
+      followers: own ? 0 : follows.includes(id) ? 1 : 0,
+      following_count: own ? follows.length : 0,
+      mine: own,
+      following: follows.includes(id),
+      follows_us: false,
+    };
+  }
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("feed_company_profile", { p_company: ctx.company.id, p_target: id });
+  dbError(error);
+  assert(data, "ไม่พบบริษัท", 404);
+  return data as CompanyProfile;
+}
+export async function feedFollowList(ctx: Context, target: string | null, dir: string | null): Promise<FollowRow[]> {
+  const id = target ? z.uuid().parse(target) : ctx.company.id,
+    d = z.enum(["followers", "following"]).parse(dir);
+  if (ctx.demo) {
+    const s = await demoState();
+    const companies = demoCompanies(s);
+    const ids = id === ctx.company.id ? (d === "following" ? s.feedFollows || [] : []) : d === "followers" && (s.feedFollows || []).includes(id) ? [ctx.company.id] : [];
+    return ids.flatMap((x) => {
+      const c = companies.get(x);
+      return c ? [{ id: x, name: c.name, industry: c.industry, province: c.province, has_logo: false, since: new Date().toISOString(), mine: x === ctx.company.id, following: (s.feedFollows || []).includes(x) }] : [];
+    });
+  }
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("feed_follow_list", { p_company: ctx.company.id, p_target: id, p_dir: d });
+  dbError(error);
+  return (data || []) as FollowRow[];
+}
+export async function companyCover(ctx: Context, companyId: string) {
+  const id = z.uuid().parse(companyId);
+  let cover = "";
+  if (ctx.demo) {
+    const s = await demoRead();
+    cover = id === s.company.id ? String(s.company.profile.cover || "") : "";
+  } else {
+    const sb = await supabaseServer();
+    const { data, error } = await sb.rpc("company_cover", { p_id: id });
+    dbError(error);
+    cover = String(data || "");
+  }
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(cover);
+  if (match) return { mime: match[1], bytes: Buffer.from(match[2], "base64") };
+  if (/^https:\/\/\S+$/.test(cover)) return { redirect: cover };
+  return null;
 }
 
 // ---------- Writes ----------

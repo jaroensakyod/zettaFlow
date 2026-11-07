@@ -122,6 +122,9 @@ export function IndustryOptions() {
     </>
   );
 }
+/** Workspace view of a company's page in the network (our own page has no id). */
+export const profileView = (companyId: string, ctx: Context) => (companyId === ctx.company.id ? "profile" : "profile?id=" + companyId);
+
 export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: string; logo: boolean | string; size?: number }) {
   const src = typeof logo === "string" ? logo : logo ? "/api/feed/logo/" + id : "";
   return src ? (
@@ -324,6 +327,10 @@ export function Feed({
         </section>
         <section className="card li-profile">
           <div className="li-profile-links">
+            <button onClick={() => navigate("profile")}>
+              หน้าโปรไฟล์บริษัทเรา
+              <ChevronRight size={15} />
+            </button>
             <button onClick={() => setTab("mine")}>
               อัปเดตของบริษัทเรา
               <ChevronRight size={15} />
@@ -566,9 +573,13 @@ export function Feed({
           {suggest.length ? (
             suggest.map((c) => (
               <div className="li-suggest" key={c.id}>
-                <CompanyLogo id={c.id} name={c.name} logo={c.has_logo} size={44} />
+                <button className="li-profile-link" onClick={() => navigate(profileView(c.id, ctx))} aria-label={"ดูหน้าบริษัท " + c.name}>
+                  <CompanyLogo id={c.id} name={c.name} logo={c.has_logo} size={44} />
+                </button>
                 <span>
-                  <strong>{c.name}</strong>
+                  <button className="li-name-link" onClick={() => navigate(profileView(c.id, ctx))}>
+                    {c.name}
+                  </button>
                   <small>{[c.industry || "บริษัทในเครือข่าย", c.province].filter(Boolean).join(" · ")}</small>
                   {c.reason && <em className="li-suggest-why">{c.reason}</em>}
                   <span className="li-suggest-actions">
@@ -843,7 +854,7 @@ export function Composer({
   );
 }
 
-function PostCard({
+export function PostCard({
   post: p,
   ctx,
   notify,
@@ -947,9 +958,13 @@ function PostCard({
         </p>
       )}
       <header className="li-post-head">
-        <CompanyLogo id={p.company_id} name={p.company.name} logo={p.company.has_logo} size={48} />
+        <button className="li-profile-link" onClick={() => navigate(profileView(p.company_id, ctx))} aria-label={"ดูหน้าบริษัท " + p.company.name}>
+          <CompanyLogo id={p.company_id} name={p.company.name} logo={p.company.has_logo} size={48} />
+        </button>
         <div className="li-post-who">
-          <strong>{p.company.name}</strong>
+          <button className="li-name-link" onClick={() => navigate(profileView(p.company_id, ctx))}>
+            {p.company.name}
+          </button>
           <small>{[p.company.industry, p.company.province].filter(Boolean).join(" · ") || "บริษัทในเครือข่าย"}</small>
           <small>
             {since(p.created_at)} · โดย {p.author_name}
@@ -1234,9 +1249,13 @@ function NetworkCompanies({
         <div className="li-network-grid">
           {(inline ? rows.slice(0, 9) : rows).map((c) => (
             <article className="li-network-card" key={c.id}>
-              <CompanyLogo id={c.id} name={c.name} logo={c.has_logo} size={48} />
+              <button className="li-profile-link" onClick={() => navigate(profileView(c.id, ctx))} aria-label={"ดูหน้าบริษัท " + c.name}>
+                <CompanyLogo id={c.id} name={c.name} logo={c.has_logo} size={48} />
+              </button>
               <div>
-                <strong>{c.name}</strong>
+                <button className="li-name-link" onClick={() => navigate(profileView(c.id, ctx))}>
+                  {c.name}
+                </button>
                 <small>{[c.industry || "บริษัทในเครือข่าย", c.province].filter(Boolean).join(" · ")}</small>
                 {c.about && <p>{c.about}</p>}
                 <em>{c.posts ? `${c.posts} อัปเดต` : "เพิ่งเข้าร่วมเครือข่าย"}</em>
