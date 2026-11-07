@@ -107,6 +107,7 @@ const primary: [string, string, LucideIcon][] = [
   ["projects", "โปรเจกต์", Folder],
   ["chat", "แชท", MessageCircle],
   ["integrations", "LINE", MessagesSquare],
+  ["store", "App Shop", Store],
 ];
 const extra: Record<
   string,

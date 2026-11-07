@@ -38,7 +38,13 @@ test("b2b chat: one conversation per company pair, unread, privacy", async () =>
     await login(alice);
     const a = await val<string>("select create_company('Alice Co')");
     const post = "20000000-0000-4000-8000-0000000000b1";
-    await db.query(`select feed_post($1,$2,'partner','หาซัพพลายเออร์','{"title":"หาซัพพลายเออร์"}','{}')`, [a, post]);
+    const body = "ต้องการซัพพลายเออร์ไม้อัด ".repeat(20);
+    await db.query(`select feed_post($1,$2,'partner',$3,'{"title":"หาซัพพลายเออร์","location":"กรุงเทพฯ","budget":"ตามใบเสนอราคา"}',$4)`, [
+      a,
+      post,
+      body,
+      [`${a}/${post}/0.webp`, `${a}/${post}/1.webp`],
+    ]);
     await login(bob);
     const b = await val<string>("select create_company('Bob Co')");
 
@@ -48,23 +54,36 @@ test("b2b chat: one conversation per company pair, unread, privacy", async () =>
     await assert.rejects(db.query("select b2b_open($1,$1)", [b]));
     await db.query("select b2b_send($1,$2,'สนใจเป็นซัพพลายเออร์ครับ',$3)", [b, t, post]);
     await assert.rejects(db.query("select b2b_send($1,$2,'  ')", [b, t]));
-    const bobInbox = await val<{ id: string; company: { name: string }; unread: number; post: { title: string } }[]>("select b2b_inbox($1)", [b]);
+    type Card = { id: string; title: string; kind: string; excerpt: string; meta: { location: string; budget: string }; image: string; company: { id: string; name: string; has_logo: boolean } };
+    // The card for the post Bob is asking about (shown as soon as the chat opens).
+    const card = await val<Card>("select b2b_post($1,$2)", [b, post]);
+    assert.equal(card.title, "หาซัพพลายเออร์");
+    assert.equal(card.kind, "partner");
+    assert.equal(card.excerpt, body.trim().slice(0, 200));
+    assert.equal(card.image, `${a}/${post}/0.webp`);
+    assert.deepEqual(card.meta, { title: "หาซัพพลายเออร์", location: "กรุงเทพฯ", budget: "ตามใบเสนอราคา" });
+    assert.deepEqual(card.company, { id: a, name: "Alice Co", has_logo: false });
+    const bobInbox = await val<{ id: string; company: { name: string }; unread: number; post: Card }[]>("select b2b_inbox($1)", [b]);
     assert.equal(bobInbox.length, 1);
     assert.equal(bobInbox[0].company.name, "Alice Co");
     assert.equal(bobInbox[0].unread, 0);
     assert.equal(bobInbox[0].post.title, "หาซัพพลายเออร์");
+    assert.deepEqual(bobInbox[0].post, card);
 
     // Alice sees it unread, in the feed notifications too, and reading clears it.
     await login(alice);
     assert.equal(Number(await val("select b2b_unread($1)", [a])), 1);
     const alerts = await val<{ kind: string; thread_id?: string }[]>("select feed_alerts($1)", [a]);
     assert.ok(alerts.some((x) => x.kind === "message" && x.thread_id === t));
-    const msgs = await val<{ body: string; mine: boolean; company_name: string }[]>("select b2b_read($1,$2)", [a, t]);
+    const msgs = await val<{ body: string; mine: boolean; company_name: string; post: Card | null }[]>("select b2b_read($1,$2)", [a, t]);
     assert.deepEqual(msgs.map((m) => [m.company_name, m.mine]), [["Bob Co", false]]);
+    assert.deepEqual(msgs[0].post, card);
     assert.equal(Number(await val("select b2b_unread($1)", [a])), 0);
     await db.query("select b2b_send($1,$2,'ส่งใบเสนอราคามาได้เลยค่ะ')", [a, t]);
     await login(bob);
     assert.equal(Number(await val("select b2b_unread($1)", [b])), 1);
+    const bobMsgs = await val<{ post: Card | null }[]>("select b2b_read($1,$2)", [b, t]);
+    assert.deepEqual(bobMsgs.map((m) => m.post?.id ?? null), [post, null]);
 
     // A third company cannot read or write the conversation; the tables are closed to direct access.
     await login(stranger);
@@ -72,6 +91,9 @@ test("b2b chat: one conversation per company pair, unread, privacy", async () =>
     await assert.rejects(db.query("select b2b_read($1,$2)", [s, t]), /ไม่พบ/);
     await assert.rejects(db.query("select b2b_send($1,$2,'hi')", [s, t]), /ไม่พบ/);
     await assert.rejects(db.query("select b2b_read($1,$2)", [a, t]));
+    await assert.rejects(db.query("select b2b_post($1,$2)", [a, post]), /ไม่มีสิทธิ์/);
+    await assert.rejects(db.query("select b2b_post_card($1)", [post]));
+    assert.equal((await val<Card | null>("select b2b_post($1,$2)", [s, post]))?.id, post);
     await assert.rejects(db.query("select * from b2b_messages"));
   } finally {
     await db.close();

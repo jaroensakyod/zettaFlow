@@ -15,7 +15,7 @@ import { api, money, displayDate, Modal } from "./shared";
 import { TopupDialog } from "./coins";
 import { MenuIcon } from "./dept-menu";
 import { FlowMascot } from "./mascot";
-import { themePalettes } from "./theme-apply";
+import { themePalettes, setThemePreview, useThemePreview } from "./theme-apply";
 
 type Item = ShopItem & { owned: boolean; active: boolean; bought_at: string | null; expires_at: string | null };
 type StoreModule = { id: string; department: string; name: string; description: string; price_coins: number; features: string[]; view: string; owned: boolean };
@@ -299,11 +299,16 @@ function SystemCover({ item, onPlay, small = false }: { item: Item; onPlay?: () 
   );
 }
 
-/** Mini mock of the workspace in a theme's palette. */
+/** Mini mock of the workspace in a theme's palette (scoped to that theme whatever the page theme is). */
 function ThemeMock({ id, large = false }: { id: string; large?: boolean }) {
   const p = themePalettes[id] || themePalettes.modern_purple;
   return (
-    <div className={"as-theme-mock" + (large ? " large" : "")} style={{ background: p.bg } as CSSProperties} aria-hidden>
+    <div
+      className={"as-theme-mock" + (large ? " large" : "")}
+      data-theme-scope={themePalettes[id] ? id : "modern_purple"}
+      style={{ background: p.bg, borderColor: p.line } as CSSProperties}
+      aria-hidden
+    >
       <div className="as-tm-nav" style={{ background: p.nav }}>
         <i style={{ background: p.accent }} />
         <b />
@@ -502,7 +507,21 @@ const greeting = (i: Item) =>
       : i.id === "flow_dragon"
         ? "ลุยกันเลย! วันนี้มีงานรออนุมัติ 3 รายการนะ"
         : "สวัสดีครับ วันนี้มีเอกสารรออนุมัติ 3 รายการ ให้ช่วยสรุปไหมครับ?";
-function PreviewDialog({ item, onClose, onBuy, onUse, canUse }: { item: Item; onClose: () => void; onBuy: () => void; onUse: () => void; canUse: boolean }) {
+function PreviewDialog({
+  item,
+  onClose,
+  onBuy,
+  onUse,
+  onTry,
+  canUse,
+}: {
+  item: Item;
+  onClose: () => void;
+  onBuy: () => void;
+  onUse: () => void;
+  onTry?: () => void;
+  canUse: boolean;
+}) {
   return (
     <Modal title={"ตัวอย่าง " + item.name} onClose={onClose}>
       <div className={"as-preview as-preview-" + item.kind}>
@@ -531,6 +550,12 @@ function PreviewDialog({ item, onClose, onBuy, onUse, canUse }: { item: Item; on
                 <i key={c} style={{ background: c }} />
               ))}
             </div>
+            {!item.active && onTry && (
+              <button type="button" className="as-try-theme" onClick={onTry}>
+                <Eye size={15} /> ลองใช้ธีมนี้ทั้งเว็บ
+                <small>ดูทุกหน้าในธีมนี้ก่อนตัดสินใจ · ไม่เสียเหรียญ</small>
+              </button>
+            )}
           </>
         )}
         {item.kind === "system" && (
@@ -595,6 +620,16 @@ function useShopActions(ctx: Context, data: ShopData | null, notify: Notify) {
           canUse={data.canBuy}
           onClose={() => setPreview(null)}
           onUse={() => use(preview)}
+          onTry={
+            preview.kind === "theme"
+              ? () => {
+                  const cur = data.items.find((i) => i.id === preview.id) || preview;
+                  setThemePreview({ id: cur.id, owned: cur.owned });
+                  setPreview(null);
+                  notify("กำลังลองธีม " + cur.name + " · กดยกเลิกที่แถบด้านล่างเพื่อกลับธีมเดิม");
+                }
+              : undefined
+          }
           onBuy={() => {
             setPreview(null);
             setBuying({ kind: "shop", item: preview });
@@ -661,8 +696,9 @@ function OwnButton({ item, a }: { item: Item; a: Actions }) {
   );
 }
 function ThemeCard({ item, a }: { item: Item; a: Actions }) {
+  const trying = useThemePreview()?.id === item.id && !item.active;
   return (
-    <article className={"as-theme" + (item.active ? " active" : "")}>
+    <article className={"as-theme" + (item.active ? " active" : "") + (trying ? " trying" : "")}>
       <button type="button" className="as-theme-thumb" onClick={() => a.preview(item)} aria-label={"ดูตัวอย่าง " + item.name}>
         <ThemeMock id={item.id} />
         {item.active && (
@@ -670,6 +706,7 @@ function ThemeCard({ item, a }: { item: Item; a: Actions }) {
             <Check size={14} />
           </span>
         )}
+        {trying && <span className="as-trying">กำลังลอง</span>}
       </button>
       <div className="as-theme-name">
         <b>{item.name}</b>
@@ -1019,6 +1056,26 @@ export function AppShop({ ctx, navigate, notify }: { ctx: Context; navigate: Nav
     systems = items.filter((i) => i.kind === "system"),
     mods = modules.filter((m) => !needle || [m.name, m.description, m.department].join(" ").toLowerCase().includes(needle));
   const go = (t: ShopTab) => navigate(t === "rec" ? "store" : "store?tab=" + t);
+  // "ซื้อธีมนี้ / ใช้ธีมนี้" on the try-a-theme bar lands here with ?buy=<item>.
+  const buyParam = params.get("buy");
+  const handled = useRef<string | null>(null);
+  useEffect(() => {
+    if (!buyParam) {
+      handled.current = null;
+      return;
+    }
+    if (!data || handled.current === buyParam) return;
+    handled.current = buyParam;
+    const item = data.items.find((i) => i.id === buyParam);
+    if (item) {
+      if (item.active) setThemePreview(null);
+      else if (item.owned && item.kind !== "system") {
+        if (a.canUse) a.use(item);
+        else notify("เฉพาะเจ้าของหรือผู้จัดการเปลี่ยนธีมได้");
+      } else a.buy(item);
+    }
+    navigate("store?tab=" + (item?.kind === "theme" ? "themes" : tab));
+  }, [buyParam, data, a, navigate, notify, tab]);
   const show = (t: ShopTab) => tab === t || tab === "all" || (tab === "rec" && t !== "systems");
   const navKey: NavKey = tab === "characters" ? "characters" : tab === "addons" ? "addons" : tab === "history" ? "history" : "store";
   return (

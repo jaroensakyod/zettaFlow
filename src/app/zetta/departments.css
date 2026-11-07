@@ -19,8 +19,8 @@
   align-items: flex-start;
   gap: 9px;
   min-width: 0;
-  border: 1px solid #e6eaf2;
-  background: linear-gradient(150deg, #fff, #fbfcff);
+  border: 1px solid var(--th-line, #e6eaf2);
+  background: linear-gradient(150deg, var(--th-surface, #fff), var(--th-surface, #fbfcff));
   border-radius: 9px;
   padding: 17px 12px;
   box-shadow: 0 2px 4px #263a6810;
@@ -30,7 +30,7 @@
 }
 .zd-number > div > span {
   font-size: 9px;
-  color: #26233e;
+  color: var(--th-ink, #26233e);
   font-weight: 650;
   display: block;
   line-height: 1.6;
@@ -38,7 +38,7 @@
 .zd-number strong {
   font-size: 25px;
   letter-spacing: -0.8px;
-  color: #111728;
+  color: var(--th-info-ink, #111728);
   line-height: 1.3;
   display: block;
   margin-top: 5px;
@@ -46,7 +46,7 @@
 }
 .zd-number small {
   font-size: 9px;
-  color: #928a9f;
+  color: var(--th-muted-2, #928a9f);
   display: block;
   margin-top: 4px;
 }
@@ -56,30 +56,30 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #f0eaff;
-  color: #7446e4;
+  background: var(--th-tint, #f0eaff);
+  color: var(--th-accent, #7446e4);
   flex-shrink: 0;
-  border: 1px solid #e8dbfc;
+  border: 1px solid var(--th-accent-soft, #e8dbfc);
 }
 .zd-number.blue .zd-number-icon {
-  background: #eef5ff;
-  color: #2177eb;
-  border-color: #d6e8ff;
+  background: var(--th-info-soft, #eef5ff);
+  color: var(--th-info-ink, #2177eb);
+  border-color: var(--th-info-line, #d6e8ff);
 }
 .zd-number.green .zd-number-icon {
-  background: #edfbf2;
-  color: #20ac72;
-  border-color: #d5f2df;
+  background: var(--th-ok-soft, #edfbf2);
+  color: var(--th-ok-ink, #20ac72);
+  border-color: var(--th-ok-line, #d5f2df);
 }
 .zd-number.amber .zd-number-icon {
-  background: #fff8e6;
-  color: #e9a525;
-  border-color: #fff0bd;
+  background: var(--th-warn-soft, #fff8e6);
+  color: var(--th-warn-ink, #e9a525);
+  border-color: var(--th-warn-line, #fff0bd);
 }
 .zd-number.rose .zd-number-icon {
-  background: #fff0f2;
+  background: var(--th-rose-soft, #fff0f2);
   color: #e06480;
-  border-color: #f6dfe6;
+  border-color: var(--th-rose-line, #f6dfe6);
 }
 .zd-main-grid {
   display: grid;
@@ -103,18 +103,18 @@
 }
 .zd-dashboard .z-card {
   box-shadow: 0 1px 4px #1b2e5910;
-  border-color: #e6eaf3;
+  border-color: var(--th-line, #e6eaf3);
   border-radius: 10px;
   padding: 15px;
 }
 .zd-dashboard .z-card h2 {
-  color: #2e1588;
+  color: var(--th-accent-ink, #2e1588);
   font-size: 12px;
   margin-bottom: 13px;
 }
 .zd-dashboard .z-card h3 {
   font-size: 11px;
-  color: #4c2a92;
+  color: var(--th-accent-deep, #4c2a92);
   margin: 15px 0 8px;
 }
 .zd-dashboard table {
@@ -137,7 +137,7 @@
 }
 .zd-insights > p {
   font-size: 11px;
-  color: #746987;
+  color: var(--th-muted, #746987);
   line-height: 1.7;
 }
 .zd-insight {
@@ -147,39 +147,39 @@
   gap: 12px;
   width: 100%;
   text-align: left;
-  background: #f8f7fd;
-  border: 1px solid #efebf7;
+  background: var(--th-surface-2, #f8f7fd);
+  border: 1px solid var(--th-accent-soft, #efebf7);
   border-radius: 7px;
   margin: 9px 0;
   padding: 11px 10px;
-  color: #6445c0;
+  color: var(--th-accent-deep, #6445c0);
 }
 .zd-insight > span {
   flex: 1;
 }
 .zd-insight strong {
-  color: #25223b;
+  color: var(--th-ink, #25223b);
   display: block;
   font-size: 10px;
 }
 .zd-insight small {
-  color: #8b7f9c;
+  color: var(--th-muted, #8b7f9c);
   display: block;
   font-size: 9px;
   margin-top: 5px;
 }
 .zd-insight:hover {
-  background: #f0eaff;
+  background: var(--th-tint, #f0eaff);
 }
 .zd-computed {
   font-size: 8px;
-  color: #a190ad;
+  color: var(--th-muted-2, #a190ad);
   display: block;
   margin-top: 12px;
 }
 .zd-line > small {
   font-size: 8px;
-  color: #9c8fad;
+  color: var(--th-muted-2, #9c8fad);
   display: block;
   margin-bottom: 3px;
 }
@@ -204,7 +204,7 @@
   flex-shrink: 0;
 }
 .zd-donut > div {
-  background: white;
+  background: var(--th-surface, white);
   width: 83px;
   height: 83px;
   border-radius: 50%;
@@ -215,11 +215,11 @@
 }
 .zd-donut strong {
   font-size: 17px;
-  color: #282139;
+  color: var(--th-ink, #282139);
 }
 .zd-donut small {
   font-size: 9px;
-  color: #8c7b9b;
+  color: var(--th-muted, #8c7b9b);
 }
 .zd-legend {
   display: flex;
@@ -250,7 +250,7 @@
 .zd-legend strong {
   font-size: 9px;
   font-weight: 500;
-  color: #867c95;
+  color: var(--th-muted, #867c95);
 }
 .zd-status-bars {
   display: flex;
@@ -266,7 +266,7 @@
   font-size: 9px;
 }
 .zd-status-bars > div > div {
-  background: #f0eff7;
+  background: var(--th-surface-3, #f0eff7);
   border-radius: 4px;
   height: 12px;
   overflow: hidden;
@@ -288,19 +288,19 @@
   flex-wrap: wrap;
   padding: 11px 0;
   font-size: 9px;
-  border-bottom: 1px solid #f2eef7;
+  border-bottom: 1px solid var(--th-line, #f2eef7);
 }
 .zd-supplier span {
   flex: 1;
   min-width: 100px;
 }
 .zd-supplier strong {
-  color: #31a975;
+  color: var(--th-ok-ink, #31a975);
   font-size: 10px;
 }
 .zd-supplier small {
   font-size: 8px;
-  color: #a090ab;
+  color: var(--th-muted-2, #a090ab);
 }
 .zd-process {
   display: flex;
@@ -324,9 +324,9 @@
   place-items: center;
   width: 45px;
   height: 45px;
-  border: 1px solid #b4a0e8;
-  color: #724acf;
-  background: #f6f0ff;
+  border: 1px solid var(--th-accent-light, #b4a0e8);
+  color: var(--th-accent, #724acf);
+  background: var(--th-tint, #f6f0ff);
   border-radius: 50%;
   font-size: 20px;
 }
@@ -335,13 +335,13 @@
 }
 .zd-process small {
   font-size: 9px;
-  color: #8b7c9d;
+  color: var(--th-muted, #8b7c9d);
 }
 .zd-process svg {
   position: absolute;
   right: -10px;
   top: 15px;
-  color: #aaa1ba;
+  color: var(--th-muted-2, #aaa1ba);
 }
 .zd-project-title {
   display: flex;
@@ -352,7 +352,7 @@
 }
 .zd-project-title h2 {
   font-size: 17px;
-  color: #302074;
+  color: var(--th-accent-ink, #302074);
   margin: 0;
 }
 .zd-project-title select {
@@ -362,7 +362,7 @@
 }
 .zd-project-title > small {
   font-size: 10px;
-  color: #9485a5;
+  color: var(--th-muted-2, #9485a5);
 }
 .zd-gallery {
   display: grid;
@@ -375,8 +375,8 @@
   flex-direction: column;
   align-items: stretch;
   text-align: left;
-  background: white;
-  color: #755794;
+  background: var(--th-surface, white);
+  color: var(--th-muted, #755794);
   padding: 0;
   border: 0;
   gap: 8px;
@@ -390,7 +390,7 @@
   height: 180px;
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid #eee7f7;
+  border: 1px solid var(--th-accent-soft, #eee7f7);
 }
 .zd-gallery .z-image-empty {
   height: 180px;
@@ -408,7 +408,7 @@
   flex-direction: column;
   background: transparent;
   border: 0;
-  color: #3b987b;
+  color: var(--th-ok-ink, #3b987b);
   min-width: 40px;
   position: relative;
   gap: 5px;
@@ -418,13 +418,13 @@
   position: absolute;
   top: -9px;
   left: 0;
-  color: #9776c9;
+  color: var(--th-accent, #9776c9);
   font-size: 8px;
 }
 .zd-small-workflow small {
   font-size: 8px;
   white-space: nowrap;
-  color: #827094;
+  color: var(--th-muted, #827094);
 }
 .zd-funnel {
   display: flex;
@@ -455,7 +455,7 @@
 }
 .zd-dashboard .empty-state h3 {
   font-size: 11px;
-  color: #9b8cab;
+  color: var(--th-muted-2, #9b8cab);
 }
 .zd-dashboard .empty-state > span {
   width: 40px;
@@ -616,12 +616,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid #ede7f7;
-  background: #fbf9ff;
+  border: 1px solid var(--th-accent-soft, #ede7f7);
+  background: var(--th-surface, #fbf9ff);
   border-radius: 7px;
   padding: 12px;
   font-size: 11px;
-  color: #765597;
+  color: var(--th-muted, #765597);
 }
 .zd-allocation > div > span {
   flex: 1;
@@ -633,7 +633,7 @@
 .zd-allocation small {
   display: block;
   font-size: 9px;
-  color: #9a85ae;
+  color: var(--th-muted-2, #9a85ae);
   margin-top: 4px;
 }
 .z-reference-crop {
@@ -642,7 +642,7 @@
   overflow: hidden;
   width: 100%;
   border-radius: 7px;
-  background: #f7f5fb;
+  background: var(--th-surface-2, #f7f5fb);
 }
 .z-reference-crop img {
   position: absolute;
@@ -693,37 +693,37 @@
   display: grid;
   grid-template-columns: 24px 1fr;
   column-gap: 9px;
-  color: #a8a0b6;
+  color: var(--th-muted-2, #a8a0b6);
 }
 .z-rental-milestones li small {
   grid-column: 2;
   font-size: 9px;
 }
 .z-rental-milestones .done {
-  color: #28a676;
+  color: var(--th-ok-ink, #28a676);
 }
 .z-sales-achievement {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
   padding: 12px 0;
-  color: #736180;
+  color: var(--th-muted, #736180);
 }
 .z-sales-achievement progress {
   grid-column: 1/-1;
   width: 100%;
   height: 7px;
-  accent-color: #762deb;
+  accent-color: var(--th-accent, #762deb);
 }
 .zd-project-asset {
   width: 100%;
   height: 200px;
   object-fit: contain;
-  background: #f7f4fa;
+  background: var(--th-surface-2, #f7f4fa);
 }
 .zd-gallery > button > small {
   display: block;
-  color: #8b7c9b;
+  color: var(--th-muted, #8b7c9b);
   font-size: 9px;
   margin-top: 7px;
 }

@@ -22,8 +22,8 @@
   padding: 16px 13px;
 }
 .zec-chart-grid .z-ai-summary {
-  background: #eeeaff;
-  border-color: #e1dbfd;
+  background: var(--th-tint, #eeeaff);
+  border-color: var(--th-accent-soft, #e1dbfd);
 }
 .zec-chart-grid .z-ai-summary ul {
   font-size: 10px;
@@ -39,11 +39,11 @@
 .zec-active-card {
   display: block;
   text-align: left;
-  border: 1px solid #d4caf2;
+  border: 1px solid var(--th-accent-light, #d4caf2);
   border-radius: 8px;
-  background: #fff;
+  background: var(--th-surface, #fff);
   padding: 12px 9px;
-  color: #27203f;
+  color: var(--th-ink, #27203f);
   min-width: 0;
 }
 .zec-active-card > div:first-child {
@@ -66,12 +66,12 @@
 }
 .zec-active-card small {
   font-size: 8px;
-  color: #91869d;
+  color: var(--th-muted-2, #91869d);
   display: block;
   margin-top: 4px;
 }
 .zec-active-card em {
-  color: #1ab26c;
+  color: var(--th-ok-ink, #1ab26c);
   font-style: normal;
   font-size: 9px;
   display: block;
@@ -82,19 +82,19 @@
   justify-content: space-between;
   gap: 5px;
   font-size: 8px;
-  color: #8a7b9b;
+  color: var(--th-muted, #8a7b9b);
   margin: 15px 0 9px;
 }
 .zec-active-values strong {
   margin-top: 4px;
   font-size: 10px;
-  color: #2e214b;
+  color: var(--th-ink-2, #2e214b);
 }
 .zec-active-card footer {
   display: flex;
   gap: 13px;
   font-size: 8px;
-  color: #9b8bac;
+  color: var(--th-muted-2, #9b8bac);
   margin-top: 10px;
 }
 .zec-active-card footer span {
@@ -118,8 +118,8 @@
   position: relative;
   padding: 24px;
   border-radius: 12px;
-  color: #fff;
-  background: linear-gradient(110deg, #5030f4, #a82de5, #e71ade);
+  color: var(--th-on-accent, #fff);
+  background: linear-gradient(110deg, var(--th-accent, #5030f4), var(--th-accent, #a82de5), #e71ade);
   margin-bottom: 16px;
   min-height: 150px;
 }
@@ -180,12 +180,12 @@
   align-items: stretch;
   text-align: left;
   gap: 5px;
-  border: 1px solid #e9e3f4;
-  background: white;
+  border: 1px solid var(--th-accent-soft, #e9e3f4);
+  background: var(--th-surface, white);
   border-radius: 7px;
   overflow: hidden;
   padding: 0 0 12px;
-  color: #2c2343;
+  color: var(--th-ink-2, #2c2343);
 }
 .zec-branches img {
   width: 100%;
@@ -199,7 +199,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: #a394b2;
+  color: var(--th-muted-2, #a394b2);
 }
 .zec-branches > button > strong {
   padding: 7px 12px 0;
@@ -207,7 +207,7 @@
 }
 .zec-branches > button > small {
   padding: 0 12px;
-  color: #9a8aaa;
+  color: var(--th-muted-2, #9a8aaa);
   font-size: 9px;
 }
 .z-brand-pptx {
@@ -237,7 +237,7 @@
   min-width: 0;
 }
 .z-stage-wrap > svg {
-  color: #dcad2e;
+  color: var(--th-warn-ink, #dcad2e);
   flex-shrink: 0;
   margin-top: 17px;
   width: 12px;
@@ -249,7 +249,7 @@
   justify-content: flex-start;
   background: none;
   border: 0;
-  color: #6946b6;
+  color: var(--th-accent-deep, #6946b6);
   padding: 0;
   gap: 5px;
   flex: 1;
@@ -260,41 +260,41 @@
   height: 42px;
   display: grid;
   place-items: center;
-  border: 1px solid #c9b3ef;
-  background: #fcfaff;
+  border: 1px solid var(--th-accent-light, #c9b3ef);
+  background: var(--th-surface, #fcfaff);
   border-radius: 50%;
 }
 .z-stage.done > span {
   border-color: #c1e8d3;
-  color: #27af6b;
-  background: #f0fff6;
+  color: var(--th-ok-ink, #27af6b);
+  background: var(--th-ok-soft, #f0fff6);
 }
 .z-stage.progress > span {
-  color: #327be8;
-  border-color: #bed5fb;
-  background: #f0f6ff;
+  color: var(--th-info-ink, #327be8);
+  border-color: var(--th-info-line, #bed5fb);
+  background: var(--th-info-soft, #f0f6ff);
 }
 .z-stage.review > span {
-  color: #d99728;
+  color: var(--th-warn-ink, #d99728);
   border-color: #f5d7a3;
-  background: #fffaf0;
+  background: var(--th-warn-soft, #fffaf0);
 }
 .z-stage strong {
   font-size: 9px;
-  color: #564376;
+  color: var(--th-muted, #564376);
 }
 .z-stage small {
   font-size: 8px;
-  color: #9b8daa;
+  color: var(--th-muted-2, #9b8daa);
 }
 .z-stage em {
   font-style: normal;
   font-size: 8px;
-  color: #a58cad;
+  color: var(--th-muted-2, #a58cad);
 }
 .z-stage-history {
   margin-top: 12px;
-  border-top: 1px solid #eee7f7;
+  border-top: 1px solid var(--th-accent-soft, #eee7f7);
   padding: 15px 0;
 }
 .z-stage-history h3 {
@@ -305,12 +305,12 @@
   align-items: center;
   gap: 12px;
   padding: 9px 0;
-  border-bottom: 1px solid #f1eef7;
-  color: #876a9f;
+  border-bottom: 1px solid var(--th-line, #f1eef7);
+  color: var(--th-muted, #876a9f);
   font-size: 10px;
 }
 .z-stage-history svg {
-  color: #8760d1;
+  color: var(--th-accent, #8760d1);
 }
 .z-stage-history small {
   font-size: 9px;
@@ -404,12 +404,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: #23224a;
+    color: var(--th-ink-2, #23224a);
   }
   .zec-mobile-overview h2 small {
     font-size: 8px;
     font-weight: 400;
-    color: #8f82a5;
+    color: var(--th-muted-2, #8f82a5);
   }
   .zec-mobile-metrics {
     display: grid;
@@ -418,12 +418,12 @@
     margin: 14px 0;
   }
   .zec-mobile-metric {
-    background: #fff;
-    border: 1px solid #ebe6f3;
+    background: var(--th-surface, #fff);
+    border: 1px solid var(--th-line, #ebe6f3);
     border-radius: 9px;
     padding: 13px 11px;
     min-height: 145px;
-    color: #26223e;
+    color: var(--th-ink, #26223e);
   }
   .zec-mobile-metric > span {
     font-size: 9px;
@@ -436,7 +436,7 @@
   }
   .zec-mobile-metric > small {
     font-size: 8px;
-    color: #aba0b8;
+    color: var(--th-muted-2, #aba0b8);
     display: block;
     margin-top: 18px;
   }
@@ -461,15 +461,15 @@
   .zec-mobile-insights h2,
   .zec-mobile-branches h2 {
     font-size: 11px;
-    color: #241c50;
+    color: var(--th-accent-ink, #241c50);
   }
   .zec-mobile-insights p {
     font-size: 9px;
-    color: #95829f;
+    color: var(--th-muted-2, #95829f);
   }
   .zec-mobile-insights p i {
     display: inline-block;
-    background: #bb63ee;
+    background: var(--th-accent-2, #bb63ee);
     width: 5px;
     height: 5px;
     border-radius: 50%;
@@ -532,8 +532,8 @@
     left: 0;
     right: 0;
     height: 65px;
-    background: #fff;
-    border-top: 1px solid #eae4f4;
+    background: var(--th-surface, #fff);
+    border-top: 1px solid var(--th-accent-soft, #eae4f4);
     justify-content: space-around;
     align-items: center;
     z-index: 30;
@@ -542,18 +542,18 @@
   .zec-mobile-nav button {
     display: flex;
     flex-direction: column;
-    color: #9b87b7;
+    color: var(--th-muted-2, #9b87b7);
     font-size: 8px;
     background: none;
     border: 0;
     gap: 5px;
   }
   .zec-mobile-nav button.active {
-    color: #7d22e9;
+    color: var(--th-accent-deep, #7d22e9);
   }
   .zec-mobile-nav .zec-mobile-plus {
-    background: linear-gradient(135deg, #bb29ed, #681cef);
-    color: #fff;
+    background: linear-gradient(135deg, var(--th-accent, #bb29ed), var(--th-accent-deep, #681cef));
+    color: var(--th-on-accent, #fff);
     width: 48px;
     height: 48px;
     border-radius: 50%;

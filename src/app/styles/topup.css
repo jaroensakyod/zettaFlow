@@ -1,15 +1,15 @@
 /* Design update (Canva pages 6-17): topup — "เติมเหรียญ EliteFlow Coins" dialog (Canva page 12). */
 .tu-modal {
-  --tu-violet: #6d3fe0;
-  --tu-violet-2: #8f6bff;
-  --tu-soft: #f3efff;
-  --tu-line: #e6defb;
-  --tu-gold: #f5b81c;
+  --tu-violet: var(--th-accent, #6d3fe0);
+  --tu-violet-2: var(--th-accent-2, #8f6bff);
+  --tu-soft: var(--th-tint, #f3efff);
+  --tu-line: var(--th-accent-soft, #e6defb);
+  --tu-gold: var(--th-warn-ink, #f5b81c);
   width: min(1100px, 96vw);
   padding: 22px;
   position: relative;
   border-radius: 22px;
-  background: linear-gradient(180deg, #fbfaff, #fff 40%);
+  background: linear-gradient(180deg, var(--th-surface, #fbfaff), var(--th-surface, #fff) 40%);
 }
 .tu-close {
   position: absolute;
@@ -40,10 +40,10 @@
   gap: 16px;
   padding: 20px 22px;
   border-radius: 18px;
-  color: white;
+  color: var(--th-on-accent, white);
   background:
     radial-gradient(circle at 85% 20%, #ffffff40 0, transparent 45%),
-    linear-gradient(120deg, #5b2fd6, #8b5cf6 60%, #b49bff);
+    linear-gradient(120deg, var(--th-accent-deep, #5b2fd6), var(--th-accent-2, #8b5cf6) 60%, var(--th-accent-light, #b49bff));
   overflow: hidden;
 }
 .tu-hero h2 {
@@ -83,7 +83,7 @@
   height: 80px;
   border-radius: 26px;
   color: var(--tu-violet);
-  background: white;
+  background: var(--th-surface, white);
   box-shadow: 0 10px 30px #2a0f7a55;
 }
 .tu-float {
@@ -110,8 +110,8 @@
   font-style: normal;
   font-weight: 800;
   font-size: 15px;
-  color: #a86b00;
-  background: radial-gradient(circle at 35% 30%, #fff3b8, var(--tu-gold) 55%, #d99100);
+  color: var(--th-warn-ink, #a86b00);
+  background: radial-gradient(circle at 35% 30%, var(--th-warn-soft, #fff3b8), var(--tu-gold) 55%, #d99100);
   box-shadow:
     inset 0 -3px 0 #c27f00,
     0 3px 8px #b8780040;
@@ -159,7 +159,7 @@
   border: 1px solid var(--tu-line);
   border-radius: 14px;
   padding: 10px 12px;
-  background: white;
+  background: var(--th-surface, white);
 }
 .tu-rate-label {
   display: inline-flex;
@@ -217,7 +217,7 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  color: white;
+  color: var(--th-on-accent, white);
   font-size: 13px;
   background: var(--tu-violet);
 }
@@ -250,7 +250,7 @@
   padding: 16px 18px;
   text-align: left;
   color: var(--ink);
-  background: white;
+  background: var(--th-surface, white);
   border: 1.5px solid var(--tu-line);
   border-radius: 16px;
   transition:
@@ -273,7 +273,7 @@
 }
 .tu-pack small {
   font-size: 14px;
-  color: #4b4b66;
+  color: var(--th-ink-2, #4b4b66);
 }
 .tu-pack em {
   display: inline-flex;
@@ -285,12 +285,12 @@
   font-style: normal;
   font-size: 11.5px;
   font-weight: 700;
-  color: #137a3d;
-  background: #e3f6ea;
+  color: var(--th-ok-ink, #137a3d);
+  background: var(--th-ok-soft, #e3f6ea);
 }
 .tu-pack.active {
   border-color: var(--tu-violet);
-  background: linear-gradient(135deg, #f6f2ff, #ece4ff);
+  background: linear-gradient(135deg, var(--th-tint, #f6f2ff), var(--th-accent-soft, #ece4ff));
   box-shadow: 0 6px 20px #6d3fe026;
 }
 .tu-pack.active small {
@@ -306,9 +306,9 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  color: white;
+  color: var(--th-on-accent, white);
   background: var(--tu-violet);
-  border: 2px solid white;
+  border: 2px solid var(--th-line, white);
 }
 
 /* Perks */
@@ -355,9 +355,9 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border: 1.5px dashed #cdbff5;
+  border: 1.5px dashed var(--th-accent-light, #cdbff5);
   border-radius: 14px;
-  background: white;
+  background: var(--th-surface, white);
   transition:
     border-color 0.15s,
     background 0.15s;
@@ -369,7 +369,7 @@
 .tu-drop.has-file {
   border-style: solid;
   border-color: #9ad7b1;
-  background: #f4fbf6;
+  background: var(--th-surface-2, #f4fbf6);
 }
 .tu-drop > span {
   flex: 1;
@@ -401,7 +401,7 @@
   border-radius: 999px;
   border: 1.5px solid var(--tu-violet);
   color: var(--tu-violet);
-  background: white;
+  background: var(--th-surface, white);
 }
 .tu-done {
   margin-top: 16px;
@@ -419,7 +419,7 @@
   padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--tu-line);
-  background: white;
+  background: var(--th-surface, white);
   display: grid;
   gap: 8px;
 }
@@ -444,13 +444,13 @@
   color: var(--muted);
 }
 .tu-discount {
-  color: #137a3d;
+  color: var(--th-ok-ink, #137a3d);
 }
 .tu-net {
   margin-top: 4px;
   padding: 11px 14px;
   border-radius: 12px;
-  color: white;
+  color: var(--th-on-accent, white);
   background: linear-gradient(90deg, var(--tu-violet), var(--tu-violet-2));
 }
 .tu-net b {
@@ -468,7 +468,7 @@
   padding: 10px 12px;
   border: 1.5px solid var(--tu-line);
   border-radius: 12px;
-  background: white;
+  background: var(--th-surface, white);
   cursor: pointer;
   font-size: 13px;
   font-weight: 400;
@@ -519,7 +519,7 @@
   font-size: 10px;
 }
 .tu-cards .visa {
-  color: #1a1f71;
+  color: var(--th-accent-ink, #1a1f71);
   font-style: italic;
 }
 .tu-cards .mc {
@@ -554,7 +554,7 @@
   height: 132px;
   padding: 6px;
   border-radius: 12px;
-  background: white;
+  background: var(--th-surface, white);
 }
 .tu-qr-img {
   display: block;
@@ -591,14 +591,14 @@
   margin-top: 6px;
   padding: 6px 9px;
   border-radius: 10px;
-  background: white;
+  background: var(--th-surface, white);
   font-size: 12px;
 }
 .tu-timer b {
   color: var(--tu-violet);
 }
 .tu-timer.over {
-  color: #b42318;
+  color: var(--th-rose-ink, #b42318);
 }
 .tu-ask {
   margin: 0;
