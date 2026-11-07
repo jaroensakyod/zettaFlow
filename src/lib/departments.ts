@@ -2,7 +2,7 @@
 // (catalog kind or extra view); `?kind=` opens the report page on that department's data.
 export type MenuItem = { label: string; view: string; icon: string };
 /** A left-sidebar entry; a group shows its children indented under it. */
-export type SideItem = MenuItem & { children?: MenuItem[] };
+export type SideItem = MenuItem & { children?: MenuItem[]; /** Small second line under the label. */ sub?: string };
 export type DepartmentMenu = {
   id: string;
   title: string;
@@ -63,7 +63,7 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "งบการเงิน & รายงาน", view: "reports?kind=expenses", icon: "ChartNoAxesCombined" },
     ],
     sidebar: [
-      { label: "Financial Center", view: "finance", icon: "Landmark" },
+      { label: "Financial Center", sub: "ภาพรวมการเงินองค์กร", view: "finance", icon: "Landmark" },
       {
         label: "ค่าใช้จ่าย", view: "expenses", icon: "FileSpreadsheet",
         children: [

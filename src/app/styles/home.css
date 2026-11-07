@@ -237,7 +237,7 @@
 /* row 2-3: calendar | diary | sales, then my work */
 .hd-mid {
   display: grid;
-  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.6fr) minmax(0, 2fr);
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.45fr) minmax(0, 2.15fr);
   grid-template-areas:
     "cal diary sales"
     "cal work work";
@@ -246,6 +246,7 @@
 }
 .hd-cal {
   grid-area: cal;
+  align-self: stretch; /* tall like the design: runs beside งานของฉัน */
 }
 .hd-diary {
   grid-area: diary;

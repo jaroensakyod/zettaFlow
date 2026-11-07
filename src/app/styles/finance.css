@@ -23,7 +23,7 @@
 .fc-title p { margin: 0; color: var(--muted); }
 .fc-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .fc-year { display: inline-flex; align-items: center; gap: 6px; }
-.fc-year > span { color: var(--muted); font-weight: 600; margin-right: 2px; }
+.fc-year > span { color: var(--muted); font-weight: 600; margin-right: 2px; white-space: nowrap; }
 .fc-year select { height: 34px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; background: #fff; font-weight: 700; min-width: 86px; }
 .fc-icon-btn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
 .fc-icon-btn:hover { background: var(--fc-soft); color: var(--fc-violet); }
@@ -51,7 +51,7 @@
 .fc-kpi { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 16px; background: #fff; border: 1px solid var(--line); min-width: 0; }
 .fc-kpi > div { display: grid; gap: 2px; min-width: 0; }
 .fc-kpi span { font-size: 12px; color: var(--muted); }
-.fc-kpi strong { font-size: 22px; line-height: 1.2; overflow-wrap: anywhere; }
+.fc-kpi strong { font-size: clamp(15px, 1.4vw, 22px); line-height: 1.2; white-space: nowrap; }
 .fc-kpi small { font-size: 12px; color: var(--muted); }
 .fc-kpi-icon { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; }
 .fc-kpi.hero { background: linear-gradient(135deg, #6d28d9, #9333ea); border: 0; color: #fff; }
@@ -97,7 +97,7 @@
 .fc-chart { width: 100%; height: auto; display: block; }
 .fc-axis { stroke: var(--line); stroke-width: 1; }
 .fc-axis.zero { stroke: #cbd5e1; }
-.fc-tick { font-size: 10px; fill: var(--muted); }
+.fc-tick { font-size: 15px; fill: var(--muted); } /* viewBox units: the 560-wide chart is drawn at ~60% in its card */
 .fc-bar.rev { fill: #7c3aed; }
 .fc-bar.exp { fill: #d8b4fe; }
 .fc-line { fill: none; stroke: #22c55e; stroke-width: 2; }
@@ -251,4 +251,13 @@
   .fc-step-act { grid-column: 2 / -1; justify-items: start; margin-top: 2px; }
   .fc-budget-rows label { grid-template-columns: minmax(0, 1fr) 130px; }
   .fc-ybar-row { grid-template-columns: 64px minmax(0, 1fr) 96px; }
+}
+/* Department sidebar entry with a second line (Financial Center · ภาพรวมการเงินองค์กร). */
+.dept-side-two { display: grid; text-align: left; line-height: 1.25; }
+.dept-side-two small { font-size: 11px; font-weight: 500; opacity: 0.75; }
+/* Phones: amounts stay on one line (no "฿7,904,36 / 0"); smaller icon gives them room. */
+@media (max-width: 720px) {
+  .fc-kpi { gap: 8px; padding: 12px; }
+  .fc-kpi-icon { flex-basis: 32px; width: 32px; height: 32px; }
+  .fc-kpi strong { font-size: 15px; }
 }

@@ -673,7 +673,7 @@
   font-size: 12px;
   min-width: 0;
 }
-.pj-owner > span {
+.pj-owner > span:not(.pj-avatar) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1699,7 +1699,7 @@
   align-items: center;
   gap: 10px;
 }
-.pj-owner-card > span {
+.pj-owner-card > span:not(.pj-avatar) {
   display: grid;
   flex: 1;
   min-width: 0;
@@ -1946,4 +1946,12 @@
     width: 64px;
     height: 64px;
   }
+}
+/* Covers keep the card's 16:7.4 frame whatever the photo's own size (photos used to stretch the card). */
+.pj-tile-media {
+  overflow: hidden;
+}
+.pj-tile-media > .pj-media-link {
+  position: absolute;
+  inset: 0;
 }

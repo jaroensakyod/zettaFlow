@@ -71,7 +71,14 @@ export function DepartmentSidebar({
                 onClick={() => go(item.view)}
               >
                 <MenuIcon name={item.icon} size={22} />
-                <span>{item.label}</span>
+                {item.sub ? (
+                  <span className="dept-side-two">
+                    {item.label}
+                    <small>{item.sub}</small>
+                  </span>
+                ) : (
+                  <span>{item.label}</span>
+                )}
               </button>
               {!!item.children?.length && (
                 <div className="dept-side-sub">

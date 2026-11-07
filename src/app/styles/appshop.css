@@ -1229,3 +1229,26 @@
   border-color: var(--as-violet);
   box-shadow: 0 0 0 3px var(--as-soft);
 }
+/* Carousel cards keep their own width; price and "ซื้อเลย" stay inside the card. */
+.as-track {
+  grid-auto-columns: max-content;
+}
+.as-system {
+  min-width: 0;
+  overflow: hidden;
+}
+.as-system-foot {
+  flex-wrap: wrap;
+}
+.as-system-foot button {
+  white-space: nowrap;
+  margin-left: auto;
+}
+/* The preview button takes the card's full width so the mini workspace mock is drawn at full size. */
+.as-theme-thumb {
+  display: block;
+  width: 100%;
+}
+.as-theme-thumb .as-theme-mock {
+  width: 100%;
+}
