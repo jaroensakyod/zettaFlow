@@ -18,11 +18,13 @@ import {
   MapPin,
   Building2,
   PenSquare,
+  Camera,
 } from "lucide-react";
 import type { Context, FeedPost } from "@/lib/types";
 import type { CompanyProfile, FollowRow } from "@/lib/feed";
 import { api, Empty, Loading } from "./shared";
 import { CompanyLogo, PostCard, lineLink } from "./feed";
+import { saveCompanyImage } from "./settings";
 
 type Tab = "posts" | "about" | "followers" | "following";
 const tabs: [Tab, string, typeof Users][] = [
@@ -35,12 +37,26 @@ const joinedText = (iso: string) =>
   new Date(iso).toLocaleDateString("th-TH", { month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
 const external = (url: string) => (/^https?:\/\//i.test(url) ? url : "https://" + url);
 
-export function CompanyProfilePage({ ctx, notify, navigate }: { ctx: Context; notify: (s: string) => void; navigate: (v: string) => void }) {
+export function CompanyProfilePage({
+  ctx,
+  notify,
+  navigate,
+  changed,
+}: {
+  ctx: Context;
+  notify: (s: string) => void;
+  navigate: (v: string) => void;
+  /** Reloads the workspace (company profile in ctx) after a new logo or cover is saved. */
+  changed?: () => void;
+}) {
   const params = useSearchParams(),
     id = params.get("id") || ctx.company.id,
     [profile, setProfile] = useState<CompanyProfile | null>(null),
     [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "posts"),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [uploading, setUploading] = useState<"" | "logo" | "cover">(""),
+    // New pictures show at once (the logo/cover URLs are cached by the browser for a few minutes).
+    [fresh, setFresh] = useState<{ logo?: string; cover?: string }>({});
   const load = useCallback(() => {
     api("/feed/profile/" + id)
       .then((p: CompanyProfile) => {
@@ -65,24 +81,64 @@ export function CompanyProfilePage({ ctx, notify, navigate }: { ctx: Context; no
       notify((e as Error).message);
     }
   };
+  const changeImage = async (kind: "logo" | "cover", file?: File) => {
+    if (!file) return;
+    setUploading(kind);
+    try {
+      const url = await saveCompanyImage(ctx, kind, file);
+      setFresh((f) => ({ ...f, [kind]: url }));
+      setProfile((p) => (p ? { ...p, [kind === "logo" ? "has_logo" : "has_cover"]: true } : p));
+      notify(kind === "logo" ? "เปลี่ยนโลโก้แล้ว" : "เปลี่ยนรูปปกแล้ว");
+      changed?.();
+    } catch (e) {
+      notify((e as Error).message);
+    } finally {
+      setUploading("");
+    }
+  };
+  const picker = (kind: "logo" | "cover") => (
+    <input
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+      className="sr-only"
+      onChange={(e) => {
+        changeImage(kind, e.target.files?.[0]);
+        e.target.value = "";
+      }}
+    />
+  );
   if (error) return <section className="card"><Empty title="เปิดหน้าบริษัทไม่ได้" description={error} /></section>;
   if (!profile) return <section className="card"><Loading /></section>;
   const p = profile,
     line = p.line ? lineLink(p.line) : "",
-    viewer = ctx.member.role === "viewer";
+    viewer = ctx.member.role === "viewer",
+    // Only the owner may change the company profile (save_company).
+    canEdit = p.mine && ctx.member.role === "owner",
+    coverSrc = fresh.cover || (p.has_cover ? "/api/feed/cover/" + p.id : ""),
+    logoSrc: boolean | string = fresh.logo || (p.mine ? String(ctx.company.profile.logo || "") || p.has_logo : p.has_logo);
   return (
     <div className="cp">
       <button className="cp-back" onClick={() => navigate("feed")}>
         <ArrowLeft size={16} /> เครือข่ายธุรกิจ
       </button>
       <section className="card cp-hero">
-        <div
-          className={"cp-cover" + (p.has_cover ? "" : " empty")}
-          style={p.has_cover ? { backgroundImage: `url("/api/feed/cover/${p.id}")` } : undefined}
-        />
+        <div className={"cp-cover" + (coverSrc ? "" : " empty")} style={coverSrc ? { backgroundImage: `url("${coverSrc}")` } : undefined}>
+          {canEdit && (
+            <label className={"cp-cover-edit" + (uploading === "cover" ? " busy" : "")}>
+              <Camera size={16} /> {uploading === "cover" ? "กำลังอัปโหลด…" : coverSrc ? "เปลี่ยนรูปปก" : "เพิ่มรูปปก"}
+              {picker("cover")}
+            </label>
+          )}
+        </div>
         <div className="cp-head">
           <span className="cp-logo">
-            <CompanyLogo id={p.id} name={p.name} logo={p.has_logo} size={112} />
+            <CompanyLogo id={p.id} name={p.name} logo={logoSrc} size={112} />
+            {canEdit && (
+              <label className={"cp-logo-edit" + (uploading === "logo" ? " busy" : "")} title="เปลี่ยนโลโก้" aria-label="เปลี่ยนโลโก้">
+                <Camera size={16} />
+                {picker("logo")}
+              </label>
+            )}
           </span>
           <div className="cp-title">
             <h1>{p.name}</h1>

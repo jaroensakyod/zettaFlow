@@ -753,7 +753,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "ads" ? (
             <AdStudio ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "profile" ? (
-            <CompanyProfilePage key={fullView} ctx={ctx} notify={notify} navigate={navigate} />
+            <CompanyProfilePage key={fullView} ctx={ctx} notify={notify} navigate={navigate} changed={load} />
           ) : view === "receipts" ? (
             <ReceiptsPage ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "tax" ? (

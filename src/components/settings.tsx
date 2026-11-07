@@ -71,6 +71,20 @@ const profileOf = (ctx: Context) => {
   if (p.taxId) p.taxId = String(p.taxId).replace(/\D/g, "");
   return p;
 };
+/**
+ * Saves a new logo or cover right away on top of the saved company profile (owner only; save_company replaces the
+ * whole profile, so every other field is sent back unchanged). Used here and on the company profile page.
+ */
+export async function saveCompanyImage(ctx: Context, kind: "logo" | "cover", file: File) {
+  const url = await toDataUrl(file, kind),
+    saved = Object.fromEntries(
+      Object.entries(profileOf(ctx))
+        .filter(([k]) => companyFields.some((f) => f.key === k))
+        .map(([k, v]) => [k, String(v ?? "")]),
+    );
+  await api("/company", { method: "PATCH", body: { profile: { ...saved, [kind]: url } } });
+  return url;
+}
 export function CompanySettings({
   ctx,
   notify,
@@ -104,13 +118,7 @@ export function CompanySettings({
       if (!file) return;
       setUploading(kind);
       try {
-        const url = await toDataUrl(file, kind),
-          saved = Object.fromEntries(
-            Object.entries(profileOf(ctx))
-              .filter(([k]) => companyFields.some((f) => f.key === k))
-              .map(([k, v]) => [k, String(v ?? "")]),
-          );
-        await api("/company", { method: "PATCH", body: { profile: { ...saved, [kind]: url } } });
+        const url = await saveCompanyImage(ctx, kind, file);
         set(kind, url);
         setError("");
         notify(kind === "logo" ? "เปลี่ยนโลโก้แล้ว" : "เปลี่ยนรูปปกแล้ว");

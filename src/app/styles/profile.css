@@ -317,3 +317,55 @@
     height: 140px;
   }
 }
+/* Owner: change cover / logo right on the company page (saved at once, like the settings page). */
+.cp-cover {
+  position: relative;
+}
+.cp-cover-edit {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: rgb(15 12 30 / 0.62);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.cp-cover-edit:hover {
+  background: rgb(15 12 30 / 0.78);
+}
+.cp-logo {
+  position: relative;
+  display: inline-block;
+}
+.cp-logo-edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: 3px solid var(--surface, #fff);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgb(30 20 60 / 0.25);
+}
+.cp-cover-edit.busy,
+.cp-logo-edit.busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.cp-cover-edit:focus-within,
+.cp-logo-edit:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
