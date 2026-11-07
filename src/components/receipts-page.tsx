@@ -61,7 +61,7 @@ export function ReceiptsPage({ ctx, notify, navigate }: { ctx: Context; notify: 
     [busy, setBusy] = useState("");
   const load = useCallback(async () => {
     try {
-      setData(await api("/receipts"));
+      setData(await api("/receipt-docs"));
       setError("");
     } catch (e) {
       setError((e as Error).message);

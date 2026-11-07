@@ -1050,7 +1050,7 @@ async function handle(req: NextRequest) {
       if (!ctx.demo) after(processNotifications);
       return response({ ok: true });
     }
-    if (path[0] === "receipts" && method === "GET") return response(await receiptsList(ctx));
+    if (path[0] === "receipt-docs" && method === "GET") return response(await receiptsList(ctx));
     if (path[0] === "transfers") {
       if (method === "GET") return response(await transferData(ctx));
       return response(await transferStock(ctx, await body(req)));
