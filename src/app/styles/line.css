@@ -837,3 +837,69 @@
     height: 56px;
   }
 }
+
+/* Sample mode (mockup with fictional data, src/lib/mock/line.ts) */
+.lp-hero-action {
+  margin-top: 10px;
+}
+.lp-sample-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #ddd2fb;
+  background: #fff;
+  color: #6a45d1;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lp-sample-toggle:hover {
+  background: #f5f0ff;
+}
+.lp-sample-toggle.on {
+  background: #6a45d1;
+  border-color: #6a45d1;
+  color: #fff;
+}
+.lp-sample-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #fffaf0;
+  border: 1px dashed #f0cf7c;
+  color: #6b5312;
+}
+.lp-sample-banner .sample-badge {
+  margin: 0;
+}
+.lp-sample-banner p {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.lp-sample-banner div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lp-sample-banner button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-head-badge,
+.lp-card-head .sample-badge,
+.lp-aside-title .sample-badge {
+  margin: 0 0 0 8px;
+  vertical-align: middle;
+}
+.lp-is-sample .lp-table tbody tr {
+  cursor: default;
+}

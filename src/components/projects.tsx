@@ -48,6 +48,7 @@ import {
   Users,
   Wallet,
   Eye,
+  Sparkles,
 } from "lucide-react";
 import type { Context } from "@/lib/types";
 import type {
@@ -68,6 +69,7 @@ import { photoUrl } from "./records";
 import { uploadFile } from "./platform";
 import { ProjectStages } from "./project-stages";
 import { EntityFiles } from "./entity-files";
+import { isSampleId, sampleDetail, sampleOverview, type SampleDetail, type SampleExtras } from "@/lib/mock/projects";
 
 type PageProps = {
   ctx: Context;
@@ -232,6 +234,36 @@ function useStars(userId: string) {
 const canEdit = (ctx: Context) => ctx.member.role === "owner" || (ctx.member.role !== "viewer" && ctx.member.departments.includes("Operations"));
 const canArchive = (ctx: Context) => ["owner", "manager"].includes(ctx.member.role);
 
+// Mockup mode ("ดูตัวอย่าง"): the Canva design filled with fictional projects from src/lib/mock/projects.ts, shown
+// automatically while the company has no projects and on demand from the toolbar. Sample and real projects never mix,
+// and nothing can be written while it is on.
+const SAMPLE_LOCKED = "โหมดตัวอย่าง — ปิดตัวอย่างก่อนจึงจะแก้ไขได้";
+function SampleBadge() {
+  return <span className="pj-sample-badge">ตัวอย่าง</span>;
+}
+function SampleBanner({ onClose, onAdd }: { onClose: () => void; onAdd?: () => void }) {
+  return (
+    <div className="pj-sample-banner" role="status">
+      <Sparkles size={18} />
+      <p>
+        <b>กำลังดูตัวอย่าง — ข้อมูลสมมติ</b> โครงการ ตัวเลข และรายชื่อในหน้านี้แต่งขึ้นเพื่อให้เห็นหน้าตาเมื่อใช้งานจริง
+        ไม่ได้บันทึกลงระบบและไม่ปนกับโครงการจริง ตัวอย่างจะไม่แสดงเองอีกเมื่อมีโครงการจริงแล้ว
+      </p>
+      <span className="pj-sample-actions">
+        <button className="secondary" onClick={onClose}>
+          ปิดตัวอย่าง
+        </button>
+        {onAdd && (
+          <button className="pj-primary" onClick={onAdd}>
+            <Plus size={15} />
+            เพิ่มโครงการจริง
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export function ProjectsPage(props: PageProps) {
   const id = useSearchParams().get("id");
   return id ? <ProjectDetail key={id} id={id} {...props} /> : <ProjectList {...props} />;
@@ -259,6 +291,9 @@ const sorts = {
 
 function ProjectList({ ctx, notify, changed }: PageProps) {
   const router = useRouter();
+  const params = useSearchParams();
+  // null = automatic (sample only while the company has no projects); ?sample=1 / ?sample=0 come back from a sample detail page.
+  const [preview, setPreview] = useState<boolean | null>(() => (params.get("sample") === "1" ? true : params.get("sample") === "0" ? false : null));
   const [data, setData] = useState<ProjectsOverview | null>(null),
     [error, setError] = useState(""),
     [view, setView] = useState<View>("overview"),
@@ -286,16 +321,27 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
   useEffect(() => {
     load();
   }, [load]);
+  const showing = !!data && (preview ?? !data.projects.length);
+  const shown = showing ? sampleOverview : data;
   const open = (id: string) => router.push("/workspace/projects?id=" + id);
+  const writable = canEdit(ctx);
+  // "+ เพิ่มโครงการจริง" on a sample detail page lands here with ?add=1.
+  const addAsked = useRef(params.get("add") === "1");
+  useEffect(() => {
+    if (data && addAsked.current) {
+      addAsked.current = false;
+      if (writable) setEditing("new");
+    }
+  }, [data, writable]);
   const rows = useMemo(() => {
-    if (!data) return [];
+    if (!shown) return [];
     const q = search.trim().toLowerCase();
     const only = groupOf[group];
-    const list = data.projects.filter(
+    const list = shown.projects.filter(
       (p) =>
         (!only || only.includes(p.status)) &&
         (!status || p.status === status) &&
-        (!onlyStarred || stars.includes(p.id)) &&
+        (!onlyStarred || (!showing && stars.includes(p.id))) &&
         (!q || [p.name, p.code, p.subtitle, p.owner?.name, p.data.location, p.data.type].some((x) => String(x || "").toLowerCase().includes(q))),
     );
     const by: Record<keyof typeof sorts, (a: ProjectCard, b: ProjectCard) => number> = {
@@ -307,10 +353,13 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
       progress: (a, b) => b.progress - a.progress,
     };
     return [...list].sort(by[sort]);
-  }, [data, search, group, status, onlyStarred, stars, sort]);
-  const writable = canEdit(ctx);
-  if (!data) return error ? <Empty title={error} /> : <Loading />;
-  const c = data.counts;
+  }, [shown, showing, search, group, status, onlyStarred, stars, sort]);
+  if (!data || !shown) return error ? <Empty title={error} /> : <Loading />;
+  const c = shown.counts;
+  const addReal = () => {
+    setPreview(false);
+    setEditing("new");
+  };
   const tiles: [Group, string, number, typeof Play][] = [
     ["all", "ทั้งหมด", c.all, FolderKanban],
     ["active", "กำลังดำเนินการ", c.active, Play],
@@ -429,8 +478,17 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
               </button>
             </span>
           )}
+          <button
+            className={"pj-tool pj-sample-toggle" + (showing ? " on" : "")}
+            aria-pressed={showing}
+            onClick={() => setPreview(!showing)}
+            title={showing ? "กลับไปดูโครงการจริง" : "ดูหน้าตาเมื่อมีโครงการครบ (ข้อมูลสมมติ)"}
+          >
+            <Sparkles size={15} />
+            {showing ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
+          </button>
           {writable && (
-            <button className="pj-primary" onClick={() => setEditing("new")}>
+            <button className="pj-primary" onClick={() => setEditing("new")} disabled={showing} title={showing ? "ปิดตัวอย่างก่อน แล้วจึงเพิ่มโครงการจริง" : undefined}>
               <Plus size={16} />
               เพิ่มโครงการ
             </button>
@@ -438,8 +496,9 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
         </div>
       </div>
 
+      {showing && <SampleBanner onClose={() => setPreview(false)} onAdd={writable ? addReal : undefined} />}
       {error && <p className="form-error">{error}</p>}
-      {!data.projects.length ? (
+      {!shown.projects.length ? (
         <section className="pj-card">
           <Empty
             title="ยังไม่มีโครงการ"
@@ -465,21 +524,22 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
               <ProjectTile
                 key={p.id}
                 p={p}
-                starred={stars.includes(p.id)}
+                sample={showing}
+                starred={!showing && stars.includes(p.id)}
                 star={() => toggle(p.id)}
                 open={() => open(p.id)}
-                edit={writable ? () => setEditing(p) : undefined}
-                archive={canArchive(ctx) ? () => setArchiving(p) : undefined}
+                edit={writable && !showing ? () => setEditing(p) : undefined}
+                archive={canArchive(ctx) && !showing ? () => setArchiving(p) : undefined}
               />
             ))}
           </div>
         ) : (
-          <ProjectRows rows={rows} stars={stars} toggle={toggle} open={open} />
+          <ProjectRows rows={rows} stars={showing ? [] : stars} toggle={toggle} open={open} sample={showing} />
         )
       ) : view === "timeline" ? (
-        <Timeline rows={rows} today={data.today} open={open} />
+        <Timeline rows={rows} today={shown.today} open={open} />
       ) : view === "calendar" ? (
-        <ProjectCalendar rows={rows} items={data.calendar} today={data.today} open={open} />
+        <ProjectCalendar key={shown.today} rows={rows} items={shown.calendar} today={shown.today} open={open} />
       ) : (
         <Report rows={rows} open={open} />
       )}
@@ -535,7 +595,7 @@ function ProjectList({ ctx, notify, changed }: PageProps) {
   );
 }
 
-function CardMenu({ open, edit, archive }: { open: () => void; edit?: () => void; archive?: () => void }) {
+function CardMenu({ open, edit, archive, note }: { open: () => void; edit?: () => void; archive?: () => void; note?: string }) {
   const [show, setShow] = useState(false);
   return (
     <span className="pj-pop-wrap">
@@ -562,6 +622,7 @@ function CardMenu({ open, edit, archive }: { open: () => void; edit?: () => void
                 เก็บเข้าคลัง
               </button>
             )}
+            {note && <small className="pj-menu-note">{note}</small>}
           </div>
         </>
       )}
@@ -576,6 +637,7 @@ function stageText(p: ProjectCard) {
 
 function ProjectTile({
   p,
+  sample,
   starred,
   star,
   open,
@@ -583,6 +645,7 @@ function ProjectTile({
   archive,
 }: {
   p: ProjectCard;
+  sample?: boolean;
   starred: boolean;
   star: () => void;
   open: () => void;
@@ -597,11 +660,19 @@ function ProjectTile({
           <Cover project={p} />
         </button>
         <StatusChip status={p.status} solid />
+        {sample && <SampleBadge />}
         <span className="pj-media-actions">
-          <button className={"pj-icon-btn" + (starred ? " starred" : "")} aria-label={starred ? "เลิกติดดาว" : "ติดดาว"} aria-pressed={starred} onClick={star}>
+          <button
+            className={"pj-icon-btn" + (starred ? " starred" : "")}
+            aria-label={starred ? "เลิกติดดาว" : "ติดดาว"}
+            aria-pressed={starred}
+            onClick={star}
+            disabled={sample}
+            title={sample ? SAMPLE_LOCKED : undefined}
+          >
             <Star size={15} fill={starred ? "currentColor" : "none"} />
           </button>
-          <CardMenu open={open} edit={edit} archive={archive} />
+          <CardMenu open={open} edit={edit} archive={archive} note={sample ? SAMPLE_LOCKED : undefined} />
         </span>
       </div>
       <div className="pj-tile-body">
@@ -671,18 +742,38 @@ function ProjectTile({
   );
 }
 
-function ProjectRows({ rows, stars, toggle, open }: { rows: ProjectCard[]; stars: string[]; toggle: (id: string) => void; open: (id: string) => void }) {
+function ProjectRows({
+  rows,
+  stars,
+  toggle,
+  open,
+  sample,
+}: {
+  rows: ProjectCard[];
+  stars: string[];
+  toggle: (id: string) => void;
+  open: (id: string) => void;
+  sample?: boolean;
+}) {
   return (
     <section className="pj-card pj-rows">
       {rows.map((p) => (
         <div key={p.id} className="pj-row">
-          <button className={"pj-icon-btn" + (stars.includes(p.id) ? " starred" : "")} aria-label="ติดดาว" onClick={() => toggle(p.id)}>
+          <button
+            className={"pj-icon-btn" + (stars.includes(p.id) ? " starred" : "")}
+            aria-label="ติดดาว"
+            onClick={() => toggle(p.id)}
+            disabled={sample}
+            title={sample ? SAMPLE_LOCKED : undefined}
+          >
             <Star size={15} fill={stars.includes(p.id) ? "currentColor" : "none"} />
           </button>
           <button className="pj-row-main" onClick={() => open(p.id)}>
             <Cover project={p} className="thumb" />
             <span>
-              <b>{p.name}</b>
+              <b>
+                {p.name} {sample && <SampleBadge />}
+              </b>
               <small>
                 {p.code || "—"} · {range(p.startDate, p.endDate)}
               </small>
@@ -1158,16 +1249,23 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
     [people, setPeople] = useState<{ list: Person[]; next: string } | null>(null);
   const { stars, toggle } = useStars(ctx.user.id);
   const top = useRef<HTMLDivElement>(null);
-  const load = useCallback(
-    () =>
-      api("/projects/" + id)
-        .then((d: ProjectDetailData) => {
-          setData(d);
-          setError("");
-        })
-        .catch((e) => setError(e.message)),
-    [id],
-  );
+  // Sample ids (mockup mode) are served from src/lib/mock/projects.ts — never from the API.
+  const sample = isSampleId(id);
+  const load = useCallback(async () => {
+    if (isSampleId(id)) {
+      const d = sampleDetail(id);
+      if (d) setData(d);
+      else setError("ไม่พบโครงการตัวอย่าง");
+      return;
+    }
+    return api("/projects/" + id)
+      .then((d: ProjectDetailData) => {
+        setData(d);
+        setError("");
+      })
+      .catch((e) => setError(e.message));
+  }, [id]);
+  const backTo = sample ? "/workspace/projects?sample=1" : "/workspace/projects";
   useEffect(() => {
     load();
   }, [load]);
@@ -1180,7 +1278,7 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
       <Empty
         title={error}
         action={
-          <button className="secondary" onClick={() => router.push("/workspace/projects")}>
+          <button className="secondary" onClick={() => router.push(backTo)}>
             <ArrowLeft size={15} />
             กลับไปหน้าโครงการ
           </button>
@@ -1190,19 +1288,39 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
       <Loading />
     );
   const p = data.project;
-  const writable = canEdit(ctx);
-  const starred = stars.includes(p.id);
+  const writable = canEdit(ctx) && !sample;
+  const sx: SampleExtras | undefined = sample ? (data as SampleDetail).extras : undefined;
+  const starred = !sample && stars.includes(p.id);
   return (
     <div className="pj-page pj-detail">
+      {sample && (
+        <SampleBanner
+          onClose={() => router.push("/workspace/projects?sample=0")}
+          onAdd={canEdit(ctx) ? () => router.push("/workspace/projects?sample=0&add=1") : undefined}
+        />
+      )}
       <div className="pj-crumbs">
-        <button className="pj-link" onClick={() => router.push("/workspace/projects")}>
+        <button className="pj-link" onClick={() => router.push(backTo)}>
           <ArrowLeft size={15} />
           โครงการทั้งหมด
         </button>
         <span className="pj-crumb-actions">
-          <button className={"pj-icon-btn" + (starred ? " starred" : "")} aria-label={starred ? "เลิกติดดาว" : "ติดดาว"} aria-pressed={starred} onClick={() => toggle(p.id)}>
+          <button
+            className={"pj-icon-btn" + (starred ? " starred" : "")}
+            aria-label={starred ? "เลิกติดดาว" : "ติดดาว"}
+            aria-pressed={starred}
+            onClick={() => toggle(p.id)}
+            disabled={sample}
+            title={sample ? SAMPLE_LOCKED : undefined}
+          >
             <Star size={16} fill={starred ? "currentColor" : "none"} />
           </button>
+          {sample && canEdit(ctx) && (
+            <button className="secondary" disabled title={SAMPLE_LOCKED}>
+              <Pencil size={14} />
+              แก้ไขโครงการ
+            </button>
+          )}
           {writable && (
             <button
               className="secondary"
@@ -1228,7 +1346,10 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
             {p.code && <span className="pj-hero-code"><FolderKanban size={13} />{p.code}</span>}
           </div>
           <div className="pj-hero-text">
-            <StatusChip status={p.status} />
+            <span className="pj-hero-chips">
+              <StatusChip status={p.status} />
+              {sample && <SampleBadge />}
+            </span>
             <h1>{p.name}</h1>
             {p.subtitle && <p className="pj-sub">{p.subtitle}</p>}
             <p className="pj-meta">
@@ -1309,10 +1430,10 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
         <div className="pj-detail-body">
           <div className="pj-ov-grid">
             <InfoCard d={data} edit={writable ? () => setEditing(true) : undefined} more={() => go("info")} />
-            <ProgressCard d={data} manage={() => go("info")} />
+            <ProgressCard d={data} manage={() => go("info")} sx={sx} />
             <SalesCard d={data} />
-            <GoalsCard d={data} />
-            <DocsCard docs={data.documents} all={() => go("docs")} />
+            <GoalsCard d={data} third={sx?.thirdGoal} />
+            <DocsCard docs={data.documents} all={() => go("docs")} sample={sample} />
             <UpcomingCard items={data.upcoming} all={() => go("work")} />
           </div>
           <aside className="pj-side">
@@ -1320,8 +1441,8 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
             <div className="pj-promo">
               {(p.cover || p.sample) && <Cover project={p} className="pj-promo-img" />}
               <div>
-                <em>Plan well, deliver better</em>
-                <p>“ทุกความสำเร็จของโครงการ เริ่มต้นจากการวางแผนที่ดี”</p>
+                <em>{sx?.tagline || "Plan well, deliver better"}</em>
+                <p>{sx?.quote || "“ทุกความสำเร็จของโครงการ เริ่มต้นจากการวางแผนที่ดี”"}</p>
                 <span>
                   <img src="/brand/eliteflow-mark.png" alt="" width={18} height={18} />
                   EliteFlow
@@ -1339,9 +1460,15 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
                 <Layers size={16} />
                 ขั้นตอนโครงการ
               </h3>
-              <small className="pj-muted">คลิกขั้นตอนเพื่ออัปเดตสถานะ · ความคืบหน้าจะคิดจากขั้นตอนเมื่อเริ่มใช้งาน</small>
+              <small className="pj-muted">
+                {sample ? "ตัวอย่าง — โครงการจริงคลิกขั้นตอนเพื่ออัปเดตสถานะได้" : "คลิกขั้นตอนเพื่ออัปเดตสถานะ · ความคืบหน้าจะคิดจากขั้นตอนเมื่อเริ่มใช้งาน"}
+              </small>
             </div>
-            <ProjectStages projectId={p.id} ctx={ctx} changed={() => { load(); changed(); }} />
+            {sample ? (
+              <ProgressCard d={data} manage={() => go("overview")} sx={sx} />
+            ) : (
+              <ProjectStages projectId={p.id} ctx={ctx} changed={() => { load(); changed(); }} />
+            )}
           </section>
         </div>
       ) : tab === "work" ? (
@@ -1350,7 +1477,7 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
         <div className="pj-stack-col">
           <div className="pj-two">
             <SalesCard d={data} />
-            <GoalsCard d={data} />
+            <GoalsCard d={data} third={sx?.thirdGoal} />
           </div>
           <RowsCard
             title="รายการยอดขายล่าสุด"
@@ -1372,9 +1499,13 @@ export function ProjectDetail({ id, ctx, notify, changed, navigate }: PageProps 
                 ไฟล์แนบของโครงการ
               </h3>
             </div>
-            <EntityFiles key={data.documents.length} entity={p.id} department={p.department} writable={ctx.member.role !== "viewer"} />
+            {sample ? (
+              <p className="pj-muted pj-note">ตัวอย่าง — โครงการจริงอัปโหลดและดาวน์โหลดไฟล์แนบได้ที่นี่</p>
+            ) : (
+              <EntityFiles key={data.documents.length} entity={p.id} department={p.department} writable={ctx.member.role !== "viewer"} />
+            )}
           </section>
-          <DocsCard docs={data.documents} title="เอกสารทั้งหมด" limit={200} />
+          <DocsCard docs={data.documents} title="เอกสารทั้งหมด" limit={200} sample={sample} />
         </div>
       ) : tab === "team" ? (
         <TeamTab d={data} edit={writable ? () => setEditing(true) : undefined} />
@@ -1480,13 +1611,16 @@ function InfoCard({ d, edit, more, full }: { d: ProjectDetailData; edit?: () => 
 const stageWords = { done: "เสร็จแล้ว", review: "รออนุมัติ", progress: "กำลังดำเนินการ", pending: "รอดำเนินการ" } as const;
 const stageColors = { done: "#7952dd", review: "#a78bfa", progress: "#c4b5fd", pending: "#ece8f7" } as const;
 
-function ProgressCard({ d, manage }: { d: ProjectDetailData; manage: () => void }) {
+function ProgressCard({ d, manage, sx }: { d: ProjectDetailData; manage: () => void; sx?: SampleExtras }) {
   const p = d.project;
-  const stages = projectWorkflow.map((w, i) => {
-    const s = d.stages.find((x) => x.key === w.key);
-    return { key: w.key, label: w.label, status: s?.status || ("pending" as const), ordinal: s?.ordinal ?? i, visible: !!s };
-  });
-  const started = stages.some((s) => s.status !== "pending");
+  // Mockup mode draws the design's own stepper and legend (sx); real projects use the 10-step workflow.
+  const stages = sx
+    ? sx.steps.map((s, i) => ({ ...s, ordinal: i, visible: true }))
+    : projectWorkflow.map((w, i) => {
+        const s = d.stages.find((x) => x.key === w.key);
+        return { key: w.key, label: w.label, status: s?.status || ("pending" as const), ordinal: s?.ordinal ?? i, visible: !!s };
+      });
+  const started = !sx && stages.some((s) => s.status !== "pending");
   const total = stages.length || 1;
   const parts = (["done", "review", "progress", "pending"] as const).map((k) => ({
     key: k,
@@ -1550,7 +1684,17 @@ function ProgressCard({ d, manage }: { d: ProjectDetailData; manage: () => void 
           </svg>
           <b>{p.progress}%</b>
         </span>
-        {started ? (
+        {sx ? (
+          <ul className="pj-legend">
+            {sx.breakdown.map((x) => (
+              <li key={x.label}>
+                <i style={{ background: x.color }} />
+                {x.label}
+                <b>{x.percent}%</b>
+              </li>
+            ))}
+          </ul>
+        ) : started ? (
           <ul className="pj-legend">
             {parts.map((x) => (
               <li key={x.key}>
@@ -1569,10 +1713,10 @@ function ProgressCard({ d, manage }: { d: ProjectDetailData; manage: () => void 
       <h4>ขั้นตอนปัจจุบัน</h4>
       <ol className="pj-stepper">
         {windowed.map((s) => (
-          <li key={s.key} className={s.status + (s === current && started ? " current" : "")}>
+          <li key={s.key} className={s.status + (s === current && (started || sx) ? " current" : "")}>
             <i>{s.status === "done" ? <Check size={11} /> : null}</i>
             <span>{s.label}</span>
-            {s === current && started && <em>{stageWords[s.status]}</em>}
+            {s === current && (started || sx) && <em>{stageWords[s.status]}</em>}
           </li>
         ))}
       </ol>
@@ -1667,12 +1811,14 @@ function niceCeil(n: number) {
   return 10 * p;
 }
 
-function GoalsCard({ d }: { d: ProjectDetailData }) {
+function GoalsCard({ d, third }: { d: ProjectDetailData; third?: SampleExtras["thirdGoal"] }) {
   const g = d.goals;
+  // The third ring is "งานที่เสร็จ" for real projects; the mockup can swap in the design's own goal (พื้นที่จอง).
+  const t3 = third || { label: "งานที่เสร็จ", value: g.tasks.value, target: g.tasks.target };
   const goals: [string, number, number, string, string][] = [
     ["ยอดขาย", g.sales.value, g.sales.target, "#7952dd", `${compact(g.sales.value)} / ${g.sales.target ? compact(g.sales.target) : "—"}`],
     ["ลูกค้า", g.customers.value, g.customers.target, "#5b8def", `${g.customers.value} / ${g.customers.target || "—"}`],
-    ["งานที่เสร็จ", g.tasks.value, g.tasks.target, "#f472b6", `${g.tasks.value} / ${g.tasks.target}`],
+    [t3.label, t3.value, t3.target, "#f472b6", `${t3.value} / ${t3.target}`],
   ];
   return (
     <section className="pj-card pj-goals">
@@ -1704,7 +1850,19 @@ function docIcon(d: DocItem) {
 }
 const size = (b: number) => (b >= 1e6 ? Math.round(b / 1e5) / 10 + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
 
-function DocsCard({ docs, all, title = "เอกสารสำคัญ", limit = 3 }: { docs: DocItem[]; all?: () => void; title?: string; limit?: number }) {
+function DocsCard({
+  docs,
+  all,
+  title = "เอกสารสำคัญ",
+  limit = 3,
+  sample,
+}: {
+  docs: DocItem[];
+  all?: () => void;
+  title?: string;
+  limit?: number;
+  sample?: boolean;
+}) {
   return (
     <section className="pj-card pj-docs">
       <div className="pj-card-head">
@@ -1736,7 +1894,11 @@ function DocsCard({ docs, all, title = "เอกสารสำคัญ", limi
                     {d.size ? " · " + size(d.size) : d.category ? " · " + d.category : ""}
                   </small>
                 </span>
-                {d.href ? (
+                {sample ? (
+                  <button className="pj-icon-btn" disabled title="ไฟล์ตัวอย่าง — ดาวน์โหลดไม่ได้" aria-label={"ดาวน์โหลด " + d.name}>
+                    <Download size={15} />
+                  </button>
+                ) : d.href ? (
                   <>
                     <a className="pj-icon-btn" href={d.href + "?download=1"} aria-label={"ดาวน์โหลด " + d.name}>
                       <Download size={15} />
@@ -1791,8 +1953,10 @@ function UpcomingCard({ items, all }: { items: CalendarItem[]; all?: () => void 
               <span>
                 <b>{i.name}</b>
                 <small>
-                  {i.kind === "event" ? (i.endDate && i.endDate !== i.date ? `ถึง ${thDate(i.endDate)}` : "ทั้งวัน") : "กำหนดส่งงาน"}
-                  {i.place ? " · " + i.place : ""}
+                  {/^\d{1,2}[:.]\d{2}/.test(i.place)
+                    ? i.place
+                    : (i.kind === "event" ? (i.endDate && i.endDate !== i.date ? `ถึง ${thDate(i.endDate)}` : "ทั้งวัน") : "กำหนดส่งงาน") +
+                      (i.place ? " · " + i.place : "")}
                 </small>
               </span>
             </li>

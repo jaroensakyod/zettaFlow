@@ -261,3 +261,21 @@
   .fc-kpi-icon { flex-basis: 32px; width: 32px; height: 32px; }
   .fc-kpi strong { font-size: 15px; }
 }
+
+/* sample ("ตัวอย่าง") mode — src/lib/mock/finance.ts */
+.fc-sample-toggle { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; border: 1px dashed #e0b44a; background: #fffaf0; color: #9a6a00; font-weight: 700; white-space: nowrap; }
+.fc-sample-toggle:hover { background: #fff4d6; }
+.fc-sample-toggle.on { border-style: solid; background: #fff4d6; }
+.fc-sample-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, #fff8e6, #fff1f6); border: 1px solid #f5dc9a; color: #6b4a00; }
+.fc-sample-banner > svg { color: #d99a00; flex: none; }
+.fc-sample-banner p { flex: 1 1 260px; margin: 0; line-height: 1.5; }
+.fc-sample-banner > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.fc-sample-banner button { display: inline-flex; align-items: center; gap: 6px; height: 34px; }
+.fc-card-head h2 .fc-sample-badge { margin: 0 0 0 2px; font-size: 10.5px; padding: 0 8px; vertical-align: middle; }
+.fc-kpis.sample { position: relative; }
+.fc-kpis .fc-kpis-badge { position: absolute; top: -9px; right: 10px; z-index: 1; margin: 0; }
+.fc-is-sample .fc-form input:disabled { background: #fafafa; }
+@media (max-width: 720px) {
+  .fc-sample-toggle { height: 32px; padding: 0 10px; }
+  .fc-sample-banner { padding: 10px 12px; }
+}

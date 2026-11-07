@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import jsQR from "jsqr";
-import { bahtText, thaiDate, promptPayPayload, qrMatrix, renderDocument, docLines, lineTotals, crc16, type DocModel } from "../src/lib/documents";
+import { bahtText, thaiDate, promptPayPayload, qrMatrix, renderDocument, docLines, lineTotals, crc16, sampleModel, docKinds, profileGaps, type DocModel } from "../src/lib/documents";
 import { docTotal } from "../src/lib/catalog";
 
 test("bahtText reads amounts the Thai way", () => {
@@ -115,6 +115,51 @@ test("renderDocument escapes every value and prints the amount in words", () => 
   assert.match(draft, /<form method="post" action="\/print\/tax_invoice\/x">/);
 });
 
+test("sample documents: design content, watermark, never issued", () => {
+  for (const kind of docKinds) {
+    const m = sampleModel(kind);
+    assert.equal(m.sample, true);
+    assert.deepEqual([m.totals.gross, m.totals.discount, m.totals.after, m.totals.vat, m.amount], [250000, 10000, 240000, 16800, 256800], kind);
+    const html = renderDocument(m);
+    assert.match(html, /class="page k-\w+ sample"/, kind);
+    for (const x of [
+      "256,800.00 บาท",
+      "สองแสนห้าหมื่นหกพันแปดร้อยบาทถ้วน",
+      "บริษัท อีลีทโฟลว์ จำกัด (EliteFlow Co., Ltd.)",
+      "บริษัท ไบรท์โซลูชั่น จำกัด",
+      "ระบบ EliteFlow (แพ็กเกจ Pro)",
+      "ค่าติดตั้งและตั้งค่าระบบ",
+      "อบรมการใช้งาน",
+    ])
+      assert.ok(html.includes(x), `${kind}: ${x}`);
+    assert.ok(!html.includes("<form"), "a sample never offers issuing");
+  }
+  const r = renderDocument(sampleModel("receipt"));
+  for (const x of ["RC-2026-0028", "จำนวนเงินที่ได้รับ", "ช่องทางการติดต่อ", "ฝ่ายขาย", "TRX2026112000198", "ผู้รับเงิน", "ผู้อนุมัติ"]) assert.ok(r.includes(x), x);
+});
+
+test("company header shows every profile field; empty boxes are left out", () => {
+  const empty = { name: "", position: "", phone: "", email: "", line: "", website: "" };
+  const base = sampleModel("receipt");
+  const full = renderDocument(base);
+  for (const x of ["123/45 ถ.รัชดาภิเษก", "เลขประจำตัวผู้เสียภาษี 0105567890123", "สำนักงานใหญ่", "02-345-6789", "sales@eliteflow.co.th", "www.eliteflow.co.th"])
+    assert.ok(full.includes(x), x);
+  assert.ok(!/\.signs\{[^}]*margin-top:auto/.test(full), "signatures follow the content instead of being pushed to the page bottom");
+  // A sparse profile: the header has only the name, the contact box disappears and หมายเหตุ takes the whole row.
+  const bare = renderDocument({ ...base, sample: false, company: { name: "บริษัท ทดสอบ จำกัด" }, contact: empty });
+  assert.ok(!bare.includes("ช่องทางการติดต่อ"));
+  assert.ok(!bare.includes("เลขประจำตัวผู้เสียภาษี 0105567890123"));
+  assert.ok(bare.includes("<h2>บริษัท ทดสอบ จำกัด</h2>"));
+  assert.match(bare, /<div class="avoid"><section class="box notes">.*?หมายเหตุ/);
+  // No bank account / PromptPay, no conditions, no contact: none of those boxes is drawn.
+  const q = renderDocument({ ...sampleModel("quotation"), payment: null, conditions: [], contact: empty });
+  for (const x of ["ช่องทางการชำระเงิน", "เงื่อนไขเพิ่มเติม", "ติดต่อฝ่ายขาย"]) assert.ok(!q.includes(x), x);
+  // Screen-only hints for missing company profile fields.
+  assert.deepEqual(profileGaps({ name: "x", promptPay: "0812345678" }, "invoice"), ["ที่อยู่", "เลขประจำตัวผู้เสียภาษี", "โทรศัพท์", "อีเมล"]);
+  assert.ok(profileGaps({ name: "x" }, "quotation").includes("บัญชีรับเงิน"));
+  assert.ok(renderDocument({ ...base, sample: false, warnings: ["ข้อมูลบริษัทยังไม่ครบ"] }).includes('<p class="warn">ข้อมูลบริษัทยังไม่ครบ</p>'));
+});
+
 // ---------- Database: issue_document / document_number (migration 0043) ----------
 const owner = "10000000-0000-4000-8000-000000000001",
   sales = "10000000-0000-4000-8000-000000000002",
@@ -169,12 +214,18 @@ test("tax invoice and receipt numbers: per year, once per record, Finance only",
     const spend = await save(c, "payments", { name: "จ่ายค่าเช่า", direction: "expense", date: "2026-11-20", amount: 100, method: "เงินสด" });
     await rejects(issue(c, "receipt", spend.id), /ใบเสร็จ/);
 
+    // One call lists every issued number (migration 0047).
+    const list = (await db.query<{ kind: string; entity_id: string; number: string; date: string }>("select * from issued_documents_list($1)", [c])).rows;
+    assert.deepEqual(new Set(list.map((r) => r.number)), new Set([`TAX-${year}-0001`, `TAX-${year}-0002`, `RC-${year}-0001`, `RC-${year}-0002`]));
+    assert.ok(list.some((r) => r.kind === "receipt" && r.entity_id === pay.id && /^\d{4}-\d{2}-\d{2}$/.test(r.date)));
+
     // A Sales-only member cannot issue or read; another company cannot either.
     await db.exec("reset role;");
     await db.query("insert into memberships(company_id,user_id,email,role,departments)values($1,$2,'sales@test.local','staff','{Sales}')", [c, sales]);
     await login(sales);
     await rejects(issue(c, "tax_invoice", inv2.id), /ไม่มีสิทธิ์/);
     assert.equal((await one<{ n: unknown }>(db, "select document_number($1,'tax_invoice',$2)as n", [c, inv.id])).n, null);
+    assert.equal((await db.query("select * from issued_documents_list($1)", [c])).rows.length, 0, "Sales cannot list Finance documents");
     await login(other);
     const d = (await one<{ id: string }>(db, "select create_company('B')as id")).id;
     await rejects(issue(d, "tax_invoice", inv.id), /ไม่พบเอกสาร/);

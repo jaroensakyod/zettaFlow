@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   Clock3,
   Crown,
+  Eye,
+  EyeOff,
+  Gem,
   FileText,
   Filter,
   GitBranch,
@@ -47,6 +50,7 @@ import { LineGroupDetail, type Form } from "./line-hub";
 import { deptThai } from "@/lib/line-message";
 import type { Context } from "@/lib/types";
 import type { Activity, Approver, LinePageData, PageGroup } from "@/lib/line-page";
+import { approverPortrait, lineSample } from "@/lib/mock/line";
 
 type Tab = "groups" | "approvals" | "rules" | "history" | "advanced";
 const tabs: [Tab, string, typeof Users][] = [
@@ -76,6 +80,9 @@ const deptIcons: Record<string, typeof Users> = {
   HR: Users,
   IT: Monitor,
 };
+/** Name with role; a sample approver already carries its title in parentheses. */
+const approverText = (a: Approver) => (/\)$/.test(a.name) ? a.name : `${a.name} (${a.role === "owner" ? "เจ้าของ" : "ผู้จัดการ"})`);
+const tierIcons: Record<string, typeof Users> = { starter: Leaf, growth: Rocket, standard: Rocket, pro: Gem, enterprise: Building2 };
 const roleLabel = (a: Approver) => (a.role === "owner" ? "เจ้าของ" : "ผู้จัดการ" + (a.departments.length ? " " + a.departments.map((d) => deptThai[d] || d).join(", ") : ""));
 
 /** "วันนี้ 14:32" / "เมื่อวาน 17:20" / "3 พ.ย. 09:10" in Bangkok time. */
@@ -97,11 +104,13 @@ function LineMark({ size = 20 }: { size?: number }) {
     </i>
   );
 }
+const letterTints = ["#ece5fd", "#fde8f3", "#e5f0fd", "#e3f6e8", "#fdf2dc", "#e3f4fb", "#fdebee"];
+const letterTint = (name: string) => letterTints[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % letterTints.length];
 function Face({ p, size = 26 }: { p: { name: string; picture: string | null }; size?: number }) {
   return p.picture ? (
     <img className="lp-face" src={p.picture} alt={p.name} title={p.name} width={size} height={size} />
   ) : (
-    <i className="lp-face lp-face-letter" style={{ width: size, height: size }} title={p.name}>
+    <i className="lp-face lp-face-letter" style={{ width: size, height: size, background: letterTint(p.name) }} title={p.name}>
       {p.name.trim().slice(0, 1) || "?"}
     </i>
   );
@@ -159,7 +168,12 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
     [picked, setPicked] = useState<string[]>([]),
     [detail, setDetail] = useState<{ id: string; editing: boolean } | null>(null),
     [pairing, setPairing] = useState(false),
-    [forms, setForms] = useState<Form[]>([]);
+    [forms, setForms] = useState<Form[]>([]),
+    // Sample mode: "auto" shows the mockup while the company has no groups; the header button forces it on / off.
+    [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto");
+  const sampleData = useMemo(() => lineSample(), []);
+  const sample = sampleMode === "on" || (sampleMode === "auto" && !!data && !data.groups.length);
+  const view = sample ? sampleData : data;
   const reload = useCallback(() => setTick((n) => n + 1), []);
 
   useEffect(() => {
@@ -181,7 +195,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
     if (owner) api("/templates").then(setForms).catch(() => {});
   }, [owner]);
 
-  const groups = useMemo(() => data?.groups || [], [data]);
+  const groups = useMemo(() => view?.groups || [], [view]);
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return groups.filter(
@@ -203,8 +217,8 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
       </div>
     );
 
-  const open = detail ? groups.find((g) => g.group_id === detail.id) : undefined;
-  const pkg = data?.package,
+  const open = detail && !sample ? groups.find((g) => g.group_id === detail.id) : undefined;
+  const pkg = view?.package,
     current = pkg?.tiers.find((t) => t.current);
   const limitText = pkg ? (pkg.limit == null ? "ไม่จำกัด" : String(pkg.limit)) : "—";
   const pct = pkg && pkg.limit ? Math.min(100, Math.round((pkg.used / pkg.limit) * 100)) : pkg ? 100 : 0;
@@ -235,7 +249,22 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
   }
   const closeMenu = (e: React.MouseEvent) => e.currentTarget.closest("details")?.removeAttribute("open");
 
-  const stats = data?.stats;
+  const stats = view?.stats;
+  /** Sample rows never reach the API: say so instead of opening / editing / unlinking. */
+  const sampleOnly = () => notify("นี่คือข้อมูลตัวอย่าง — เชื่อมต่อกลุ่ม LINE จริงเพื่อจัดการกลุ่ม");
+  const openRow = (id: string, editing: boolean) => (sample ? sampleOnly() : setDetail({ id, editing }));
+  const sampleToggle = (
+    <button
+      className={"lp-sample-toggle" + (sample ? " on" : "")}
+      aria-pressed={sample}
+      onClick={() => {
+        setPicked([]);
+        setSampleMode(sample ? "off" : "on");
+      }}
+    >
+      {sample ? <EyeOff size={15} /> : <Eye size={15} />} {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
+    </button>
+  );
   const tiles: [string, number | undefined, string, typeof Users, string][] = [
     ["กลุ่มที่เชื่อมต่อ", stats?.groups, "กลุ่ม", Users, "violet"],
     ["เชื่อมต่อสำเร็จ", stats?.connected, "กลุ่ม", Link2, "green"],
@@ -247,7 +276,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
   return (
     <div className="lp-page">
       <div className="lp-top">
-        <Hero />
+        <Hero action={sampleToggle} />
         <section className="lp-pkg-card">
           <h3>แพ็กเกจเชื่อมต่อ LINE</h3>
           {!pkg ? (
@@ -274,7 +303,30 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
         </section>
       </div>
 
-      <div className="lp-stats">
+      {sample && (
+        <div className="lp-sample-banner" role="status">
+          <span className="sample-badge">ตัวอย่าง</span>
+          <p>กำลังดูตัวอย่าง — ข้อมูลสมมติเพื่อให้เห็นหน้าตาเมื่อมีข้อมูลจริง</p>
+          <div>
+            <button className="secondary" onClick={() => setSampleMode("off")}>
+              ปิดตัวอย่าง
+            </button>
+            {owner && (
+              <button
+                className="primary"
+                onClick={() => {
+                  setSampleMode("off");
+                  setPairing(true);
+                }}
+              >
+                <Plus size={15} /> เชื่อมต่อกลุ่ม LINE
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className={"lp-stats" + (sample ? " lp-is-sample" : "")}>
         {tiles.map(([label, n, unit, Icon, tone]) => (
           <div key={label} className={"lp-stat lp-stat-" + tone}>
             <i>
@@ -300,16 +352,17 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
             ))}
           </nav>
           {error && <p className="form-error">{error}</p>}
-          {!data ? (
+          {!view ? (
             !error && <Loading />
           ) : tab === "groups" ? (
-            <section className="lp-card">
+            <section className={"lp-card" + (sample ? " lp-is-sample" : "")}>
               <div className="lp-card-head">
                 <h2>
                   กลุ่ม LINE ที่เชื่อมต่อ{" "}
                   <span className="lp-accent">
-                    ({data.package.used} / {limitText})
+                    ({view.package.used} / {limitText})
                   </span>
+                  {sample && <span className="sample-badge lp-head-badge">ตัวอย่าง</span>}
                 </h2>
                 <div className="lp-tools">
                   <label className="lp-search">
@@ -336,7 +389,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
                   )}
                 </div>
               </div>
-              {owner && picked.length > 0 && (
+              {owner && !sample && picked.length > 0 && (
                 <div className="lp-bulk">
                   เลือก {picked.length} กลุ่ม
                   <button className="secondary danger" onClick={unlinkPicked}>
@@ -371,6 +424,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
                             type="checkbox"
                             aria-label="เลือกทุกกลุ่ม"
                             checked={allPicked}
+                            disabled={sample}
                             onChange={() => setPicked(allPicked ? [] : shown.map((g) => g.group_id))}
                           />
                         </th>
@@ -385,12 +439,13 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
                     </thead>
                     <tbody>
                       {shown.map((g) => (
-                        <tr key={g.group_id} className={g.test ? "lp-row-test" : ""} onClick={() => setDetail({ id: g.group_id, editing: false })}>
+                        <tr key={g.group_id} className={g.test ? "lp-row-test" : ""} onClick={() => openRow(g.group_id, false)}>
                           <td className="lp-check" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
                               aria-label={"เลือก " + g.title}
                               checked={picked.includes(g.group_id)}
+                              disabled={sample}
                               onChange={() => setPicked((p) => (p.includes(g.group_id) ? p.filter((x) => x !== g.group_id) : [...p, g.group_id]))}
                             />
                           </td>
@@ -418,14 +473,12 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
                           <td>
                             {g.approvers.length ? (
                               <span className="lp-approver" title={g.approvers.map((a) => `${a.name} (${roleLabel(a)})`).join("\n")}>
-                                <Face p={{ name: g.approvers[0].name, picture: null }} />
-                                <span>
-                                  {g.approvers[0].name} ({g.approvers[0].role === "owner" ? "เจ้าของ" : "ผู้จัดการ"})
-                                </span>
+                                <Face p={{ name: g.approvers[0].name, picture: sample ? approverPortrait(g.approvers[0].name) : null }} />
+                                <span>{approverText(g.approvers[0])}</span>
                                 {g.approvers.length > 1 && <em>+{g.approvers.length - 1}</em>}
                               </span>
                             ) : (
-                              <span className="lp-muted">{data.adminReady ? "ยังไม่มีผู้อนุมัติที่เชื่อม LINE" : "—"}</span>
+                              <span className="lp-muted">{view.adminReady ? "ยังไม่มีผู้อนุมัติที่เชื่อม LINE" : "—"}</span>
                             )}
                           </td>
                           <td>
@@ -434,7 +487,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
                           </td>
                           <td className="lp-actions" onClick={(e) => e.stopPropagation()}>
                             {owner && (
-                              <button className="icon-button" aria-label={"ตั้งค่า " + g.title} onClick={() => setDetail({ id: g.group_id, editing: true })}>
+                              <button className="icon-button" aria-label={"ตั้งค่า " + g.title} disabled={sample} title={sample ? "ข้อมูลตัวอย่าง" : undefined} onClick={() => openRow(g.group_id, true)}>
                                 <Pencil size={15} />
                               </button>
                             )}
@@ -446,17 +499,17 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
                                 <button
                                   onClick={(e) => {
                                     closeMenu(e);
-                                    setDetail({ id: g.group_id, editing: false });
+                                    openRow(g.group_id, false);
                                   }}
                                 >
                                   <MessageCircle size={14} /> ดูข้อความในกลุ่ม
                                 </button>
-                                {g.waiting > 0 && (
+                                {g.waiting > 0 && !sample && (
                                   <a href="/workspace/ai-inbox">
                                     <ListChecks size={14} /> ไปหน้ารออนุมัติ
                                   </a>
                                 )}
-                                {owner && (
+                                {owner && !sample && (
                                   <button
                                     className="danger-text"
                                     onClick={(e) => {
@@ -478,30 +531,31 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
               )}
             </section>
           ) : tab === "approvals" ? (
-            <Approvals data={data} owner={owner} ctx={ctx} edit={(id) => setDetail({ id, editing: true })} />
+            <Approvals data={view} owner={owner && !sample} sample={sample} ctx={ctx} edit={(id) => openRow(id, true)} />
           ) : tab === "rules" ? (
-            <Rules groups={groups} owner={owner} edit={(id) => setDetail({ id, editing: true })} />
+            <Rules groups={groups} owner={owner && !sample} sample={sample} edit={(id) => openRow(id, true)} />
           ) : tab === "history" ? (
             <section className="lp-card">
               <div className="lp-card-head">
                 <h2>ประวัติการเชื่อมต่อ</h2>
+                {sample && <span className="sample-badge">ตัวอย่าง</span>}
               </div>
-              <Timeline items={data.activity} />
+              <Timeline items={view.activity} />
             </section>
           ) : (
-            <Advanced owner={owner} demo={ctx.demo} configured={data.configured} adminReady={data.adminReady} />
+            <Advanced owner={owner} demo={ctx.demo} configured={data?.configured ?? false} adminReady={data?.adminReady ?? false} />
           )}
         </div>
 
         <aside className="lp-aside">
           <section className="lp-card">
-            <h3 className="lp-aside-title">แพ็กเกจเชื่อมต่อ LINE</h3>
+            <h3 className="lp-aside-title">แพ็กเกจเชื่อมต่อ LINE {sample && <span className="sample-badge">ตัวอย่าง</span>}</h3>
             {!pkg ? (
               <Loading />
             ) : (
               <ul className="lp-tiers">
                 {pkg.tiers.map((t, i) => {
-                  const Icon = [Leaf, Rocket, Building2][i] || Building2;
+                  const Icon = tierIcons[t.id] || [Leaf, Rocket, Gem, Building2][i] || Building2;
                   return (
                     <li key={t.id} className={t.current ? "current" : ""}>
                       <i>
@@ -527,14 +581,14 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
           </section>
           <section className="lp-card">
             <div className="lp-aside-head">
-              <h3 className="lp-aside-title">กิจกรรมล่าสุด</h3>
-              {data && data.activity.length > 4 && (
+              <h3 className="lp-aside-title">กิจกรรมล่าสุด {sample && <span className="sample-badge">ตัวอย่าง</span>}</h3>
+              {view && view.activity.length > 4 && (
                 <button className="text-button" onClick={() => setTab("history")}>
                   ดูทั้งหมด
                 </button>
               )}
             </div>
-            {!data ? <Loading /> : <Timeline items={data.activity.slice(0, 4)} compact />}
+            {!view ? <Loading /> : <Timeline items={view.activity.slice(0, 4)} compact />}
           </section>
         </aside>
       </div>
@@ -570,7 +624,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
   );
 }
 
-function Hero() {
+function Hero({ action }: { action?: React.ReactNode }) {
   return (
     <section className="lp-hero">
       <div className="lp-hero-text">
@@ -585,6 +639,7 @@ function Hero() {
             <br />
             เพื่อดึงข้อมูล แปลงเป็นงาน รายงาน และอนุมัติได้ในระบบ
           </p>
+          {action && <div className="lp-hero-action">{action}</div>}
         </div>
       </div>
       <div className="lp-hero-art" aria-hidden>
@@ -629,12 +684,13 @@ function Timeline({ items, compact = false }: { items: Activity[]; compact?: boo
   );
 }
 
-function Approvals({ data, owner, ctx, edit }: { data: LinePageData; owner: boolean; ctx: Context; edit: (id: string) => void }) {
+function Approvals({ data, owner, sample, ctx, edit }: { data: LinePageData; owner: boolean; sample: boolean; ctx: Context; edit: (id: string) => void }) {
   return (
     <>
       <section className="lp-card">
         <div className="lp-card-head">
           <h2>สิทธิ์และการอนุมัติต่อกลุ่ม</h2>
+          {sample && <span className="sample-badge">ตัวอย่าง</span>}
         </div>
         <p className="lp-note">
           ในกลุ่ม ผู้อนุมัติพิมพ์คำอนุมัติ (หรือกด Reply) เพื่ออนุมัติรายการ เจ้าของอนุมัติได้ทุกกลุ่ม ผู้จัดการอนุมัติได้เฉพาะรายการของแผนกตน และต้องเชื่อมบัญชี LINE ของตัวเองก่อน
@@ -672,7 +728,7 @@ function Approvals({ data, owner, ctx, edit }: { data: LinePageData; owner: bool
                         <ul className="lp-people">
                           {g.approvers.map((a) => (
                             <li key={a.name + a.role}>
-                              {a.name} <small>({roleLabel(a)})</small>
+                              {/\)$/.test(a.name) ? a.name : <>{a.name} <small>({roleLabel(a)})</small></>}
                             </li>
                           ))}
                         </ul>
@@ -704,7 +760,7 @@ function Approvals({ data, owner, ctx, edit }: { data: LinePageData; owner: bool
           <ul className="lp-linked">
             {data.linked.map((a) => (
               <li key={a.name + a.role}>
-                <Face p={{ name: a.name, picture: null }} size={30} />
+                <Face p={{ name: a.name, picture: sample ? approverPortrait(a.name) : null }} size={30} />
                 <span>
                   <b>{a.name}</b>
                   <small>{roleLabel(a)}</small>
@@ -715,17 +771,18 @@ function Approvals({ data, owner, ctx, edit }: { data: LinePageData; owner: bool
         ) : (
           <p className="lp-muted">{data.adminReady ? "ยังไม่มีเจ้าของหรือผู้จัดการที่เชื่อมบัญชี LINE" : "อ่านรายชื่อไม่ได้ (ยังไม่ได้ตั้ง Service role)"}</p>
         )}
-        <LinePairing ctx={ctx} forms={[]} userOnly />
+        {!sample && <LinePairing ctx={ctx} forms={[]} userOnly />}
       </section>
     </>
   );
 }
 
-function Rules({ groups, owner, edit }: { groups: PageGroup[]; owner: boolean; edit: (id: string) => void }) {
+function Rules({ groups, owner, sample, edit }: { groups: PageGroup[]; owner: boolean; sample: boolean; edit: (id: string) => void }) {
   return (
     <section className="lp-card">
       <div className="lp-card-head">
         <h2>กฎการดึงข้อมูล (Workflow)</h2>
+        {sample && <span className="sample-badge">ตัวอย่าง</span>}
       </div>
       <ol className="lp-flow">
         <li>

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   Search, Plus, Download, Upload, Phone, Mail, Pencil, Star, CalendarDays, RefreshCw, SlidersHorizontal, Users, Check, Minus,
   CalendarCheck, AlarmClock, LayoutGrid, ChartNoAxesColumn, Clock, FileText, Sparkles, Files, History, Gem, UserRound,
-  ChevronLeft, ChevronRight, X, BadgeCheck, ShieldCheck,
+  ChevronLeft, ChevronRight, X, BadgeCheck, ShieldCheck, Eye, EyeOff,
 } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels } from "@/lib/catalog";
@@ -20,12 +20,20 @@ import { EntityEditor, photoUrl } from "./records";
 import { EntityFiles } from "./entity-files";
 import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory, type HistoryItem } from "./employee-profile";
+import { employeesSample, isSampleId, sampleCompany } from "@/lib/mock/employees";
 
 type Option = { id: string; kind: string; name: string };
 type Related = { attendance: Entity[]; leaves: Entity[]; kpi: Entity[] };
 const PAGE = 5;
 const hasStrengths = catalog.employees.fields.some((f) => f.key === "strengths");
 const deptName = (d: unknown) => deptLabels[String(d)] || String(d || "—");
+const noRel: Record<string, string> = {};
+
+/** The record's photo / initial avatar, or the illustrated portrait of a sample (mockup) employee. */
+function Face({ e, size, portraits }: { e: Entity; size: number; portraits: Record<string, string> }) {
+  const pic = portraits[e.id];
+  return pic ? <img className="dir-avatar" src={pic} alt="" style={{ width: size, height: size }} /> : <Avatar e={e} size={size} />;
+}
 
 /** Every page of one record kind (newest first), capped so a huge history never stalls the page. */
 async function allOf(kind: string, maxPages = 40): Promise<Entity[]> {
@@ -69,10 +77,18 @@ export function EmployeesPage({
     [profile, setProfile] = useState(""),
     [importing, setImporting] = useState(false),
     [error, setError] = useState(""),
+    // Sample mode: "auto" shows the mockup while the company has no employees; the header button forces it on / off.
+    [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto"),
+    [sampleSel, setSampleSel] = useState(""),
     importRef = useRef<HTMLInputElement>(null),
     detailRef = useRef<HTMLDivElement>(null);
   const writable = ctx.member.role !== "viewer" && (ctx.member.role === "owner" || ctx.member.departments.includes("HR"));
   const today = bangkokToday();
+  const mock = useMemo(() => employeesSample(today), [today]);
+  const sample = sampleMode === "on" || (sampleMode === "auto" && !!rows && !rows.length && !error);
+  const viewRel: Related = sample ? { attendance: mock.attendance, leaves: mock.leaves, kpi: mock.kpi } : rel;
+  const portraits = sample ? mock.portraits : noRel;
+  const selId = sample ? sampleSel || mock.rows[0].id : selectedId;
 
   const load = useCallback(async () => {
     try {
@@ -98,7 +114,7 @@ export function EmployeesPage({
     if (p) setProfile(p);
   }, [load]);
 
-  const all = useMemo(() => rows || [], [rows]);
+  const all = useMemo(() => (sample ? mock.rows : rows || []), [sample, mock, rows]);
   const base = useMemo(() => {
     const q = search.trim().toLowerCase();
     return all.filter(
@@ -115,10 +131,11 @@ export function EmployeesPage({
     shown = list.slice((current - 1) * PAGE, current * PAGE);
   useEffect(() => setPage(1), [search, dept, type, level, tab]);
 
-  const selected = all.find((r) => r.id === selectedId);
+  const selected = all.find((r) => r.id === selId);
   const head = headcount(all),
-    now = todaySummary(all, rel.attendance, rel.leaves, today),
-    team = teamScore(all, rel.kpi);
+    now = todaySummary(all, viewRel.attendance, viewRel.leaves, today),
+    team = teamScore(all, viewRel.kpi);
+  const loaded = !!rows || sample;
 
   async function importFile(file: File) {
     setImporting(true);
@@ -149,6 +166,10 @@ export function EmployeesPage({
   }
   /** Saves part of an employee through the same entity API as the directory and profile. */
   async function patch(e: Entity, change: Record<string, unknown>, message = "บันทึกแล้ว") {
+    if (isSampleId(e.id)) {
+      notify("นี่คือข้อมูลตัวอย่าง — เพิ่มพนักงานจริงเพื่อแก้ไขข้อมูล");
+      return false;
+    }
     try {
       await api("/entities/employees/" + e.id, { method: "PATCH", body: { data: { ...e.data, ...change }, version: e.version } });
       notify(message);
@@ -161,7 +182,8 @@ export function EmployeesPage({
     }
   }
   const pick = (id: string) => {
-    setSelectedId(id);
+    if (sample) setSampleSel(id);
+    else setSelectedId(id);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1100px)").matches)
       setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
@@ -183,9 +205,9 @@ export function EmployeesPage({
 
   const pct = (n: number) => (head.total ? percentOf(n, head.total) + "%" : "");
   const tiles: { label: string; value: ReactNode; sub?: string; tone: string; icon: ReactNode }[] = [
-    { label: "พนักงานทั้งหมด", value: rows ? head.total : "—", tone: "violet", icon: <Users size={22} /> },
-    { label: "กำลังปฏิบัติงาน (Active)", value: rows ? head.active : "—", sub: rows ? pct(head.active) : "", tone: "green", icon: <Check size={22} /> },
-    { label: "ไม่ปฏิบัติงาน (Inactive)", value: rows ? head.inactive : "—", sub: rows ? pct(head.inactive) : "", tone: "red", icon: <Minus size={22} /> },
+    { label: "พนักงานทั้งหมด", value: loaded ? head.total : "—", tone: "violet", icon: <Users size={22} /> },
+    { label: "กำลังปฏิบัติงาน (Active)", value: loaded ? head.active : "—", sub: loaded ? pct(head.active) : "", tone: "green", icon: <Check size={22} /> },
+    { label: "ไม่ปฏิบัติงาน (Inactive)", value: loaded ? head.inactive : "—", sub: loaded ? pct(head.inactive) : "", tone: "red", icon: <Minus size={22} /> },
     { label: "มาทำงานวันนี้", value: now.recorded ? now.present : "—", sub: now.recorded ? pct(now.present) : "ยังไม่มีบันทึกเวลาวันนี้", tone: "blue", icon: <CalendarCheck size={22} /> },
     { label: "ลา / ขาด / สาย (วันนี้)", value: now.recorded || now.away ? now.away : "—", sub: now.recorded || now.away ? pct(now.away) : "", tone: "orange", icon: <AlarmClock size={22} /> },
     { label: "คะแนนเฉลี่ยทีม", value: team !== null ? <>{team.toFixed(1)}<small> / 5.0</small></> : "—", tone: "gold", icon: <Star size={22} /> },
@@ -204,6 +226,13 @@ export function EmployeesPage({
             <CalendarDays size={15} />
             {new Date().toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" })}
           </span>
+          <button
+            className={"secondary ep-sample-toggle" + (sample ? " on" : "")}
+            aria-pressed={sample}
+            onClick={() => setSampleMode(sample ? "off" : "on")}
+          >
+            {sample ? <EyeOff size={15} /> : <Eye size={15} />} {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
+          </button>
           <button
             className="icon-button refresh-button"
             aria-label="รีเฟรช"
@@ -242,6 +271,28 @@ export function EmployeesPage({
       </div>
       {pending}
       {error && <p className="form-error">{error}</p>}
+      {sample && (
+        <div className="ep-sample-banner" role="status">
+          <span className="sample-badge">ตัวอย่าง</span>
+          <p>กำลังดูตัวอย่าง — ข้อมูลสมมติเพื่อให้เห็นหน้าตาเมื่อมีข้อมูลจริง</p>
+          <div>
+            <button className="secondary" onClick={() => setSampleMode("off")}>
+              ปิดตัวอย่าง
+            </button>
+            {writable && (
+              <button
+                className="primary"
+                onClick={() => {
+                  setSampleMode("off");
+                  setEditing("new");
+                }}
+              >
+                <Plus size={15} /> เพิ่มพนักงาน
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="ep-tiles">
         {tiles.map((t) => (
           <div key={t.label} className={"ep-tile " + t.tone}>
@@ -257,10 +308,10 @@ export function EmployeesPage({
           </div>
         ))}
       </div>
-      {!rows ? (
+      {!loaded ? (
         <Loading />
       ) : (
-        <div className="ep-grid">
+        <div className={"ep-grid" + (sample ? " ep-is-sample" : "")}>
           <section className="ep-card ep-list">
             <div className="ep-tools">
               <label className="ep-search">
@@ -318,20 +369,25 @@ export function EmployeesPage({
             ) : (
               <ul className="ep-rows">
                 {shown.map((e) => {
-                  const active = e.id === selectedId;
+                  const active = e.id === selId;
                   return (
                     <li key={e.id}>
                       <button className={active ? "active" : ""} aria-current={active || undefined} onClick={() => pick(e.id)}>
                         <span className="ep-ava">
-                          <Avatar e={e} size={46} />
+                          <Face e={e} size={46} portraits={portraits} />
                           {active && <Star size={14} className="ep-star" aria-hidden />}
                         </span>
                         <span className="ep-who">
                           <b>{String(e.data.name)}</b>
                           <small>{String(e.data.position || deptName(e.data.department))}</small>
-                          {!!e.data.code && <em className="ep-code">{String(e.data.code)}</em>}
+                          {(!!e.data.code || sample) && (
+                            <span className="ep-code-line">
+                              {!!e.data.code && <em className="ep-code">{String(e.data.code)}</em>}
+                              {sample && <span className="sample-badge ep-row-badge">ตัวอย่าง</span>}
+                            </span>
+                          )}
                         </span>
-                        <StatusBadge e={e} onLeave={stats[e.id]?.onLeave} />
+                        <StatusBadge e={e} onLeave={sample ? undefined : stats[e.id]?.onLeave} />
                       </button>
                     </li>
                   );
@@ -373,13 +429,16 @@ export function EmployeesPage({
                 key={selected.id}
                 e={selected}
                 ctx={ctx}
-                rel={rel}
+                rel={viewRel}
                 today={today}
-                writable={writable}
+                writable={writable && !sample}
+                sample={sample}
+                portraits={portraits}
                 navigate={navigate}
                 patch={patch}
                 onEdit={() => setEditing(selected)}
                 onOpen={() => {
+                  if (sample) return notify("นี่คือข้อมูลตัวอย่าง — เพิ่มพนักงานจริงเพื่อดูโปรไฟล์เต็ม");
                   setProfile(selected.id);
                   history.replaceState(null, "", location.pathname + "?profile=" + selected.id);
                 }}
@@ -398,6 +457,7 @@ export function EmployeesPage({
           onSaved={async (r) => {
             const added = editing === "new";
             setEditing(null);
+            setSampleMode("auto");
             notify(added ? "เพิ่มพนักงานแล้ว" + (r.data.code ? " · รหัส " + r.data.code : "") : "บันทึกแล้ว");
             await load();
             setSelectedId(r.id);
@@ -434,6 +494,8 @@ function Detail({
   rel,
   today,
   writable,
+  sample,
+  portraits,
   navigate,
   patch,
   onEdit,
@@ -444,6 +506,8 @@ function Detail({
   rel: Related;
   today: string;
   writable: boolean;
+  sample: boolean;
+  portraits: Record<string, string>;
   navigate: (v: string) => void;
   patch: (e: Entity, change: Record<string, unknown>, message?: string) => Promise<boolean>;
   onEdit: () => void;
@@ -463,16 +527,18 @@ function Detail({
   return (
     <>
       <div className="ep-top">
-        <IdCard e={e} company={ctx.company.name} />
+        <IdCard e={e} company={sample ? sampleCompany : ctx.company.name} portraits={portraits} sample={sample} />
         <section className="ep-card ep-basic">
           <header className="ep-card-head">
             <h3>
               <UserRound size={18} /> ข้อมูลพื้นฐาน
             </h3>
             <div className="ep-head-btns">
-              <button className="ep-ghost" onClick={onOpen}>
-                โปรไฟล์เต็ม
-              </button>
+              {!sample && (
+                <button className="ep-ghost" onClick={onOpen}>
+                  โปรไฟล์เต็ม
+                </button>
+              )}
               {writable && (
                 <button className="ep-ghost accent" onClick={onEdit}>
                   <Pencil size={14} /> แก้ไขข้อมูล
@@ -801,7 +867,11 @@ function Detail({
       {tab === "skills" && <SkillsTab e={e} writable={writable} patch={patch} />}
       {tab === "files" && (
         <section className="ep-card">
-          <EntityFiles entity={e.id} department="HR" writable={writable} />
+          {sample ? (
+            <p className="ep-none">ตัวอย่าง: เอกสารของพนักงาน (สัญญาจ้าง สำเนาบัตร ใบรับรอง) จะแสดงที่นี่เมื่อมีข้อมูลจริง</p>
+          ) : (
+            <EntityFiles entity={e.id} department="HR" writable={writable} />
+          )}
         </section>
       )}
       {tab === "history" && <HistoryTab e={e} writable={writable} patch={patch} />}
@@ -809,18 +879,19 @@ function Detail({
   );
 }
 
-function IdCard({ e, company }: { e: Entity; company: string }) {
+function IdCard({ e, company, portraits, sample }: { e: Entity; company: string; portraits: Record<string, string>; sample: boolean }) {
   const d = e.data;
   const qr = useMemo(() => qrMatrix([d.code, d.name, company].filter(Boolean).map(String).join(" · ")), [d.code, d.name, company]);
   return (
     <section className="ep-idcard" aria-label="บัตรพนักงาน">
+      {sample && <span className="sample-badge ep-id-badge">ตัวอย่าง</span>}
       <div className="ep-id-brand">
         <img src="/brand/eliteflow-mark.png" alt="" width={22} height={22} />
         EliteFlow
       </div>
       <div className="ep-id-body">
         <span className="ep-id-photo">
-          {d.photo ? <img src={photoUrl(d.photo)} alt="" /> : <Avatar e={e} size={112} />}
+          {d.photo ? <img src={photoUrl(d.photo)} alt="" /> : <Face e={e} size={112} portraits={portraits} />}
         </span>
         <div className="ep-id-text">
           {!!d.code && <em className="ep-id-code">{String(d.code)}</em>}

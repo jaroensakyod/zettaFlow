@@ -75,7 +75,7 @@ export const departmentMenu: DepartmentMenu[] = [
       },
       { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit" },
       { label: "การชำระเงิน", view: "payments", icon: "CalendarDays" },
-      { label: "ใบเสร็จรับเงิน", view: "bills", icon: "ScrollText" },
+      { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText" },
       { label: "ภาษี & ภ.ง.ด.", view: "tax", icon: "BadgeDollarSign" },
       { label: "งบการเงิน", view: "reports?kind=payments", icon: "ChartColumn" },
       { label: "ปิดงบประจำปี", view: "finance?tab=closing", icon: "ClipboardCheck" },

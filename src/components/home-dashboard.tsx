@@ -2,7 +2,7 @@
 // Home (ภาพรวม) — design page 16: greeting + 6 KPI cards, calendar & today's agenda, my diary, sales overview,
 // งานของฉัน (items to approve / review / follow), alerts, recent activity and this month's sales goal.
 // Finance rows and tasks come from GET /home; notes, goal, my work, activity and avatar from GET /home/extra.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CalendarOff,
@@ -43,12 +43,23 @@ import {
   ChartColumn,
   Bell,
   CircleAlert,
+  Eye,
+  EyeOff,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import type { Context, Entity, HomeData } from "@/lib/types";
 import type { HomeExtra, NoteItem, UserNote, WorkItem, Activity } from "@/lib/home-extra";
 import { api, money, Loading, Modal } from "./shared";
 import { WidgetBoard } from "./platform";
+import { homeSample, homeIsEmpty, type KpiChange } from "@/lib/mock/home";
+
+/** True while the dashboard shows the sample ("ตัวอย่าง") dataset: cards get a badge and every write is disabled. */
+const SampleCtx = createContext(false);
+const useSample = () => useContext(SampleCtx);
+function SampleBadge() {
+  return useSample() ? <span className="sample-badge hd-sample-badge">ตัวอย่าง</span> : null;
+}
 
 const BKK = "Asia/Bangkok";
 export const deptLabels: Record<string, string> = {
@@ -164,9 +175,19 @@ export function HomeDashboard({
     [upcoming, setUpcoming] = useState<Entity[]>([]),
     [error, setError] = useState(""),
     [workFilter, setWorkFilter] = useState<"all" | "approve" | "review" | "follow">("all"),
-    [calKey, setCalKey] = useState(0);
+    [calKey, setCalKey] = useState(0),
+    // "auto" = show the sample only while the company has nothing of its own here; "on" / "off" = the user's choice.
+    [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto");
   const today = todayIso(),
     tomorrow = addDays(today, 1);
+  const realEmpty = !!home && !!extra && homeIsEmpty(home, extra),
+    sample = sampleMode === "on" || (sampleMode === "auto" && realEmpty),
+    demo = useMemo(() => homeSample(today), [today]);
+  // Never mix: in sample mode every card reads the sample set only.
+  const vHome = sample ? demo.home : home,
+    vExtra = sample ? demo.extra : extra,
+    vSummary = sample ? demo.summary : summary,
+    vUpcoming = sample ? demo.calendar : upcoming;
   const loadExtra = useCallback(
     () =>
       api("/home/extra")
@@ -195,12 +216,38 @@ export function HomeDashboard({
     document.getElementById("hd-work")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   return (
-    <div className="hd">
-      {error && <p className="form-error">{error}</p>}
+    <SampleCtx.Provider value={sample}>
+    <div className={"hd" + (sample ? " hd-is-sample" : "")}>
+      {sample && (
+        <div className="hd-sample-banner" role="status">
+          <Sparkles size={18} />
+          <p>
+            <b>กำลังดูตัวอย่าง</b> — ข้อมูลสมมติเพื่อให้เห็นหน้าตาเมื่อมีข้อมูลจริง
+            {realEmpty ? " (ยังไม่มีงาน ยอดขาย บันทึก หรือรายการรออนุมัติของบริษัท ตัวอย่างจะหายไปเองเมื่อมีข้อมูลจริง)" : ""}
+          </p>
+          <div>
+            <button className="secondary" onClick={() => setSampleMode("off")}>
+              <EyeOff size={15} />
+              {realEmpty ? "เริ่มใช้งานจริง" : "ปิดตัวอย่าง"}
+            </button>
+          </div>
+        </div>
+      )}
+      {error && !sample && <p className="form-error">{error}</p>}
       <div className="hd-top">
-        <Hello name={firstName} today={today} avatar={extra?.avatar || null} />
-        {home ? (
-          <Kpis home={home} today={today} navigate={navigate} />
+        <Hello
+          name={firstName}
+          today={today}
+          avatar={sample ? null : extra?.avatar || null}
+          action={
+            <button className={"hd-sample-toggle" + (sample ? " on" : "")} aria-pressed={sample} onClick={() => setSampleMode(sample ? "off" : "on")}>
+              {sample ? <EyeOff size={14} /> : <Eye size={14} />}
+              {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
+            </button>
+          }
+        />
+        {vHome ? (
+          <Kpis home={vHome} today={today} navigate={navigate} changes={sample ? demo.kpiChange : undefined} />
         ) : (
           <section className="hd-card hd-kpis-loading">
             <Loading />
@@ -215,41 +262,47 @@ export function HomeDashboard({
           notify={notify}
           onAdded={() => setCalKey((k) => k + 1)}
           refreshKey={refreshKey + calKey}
+          sampleEntries={sample ? demo.calendar : undefined}
         />
-        <Diary today={today} extra={extra} notify={notify} reload={loadExtra} />
-        {home ? (
-          <SalesCard today={today} home={home} />
+        <Diary today={today} extra={vExtra} notify={notify} reload={loadExtra} />
+        {vHome ? (
+          <SalesCard today={today} home={vHome} />
         ) : (
           <section className="hd-card">
             <Loading />
           </section>
         )}
-        <MyWork extra={extra} filter={workFilter} setFilter={setWorkFilter} navigate={navigate} />
+        <MyWork extra={vExtra} filter={workFilter} setFilter={setWorkFilter} navigate={navigate} />
       </div>
       <div className="hd-bottom">
         <Alerts
           today={today}
           tomorrow={tomorrow}
-          summary={summary}
-          tasks={home?.tasks || []}
-          upcoming={upcoming}
-          approvals={extra?.counts.approve || 0}
+          summary={vSummary}
+          tasks={vHome?.tasks || []}
+          upcoming={vUpcoming}
+          approvals={
+            sample ? demo.extra.work.filter((w) => w.group === "approve" && w.status === "pending").length : extra?.counts.approve || 0
+          }
           navigate={navigate}
           showWork={showWork}
         />
-        <ActivityCard activity={extra?.activity || null} today={today} navigate={navigate} />
-        <GoalCard today={today} home={home} extra={extra} notify={notify} reload={loadExtra} />
+        <ActivityCard activity={vExtra?.activity || null} today={today} navigate={navigate} />
+        <GoalCard today={today} home={vHome} extra={vExtra} notify={notify} reload={loadExtra} />
       </div>
-      {/* Owners reorder, hide and set per-role visibility here, and share the board by link. */}
-      <div className="elite-zone">
-        <WidgetBoard ctx={ctx} notify={notify} />
-      </div>
+      {/* Owners reorder, hide and set per-role visibility here, and share the board by link (real data only). */}
+      {!sample && (
+        <div className="elite-zone">
+          <WidgetBoard ctx={ctx} notify={notify} />
+        </div>
+      )}
     </div>
+    </SampleCtx.Provider>
   );
 }
 
 /* ---------- greeting ---------- */
-function Hello({ name, today, avatar }: { name: string; today: string; avatar: string | null }) {
+function Hello({ name, today, avatar, action }: { name: string; today: string; avatar: string | null; action?: React.ReactNode }) {
   const quote = quotes[Math.floor(Date.parse(today) / 864e5) % quotes.length];
   return (
     <section className="hd-card hd-hello">
@@ -285,6 +338,7 @@ function Hello({ name, today, avatar }: { name: string; today: string; avatar: s
           {thai(today, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
         <p className="hd-hello-quote">“{quote}”</p>
+        {action && <div className="hd-hello-actions">{action}<SampleBadge /></div>}
       </div>
     </section>
   );
@@ -367,8 +421,21 @@ function financeKpis(home: HomeData, today: string) {
     },
   };
 }
-function Kpis({ home, today, navigate }: { home: HomeData; today: string; navigate: Navigate }) {
-  const f = useMemo(() => financeKpis(home, today), [home, today]);
+function Kpis({
+  home,
+  today,
+  navigate,
+  changes,
+}: {
+  home: HomeData;
+  today: string;
+  navigate: Navigate;
+  /** Sample mode: the design's month-over-month changes instead of the computed ones. */
+  changes?: { cost: KpiChange; sales: KpiChange; profit: KpiChange; margin: KpiChange };
+}) {
+  const computed = useMemo(() => financeKpis(home, today), [home, today]),
+    f = changes ? { ...computed, change: changes } : computed,
+    sample = useSample();
   const open = home.tasks.filter((t) => t.data.status !== "done"),
     late = open.filter((t) => t.data.dueDate && String(t.data.dueDate) < today).length,
     done = home.tasks.length - open.length;
@@ -390,7 +457,8 @@ function Kpis({ home, today, navigate }: { home: HomeData; today: string; naviga
     { key: "open", label: "งานคงค้าง", value: open.length + " งาน", icon: Hourglass, color: "#e85d9b", note: late ? `เลยกำหนด ${late} งาน` : "ไม่มีงานเลยกำหนด", view: "tasks" },
   ];
   return (
-    <div className="hd-kpis">
+    <div className={"hd-kpis" + (sample ? " sample" : "")}>
+      {sample && <span className="sample-badge hd-sample-badge hd-kpis-badge">ตัวอย่าง</span>}
       {cards.map((k) => (
         <button
           key={k.key}
@@ -428,6 +496,7 @@ function CalendarCard({
   notify,
   onAdded,
   refreshKey,
+  sampleEntries,
 }: {
   ctx: Context;
   today: string;
@@ -435,20 +504,24 @@ function CalendarCard({
   notify: (s: string) => void;
   onAdded: () => void;
   refreshKey: number;
+  /** Sample mode: show these instead of GET /calendar. */
+  sampleEntries?: Entity[];
 }) {
   const [month, setMonth] = useState(today.slice(0, 7)),
     [selected, setSelected] = useState(today),
-    [entries, setEntries] = useState<Entity[]>([]),
-    [adding, setAdding] = useState(false);
+    [realEntries, setEntries] = useState<Entity[]>([]),
+    [adding, setAdding] = useState(false),
+    entries = sampleEntries || realEntries;
   useEffect(() => {
     let live = true;
+    if (sampleEntries) return;
     api("/calendar?month=" + month)
       .then((rows) => live && setEntries(rows))
       .catch(() => live && setEntries([]));
     return () => {
       live = false;
     };
-  }, [month, refreshKey]);
+  }, [month, refreshKey, sampleEntries]);
   const [y, m] = month.split("-").map(Number),
     first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(),
     days = monthDays(month),
@@ -461,7 +534,10 @@ function CalendarCard({
   return (
     <section className="hd-card hd-cal">
       <div className="hd-cal-head">
-        <strong>{thai(month + "-01", { month: "long", year: "numeric" })}</strong>
+        <strong>
+          {thai(month + "-01", { month: "long", year: "numeric" })}
+          <SampleBadge />
+        </strong>
         <div>
           <button className="hd-round" aria-label="เดือนก่อนหน้า" onClick={() => setMonth(shiftMonth(month, -1))}>
             <ChevronLeft size={16} />
@@ -534,12 +610,12 @@ function CalendarCard({
             ดูอีก {agenda.length - 6} รายการในปฏิทิน
           </button>
         )}
-        <button className="hd-add" onClick={() => setAdding(true)} disabled={ctx.member.role === "viewer"}>
+        <button className="hd-add" onClick={() => setAdding(true)} disabled={ctx.member.role === "viewer" || !!sampleEntries}>
           <Plus size={15} />
           เพิ่มกิจกรรม
         </button>
       </div>
-      {adding && (
+      {adding && !sampleEntries && (
         <EventModal
           ctx={ctx}
           day={selected}
@@ -668,16 +744,18 @@ function Diary({
   const [day, setDay] = useState(today),
     [menu, setMenu] = useState(false),
     [editing, setEditing] = useState(false),
-    [local, setLocal] = useState<UserNote | null | undefined>(undefined);
+    [local, setLocal] = useState<UserNote | null | undefined>(undefined),
+    sample = useSample();
   const stored = extra?.notes.find((n) => n.day === day) || null,
     note = local !== undefined ? local : stored;
   useEffect(() => setLocal(undefined), [extra, day]);
   async function save(body: string, items: NoteItem[]) {
+    if (sample) return;
     await api("/home/notes", { method: "PUT", body: { day, body, items } });
     await reload();
   }
   async function toggle(i: number) {
-    if (!note) return;
+    if (!note || sample) return;
     const items = note.items.map((it, j) => (j === i ? { ...it, done: !it.done } : it));
     setLocal({ ...note, items });
     try {
@@ -689,7 +767,7 @@ function Diary({
   }
   async function remove() {
     setMenu(false);
-    if (!note || !confirm("ลบบันทึกของวันนี้?")) return;
+    if (!note || sample || !confirm("ลบบันทึกของวันนี้?")) return;
     try {
       await api("/home/notes/" + day, { method: "DELETE" });
       await reload();
@@ -705,14 +783,15 @@ function Diary({
         <h2>
           <NotebookPen size={18} className="hd-head-icon" />
           ไดอารี่ของฉัน <span aria-hidden="true">✨</span>
+          <SampleBadge />
         </h2>
         <div className="hd-head-actions">
-          <button className="hd-pill-btn" onClick={() => setEditing(true)}>
+          <button className="hd-pill-btn" onClick={() => setEditing(true)} disabled={sample}>
             <Plus size={14} />
             เขียนบันทึก
           </button>
           <div className="hd-menu-wrap">
-            <button className="hd-round" aria-label="ตัวเลือกไดอารี่" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            <button className="hd-round" aria-label="ตัวเลือกไดอารี่" aria-expanded={menu} onClick={() => setMenu(!menu)} disabled={sample}>
               <Ellipsis size={16} />
             </button>
             {menu && (
@@ -769,16 +848,18 @@ function Diary({
                 {note.items.map((it, i) => (
                   <li key={i}>
                     <label className={it.done ? "done" : ""}>
-                      <input type="checkbox" checked={it.done} onChange={() => toggle(i)} />
+                      <input type="checkbox" checked={it.done} onChange={() => toggle(i)} disabled={sample} />
                       <span>{it.text}</span>
                     </label>
                   </li>
                 ))}
               </ul>
-              <button className="hd-link" onClick={() => setEditing(true)}>
-                <Pencil size={12} />
-                แก้ไขบันทึก
-              </button>
+              {!sample && (
+                <button className="hd-link" onClick={() => setEditing(true)}>
+                  <Pencil size={12} />
+                  แก้ไขบันทึก
+                </button>
+              )}
             </>
           ) : (
             <p className="hd-empty">
@@ -788,7 +869,7 @@ function Diary({
         </div>
         <Notebook />
       </div>
-      {editing && (
+      {editing && !sample && (
         <NoteEditor
           day={day}
           note={note}
@@ -946,6 +1027,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
         <h2>
           <ChartColumn size={18} className="hd-head-icon" />
           ภาพรวมยอดขาย
+          <SampleBadge />
         </h2>
       </div>
       <div className="hd-sales-controls">
@@ -1100,6 +1182,7 @@ function MyWork({
         <h2>
           <ClipboardCheck size={18} className="hd-head-icon" />
           งานของฉัน <span className="hd-head-sub">(รายการที่ต้องอนุมัติ / ติดตาม)</span>
+          <SampleBadge />
         </h2>
         <div className="hd-pills" role="tablist">
           {pills.map(([key, label, n]) => (
@@ -1228,6 +1311,7 @@ function Alerts({
           <Bell size={18} className="hd-head-icon" />
           แจ้งเตือนสำคัญ
           {items.length > 0 && <span className="hd-badge">{items.length}</span>}
+          <SampleBadge />
         </h2>
       </div>
       <ul className="hd-alert-list">
@@ -1262,6 +1346,7 @@ function ActivityCard({ activity, today, navigate }: { activity: Activity[] | nu
         <h2>
           <History size={18} className="hd-head-icon" />
           กิจกรรมล่าสุด
+          <SampleBadge />
         </h2>
         {(activity?.length || 0) > 3 && (
           <button className="hd-link" onClick={() => setAll(!all)}>
@@ -1340,6 +1425,7 @@ function GoalCard({
     pct = target ? Math.min(100, Math.round((sales / target) * 100)) : 0;
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (!extra?.canSetGoal) return;
     const n = Number(value.replace(/[,\s฿]/g, ""));
     if (!Number.isFinite(n) || n < 0) return notify("ใส่ยอดเป้าหมายเป็นตัวเลข");
     setBusy(true);
@@ -1360,6 +1446,7 @@ function GoalCard({
         <h2>
           <Target size={18} className="hd-head-icon" />
           เป้าหมายเดือนนี้
+          <SampleBadge />
         </h2>
         {extra?.canSetGoal && !editing && (
           <button

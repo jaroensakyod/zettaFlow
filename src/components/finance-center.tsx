@@ -1,16 +1,23 @@
 "use client";
 // Financial Center / การเงินองค์กร: yearly budget plan per department, targets, actual revenue / expenses from records,
 // per-department performance, multi-year comparison and the year-end closing checklist. Data: GET /api/finance?year=.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   Wallet, TrendingUp, ReceiptText, ChartColumn, Percent, ChevronLeft, ChevronRight, CalendarDays, RefreshCw,
   LayoutDashboard, ClipboardList, Network, ChartLine, Landmark, CircleCheck, Layers, Target, Clock, CircleAlert,
   FileSearch, Coins, Save, Check, Undo2, Megaphone, Monitor, Users, Cog, Building, Shield, CircleDashed, Package,
-  ShoppingCart, Briefcase, Palette, Headphones, Scale, Database, Calculator, Lock,
+  ShoppingCart, Briefcase, Palette, Headphones, Scale, Database, Calculator, Lock, Eye, EyeOff, Sparkles,
 } from "lucide-react";
 import type { Context } from "@/lib/types";
 import { api, money, Empty, Loading } from "./shared";
 import type { FinanceOverview, YearTotals } from "@/lib/finance-center";
+import { financeSample, financeIsEmpty, type FinanceSample } from "@/lib/mock/finance";
+
+/** True while the page shows the sample ("ตัวอย่าง") dataset: cards get a badge and every write is disabled. */
+const SampleCtx = createContext(false);
+const useSample = () => useContext(SampleCtx);
+const sampleExtras = (d: FinanceOverview) => (d as Partial<FinanceSample>).sample;
+const readOnlyNote = (sample: boolean) => (sample ? "ข้อมูลตัวอย่าง — บันทึกไม่ได้ ปิดตัวอย่างเพื่อเริ่มใช้งานจริง" : "เฉพาะเจ้าของหรือผู้จัดการฝ่ายการเงินที่แก้ไขได้");
 
 type Tab = "overview" | "plan" | "allocate" | "track" | "tax" | "closing" | "compare";
 type Period = "day" | "week" | "month" | "year";
@@ -44,7 +51,7 @@ const deptIcons: Record<string, React.ComponentType<{ size?: number }>> = {
 };
 const thb = (n: number) => (n < 0 ? "-฿" : "฿") + money(Math.abs(Math.round(n)));
 const pct = (a: number, b: number) => (b ? (a / b) * 100 : 0);
-const pctText = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+const pctText = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
 const beYear = (y: number) => y + 543;
 const thaiDate = (iso: string, o: Intl.DateTimeFormatOptions) => new Date(iso.length === 10 ? iso + "T00:00:00Z" : iso).toLocaleDateString("th-TH", { ...o, timeZone: iso.length === 10 ? "UTC" : "Asia/Bangkok" });
 const shortMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
@@ -69,7 +76,9 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
     [period, setPeriod] = useState<Period>("month"),
     [data, setData] = useState<FinanceOverview | null>(null),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(true),
+    // "auto" = show the sample only while the year has no data of its own; "on" / "off" = the user's choice.
+    [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto");
   const load = useCallback(async (y: number) => {
     setLoading(true);
     setError("");
@@ -93,9 +102,18 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
       window.history.replaceState(window.history.state, "", u);
     } catch {}
   };
+  const realEmpty = !!data && financeIsEmpty(data),
+    sample = sampleMode === "on" || (sampleMode === "auto" && realEmpty),
+    sampleData = useMemo(() => financeSample(year, data?.today), [year, data?.today]),
+    view = sample ? sampleData : data;
   const saved = (msg: string) => {
+    if (sample) return; // never reached: sample mode disables every save
     notify(msg);
     load(year);
+  };
+  const startReal = () => {
+    setSampleMode("off");
+    if (realEmpty && data?.canManage) go("allocate");
   };
 
   return (
@@ -139,6 +157,15 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
             <CalendarDays size={15} />
             {thaiDate(data?.today || new Date().toISOString().slice(0, 10), { month: "short", year: "numeric" })}
           </span>
+          <button
+            className={"fc-sample-toggle" + (sample ? " on" : "")}
+            aria-pressed={sample}
+            onClick={() => setSampleMode(sample ? "off" : "on")}
+            title="สลับดูหน้าตัวอย่างพร้อมข้อมูลสมมติ"
+          >
+            {sample ? <EyeOff size={15} /> : <Eye size={15} />}
+            {sample ? "ปิดตัวอย่าง" : "ดูตัวอย่าง"}
+          </button>
           <button className="fc-icon-btn fc-refresh" aria-label="รีเฟรชข้อมูล" onClick={() => load(year).then(() => notify("อัปเดตข้อมูลการเงินแล้ว"))}>
             <RefreshCw size={16} />
           </button>
@@ -155,28 +182,51 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
         ))}
       </nav>
 
-      {error && <p className="form-error">{error}</p>}
-      {!data ? (
+      {sample && (
+        <div className="fc-sample-banner" role="status">
+          <Sparkles size={18} />
+          <p>
+            <b>กำลังดูตัวอย่าง</b> — ข้อมูลสมมติเพื่อให้เห็นหน้าตาเมื่อมีข้อมูลจริง
+            {realEmpty ? " (ปีนี้ยังไม่มีงบ เป้าหมาย หรือรายการของบริษัท ตัวอย่างจะหายไปเองเมื่อมีข้อมูลจริง)" : ""}
+          </p>
+          <div>
+            <button className="secondary" onClick={() => setSampleMode("off")}>
+              <EyeOff size={15} />
+              ปิดตัวอย่าง
+            </button>
+            {realEmpty && data?.canManage && (
+              <button className="primary" onClick={startReal}>
+                เริ่มใช้งานจริง
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {error && !sample && <p className="form-error">{error}</p>}
+      {!view ? (
         loading ? <Loading /> : null
       ) : (
-        <div className={"fc-body" + (loading ? " fc-busy" : "")} role="tabpanel">
-          {tab === "overview" && <Overview d={data} period={period} go={go} />}
-          {tab === "plan" && <PlanTab d={data} saved={saved} />}
-          {tab === "allocate" && <AllocateTab d={data} saved={saved} />}
-          {tab === "track" && (
-            <>
-              <TrendCard d={data} period={period} wide />
-              <div className="fc-grid fc-grid-track">
-                <DeptTable d={data} go={go} />
-                <StatusCard d={data} go={go} navigate={navigate} />
-              </div>
-            </>
-          )}
-          {tab === "tax" && <TaxTab d={data} navigate={navigate} />}
-          {tab === "closing" && <ClosingCard d={data} saved={saved} notify={notify} large />}
-          {tab === "compare" && <CompareTab d={data} />}
-          {ctx.demo && <p className="fc-note">โหมดตัวอย่าง: ตัวเลขคำนวณจากข้อมูลตัวอย่างในระบบ</p>}
-        </div>
+        <SampleCtx.Provider value={sample}>
+          {/* key: remount the editors so sample values never stay in a form after switching back to real data */}
+          <div key={sample ? "sample" : "real"} className={"fc-body" + (loading && !sample ? " fc-busy" : "") + (sample ? " fc-is-sample" : "")} role="tabpanel">
+            {tab === "overview" && <Overview d={view} period={period} go={go} />}
+            {tab === "plan" && <PlanTab d={view} saved={saved} />}
+            {tab === "allocate" && <AllocateTab d={view} saved={saved} />}
+            {tab === "track" && (
+              <>
+                <TrendCard d={view} period={period} wide />
+                <div className="fc-grid fc-grid-track">
+                  <DeptTable d={view} go={go} />
+                  <StatusCard d={view} go={go} navigate={navigate} />
+                </div>
+              </>
+            )}
+            {tab === "tax" && <TaxTab d={view} navigate={navigate} />}
+            {tab === "closing" && <ClosingCard d={view} saved={saved} notify={notify} large />}
+            {tab === "compare" && <CompareTab d={view} />}
+            {ctx.demo && !sample && <p className="fc-note">โหมดตัวอย่าง: ตัวเลขคำนวณจากข้อมูลตัวอย่างในระบบ</p>}
+          </div>
+        </SampleCtx.Provider>
       )}
     </div>
   );
@@ -225,8 +275,10 @@ function Kpis({ d }: { d: FinanceOverview }) {
     },
     { tone: "amber", icon: Percent, label: "ประมาณการภาษี (CIT)", value: thb(t.tax), note: "(อัตรา 20% ของกำไร)" },
   ];
+  const sample = useSample();
   return (
-    <div className="fc-kpis">
+    <div className={"fc-kpis" + (sample ? " sample" : "")}>
+      {sample && <span className="sample-badge fc-sample-badge fc-kpis-badge">ตัวอย่าง</span>}
       {items.map((k) => (
         <article key={k.label} className={"fc-kpi " + k.tone}>
           <span className="fc-kpi-icon">
@@ -244,12 +296,14 @@ function Kpis({ d }: { d: FinanceOverview }) {
 }
 
 function Card({ title, icon: Icon, action, children, className = "" }: { title: string; icon: React.ComponentType<{ size?: number }>; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  const sample = useSample();
   return (
     <section className={"fc-card " + className}>
       <div className="fc-card-head">
         <h2>
           <Icon size={18} />
           {title}
+          {sample && <span className="sample-badge fc-sample-badge">ตัวอย่าง</span>}
         </h2>
         {action}
       </div>
@@ -440,6 +494,8 @@ function TargetsCard({ d, go }: { d: FinanceOverview; go: (t: Tab) => void }) {
       profit !== null && { icon: ChartLine, tone: "violet", label: "เป้าหมายกำไร", target: thb(profit), p: profit > 0 ? pct(t.profit, profit) : 0 },
       expenseCap !== null && { icon: Shield, tone: "pink", label: "ควบคุมค่าใช้จ่าย", target: "≤ " + thb(expenseCap), p: pct(t.expense, expenseCap) },
     ].filter(Boolean) as { icon: React.ComponentType<{ size?: number }>; tone: string; label: string; target: string; p: number }[];
+  const fixed = sampleExtras(d)?.targetPct;
+  if (fixed && rows.length === 3) [fixed.revenue, fixed.profit, fixed.expenseCap].forEach((p, i) => (rows[i].p = p));
   return (
     <Card title={`เป้าหมายปี ${d.year}`} icon={Target} className="fc-targets">
       {!rows.length ? (
@@ -598,8 +654,9 @@ function SummaryCard({ d }: { d: FinanceOverview }) {
 }
 
 function StatusCard({ d, go, navigate }: { d: FinanceOverview; go: (t: Tab) => void; navigate?: (v: string) => void }) {
-  const set = d.byDept.filter((r) => r.budget > 0).length + (d.budgets.Reserve ? 1 : 0),
-    over = d.byDept.filter((r) => r.budget > 0 && r.spent > r.budget).length;
+  const x = sampleExtras(d),
+    set = x ? x.budgetItems : d.byDept.filter((r) => r.budget > 0).length + (d.budgets.Reserve ? 1 : 0),
+    over = x ? x.overBudget : d.byDept.filter((r) => r.budget > 0 && r.spent > r.budget).length;
   return (
     <Card title="สถานะงบประมาณ" icon={ClipboardList} className="fc-status">
       <ul className="fc-status-list">
@@ -686,8 +743,10 @@ function ClosingCard({ d, saved, notify, large }: { d: FinanceOverview; saved?: 
   const done = new Map(d.closing.map((c) => [c.step, c.doneAt])),
     current = closingSteps.find((s) => !done.has(s.step))?.step || 0,
     [busy, setBusy] = useState(0),
-    yy = (next: boolean) => String(beYear(d.year + (next ? 1 : 0))).slice(-2);
+    yy = (next: boolean) => String(beYear(d.year + (next ? 1 : 0))).slice(-2),
+    sample = useSample();
   const toggle = async (step: number, value: boolean) => {
+    if (sample) return;
     setBusy(step);
     try {
       await api("/finance/closing", { method: "POST", body: { year: d.year, step, done: value } });
@@ -734,7 +793,7 @@ function ClosingCard({ d, saved, notify, large }: { d: FinanceOverview; saved?: 
       </ol>
       {large && !d.canManage && (
         <p className="fc-note">
-          <Lock size={13} /> เฉพาะเจ้าของหรือผู้จัดการฝ่ายการเงินที่บันทึกขั้นตอนได้
+          <Lock size={13} /> {sample ? readOnlyNote(true) : "เฉพาะเจ้าของหรือผู้จัดการฝ่ายการเงินที่บันทึกขั้นตอนได้"}
         </p>
       )}
       {large && current === 0 && <p className="fc-note ok">ปิดงบปี {d.year} ครบทุกขั้นตอนแล้ว</p>}
@@ -751,11 +810,13 @@ function PlanTab({ d, saved }: { d: FinanceOverview; saved: (m: string) => void 
   const init = (v: number | null) => (v === null ? "" : String(v));
   const [f, setF] = useState({ revenue: init(d.targets.revenue), profit: init(d.targets.profit), expenseCap: init(d.targets.expenseCap) }),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    sample = useSample();
   const budget = Object.values(d.budgets).reduce((s, v) => s + v, 0),
     last = d.years.find((y) => y.year === d.year - 1);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sample || !d.canManage) return;
     const v = { revenue: parseAmount(f.revenue), profit: parseAmount(f.profit), expenseCap: parseAmount(f.expenseCap) };
     if (Object.values(v).some((x) => Number.isNaN(x)) || (v.revenue ?? 0) < 0 || (v.expenseCap ?? 0) < 0) return setError("กรุณากรอกตัวเลขให้ถูกต้อง");
     setBusy(true);
@@ -792,7 +853,7 @@ function PlanTab({ d, saved }: { d: FinanceOverview; saved: (m: string) => void 
               บันทึกเป้าหมาย
             </button>
           ) : (
-            <p className="fc-note"><Lock size={13} /> เฉพาะเจ้าของหรือผู้จัดการฝ่ายการเงินที่แก้ไขได้</p>
+            <p className="fc-note"><Lock size={13} /> {readOnlyNote(sample)}</p>
           )}
         </form>
       </Card>
@@ -818,9 +879,11 @@ function BudgetEditor({ d, saved, preview }: { d: FinanceOverview; saved: (m: st
     invalid = Object.values(parsed).some((v) => v !== null && (Number.isNaN(v) || v < 0)),
     budgets = Object.fromEntries(Object.entries(parsed).filter(([, v]) => v && v > 0) as [string, number][]),
     a = allocation(d, budgets),
-    spent = new Map(d.byDept.map((r) => [r.id, r.spent]));
+    spent = new Map(d.byDept.map((r) => [r.id, r.spent])),
+    sample = useSample();
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sample || !d.canManage) return;
     if (invalid) return setError("กรุณากรอกตัวเลขที่ไม่ติดลบ");
     setBusy(true);
     setError("");
@@ -871,7 +934,7 @@ function BudgetEditor({ d, saved, preview }: { d: FinanceOverview; saved: (m: st
               บันทึกงบประมาณ
             </button>
           ) : (
-            <p className="fc-note"><Lock size={13} /> เฉพาะเจ้าของหรือผู้จัดการฝ่ายการเงินที่แก้ไขได้</p>
+            <p className="fc-note"><Lock size={13} /> {readOnlyNote(sample)}</p>
           )}
         </form>
       </Card>

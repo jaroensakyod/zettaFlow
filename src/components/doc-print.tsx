@@ -1,9 +1,11 @@
 "use client";
-import { FileBadge, Printer, ReceiptText } from "lucide-react";
+import { Eye, FileBadge, Printer, ReceiptText } from "lucide-react";
 import type { Entity } from "@/lib/types";
 
 type DocKind = "quotation" | "invoice" | "tax_invoice" | "receipt";
 const url = (kind: DocKind, id: string) => `/print/${kind}/${id}`;
+/** Fictional sample of a document kind (design content, "ตัวอย่าง" watermark). */
+export const sampleDocUrl = (kind: DocKind) => `/print/sample/${kind}`;
 
 /** Which printable documents a record offers (catalog kind → buttons). */
 export function docButtons(kind: string, record: Pick<Entity, "id" | "data" | "archived_at">) {
@@ -36,6 +38,10 @@ export function DocPrintButtons({ kind, record }: { kind: string; record: Pick<E
           </a>
         );
       })}
+      <a className="doc-sample-link" href={sampleDocUrl(buttons[buttons.length - 1].doc)} target="_blank" rel="noopener">
+        <Eye size={14} aria-hidden />
+        ดูตัวอย่างเอกสาร
+      </a>
     </div>
   );
 }

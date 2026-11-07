@@ -82,6 +82,7 @@ import { CompanySettings, Team } from "./settings";
 import { ChatHub } from "./b2b-chat";
 import { EmployeesPage } from "./employees-page";
 import { FinanceCenter } from "./finance-center";
+import { ReceiptsPage } from "./receipts-page";
 import { ProjectsPage } from "./projects";
 import {
   Calendar,
@@ -135,6 +136,11 @@ const extra: Record<
     label: "ปฏิทินธุรกิจ",
     icon: "CalendarDays",
     description: "กำหนดการโครงการ อีเวนต์ และวันครบกำหนด",
+  },
+  receipts: {
+    label: "ใบเสร็จรับเงิน",
+    icon: "Receipt",
+    description: "ใบเสร็จรับเงินและใบกำกับภาษี ออกเลขที่ ดู และพิมพ์ จากการรับชำระและใบแจ้งหนี้",
   },
   finance: {
     label: "Financial Center",
@@ -499,6 +505,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       ? ctx.member.role === "owner"
       : key === "tax"
       ? ctx.member.role === "owner" || ctx.member.departments.includes("Finance")
+      : key === "receipts"
+      ? ctx.member.role === "owner" || ctx.member.departments.includes("Finance")
       : key === "transfers"
       ? ctx.member.role === "owner" || ctx.member.departments.includes("Warehouse")
       : catalog[key]
@@ -630,7 +638,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
         <main className="main" key={ctx.company.id}>
-          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts"].includes(view) && (
           <div className="page-heading">
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
@@ -735,6 +743,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <AppShop ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "ads" ? (
             <AdStudio ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "receipts" ? (
+            <ReceiptsPage ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "tax" ? (
             <TaxReport navigate={navigate} />
           ) : view === "expiries" ? (

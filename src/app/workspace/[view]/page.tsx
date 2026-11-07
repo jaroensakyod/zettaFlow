@@ -7,6 +7,7 @@ export const metadata = {
 };
 const extra = [
   "finance",
+  "receipts",
   "feed",
   "jobs",
   "dashboard",

@@ -75,6 +75,7 @@ import { linePageData } from "@/lib/line-page";
 import { homeExtra, saveNote, deleteNote, setGoal } from "@/lib/home-extra";
 import { shopState, shopActive, shopBuy, shopActivate } from "@/lib/app-shop";
 import { projectsOverview, projectDetail } from "@/lib/projects";
+import { receiptsList } from "@/lib/receipts";
 import { b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
@@ -1049,6 +1050,7 @@ async function handle(req: NextRequest) {
       if (!ctx.demo) after(processNotifications);
       return response({ ok: true });
     }
+    if (path[0] === "receipts" && method === "GET") return response(await receiptsList(ctx));
     if (path[0] === "transfers") {
       if (method === "GET") return response(await transferData(ctx));
       return response(await transferStock(ctx, await body(req)));

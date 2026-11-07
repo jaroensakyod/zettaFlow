@@ -321,12 +321,16 @@ export type DocModel = {
   notes: string[];
   payment: { bank: string; account: string; accountName: string; accountType: string; promptPay: string | null; amount: number } | null;
   conditions: { label: string; text: string }[];
-  contact: { name: string; position: string; phone: string; email: string; line: string; website: string };
+  contact: { name: string; position: string; phone: string; email: string; line: string; website: string; phoneLabel?: string };
   signatures: { role: string; name: string; position: string }[];
   /** Footer notes for the receipt (the design's หมายเหตุ box). */
   footerNotes: string[];
   /** Form target that issues the number (shown on previews). */
   issueAction?: string;
+  /** Fictional sample document (/print/sample/<kind>): diagonal "ตัวอย่าง" watermark, never issued. */
+  sample?: boolean;
+  /** Screen-only hints in the toolbar (e.g. company profile fields still missing); never printed. */
+  warnings?: string[];
 };
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v)).trim();
 const n = (v: unknown) => Number(v) || 0;
@@ -412,6 +416,25 @@ const demoIssued = (kind: DocKind, seq: number, ymd: number): Issued => {
   const d = String(ymd);
   return { number: `${prefixOf(kind)}-${d.slice(0, 4)}-${String(seq).padStart(4, "0")}`, date: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` };
 };
+/** Every number the company has issued: "<kind>:<record id>" → {number, date} (Finance readers; migration 0047). */
+export async function issuedAll(ctx: Context): Promise<Map<string, Issued>> {
+  const out = new Map<string, Issued>();
+  if (!canRead(ctx, "Finance")) return out;
+  if (ctx.demo) {
+    const c = (await demoRead()).accounting?.counters || {};
+    for (const [k, seq] of Object.entries(c)) {
+      const m = /^doc:(tax_invoice|receipt):([0-9a-f-]{36})$/.exec(k);
+      if (m) out.set(`${m[1]}:${m[2]}`, demoIssued(m[1] as DocKind, seq, c[k + ":d"]));
+    }
+    return out;
+  }
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("issued_documents_list", { p_company: ctx.company.id });
+  dbError(error);
+  for (const r of (data || []) as { kind: string; entity_id: string; number: string; date: string }[])
+    out.set(`${r.kind}:${r.entity_id}`, { number: r.number, date: r.date });
+  return out;
+}
 /** Issues the tax invoice / receipt number for a record (idempotent: the same record keeps its number). */
 export async function issueDocument(ctx: Context, kind: DocKind, id: string): Promise<Issued> {
   assert(kind === "tax_invoice" || kind === "receipt", "เอกสารนี้ไม่ต้องออกเลขที่", 400);
@@ -486,6 +509,22 @@ export async function documentModel(ctx: Context, kind: DocKind, id: string): Pr
   const company: Rec = { ...p, name: s(p.name) || ctx.company.name };
   const rec = await entity(ctx, id);
   assert(rec, "ไม่พบเอกสาร", 404);
+  const model = await buildModel(ctx, kind, rec, p, company);
+  const missing = profileGaps(p, kind);
+  return missing.length ? { ...model, warnings: [`ข้อมูลบริษัทยังไม่ครบ (${missing.join(", ")}) — เพิ่มได้ที่ ตั้งค่า › ข้อมูลบริษัท`] } : model;
+}
+/** Company profile fields a document's header/footer would show but are still blank. */
+export function profileGaps(p: Rec, kind: DocKind): string[] {
+  const want: [string, string][] = [
+    ["address", "ที่อยู่"],
+    ["taxId", "เลขประจำตัวผู้เสียภาษี"],
+    ["phone", "โทรศัพท์"],
+    ["email", "อีเมล"],
+  ];
+  if ((kind === "quotation" || kind === "invoice") && !s(p.promptPay)) want.push(["bankAccount", "บัญชีรับเงิน"]);
+  return want.filter(([k]) => !s(p[k])).map(([, label]) => label);
+}
+async function buildModel(ctx: Context, kind: DocKind, rec: Entity, p: Rec, company: Rec): Promise<DocModel> {
   const signer = s(p.signerName),
     contactBase = { phone: s(p.phone), email: s(p.email), line: s(p.line), website: s(p.website) };
   const extraConditions = splitLines(p.docConditions).map((x) => {
@@ -515,10 +554,10 @@ export async function documentModel(ctx: Context, kind: DocKind, id: string): Pr
         { icon: "calendar", label: "วันที่เสนอราคา", value: thaiDate(d.date) },
         { icon: "calendar", label: "ยืนราคาถึง", value: thaiDate(d.validUntil) || "-" },
         { icon: "clock", label: "เงื่อนไขการชำระเงิน", value: term || "-" },
-        { icon: "user", label: "พนักงานขาย", value: owner || "-" },
+        ...(owner ? [{ icon: "user", label: "พนักงานขาย", value: owner }] : []),
         { icon: "user", label: "ผู้เสนอราคา", value: signer || owner || ctx.user.name || "-" },
-        { icon: "phone", label: "โทรศัพท์", value: contactBase.phone || "-" },
-        { icon: "mail", label: "อีเมล", value: contactBase.email || "-" },
+        ...(contactBase.phone ? [{ icon: "phone", label: "โทรศัพท์", value: contactBase.phone }] : []),
+        ...(contactBase.email ? [{ icon: "mail", label: "อีเมล", value: contactBase.email }] : []),
       ],
       company,
       customer: party(customer),
@@ -573,7 +612,7 @@ export async function documentModel(ctx: Context, kind: DocKind, id: string): Pr
         { icon: "calendar", label: "วันที่ออกใบแจ้งหนี้", value: thaiDate(inv.date) },
         { icon: "calendar", label: "วันครบกำหนดชำระ", value: thaiDate(inv.dueDate) || "-" },
         { icon: "clock", label: "เงื่อนไขการชำระเงิน", value: term || "-" },
-        { icon: "user", label: "พนักงานขาย", value: owner || "-" },
+        ...(owner ? [{ icon: "user", label: "พนักงานขาย", value: owner }] : []),
         { icon: "user", label: "ผู้ออกเอกสาร", value: signer || ctx.user.name || "-" },
       ],
       company,
@@ -645,7 +684,7 @@ export async function documentModel(ctx: Context, kind: DocKind, id: string): Pr
       { icon: "file", label: "เลขที่ใบเสร็จรับเงิน", value: issued?.number || "ยังไม่ออกเลขที่", strong: true },
       { icon: "calendar", label: "วันที่รับชำระเงิน", value: thaiDate(paidOn) },
       { icon: "calendar", label: "อ้างอิงใบแจ้งหนี้", value: s(inv.name) || "-" },
-      { icon: "clock", label: "วิธีการชำระ", value: method || "-" },
+      { icon: "clock", label: "วิธีการชำระเงิน", value: method || "-" },
     ],
     company,
     customer: party(customer),
@@ -661,7 +700,7 @@ export async function documentModel(ctx: Context, kind: DocKind, id: string): Pr
     ],
     payment: null,
     conditions: [],
-    contact,
+    contact: { ...contactBase, name: signer, position: s(p.signerPosition) },
     signatures: [{ role: "ผู้รับเงิน", name: signer, position: s(p.signerPosition) }, approver],
     footerNotes: ["ใบเสร็จรับเงินนี้เป็นหลักฐานการชำระเงิน", "กรุณาเก็บไว้เป็นหลักฐานสำหรับการตรวจสอบ", ...splitLines(p.receiptNotes)],
     issueAction,
@@ -689,14 +728,19 @@ const icons: Record<string, string> = {
   chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   receipt: '<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2l-3 2-3-2-3 2-3-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
   card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  tick: '<path d="m4 12.5 5 5L20 6.5"/>',
+  wallet: '<path d="M20 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5"/><path d="M17 14h.01"/>',
+  line: '<path d="M12 3C6.5 3 2 6.6 2 11c0 3.9 3.5 7.2 8.3 7.9.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1 .9.5s6-3.5 8.2-6C21.4 14.2 22 12.7 22 11c0-4.4-4.5-8-10-8z"/>',
+  facebook: '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
 };
 const icon = (name: string, cls = "i") =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || ""}</svg>`;
-const themes: Record<DocKind, { c: string; dark: string; soft: string; line: string }> = {
-  quotation: { c: "#2563eb", dark: "#1d4ed8", soft: "#eef4ff", line: "#c9dafd" },
-  invoice: { c: "#e8366a", dark: "#c81e52", soft: "#fff0f4", line: "#f9c5d4" },
-  tax_invoice: { c: "#f47b16", dark: "#d9650a", soft: "#fff5ec", line: "#fbd5b3" },
-  receipt: { c: "#1fa34a", dark: "#15803d", soft: "#edf9f1", line: "#bfe8cc" },
+type Theme = { c: string; dark: string; soft: string; line: string; grad: string };
+const themes: Record<DocKind, Theme> = {
+  quotation: { c: "#2563eb", dark: "#1e3a9e", soft: "#e8f0ff", line: "#c9dafd", grad: "linear-gradient(100deg,#2f80f6,#3b5be6 55%,#4b3fd6)" },
+  invoice: { c: "#e8366a", dark: "#c81e52", soft: "#ffedf2", line: "#f9c5d4", grad: "linear-gradient(100deg,#f2527f,#e02a62)" },
+  tax_invoice: { c: "#f47b16", dark: "#d9650a", soft: "#fff1e4", line: "#fbd5b3", grad: "linear-gradient(100deg,#fa9b2c,#f06d12)" },
+  receipt: { c: "#1fa34a", dark: "#15803d", soft: "#e6f6eb", line: "#bfe8cc", grad: "linear-gradient(100deg,#36b95d,#17923f)" },
 };
 const safeImage = (v: unknown) => {
   const x = s(v);
@@ -704,7 +748,19 @@ const safeImage = (v: unknown) => {
 };
 const kv = (label: string, value: string, strong = false) =>
   `<div class="kv"><span>${esc(label)}</span><b>:</b><span class="${strong ? "strong" : ""}">${esc(value || "-")}</span></div>`;
-const bullets = (items: string[]) => `<ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+/** Bullet list; "label : value" items keep the value apart (a reference number is bold, as in the design). */
+const bullets = (items: string[]) =>
+  `<ul>${items
+    .map((x) => {
+      const m = /^(.+?) : (.+)$/.exec(x);
+      return `<li>${m ? `${esc(m[1])} : <span class="${/อ้างอิง/.test(m[1]) ? "strong" : ""}">${esc(m[2])}</span>` : esc(x)}</li>`;
+    })
+    .join("")}</ul>`;
+const boxTitle = (ic: string, text: string) => `<h3><span class="ic">${icon(ic)}</span>${esc(text)}</h3>`;
+/** Two boxes side by side; when one is missing the other takes the whole width; nothing at all when both are. */
+const pair = (a: string, b: string, cls = "") => (a && b ? `<div class="grid2 ${cls} avoid">${a}${b}</div>` : a || b ? `<div class="avoid">${a || b}</div>` : "");
+/** "บริษัท อีลีทโฟลว์ จำกัด" → "อีลีทโฟลว์" for the text logo (no uploaded logo). */
+const brandName = (name: string) => name.replace(/^(บริษัท|ห้างหุ้นส่วนจำกัด|หจก\.)\s*/, "").replace(/\s*(จำกัด\s*\(มหาชน\)|จำกัด)$/, "").trim() || name;
 const dots = "..............................";
 
 /** The A4 page for a resolved document (pure: used by the print route, tests and samples). */
@@ -714,185 +770,412 @@ export function renderDocument(m: DocModel): string {
     c = m.company;
   const logo = safeImage(c.logo);
   const companyName = s(c.name),
-    nameEn = s(c.nameEn);
-  const address = [s(c.address), s(c.province), s(c.zip)].filter(Boolean).join(" ");
+    nameEn = s(c.nameEn),
+    tagline = s(c.tagline);
+  // Address: the profile's address (may span lines) + province + zip when not already part of it.
+  const addr = s(c.address),
+    tail = [s(c.province), s(c.zip)].filter((x) => x && !addr.includes(x)).join(" "),
+    addressLines = addr.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  if (tail) {
+    if (addressLines.length) addressLines[addressLines.length - 1] += " " + tail;
+    else addressLines.push(tail);
+  }
   const cust = m.customer;
   const tot = m.totals;
-  const draft = m.number === null;
-  const title = `${titleTh} ${m.number || "(ตัวอย่าง)"}`;
+  const draft = m.number === null && !m.sample;
+  const title = `${titleTh} ${m.sample ? "(ตัวอย่าง)" : m.number || "(ร่าง)"}`;
 
+  const companyContacts = (
+    [
+      ["phone", c.phone],
+      ["mail", c.email],
+      ["globe", c.website],
+    ] as const
+  )
+    .filter(([, v]) => s(v))
+    .map(([i, v]) => `<span>${icon(i)}${esc(s(v))}</span>`)
+    .join("");
+  const brandText = nameEn || brandName(companyName) || "E";
   const header = `<header class="co">
-  <div class="brand">${logo ? `<img src="${esc(logo)}" alt="">` : `<span class="mark">${esc((nameEn || companyName || "E").slice(0, 1).toUpperCase())}</span><span class="brand-name">${esc(nameEn || companyName)}</span>`}</div>
+  <div class="brand">${
+    logo
+      ? `<img src="${esc(logo)}" alt="${esc(brandText)}">`
+      : `<span class="mark">${esc(brandText.slice(0, 1).toUpperCase())}</span><span class="brand-text"><span class="brand-name">${esc(brandText)}</span>${tagline ? `<span class="tagline">${esc(tagline)}</span>` : ""}</span>`
+  }</div>
   <h2>${esc(companyName)}${nameEn ? ` (${esc(nameEn)})` : ""}</h2>
-  ${address ? `<p>${esc(address)}</p>` : ""}
-  <p>เลขประจำตัวผู้เสียภาษี ${esc(s(c.taxId) || "-")} <span class="sep">|</span> ${esc(s(c.branch) || "สำนักงานใหญ่")}</p>
-  <p class="contacts">${s(c.phone) ? `<span>${icon("phone")}${esc(c.phone)}</span>` : ""}${s(c.email) ? `<span>${icon("mail")}${esc(c.email)}</span>` : ""}${s(c.website) ? `<span>${icon("globe")}${esc(c.website)}</span>` : ""}</p>
+  ${addressLines.map((x) => `<p>${esc(x)}</p>`).join("")}
+  ${s(c.taxId) ? `<p>เลขประจำตัวผู้เสียภาษี ${esc(s(c.taxId))}<span class="sep">|</span>${esc(s(c.branch) || "สำนักงานใหญ่")}</p>` : ""}
+  ${companyContacts ? `<p class="contacts">${companyContacts}</p>` : ""}
 </header>`;
   const badge = `<div class="badge">${icon(m.kind === "receipt" ? "receipt" : "file", "badge-i")}<div><strong>${esc(titleTh)}</strong><span>${esc(titleEn)}</span></div></div>`;
   const info = `<div class="info">${m.info
     .map((r) => `<div class="row">${icon(r.icon)}<span class="lbl">${esc(r.label)}</span><span class="${r.strong ? "pill" : "val"}">${esc(r.value || "-")}</span></div>`)
     .join("")}</div>`;
-  const customer = `<section class="cust"><h3><span class="avatar">${icon("user")}</span>ลูกค้า <em>/ Customer</em></h3>${
+
+  const custContacts = cust ? `${cust.phone ? `<span>${icon("phone")}${esc(cust.phone)}</span>` : ""}${cust.email ? `<span>${icon("mail")}${esc(cust.email)}</span>` : ""}` : "";
+  const customer = `<section class="cust"><span class="avatar">${icon("user")}</span><div><h3>ลูกค้า <em>/ Customer</em></h3>${
     cust
-      ? kv("ชื่อบริษัท", cust.name, true) +
-        kv("ที่อยู่", cust.address) +
-        kv("เลขประจำตัวผู้เสียภาษี", cust.taxId ? `${cust.taxId}${cust.branch ? ` (${cust.branch})` : ""}` : "") +
-        kv("ผู้ติดต่อ", cust.contact, true) +
-        `<p class="contacts">${cust.phone ? `<span>${icon("phone")}${esc(cust.phone)}</span>` : ""}${cust.email ? `<span>${icon("mail")}${esc(cust.email)}</span>` : ""}</p>`
+      ? kv(/บริษัท|จำกัด|หจก|ห้างหุ้นส่วน|Co\.|Ltd|Inc/i.test(cust.name) ? "ชื่อบริษัท" : "ชื่อลูกค้า", cust.name, true) +
+        (cust.address ? kv("ที่อยู่", cust.address) : "") +
+        (cust.taxId || m.kind === "tax_invoice" ? kv("เลขประจำตัวผู้เสียภาษี", cust.taxId ? `${cust.taxId}${cust.branch ? ` (${cust.branch})` : ""}` : "") : "") +
+        (cust.contact ? kv("ผู้ติดต่อ", cust.contact, true) : "") +
+        (custContacts ? `<p class="contacts">${custContacts}</p>` : "")
       : `<p class="muted">ไม่ระบุลูกค้า</p>`
-  }</section>`;
+  }</div></section>`;
+
   const rows = m.lines
     .map(
       (l, i) =>
-        `<tr><td class="c">${i + 1}</td><td class="name">${esc(l.name)}</td><td class="detail">${esc(l.detail)}</td><td class="c">${qty(l.qty)}</td><td class="c">${esc(l.unit || "-")}</td><td class="n">${money(l.price)}</td><td class="n">${l.discount ? money(l.discount) : "–"}</td><td class="n">${money(l.amount)}</td></tr>`,
+        `<tr><td class="c">${i + 1}</td><td class="name">${esc(l.name)}</td><td class="detail">${esc(l.detail)}</td><td class="c">${qty(l.qty)}</td><td class="c">${esc(l.unit || "-")}</td><td class="n">${money(l.price)}</td><td class="${l.discount ? "n" : "c"}">${l.discount ? money(l.discount) : "–"}</td><td class="n">${money(l.amount)}</td></tr>`,
     )
     .join("");
-  const table = `<table class="items"><thead><tr><th class="c">#</th><th>รายการสินค้า / บริการ</th><th>รายละเอียด</th><th class="c">จำนวน</th><th class="c">หน่วย</th><th class="n">ราคาต่อหน่วย<br><small>(บาท)</small></th><th class="n">ส่วนลด<br><small>(บาท)</small></th><th class="n">จำนวนเงิน<br><small>(บาท)</small></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const table = `<div class="items-box"><table class="items"><thead><tr><th>#</th><th class="l">รายการสินค้า / บริการ</th><th>รายละเอียด</th><th>จำนวน</th><th>หน่วย</th><th>ราคาต่อหน่วย<br><small>(บาท)</small></th><th>ส่วนลด<br><small>(บาท)</small></th><th>จำนวนเงิน<br><small>(บาท)</small></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+
   const showVat = tot.vatRate > 0 || m.kind === "tax_invoice";
   const totals = `<div class="totals">
-  <div><span>ยอดรวมก่อนส่วนลด</span><span>${money(tot.gross)}</span></div>
-  <div class="disc"><span>ส่วนลดรวม</span><span>${money(tot.discount)}</span></div>
-  <div><span>ยอดหลังหักส่วนลด</span><span>${money(tot.after)}</span></div>
-  ${tot.vatIncluded ? `<div><span>มูลค่าสินค้า/บริการก่อนภาษี</span><span>${money(tot.base)}</span></div>` : ""}
-  ${showVat ? `<div><span>ภาษีมูลค่าเพิ่ม (VAT ${tot.vatRate}%)${tot.vatIncluded ? " ที่รวมอยู่" : ""}</span><span>${money(tot.vat)}</span></div>` : ""}
-  <div class="grand"><span>${m.kind === "receipt" ? "จำนวนเงินที่ได้รับ" : "จำนวนเงินทั้งสิ้น"}</span><span>${money(m.amount)} บาท</span></div>
+  <div class="row"><span>ยอดรวมก่อนส่วนลด</span><span>${money(tot.gross)}</span></div>
+  <div class="row disc"><span>ส่วนลดรวม</span><span>${money(tot.discount)}</span></div>
+  <div class="row"><span>ยอดหลังหักส่วนลด</span><span>${money(tot.after)}</span></div>
+  ${tot.vatIncluded ? `<div class="row"><span>มูลค่าสินค้า/บริการก่อนภาษี</span><span>${money(tot.base)}</span></div>` : ""}
+  ${showVat ? `<div class="row"><span>ภาษีมูลค่าเพิ่ม (VAT ${tot.vatRate}%)${tot.vatIncluded ? " ที่รวมอยู่" : ""}</span><span>${money(tot.vat)}</span></div>` : ""}
+  <div class="grand"><span>${m.kind === "receipt" ? "จำนวนเงินที่ได้รับ" : "จำนวนเงินทั้งสิ้น"}</span><b>${money(m.amount)} บาท</b></div>
   <p class="words">(${esc(bahtText(m.amount))})</p>
 </div>`;
-  const notes = m.notes.length
-    ? `<section class="box notes">${`<h3>${icon(m.kind === "receipt" ? "check" : "layers")}${esc(m.notesTitle)}</h3>`}${bullets(m.notes)}</section>`
-    : `<div></div>`;
+  const notes = m.notes.length ? `<section class="box notes">${boxTitle(m.kind === "receipt" ? "tick" : "layers", m.notesTitle)}${bullets(m.notes)}</section>` : "";
+  const mid = `<div class="mid avoid">${notes || "<div></div>"}${totals}</div>`;
+
+  // Payment channel: bank account and/or PromptPay QR; omitted when the company has neither.
   const pay = m.payment;
   const ppPayload = pay?.promptPay ? promptPayPayload(pay.promptPay, pay.amount) : null;
-  const payBox = pay
-    ? `<section class="box pay"><h3>${icon("bank")}ช่องทางการชำระเงิน</h3><div class="pay-body"><div class="pay-info">${
-        pay.bank ? `<p class="bank-name">${icon("bank")}${esc(pay.bank)}</p>` : ""
-      }${kv("เลขที่บัญชี", pay.account)}${kv("ชื่อบัญชี", pay.accountName)}${pay.accountType ? kv("ประเภทบัญชี", pay.accountType) : ""}${
-        ppPayload && !pay.account ? kv("พร้อมเพย์", pay.promptPay || "") : ""
-      }</div>${
-        ppPayload
-          ? `<div class="qr">${qrSvg(ppPayload, 20)}</div><div class="qr-cap"><b>QR Code สำหรับชำระเงิน</b><span>สแกนจ่ายผ่านพร้อมเพย์ ยอด ${money(pay.amount)} บาท</span><span>และส่งหลักฐานการชำระเงิน</span></div>`
-          : ""
-      }</div></section>`
+  const bankRows = pay
+    ? (pay.account ? kv("เลขที่บัญชี", pay.account) : "") +
+      (pay.account && pay.accountName ? kv("ชื่อบัญชี", pay.accountName) : "") +
+      (pay.account && pay.accountType && m.kind !== "tax_invoice" ? kv("ประเภทบัญชี", pay.accountType) : "") +
+      (ppPayload && !pay.account ? kv("พร้อมเพย์", pay.promptPay || "") : "")
     : "";
+  let payBox = "";
+  if (pay && (pay.bank || bankRows || ppPayload)) {
+    const qr = ppPayload ? `<div class="qr">${qrSvg(ppPayload, m.kind === "tax_invoice" ? 22 : 20)}</div>` : "";
+    payBox =
+      m.kind === "tax_invoice"
+        ? `<section class="box pay">${boxTitle("wallet", "ช่องทางการชำระเงิน")}<div class="pay-body">${qr}<div class="pay-info">${
+            pay.bank ? `<p class="bank-name"><span class="bank-ic sm">${icon("bank")}</span>${esc(pay.bank)}</p>` : ""
+          }${bankRows}</div></div></section>`
+        : `<section class="box pay">${boxTitle("bank", "ช่องทางการชำระเงิน")}<div class="pay-body">${
+            pay.bank || bankRows ? `<span class="bank-ic">${icon("bank")}</span><div class="pay-info">${pay.bank ? `<p class="bank-name">${esc(pay.bank)}</p>` : ""}${bankRows}</div>` : ""
+          }${
+            qr
+              ? `${pay.bank || bankRows ? '<span class="vsep"></span>' : ""}${qr}<div class="qr-cap"><b>QR Code สำหรับชำระเงิน</b><span>สแกนเพื่อชำระค่าสินค้า / บริการ ยอด ${money(pay.amount)} บาท</span><span>และส่งหลักฐานการชำระเงิน</span></div>`
+              : ""
+          }</div></section>`;
+  }
+  const numbered = m.conditions.some((x) => x.label);
   const conditions = m.conditions.length
-    ? `<section class="box cond"><h3>${icon("clipboard")}เงื่อนไขเพิ่มเติม</h3><ol>${m.conditions
-        .map((x) => `<li>${x.label ? `<b>${esc(x.label)}</b><span>:</span>` : ""}<span>${esc(x.text)}</span></li>`)
-        .join("")}</ol></section>`
+    ? `<section class="box cond">${boxTitle("clipboard", "เงื่อนไขเพิ่มเติม")}${
+        numbered
+          ? `<ol class="steps">${m.conditions.map((x, i) => `<li><i>${i + 1}</i><b>${esc(x.label)}</b><span>${x.label ? ":" : ""}</span><span>${esc(x.text)}</span></li>`).join("")}</ol>`
+          : bullets(m.conditions.map((x) => x.text))
+      }</section>`
     : "";
+
+  // Contact: company channels + the responsible person; omitted when there is nothing to show.
   const ct = m.contact;
-  const contactBox = `<section class="box contact"><h3>${icon("headset")}${m.kind === "receipt" ? "ช่องทางการติดต่อ" : "ติดต่อฝ่ายขาย"}</h3>${
-    m.kind === "receipt"
-      ? `${ct.phone ? `<p>${icon("phone")}ฝ่ายขาย : ${esc(ct.phone)}</p>` : ""}${ct.email ? `<p>${icon("mail")}อีเมล : ${esc(ct.email)}</p>` : ""}${ct.website ? `<p>${icon("globe")}เว็บไซต์ : ${esc(ct.website)}</p>` : ""}`
-      : `${ct.name ? `<p>${icon("user")}${esc(ct.name)}${ct.position ? ` (${esc(ct.position)})` : ""}</p>` : ""}${ct.phone ? `<p>${icon("phone")}${esc(ct.phone)}</p>` : ""}${ct.email ? `<p>${icon("mail")}${esc(ct.email)}</p>` : ""}${ct.line ? `<p>${icon("chat")}${esc(ct.line)}</p>` : ""}`
-  }</section>`;
-  const footerNotes = m.footerNotes.length ? `<section class="box notes">${`<h3>${icon("chat")}หมายเหตุ</h3>`}${bullets(m.footerNotes)}</section>` : "";
+  let contactBox = "";
+  if (m.kind === "receipt") {
+    const rows = (
+      [
+        ["phone", ct.phoneLabel || "โทรศัพท์", ct.phone],
+        ["mail", "อีเมล", ct.email],
+        ["globe", "เว็บไซต์", ct.website],
+        ["line", "LINE", ct.line],
+        ["user", "ผู้ติดต่อ", ct.name ? `${ct.name}${ct.position ? ` (${ct.position})` : ""}` : ""],
+      ] as const
+    ).filter(([, , v]) => v);
+    if (rows.length)
+      contactBox = `<section class="box contact">${boxTitle("headset", "ช่องทางการติดต่อ")}<div class="ct">${rows
+        .map(([i, label, v]) => `${icon(i)}<span>${esc(label)}</span><span>:</span><span>${esc(v)}</span>`)
+        .join("")}</div></section>`;
+  } else {
+    const rows = [
+      ct.name ? `<p>${icon("user")}${esc(ct.name)}${ct.position ? ` (${esc(ct.position)})` : ""}</p>` : "",
+      ct.phone ? `<p>${icon("phone")}${esc(ct.phone)}</p>` : "",
+      ct.email ? `<p>${icon("mail")}${esc(ct.email)}</p>` : "",
+      ct.line ? `<p>${icon("line")}${esc(ct.line)}</p>` : "",
+      ct.website && !ct.phone && !ct.email && !ct.line ? `<p>${icon("globe")}${esc(ct.website)}</p>` : "",
+    ].join("");
+    if (rows) contactBox = `<section class="box contact">${boxTitle("headset", "ติดต่อฝ่ายขาย")}<div class="ct-list">${rows}</div></section>`;
+  }
+  const footerNotes = m.footerNotes.length ? `<section class="box notes">${boxTitle("chat", "หมายเหตุ")}${bullets(m.footerNotes)}</section>` : "";
   let bottom: string;
-  if (m.kind === "receipt") bottom = `<div class="grid2 avoid">${contactBox}${footerNotes}</div>`;
-  else if (m.kind === "tax_invoice") bottom = `<div class="grid2 avoid">${payBox || "<div></div>"}${conditions || "<div></div>"}</div>`;
-  else bottom = `${payBox ? `<div class="avoid">${payBox}</div>` : ""}<div class="grid2 cond-row avoid">${conditions || "<div></div>"}${contactBox}</div>`;
+  if (m.kind === "receipt") bottom = pair(contactBox, footerNotes);
+  else if (m.kind === "tax_invoice") bottom = pair(payBox, conditions);
+  else bottom = `${payBox ? `<div class="avoid">${payBox}</div>` : ""}${pair(conditions, contactBox, "cond-row")}`;
   const signs = `<div class="signs avoid">${m.signatures
-    .map((g) => `<div class="sign"><div class="line"></div><b>${esc(g.role)}</b><span>(${esc(g.name || dots)})</span><span>${esc(g.position || "ตำแหน่ง " + dots)}</span><span class="date">วันที่ ......../......../........</span></div>`)
+    .map((g) => `<div class="sign"><div class="line"></div><b>${esc(g.role)}</b><span>(${esc(g.name || dots)})</span><span>${esc(g.position || "ตำแหน่ง " + dots)}</span></div>`)
     .join("")}</div>`;
-  const toolbar = `<div class="toolbar"><span>${esc(titleTh)}${draft ? " — ตัวอย่าง ยังไม่ออกเลขที่" : ""}</span>${
+  const warnings = !m.sample && m.warnings?.length ? m.warnings.map((w) => `<p class="warn">${esc(w)}</p>`).join("") : "";
+  const toolbar = `<div class="toolbar"><span class="t">${
+    m.sample ? `ตัวอย่าง${esc(titleTh)} — ข้อมูลสมมุติเพื่อดูรูปแบบเอกสาร ไม่ใช่เอกสารจริง` : `${esc(titleTh)}${draft ? " — ร่าง ยังไม่ออกเลขที่" : ""}`
+  }</span>${
     draft && m.issueAction
       ? `<form method="post" action="${esc(m.issueAction)}"><button type="submit" class="primary">ออกเลขที่${esc(titleTh)}</button></form>`
       : ""
-  }<button type="button" onclick="print()"${draft ? "" : ' class="primary"'}>พิมพ์ / บันทึกเป็น PDF</button></div>`;
+  }<button type="button" onclick="print()"${draft ? "" : ' class="primary"'}>พิมพ์ / บันทึกเป็น PDF</button>${warnings}</div>`;
 
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap">
 <style>
-:root{--c:${t.c};--dark:${t.dark};--soft:${t.soft};--line:${t.line};--violet:#6d3fe0;--lav:#f4f0fe;--ink:#1f2433;--mute:#5b6275}
+:root{--c:${t.c};--dark:${t.dark};--soft:${t.soft};--line:${t.line};--grad:${t.grad};--violet:#6d3fe0;--vsoft:#ece5fd;--lav:#f5f1fe;--ink:#1f2433;--text:#3c4255;--mute:#6b7185;--rule:#eceef4;--blue:#2563eb}
 *{box-sizing:border-box}
 @page{size:A4;margin:7mm 0}
-html,body{margin:0;background:#e8eaf0;color:var(--ink);font:9pt/1.36 "Sarabun","Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{position:relative;width:210mm;min-height:297mm;margin:12px auto 24px;padding:8mm 10mm 7mm;background:#fff;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;gap:2.6mm}
-h2,h3,.badge strong,.grand{font-family:"Prompt","Sarabun",sans-serif}
-.i{width:3.2mm;height:3.2mm;flex:none;color:var(--violet);vertical-align:-0.6mm;margin-right:1.3mm}
-.top{display:grid;grid-template-columns:1fr 74mm;gap:4mm;align-items:start}
-.co .brand{display:flex;align-items:center;gap:2mm;min-height:11mm;margin-bottom:1.2mm}
-.co .brand img{max-height:13mm;max-width:62mm;object-fit:contain}
-.mark{display:grid;place-items:center;width:10mm;height:10mm;border-radius:3mm;background:linear-gradient(135deg,#8b5cf6,#4f46e5);color:#fff;font:700 14pt "Prompt",sans-serif}
-.brand-name{font:700 15pt "Prompt",sans-serif;color:#3b2a8f}
-.co h2{font-size:10pt;margin:0 0 .4mm;font-weight:600}
-.co p{margin:0;color:var(--mute);font-size:8.3pt}
-.sep{color:#bbb;margin:0 1mm}
-.contacts{display:flex;flex-wrap:wrap;gap:.6mm 4mm;margin-top:.8mm!important}
+html,body{margin:0;background:#e8eaf0;color:var(--ink);font:9pt/1.4 "Sarabun","Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{position:relative;width:210mm;min-height:297mm;margin:12px auto 24px;padding:9mm 10mm 8mm;background:#fff;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;gap:3.2mm;overflow:hidden}
+h2,h3,.badge strong,.badge span,.grand,.items thead th,.pill,.sign b{font-family:"Prompt","Sarabun",sans-serif}
+.i{width:3.3mm;height:3.3mm;flex:none;color:var(--violet);vertical-align:-.6mm;margin-right:1.4mm}
+.top{display:grid;grid-template-columns:1fr 76mm;gap:5mm;align-items:start}
+.co .brand{display:flex;align-items:center;gap:2.2mm;min-height:12mm;margin-bottom:1.8mm}
+.co .brand img{max-height:14mm;max-width:66mm;object-fit:contain}
+.mark{display:grid;place-items:center;width:11mm;height:11mm;border-radius:3mm;background:linear-gradient(135deg,#a855f7,#4f46e5);color:#fff;font:700 15pt "Prompt",sans-serif;flex:none}
+.brand-text{display:flex;flex-direction:column;line-height:1.1}
+.brand-name{font:700 16pt "Prompt",sans-serif;color:#2e1f86}
+.tagline{font:600 6pt "Prompt",sans-serif;letter-spacing:.8mm;color:#4b3fb0;margin-top:.5mm;text-transform:uppercase}
+.co h2{font-size:10.2pt;margin:0 0 .6mm;font-weight:600}
+.co p{margin:0;color:var(--text);font-size:8.4pt;line-height:1.5}
+.sep{display:inline-block;color:#c3c6d1;margin:0 2mm}
+.contacts{display:flex;flex-wrap:wrap;gap:.8mm 5mm;margin-top:1.6mm!important}
 .contacts span{display:inline-flex;align-items:center;color:var(--ink)}
-.badge{display:flex;align-items:center;gap:3mm;background:linear-gradient(135deg,var(--c),var(--dark));color:#fff;border-radius:3.5mm;padding:2.4mm 4.5mm;box-shadow:0 2px 6px #0002}
-.badge-i{width:10mm;height:10mm;padding:1.8mm;border-radius:2.5mm;background:#fff;color:var(--c);flex:none}
-.badge strong{display:block;font-size:18pt;line-height:1.1;font-weight:700}
-.badge span{display:block;font-size:10pt;opacity:.95}
-.info{margin-top:2.4mm;border:1px solid var(--line);background:var(--soft);border-radius:3mm;padding:1.8mm 3mm}
-.info .row{display:flex;align-items:center;padding:.35mm 0;font-size:8.5pt}
+.co .contacts .i{width:4mm;height:4mm;padding:.6mm;border-radius:50%;background:var(--vsoft)}
+.badge{display:flex;align-items:center;justify-content:space-between;gap:3mm;background:var(--grad);color:#fff;border-radius:4mm;padding:3mm 5mm;box-shadow:0 4px 10px -4px var(--c)}
+.badge-i{width:12mm;height:12mm;flex:none;stroke-width:1.5}
+.badge div{text-align:right}
+.badge strong{display:block;font-size:20pt;line-height:1.15;font-weight:700}
+.badge span{display:block;font-size:12pt;font-weight:500;opacity:.95}
+.info{margin-top:2.6mm;border:1px solid var(--rule);background:#f9fafc;border-radius:3.5mm;padding:1.2mm 3.4mm}
+.info .row{display:flex;align-items:center;padding:.95mm 0;font-size:8.5pt}
+.info .row+.row{border-top:1px solid var(--rule)}
 .info .i{color:var(--c)}
-.info .lbl{flex:0 0 29mm;color:var(--mute)}
-.info .val{font-weight:600}
-.pill{font-weight:700;color:var(--dark);background:#fff;border:1px solid var(--line);border-radius:5mm;padding:0 3mm}
-.cust{background:var(--lav);border-radius:3mm;padding:2.2mm 3mm;margin-top:2.2mm}
-.cust h3{display:flex;align-items:center;margin:0 0 1mm;font-size:9.6pt;color:var(--violet)}
-.cust h3 em{font-style:normal;font-weight:500;margin-left:1mm;color:var(--mute)}
-.avatar{display:grid;place-items:center;width:6mm;height:6mm;border-radius:50%;background:#e4dafd;margin-right:2mm}
-.avatar .i{margin:0}
-.kv{display:grid;grid-template-columns:28mm 2.5mm 1fr;font-size:8.5pt}
-.kv span:first-child{color:var(--mute)}
+.info .lbl{flex:0 0 30mm;color:var(--ink)}
+.info .val{font-weight:500}
+.pill{font-weight:600;color:var(--dark);background:var(--soft);border-radius:5mm;padding:.1mm 3.4mm;font-size:9pt}
+.cust{display:grid;grid-template-columns:11mm 1fr;gap:2.6mm;background:var(--lav);border:1px solid #ebe4fc;border-radius:3.5mm;padding:2.6mm 3.4mm;margin-top:2.8mm}
+.cust h3{margin:0 0 .8mm;font-size:9.8pt;color:var(--violet);font-weight:600}
+.cust h3 em{font-style:normal;font-weight:500;color:#4f46e5}
+.avatar{display:grid;place-items:center;width:11mm;height:11mm;border-radius:50%;background:linear-gradient(135deg,#bba3f8,#7c5ce6)}
+.avatar .i{margin:0;color:#fff;width:5.6mm;height:5.6mm}
+.kv{display:grid;grid-template-columns:29mm 3mm 1fr;font-size:8.5pt;line-height:1.45}
+.kv span:first-child{color:var(--text)}
 .kv .strong{font-weight:700}
 .muted{color:var(--mute);margin:0}
-table.items{width:100%;border-collapse:separate;border-spacing:0;font-size:8.4pt}
-.items thead th{background:var(--c);color:#fff;font-weight:600;padding:1.2mm 1.5mm;text-align:left;line-height:1.15;vertical-align:middle}
-.items thead th:first-child{border-radius:2mm 0 0 0}.items thead th:last-child{border-radius:0 2mm 0 0}
-.items td{padding:1.1mm 1.5mm;border-bottom:1px solid #e6e8ef;vertical-align:top}
-.items tbody tr:nth-child(even) td{background:#fafbfd}
+.items-box{border:1px solid var(--rule);border-radius:3mm;overflow:hidden}
+table.items{width:100%;border-collapse:collapse;font-size:8.4pt}
+.items thead th{background:var(--c);color:#fff;font-weight:500;font-size:8.1pt;padding:1.4mm 1.6mm;text-align:center;line-height:1.2;vertical-align:middle}
+.items thead th.l{text-align:left}
+.items td{padding:1.6mm 1.6mm;border-bottom:1px solid var(--rule);vertical-align:middle}
+.items tbody tr:last-child td{border-bottom:0}
 .items .c{text-align:center}.items .n{text-align:right;white-space:nowrap}
-.items .name{font-weight:700;width:30%}.items .detail{color:var(--mute);width:25%}
+.items .name{font-weight:700;width:27%}.items .detail{color:var(--text);width:25%}
 .items tr{break-inside:avoid}
-.items small{font-weight:400;opacity:.9}
-.mid{display:grid;grid-template-columns:1fr 78mm;gap:4mm;align-items:start}
-.box{border-radius:3mm;padding:2mm 3mm;background:#f6f7fb;border:1px solid #e7e9f1}
-.box h3{display:flex;align-items:center;margin:0 0 .8mm;font-size:9.2pt;color:var(--violet)}
-.box ul,.box ol{margin:0;padding-left:4.5mm}.box li{margin:.15mm 0}
-.notes{background:var(--lav);border-color:#e6defb}
-.totals>div{display:flex;justify-content:space-between;padding:.4mm 1mm;font-size:8.9pt}
-.totals>div span:last-child{font-weight:700}
-.totals .disc span{color:var(--c)}
-.totals .grand{margin-top:.8mm;background:linear-gradient(135deg,var(--c),var(--dark));color:#fff;border-radius:2.5mm;padding:1.7mm 3mm;font-size:11pt;font-weight:700}
-.totals .words{margin:.8mm 1mm 0;text-align:right;font-size:8.4pt;color:var(--dark);font-weight:600}
-.pay-body{display:flex;align-items:center;gap:4mm}
-.pay-info{flex:1}
-.bank-name{margin:0 0 .4mm;font-weight:700;display:flex;align-items:center}
+.items small{font-weight:400;font-size:7.6pt}
+.mid{display:grid;grid-template-columns:1fr 80mm;gap:5mm;align-items:start}
+.box{border-radius:3.5mm;padding:2.4mm 3.4mm;background:#f8f8fc;border:1px solid #eeedf6}
+.box h3{display:flex;align-items:center;margin:0 0 1.2mm;font-size:9.6pt;color:var(--violet);font-weight:600}
+.ic{display:grid;place-items:center;width:6.6mm;height:6.6mm;border-radius:50%;background:var(--vsoft);margin-right:2mm;flex:none}
+.ic .i{margin:0;width:3.8mm;height:3.8mm}
+.box ul{margin:0;padding-left:4.6mm}.box li{margin:.25mm 0;font-size:8.5pt}
+.box .strong{font-weight:700}
+.notes{background:var(--lav);border-color:#ebe4fc}
+.k-receipt .box{background:#f5f6f9;border-color:#eceef3}
+.k-receipt .box h3,.k-tax_invoice .cond h3{color:var(--dark)}
+.k-receipt .box .ic,.k-tax_invoice .cond .ic{background:var(--soft)}
+.k-receipt .box .ic .i,.k-tax_invoice .cond .ic .i{color:var(--c)}
+.totals .row{display:flex;justify-content:space-between;padding:.95mm 1mm;font-size:9pt;border-bottom:1px solid var(--rule)}
+.totals .row span:last-child{font-weight:700}
+.totals .disc span:last-child{color:var(--blue)}
+.k-quotation .totals .disc span,.k-invoice .totals .disc span{color:var(--c)}
+.totals .grand{display:flex;justify-content:space-between;align-items:center;gap:3mm;margin-top:1.8mm;background:var(--grad);color:#fff;border-radius:3mm;padding:2mm 4mm;box-shadow:0 4px 9px -4px var(--c)}
+.grand span{font-size:10pt;font-weight:600}
+.grand b{font-size:14pt;font-weight:700;white-space:nowrap}
+.words{margin:1mm 1mm 0;text-align:right;font-size:8.4pt;color:var(--dark);font-weight:600}
+.pay-body{display:flex;align-items:center;gap:3.5mm}
+.bank-ic{display:grid;place-items:center;width:10mm;height:10mm;border-radius:50%;background:var(--vsoft);flex:none}
+.bank-ic .i{margin:0;width:5mm;height:5mm}
+.bank-ic.sm{display:inline-grid;width:6mm;height:6mm;border-radius:1.6mm;background:var(--violet);margin-right:1.8mm}
+.bank-ic.sm .i{color:#fff;width:3.6mm;height:3.6mm}
+.pay-info{flex:1;min-width:0}
+.bank-name{margin:0 0 .6mm;font-weight:700;display:flex;align-items:center;font-size:9pt}
+.pay .kv{grid-template-columns:20mm 3mm 1fr}
+.vsep{align-self:stretch;width:1px;background:#e3e1ee;margin:0 1.5mm}
 .qr{flex:none;border:1px solid #e3e5ec;border-radius:2mm;padding:.6mm;background:#fff;line-height:0}
-.qr-cap{flex:0 0 46mm;display:flex;flex-direction:column;font-size:8.4pt}
-.qr-cap b{color:var(--c);font-size:9.2pt}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4mm;align-items:stretch}
+.qr-cap{flex:0 0 52mm;display:flex;flex-direction:column;font-size:8.5pt;color:var(--text)}
+.qr-cap b{color:var(--c);font:600 9.4pt "Prompt",sans-serif;margin-bottom:.5mm}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm;align-items:stretch}
 .cond-row{grid-template-columns:1.55fr 1fr}
-.tax .grid2 .pay .pay-body{flex-wrap:wrap}.tax .grid2 .qr-cap{flex:1 1 30mm}
-.cond li b{margin-right:1mm}.cond li span{margin-right:1mm}
-.contact p{margin:.25mm 0;display:flex;align-items:center}
-.signs{display:grid;grid-template-columns:1fr 1fr;margin-top:auto;padding-top:3mm}
-.sign{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:8.5pt;padding:0 6mm;line-height:1.3}
-.sign+.sign{border-left:1px solid #d9dce5}
-.sign .line{width:52mm;border-bottom:1px solid #444;height:9mm;margin-bottom:1mm}
-.sign b{font-size:9.2pt}
-.sign span{color:var(--mute)}
-.sign .date{margin-top:.5mm;font-size:7.8pt}
+.k-tax_invoice .grid2{grid-template-columns:1.12fr 1fr}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:auto auto auto 1fr;gap:.6mm 1.4mm;font-size:8.3pt;align-items:start}
+.steps li{display:contents}
+.steps i{font-style:normal;display:grid;place-items:center;width:3.9mm;height:3.9mm;border-radius:50%;background:var(--violet);color:#fff;font:700 6.8pt "Prompt",sans-serif;margin-top:.35mm}
+.steps b{font-weight:700;white-space:nowrap}
+.ct{display:grid;grid-template-columns:auto auto auto 1fr;gap:.7mm 1.6mm;align-items:center;font-size:8.6pt}
+.ct .i{margin:0;color:var(--c)}
+.ct-list p{margin:.45mm 0;display:flex;align-items:center;font-size:8.6pt}
+.signs{display:grid;grid-template-columns:1fr 1fr;margin-top:5mm}
+.sign{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:8.6pt;padding:0 6mm;line-height:1.45}
+.sign+.sign{border-left:1px solid #dcdbe8}
+.sign .line{width:58mm;border-bottom:1.2px solid #8b7fd9;height:12mm;margin-bottom:1.4mm}
+.sign b{font-size:9.4pt;font-weight:600}
+.sign span{color:var(--text)}
 .avoid{break-inside:avoid}
-.draft::after{content:"ตัวอย่าง";position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) rotate(-24deg);font:700 64pt "Prompt",sans-serif;color:#0000000d;pointer-events:none}
-.toolbar{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;justify-content:center;padding:8px;background:#fff;box-shadow:0 1px 6px #0001;font:500 14px "Sarabun",sans-serif}
-.toolbar span{margin-right:auto;padding-left:8px;color:var(--mute)}
+.draft::after,.sample::after{position:absolute;top:46%;left:50%;transform:translate(-50%,-50%) rotate(-32deg);font:700 96pt "Prompt",sans-serif;pointer-events:none;white-space:nowrap;z-index:3}
+.draft::after{content:"ร่าง";color:#0000000f}
+.sample::after{content:"ตัวอย่าง";color:${t.c}21}
+.toolbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:8px;background:#fff;box-shadow:0 1px 6px #0001;font:500 14px "Sarabun",sans-serif}
+.toolbar .t{margin-right:auto;padding-left:8px;color:var(--mute)}
 .toolbar form{margin:0}
 .toolbar button{font:600 14px "Sarabun",sans-serif;padding:7px 14px;border-radius:8px;border:1px solid #d5d8e2;background:#fff;cursor:pointer}
 .toolbar button.primary{background:var(--c);border-color:var(--c);color:#fff}
-@media print{html,body{background:#fff}.toolbar{display:none}.page{margin:0;padding:0 10mm;box-shadow:none;min-height:282mm}.draft::after{position:fixed}}
+.toolbar .warn{flex-basis:100%;margin:0;text-align:center;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:5px 10px;font-size:13px}
+@media print{html,body{background:#fff}.toolbar{display:none}.page{margin:0;padding:0 10mm;box-shadow:none;min-height:0;overflow:visible}.draft::after,.sample::after{position:fixed}}
 </style></head><body>
 ${toolbar}
-<main class="page ${m.kind === "tax_invoice" ? "tax" : ""} ${draft ? "draft" : ""}">
+<main class="page k-${m.kind}${draft ? " draft" : ""}${m.sample ? " sample" : ""}">
 <div class="top"><div>${header}${customer}</div><div>${badge}${info}</div></div>
 ${table}
-<div class="mid avoid">${notes}${totals}</div>
+${mid}
 ${bottom}
 ${signs}
 </main>
 </body></html>`;
 }
+
+// ---------- Sample documents (/print/sample/<kind>) ----------
+// The design's example content — a fictional seller and customer — so a company with no documents yet can see the layout.
+const sampleLogo =
+  "data:image/svg+xml;base64," +
+  btoa(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="72" viewBox="0 0 300 72"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#b14cf0"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs><path d="M2 6h58L50 20H22l-3 6h27l-9 13H13l-3 6h21l-17 25z" fill="url(#g)"/><text x="70" y="42" font-family="Prompt,Arial,sans-serif" font-weight="700" font-size="36" fill="#2e1f86">EliteFlow</text><text x="72" y="62" font-family="Prompt,Arial,sans-serif" font-weight="600" font-size="10.5" letter-spacing="2.2" fill="#2e1f86">BUSINESS SOLUTION PLATFORM</text></svg>`,
+  );
+export function sampleModel(kind: DocKind): DocModel {
+  const company: Rec = {
+    logo: sampleLogo,
+    name: "บริษัท อีลีทโฟลว์ จำกัด",
+    nameEn: "EliteFlow Co., Ltd.",
+    tagline: "Business Solution Platform",
+    address: "123/45 ถ.รัชดาภิเษก แขวงจตุจักร เขตจตุจักร กรุงเทพฯ 10900",
+    taxId: "0105567890123",
+    branch: "สำนักงานใหญ่",
+    phone: "02-345-6789",
+    email: "sales@eliteflow.co.th",
+    website: "www.eliteflow.co.th",
+  };
+  const customer: DocParty = {
+    name: "บริษัท ไบรท์โซลูชั่น จำกัด",
+    address: "99/9 ถ.วิภาวดีรังสิต แขวงลาดยาว เขตจตุจักร กรุงเทพฯ 10900",
+    taxId: "0105567890456",
+    branch: "",
+    contact: "คุณธนพร วัฒนกุล",
+    phone: "082-456-7890",
+    email: "thanaporn@brightsolution.co.th",
+  };
+  const lines = docLines([
+    { name: "ระบบ EliteFlow (แพ็กเกจ Pro)\nระบบบริหารงานองค์กรครบวงจร (ใช้งาน 12 เดือน)", qty: 1, unit: "ชุด", price: 200000, discount: 10000 },
+    { name: "ค่าติดตั้งและตั้งค่าระบบ\nติดตั้ง, ตั้งค่า, นำเข้าข้อมูลเริ่มต้น", qty: 1, unit: "ครั้ง", price: 30000 },
+    { name: "อบรมการใช้งาน\nอบรมผู้ใช้งาน (ออนไลน์ 10 ท่าน)", qty: 1, unit: "วัน", price: 20000 },
+  ]);
+  const totals = lineTotals(lines, 0, "excluded"); // 250,000 − 10,000 = 240,000 + VAT 16,800 = 256,800
+  const seller = "ศิริลักษณ์ ปันทองสุข";
+  const contact = { name: "คุณ" + seller, position: "ฝ่ายขาย", phone: "089-123-4567", email: "siriluck@eliteflow.co.th", line: "@eliteflow", website: "" };
+  const kbank = { bank: "ธนาคารกสิกรไทย", account: "123-4-56789-0", accountName: "บริษัท อีลีทโฟลว์ จำกัด", accountType: "กระแสรายวัน", promptPay: "0105567890123", amount: totals.total };
+  const terms = (days: number, from: string) => [
+    { label: "การชำระเงิน", text: `ชำระเงินจำนวนภายใน ${days} วัน นับจาก${from}` },
+    { label: "การส่งมอบงาน", text: "ภายใน 15 วันทำการ หลังจากได้รับการชำระเงิน" },
+    { label: "การรับประกัน", text: "บริการดูแลและแก้ไขปัญหา (Support) 12 เดือน" },
+    { label: "การเปลี่ยนแปลง", text: "หากมีการเปลี่ยนแปลงขอบเขตงาน อาจมีการปรับราคาเพิ่มเติมตามข้อตกลงร่วมกัน" },
+  ];
+  const baseNotes = ["ราคารวมค่าบริการตามที่ระบุข้างต้นแล้ว", "ยังไม่รวมภาษีมูลค่าเพิ่ม (VAT) 7%", "กำหนดการติดตั้งและอบรมตามที่ตกลงร่วมกัน"];
+  const approver = (position: string, role = "ผู้อนุมัติ") => ({ role, name: "ธนกฤต มาตามกอ", position });
+  const base = { company, customer, lines, totals, amount: totals.total, contact, footerNotes: [] as string[], sample: true };
+  if (kind === "quotation")
+    return {
+      ...base,
+      kind,
+      number: "QT-2026-0014",
+      info: [
+        { icon: "file", label: "เลขที่ใบเสนอราคา", value: "QT-2026-0014", strong: true },
+        { icon: "calendar", label: "วันที่เสนอราคา", value: "6 พ.ย. 2569" },
+        { icon: "calendar", label: "ยืนราคาถึง", value: "20 พ.ย. 2569" },
+        { icon: "clock", label: "เงื่อนไขการชำระเงิน", value: "ภายใน 30 วัน" },
+        { icon: "user", label: "พนักงานขาย", value: "ทีมขาย EliteFlow" },
+        { icon: "user", label: "ผู้เสนอราคา", value: "คุณ" + seller },
+        { icon: "phone", label: "โทรศัพท์", value: "089-123-4567" },
+        { icon: "mail", label: "อีเมล", value: "siriluck@eliteflow.co.th" },
+      ],
+      notesTitle: "หมายเหตุ",
+      notes: [...baseNotes, "ใบเสนอราคานี้มีอายุ 14 วัน นับจากวันที่ออกเอกสาร"],
+      payment: kbank,
+      conditions: terms(30, "วันที่เสนอราคา"),
+      signatures: [{ role: "ผู้เสนอราคา", name: seller, position: "ฝ่ายขาย" }, approver("ผู้จัดการฝ่ายขาย")],
+    };
+  if (kind === "invoice")
+    return {
+      ...base,
+      kind,
+      number: "INV-2026-0014",
+      info: [
+        { icon: "file", label: "เลขที่ใบแจ้งหนี้", value: "INV-2026-0014", strong: true },
+        { icon: "calendar", label: "วันที่ออกใบแจ้งหนี้", value: "6 พ.ย. 2569" },
+        { icon: "calendar", label: "วันครบกำหนดชำระ", value: "20 พ.ย. 2569" },
+        { icon: "clock", label: "เงื่อนไขการชำระเงิน", value: "ภายใน 14 วัน" },
+        { icon: "user", label: "พนักงานขาย", value: "ทีมขาย EliteFlow" },
+        { icon: "user", label: "ผู้ออกเอกสาร", value: "คุณ" + seller },
+      ],
+      notesTitle: "หมายเหตุ",
+      notes: [...baseNotes, "กรุณาชำระเงินภายในวันที่ 20 พ.ย. 2569"],
+      payment: kbank,
+      conditions: terms(14, "วันที่ออกใบแจ้งหนี้"),
+      signatures: [{ role: "ผู้วางบิล", name: seller, position: "ฝ่ายขาย" }, approver("ผู้จัดการฝ่ายขาย", "ผู้มีอำนาจอนุมัติ")],
+    };
+  const accountant = "ศิริกัลยา ปันทองสุข";
+  if (kind === "tax_invoice")
+    return {
+      ...base,
+      kind,
+      number: "TAX-2026-0005",
+      info: [
+        { icon: "file", label: "เลขที่ใบกำกับภาษี", value: "TAX-2026-0005", strong: true },
+        { icon: "calendar", label: "วันที่ออกใบกำกับภาษี", value: "20 พ.ย. 2569" },
+        { icon: "calendar", label: "อ้างอิงใบเสนอราคา", value: "QT-2026-0014" },
+        { icon: "clock", label: "เลขที่ใบแจ้งหนี้", value: "INV-2026-0014" },
+      ],
+      notesTitle: "ข้อมูลภาษี",
+      notes: ["เป็นใบกำกับภาษีแบบเต็มรูป", "ผู้ขายเป็นผู้ประกอบการจดทะเบียนภาษีมูลค่าเพิ่ม", "อัตราภาษีมูลค่าเพิ่ม (VAT) 7%", "สามารถนำไปใช้เป็นค่าใช้จ่ายทางภาษีได้"],
+      payment: { bank: "ธนาคารไทยพาณิชย์ (SCB)", account: "123-456789-0", accountName: "บริษัท อีลีทโฟลว์ จำกัด", accountType: "", promptPay: "0105567890123", amount: totals.total },
+      conditions: [
+        { label: "", text: "กรุณาชำระตามยอดที่ระบุในใบกำกับภาษี" },
+        { label: "", text: "หากมีข้อสงสัยติดต่อฝ่ายขาย 02-345-6789" },
+        { label: "", text: "ใบกำกับภาษีนี้ออกโดยระบบอิเล็กทรอนิกส์ (e-Tax Invoice)" },
+      ],
+      signatures: [{ role: "ผู้จัดทำใบกำกับภาษี", name: accountant, position: "ฝ่ายขาย" }, approver("ผู้จัดการฝ่ายการเงิน")],
+    };
+  return {
+    ...base,
+    kind: "receipt",
+    number: "RC-2026-0028",
+    info: [
+      { icon: "file", label: "เลขที่ใบเสร็จรับเงิน", value: "RC-2026-0028", strong: true },
+      { icon: "calendar", label: "วันที่รับชำระเงิน", value: "20 พ.ย. 2569" },
+      { icon: "calendar", label: "อ้างอิงใบแจ้งหนี้", value: "INV-2026-0014" },
+      { icon: "clock", label: "วิธีการชำระเงิน", value: "โอนเงิน (Bank Transfer)" },
+    ],
+    notesTitle: "ข้อมูลการรับชำระเงิน",
+    notes: ["ได้รับชำระเงินเรียบร้อยแล้ว", "วันที่รับเงิน : 20 พ.ย. 2569", "วิธีการชำระ : โอนเงินผ่านธนาคาร", "เลขที่อ้างอิง : TRX2026112000198"],
+    payment: null,
+    conditions: [],
+    contact: { name: "", position: "", phoneLabel: "ฝ่ายขาย", phone: "02-345-6789", email: "sales@eliteflow.co.th", website: "www.eliteflow.co.th", line: "" },
+    signatures: [{ role: "ผู้รับเงิน", name: accountant, position: "ฝ่ายบัญชีและการเงิน" }, approver("ผู้จัดการฝ่ายการเงิน")],
+    footerNotes: ["ใบเสร็จรับเงินนี้เป็นหลักฐานการชำระเงิน", "กรุณาเก็บไว้เป็นหลักฐานสำหรับการตรวจสอบ"],
+  };
+}
+/** Where a kind's sample document opens. */
+export const sampleUrl = (kind: DocKind) => `/print/sample/${kind}`;
