@@ -366,7 +366,9 @@ export function Feed({
         {writer && (
           <section className="card li-start">
             <div className="li-start-top">
-              <CompanyLogo id={ctx.company.id} name={ctx.company.name} logo={logo} size={48} />
+              <button className="li-profile-link" onClick={() => navigate("profile")} aria-label="ดูหน้าโปรไฟล์บริษัทเรา" title="หน้าโปรไฟล์บริษัทเรา">
+                <CompanyLogo id={ctx.company.id} name={ctx.company.name} logo={logo} size={48} />
+              </button>
               <button className="li-start-input" onClick={() => setComposing("post")}>
                 เริ่มลงอัปเดตในนาม {ctx.company.name}
               </button>

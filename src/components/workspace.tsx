@@ -4,6 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
   Store,
+  ArrowLeftRight,
+  ChevronRight,
+  Settings2,
+  UserCircle2,
   Truck,
   UserRound,
   ContactRound,
@@ -338,6 +342,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [menu, setMenu] = useState(false),
+    [account, setAccount] = useState(false),
     [menuClosing, setMenuClosing] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [search, setSearch] = useState(""),
@@ -596,17 +601,74 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               <Bell size={18} />
               {data.summary.lowStock.length > 0 && <i />}
             </button>
-            <button
-              className="user-profile"
-              title={ctx.company.name + " · สลับบริษัท"}
-              onClick={openCompanies}
-            >
-              <span className="avatar">{ctx.user.name[0]}</span>
-              <span>
-                <strong>{ctx.user.name}</strong>
-                <small>{ctx.company.name}</small>
-              </span>
-            </button>
+            <span className="account-wrap" onKeyDown={(e) => e.key === "Escape" && setAccount(false)}>
+              <button
+                className={"user-profile" + (account ? " open" : "")}
+                aria-haspopup="menu"
+                aria-expanded={account}
+                title={ctx.company.name}
+                onClick={() => setAccount(!account)}
+              >
+                <span className="avatar">{ctx.user.name[0]}</span>
+                <span>
+                  <strong>{ctx.user.name}</strong>
+                  <small>{ctx.company.name}</small>
+                </span>
+              </button>
+              {account && (
+                <>
+                  <button className="account-scrim" aria-label="ปิดเมนู" onClick={() => setAccount(false)} />
+                  <div className="account-menu" role="menu">
+                    <button
+                      role="menuitem"
+                      className="account-head"
+                      onClick={() => {
+                        setAccount(false);
+                        navigate("profile");
+                      }}
+                    >
+                      {ctx.company.profile.logo ? (
+                        <img src={String(ctx.company.profile.logo)} alt="" />
+                      ) : (
+                        <span className="avatar">{ctx.company.name.slice(0, 2)}</span>
+                      )}
+                      <span>
+                        <strong>{ctx.company.name}</strong>
+                        <small>ดูหน้าโปรไฟล์บริษัท</small>
+                      </span>
+                      <ChevronRight size={16} />
+                    </button>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setAccount(false);
+                        navigate("profile");
+                      }}
+                    >
+                      <UserCircle2 size={17} /> หน้าโปรไฟล์บริษัท
+                    </button>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setAccount(false);
+                        navigate("company");
+                      }}
+                    >
+                      <Settings2 size={17} /> แก้ไขข้อมูลบริษัท
+                    </button>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setAccount(false);
+                        openCompanies();
+                      }}
+                    >
+                      <ArrowLeftRight size={17} /> สลับบริษัท
+                    </button>
+                  </div>
+                </>
+              )}
+            </span>
             <button
               className="icon-button topnav-logout"
               aria-label="ออกจากระบบ"

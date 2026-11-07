@@ -369,3 +369,93 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/* Top-right account menu: our company page, company settings, switch company. */
+.account-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.user-profile {
+  border-radius: 12px;
+  padding: 4px 8px;
+}
+.user-profile:hover,
+.user-profile.open {
+  background: var(--accent-soft);
+}
+.account-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+.account-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 61;
+  width: 270px;
+  display: grid;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  box-shadow: 0 16px 40px rgb(30 20 60 / 0.18);
+}
+.account-menu > button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink, #1f1a35);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.account-menu > button:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.account-menu > button svg {
+  color: var(--muted);
+  flex: none;
+}
+.account-menu > button:hover svg {
+  color: var(--accent);
+}
+.account-head {
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 10px 10px 0 0 !important;
+  padding-bottom: 12px !important;
+}
+.account-head img,
+.account-head .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: none;
+  font-size: 13px;
+}
+.account-head > span:not(.avatar) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.account-head strong {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-head small {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
