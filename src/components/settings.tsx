@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { deptThai } from "@/lib/line-message";
 import {
   Plus,
@@ -11,11 +11,14 @@ import {
   Palette,
   Building2,
   Camera,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { UserOnline } from "./presence";
 import { FieldControl } from "./records";
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
+import { alwaysPublicFields, publicSet, toggleableFields, visibilityValue } from "@/lib/company-visibility";
 import type { Context, Member, Template } from "@/lib/types";
 const imageLimits = {
   logo: { width: 320, height: 320, max: 60000 },
@@ -153,7 +156,39 @@ export function CompanySettings({
         set={(v) => set(k, v)}
         options={[]}
       />
-    );
+    ),
+    // Globe (public) or lock (private) on a field's corner; only on the company page's เกี่ยวกับ tab.
+    pub = publicSet(values.visibility),
+    pv = (k: string, node: ReactNode, wide = false) => {
+      if (!embedded) return node;
+      const fixed = alwaysPublicFields.includes(k) ? "pub" : (toggleableFields as readonly string[]).includes(k) ? "" : "private";
+      const on = fixed === "pub" || (!fixed && pub.has(k));
+      return (
+        <div className={"vis-field" + (wide ? " wide" : "")} key={k}>
+          {node}
+          {fixed ? (
+            <span className={"vis-toggle fixed" + (on ? " pub" : "")} title={on ? "สาธารณะเสมอ (แสดงบนการ์ดบริษัท)" : "ส่วนตัวเสมอ"}>
+              {on ? <Globe size={13} /> : <Lock size={13} />} {on ? "สาธารณะเสมอ" : "ส่วนตัวเสมอ"}
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={"vis-toggle" + (on ? " pub" : "")}
+              aria-pressed={on}
+              title={on ? "บริษัทอื่นเห็น · กดเพื่อเป็นส่วนตัว" : "เห็นเฉพาะทีม · กดเพื่อเปิดสาธารณะ"}
+              onClick={() => {
+                const next = new Set(pub);
+                if (on) next.delete(k);
+                else next.add(k);
+                set("visibility", visibilityValue(next));
+              }}
+            >
+              {on ? <Globe size={13} /> : <Lock size={13} />} {on ? "สาธารณะ" : "ส่วนตัว"}
+            </button>
+          )}
+        </div>
+      );
+    };
   return (
     <form
       className="company-profile"
@@ -180,13 +215,6 @@ export function CompanySettings({
         }
       }}
     >
-      {embedded && (
-        <VisibilityCard
-          value={String(values.visibility || "main,social")}
-          disabled={!owner || busy}
-          onChange={(v) => set("visibility", v)}
-        />
-      )}
       {!embedded && (
       <section className="card company-hero">
         <div
@@ -256,12 +284,20 @@ export function CompanySettings({
           {owner ? "จัดการโดย Owner" : "อ่านอย่างเดียว"}
         </span>
       </div>
+      {embedded && (
+        <p className="vis-legend">
+          <span className="vis-chip pub"><Globe size={13} /> สาธารณะ</span> บริษัทอื่นในเครือข่ายเห็น
+          <span className="vis-chip"><Lock size={13} /> ส่วนตัว</span> เห็นเฉพาะทีมของคุณ
+          <em>กดไอคอนที่หัวข้อแต่ละช่องเพื่อสลับ แล้วกดบันทึกข้อมูล</em>
+        </p>
+      )}
       <fieldset disabled={!owner || busy}>
         {tab === "main" ? (
           <>
             <section className="card company-section">
               <h2>ข้อมูลบริษัท</h2>
               <div className="form-grid company-grid">
+                {pv("name",
                 <label>
                   {field("name").label}
                   <input
@@ -272,6 +308,8 @@ export function CompanySettings({
                     onChange={(e) => set("name", e.target.value)}
                   />
                 </label>
+                )}
+                {pv("nameEn",
                 <label>
                   {field("nameEn").label}
                   <input
@@ -280,6 +318,8 @@ export function CompanySettings({
                     onChange={(e) => set("nameEn", e.target.value)}
                   />
                 </label>
+                )}
+                {pv("bio",
                 <label className="wide">
                   {field("bio").label}
                   <input
@@ -290,6 +330,8 @@ export function CompanySettings({
                   />
                   <small className="field-hint">แสดงใต้ชื่อบริษัทในหน้าโปรไฟล์ · {text("bio").length}/160</small>
                 </label>
+                , true)}
+                {pv("taxId",
                 <label>
                   {field("taxId").label}
                   <input
@@ -302,6 +344,8 @@ export function CompanySettings({
                     onChange={(e) => set("taxId", e.target.value.replace(/\D/g, ""))}
                   />
                 </label>
+                )}
+                {pv("industry",
                 <label>
                   {field("industry").label}
                   <select value={text("industry")} onChange={(e) => set("industry", e.target.value)}>
@@ -318,6 +362,8 @@ export function CompanySettings({
                     ))}
                   </select>
                 </label>
+                )}
+                {pv("employees",
                 <label>
                   {field("employees").label}
                   <select value={text("employees")} onChange={(e) => set("employees", e.target.value)}>
@@ -327,6 +373,8 @@ export function CompanySettings({
                     ))}
                   </select>
                 </label>
+                )}
+                {pv("founded",
                 <label>
                   {field("founded").label}
                   <input
@@ -335,6 +383,8 @@ export function CompanySettings({
                     onChange={(e) => set("founded", e.target.value)}
                   />
                 </label>
+                )}
+                {pv("description",
                 <label className="wide">
                   {field("description").label}
                   <textarea
@@ -347,6 +397,7 @@ export function CompanySettings({
                     แสดงในหน้าโปรไฟล์และเอกสารที่ส่งให้ลูกค้า
                   </small>
                 </label>
+                , true)}
               </div>
             </section>
           </>
@@ -354,7 +405,7 @@ export function CompanySettings({
           <section className="card company-section">
             <h2>{companyTabs.find(([k]) => k === tab)![1]}</h2>
             <div className="form-grid company-grid">
-              {tabFields[tab].map(input)}
+              {tabFields[tab].map((k) => pv(k, input(k), field(k).type === "textarea"))}
             </div>
             {tab === "docs" && (
               <>
@@ -408,44 +459,14 @@ export function CompanySettings({
     </form>
   );
 }
-/** Who sees each part of the company page: public (any company in the network) or private (our team only). */
-export const visibilitySections = [
-  ["main", "ข้อมูลหลัก", "เกี่ยวกับบริษัท ประเภทธุรกิจ จำนวนพนักงาน วันที่ก่อตั้ง เลขผู้เสียภาษี"],
-  ["address", "ที่อยู่", "ที่อยู่บริษัทและรหัสไปรษณีย์ (จังหวัดแสดงเสมอ)"],
-  ["social", "ช่องทางติดต่อ", "โทรศัพท์ อีเมล เว็บไซต์ LINE Facebook"],
-  ["products", "สินค้าและบริการ", "สินค้า & แพ็กเกจที่เปิดขายอยู่ พร้อมราคา"],
-] as const;
-function VisibilityCard({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (v: string) => void }) {
-  const on = new Set(value === "none" ? [] : value.split(","));
-  const toggle = (k: string) => {
-    const next = new Set(on);
-    if (next.has(k)) next.delete(k);
-    else next.add(k);
-    onChange(next.size ? visibilitySections.map(([key]) => key).filter((key) => next.has(key)).join(",") : "none");
-  };
-  return (
-    <section className="card vis-card">
-      <div className="vis-head">
-        <h2>ใครเห็นข้อมูลบริษัท</h2>
-        <small>เลือกว่าส่วนไหนให้บริษัทอื่นในเครือข่ายเห็น · ข้อมูลธนาคารและเอกสารเป็นส่วนตัวเสมอ · กดบันทึกข้อมูลด้านล่างเพื่อใช้</small>
-      </div>
-      <div className="vis-grid">
-        {visibilitySections.map(([key, label, hint]) => {
-          const pub = on.has(key);
-          return (
-            <button type="button" key={key} className={"vis-item" + (pub ? " pub" : "")} disabled={disabled} aria-pressed={pub} onClick={() => toggle(key)}>
-              <span className="vis-switch" aria-hidden><i /></span>
-              <span>
-                <b>{label}</b>
-                <small>{hint}</small>
-              </span>
-              <em>{pub ? "สาธารณะ" : "ส่วนตัว"}</em>
-            </button>
-          );
-        })}
-      </div>
-    </section>
+/** Saves only the public/private switches on top of the saved company profile (owner only). */
+export async function saveCompanyVisibility(ctx: Context, value: string) {
+  const saved = Object.fromEntries(
+    Object.entries(profileOf(ctx))
+      .filter(([k]) => companyFields.some((f) => f.key === k))
+      .map(([k, v]) => [k, String(v ?? "")]),
   );
+  await api("/company", { method: "PATCH", body: { profile: { ...saved, visibility: value } } });
 }
 export function Team({
   ctx,

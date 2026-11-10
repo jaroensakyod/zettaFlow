@@ -123,6 +123,7 @@ import {
   promoMediaUpload,
 } from "@/lib/engage";
 import { presence } from "@/lib/presence";
+import { validVisibility } from "@/lib/company-visibility";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -838,7 +839,7 @@ async function handle(req: NextRequest) {
       );
       assert(!profile.bio || profile.bio.length <= 160, "Bio ยาวได้ไม่เกิน 160 ตัวอักษร");
       assert(
-        !profile.visibility || /^(none|(main|address|social|products)(,(main|address|social|products))*)$/.test(profile.visibility),
+        !profile.visibility || validVisibility(profile.visibility),
         "การตั้งค่าการมองเห็นไม่ถูกต้อง",
       );
       assert(

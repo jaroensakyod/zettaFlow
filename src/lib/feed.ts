@@ -1,5 +1,6 @@
 // Company feed: posts, job openings and partner requests shared across every company on the platform.
 import { randomUUID } from "node:crypto";
+import { defaultPublic } from "./company-visibility";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -214,10 +215,10 @@ export type CompanyProfile = {
   mine: boolean;
   following: boolean;
   follows_us: boolean;
-  /** Own company only: the sections other companies may see ("main,social" by default, "none" = all private). */
+  /** Own company only: the field keys other companies may see (see lib/company-visibility). */
   visibility?: string | null;
   /** Company facts the target lets us see (all of them on our own page). */
-  details?: Partial<Record<"taxId" | "legal" | "employees" | "founded" | "address" | "zip" | "phone" | "email", string>>;
+  details?: Partial<Record<"taxId" | "registration" | "legal" | "employees" | "founded" | "address" | "zip" | "shipAddress" | "phone" | "email", string>>;
   /** Active สินค้า & แพ็กเกจ, when the company shows them (always on our own page). */
   products?: CompanyProduct[];
 };
@@ -253,10 +254,10 @@ export async function feedProfile(ctx: Context, target: string | null): Promise<
       mine: own,
       following: follows.includes(id),
       follows_us: false,
-      visibility: own ? String(s.company.profile.visibility || "main,social") : null,
+      visibility: own ? String(s.company.profile.visibility || defaultPublic) : null,
       details: own
         ? Object.fromEntries(
-            (["taxId", "legal", "employees", "founded", "address", "zip", "phone", "email"] as const)
+            (["taxId", "registration", "legal", "employees", "founded", "address", "zip", "shipAddress", "phone", "email"] as const)
               .map((k) => [k, String(s.company.profile[k] || "")])
               .filter(([, v]) => v),
           )

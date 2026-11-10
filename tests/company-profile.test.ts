@@ -73,7 +73,7 @@ test("company profiles: public card, counts, who follows whom, one company's upd
     // Visibility: Alice hides contact info, shows products and (now that she chose) her tax id; bank never leaves.
     await login(alice);
     await db.query(
-      `select save_company($1,'{"name":"Alice Co","description":"ผลิตเฟอร์นิเจอร์","website":"https://alice.example","phone":"02-111","address":"1 ถนนสุขุมวิท","taxId":"0105555555555","bankAccount":"123-4","cover":"data:image/webp;base64,AAAA","visibility":"main,products","bio":"โต๊ะไม้สักสั่งทำ"}'::jsonb)`,
+      `select save_company($1,'{"name":"Alice Co","description":"ผลิตเฟอร์นิเจอร์","website":"https://alice.example","phone":"02-111","address":"1 ถนนสุขุมวิท","taxId":"0105555555555","bankAccount":"123-4","cover":"data:image/webp;base64,AAAA","visibility":"taxId,products","bio":"โต๊ะไม้สักสั่งทำ"}'::jsonb)`,
       [a],
     );
     await db.exec("reset role;");
@@ -89,7 +89,7 @@ test("company profiles: public card, counts, who follows whom, one company's upd
     // Her own view has everything, including the switches.
     await login(alice);
     const mineV = await val<{ visibility: string; details: Record<string, string>; products: unknown[] }>("select feed_company_profile($1,$1)", [a]);
-    assert.equal(mineV.visibility, "main,products");
+    assert.equal(mineV.visibility, "taxId,products");
     assert.equal(mineV.details.address, "1 ถนนสุขุมวิท");
     await login(bob);
 

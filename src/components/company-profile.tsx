@@ -31,7 +31,8 @@ import type { Context, FeedPost } from "@/lib/types";
 import type { CompanyProduct, CompanyProfile, FollowRow } from "@/lib/feed";
 import { api, Empty, Loading, money } from "./shared";
 import { CompanyLogo, PostCard, lineLink } from "./feed";
-import { CompanySettings, saveCompanyImage } from "./settings";
+import { CompanySettings, saveCompanyImage, saveCompanyVisibility } from "./settings";
+import { publicSet, visibilityValue } from "@/lib/company-visibility";
 
 type Tab = "all" | "products" | "about" | "followers" | "following";
 const tabs: [Tab, string, typeof Users][] = [
@@ -266,7 +267,24 @@ export function CompanyProfilePage({
           </main>
         </div>
       ) : tab === "products" ? (
-        <Products p={p} navigate={navigate} setTab={setTab} />
+        <Products
+          p={p}
+          navigate={navigate}
+          canEdit={canEdit}
+          onVisibility={async (on) => {
+            const next = publicSet(p.visibility);
+            if (on) next.add("products");
+            else next.delete("products");
+            try {
+              await saveCompanyVisibility(ctx, visibilityValue(next));
+              setProfile({ ...p, visibility: visibilityValue(next) });
+              notify(on ? "เปิดให้บริษัทอื่นเห็นสินค้าและบริการแล้ว" : "ตั้งสินค้าและบริการเป็นส่วนตัวแล้ว");
+              changed?.();
+            } catch (e) {
+              notify((e as Error).message);
+            }
+          }}
+        />
       ) : p.mine ? (
         <div className="cp-about-edit">
           <CompanySettings
@@ -288,9 +306,19 @@ export function CompanyProfilePage({
 }
 
 const typeTone: Record<string, string> = { แพ็กเกจ: "violet", สินค้า: "blue", บริการ: "green" };
-function Products({ p, navigate, setTab }: { p: CompanyProfile; navigate: (v: string) => void; setTab: (t: Tab) => void }) {
+function Products({
+  p,
+  navigate,
+  canEdit,
+  onVisibility,
+}: {
+  p: CompanyProfile;
+  navigate: (v: string) => void;
+  canEdit: boolean;
+  onVisibility: (on: boolean) => void;
+}) {
   const list: CompanyProduct[] = p.products || [];
-  const shown = p.mine && (p.visibility || "").split(",").includes("products");
+  const shown = p.mine && publicSet(p.visibility).has("products");
   const known = ["แพ็กเกจ", "สินค้า", "บริการ"];
   const groups: [string, CompanyProduct[]][] = known.map((t) => [t, list.filter((x) => (x.type || "สินค้า") === t)] as [string, CompanyProduct[]]);
   const other = list.filter((x) => !known.includes(x.type || "สินค้า"));
@@ -302,10 +330,16 @@ function Products({ p, navigate, setTab }: { p: CompanyProfile; navigate: (v: st
           {shown ? <Globe size={18} /> : <Lock size={18} />}
           <span>
             <b>{shown ? "บริษัทอื่นในเครือข่ายเห็นรายการนี้" : "ตอนนี้เป็นส่วนตัว เห็นเฉพาะทีมของคุณ"}</b>
-            <small>เปลี่ยนได้ที่แท็บ เกี่ยวกับ › ใครเห็นข้อมูลบริษัท</small>
+            <small>กดปุ่มลูกโลก / แม่กุญแจ เพื่อสลับ</small>
           </span>
-          <button className="secondary" onClick={() => setTab("about")}>
-            <Settings2 size={15} /> ตั้งค่าการมองเห็น
+          <button
+            className={"vis-toggle big" + (shown ? " pub" : "")}
+            disabled={!canEdit}
+            aria-pressed={shown}
+            title={canEdit ? "" : "เฉพาะเจ้าของบริษัท"}
+            onClick={() => onVisibility(!shown)}
+          >
+            {shown ? <Globe size={15} /> : <Lock size={15} />} {shown ? "สาธารณะ" : "ส่วนตัว"}
           </button>
           <button className="primary" onClick={() => navigate("sales_packages")}>
             <Package size={15} /> จัดการสินค้า & แพ็กเกจ
@@ -364,9 +398,10 @@ function AboutView({ p, line }: { p: CompanyProfile; line: string }) {
     row(<CalendarDays size={16} />, "วันที่ก่อตั้ง", d.founded ? new Date(d.founded).toLocaleDateString("th-TH", { dateStyle: "long" }) : ""),
     row(<Hash size={16} />, "เลขประจำตัวผู้เสียภาษี", d.taxId),
     row(<Info size={16} />, "ประเภทนิติบุคคล", d.legal),
+    row(<Hash size={16} />, "เลขทะเบียนบริษัท", d.registration),
     row(<CalendarDays size={16} />, "เข้าร่วม EliteFlow", joinedText(p.joined)),
   ].filter(Boolean);
-  const address = [row(<MapPin size={16} />, "จังหวัด", p.province), row(<MapPin size={16} />, "ที่อยู่", [d.address, d.zip].filter(Boolean).join(" "))].filter(Boolean);
+  const address = [row(<MapPin size={16} />, "จังหวัด", p.province), row(<MapPin size={16} />, "ที่อยู่", [d.address, d.zip].filter(Boolean).join(" ")), row(<MapPin size={16} />, "ที่อยู่จัดส่ง", d.shipAddress)].filter(Boolean);
   const contact = [row(<Phone size={16} />, "โทรศัพท์", d.phone), row(<Mail size={16} />, "อีเมล", d.email)].filter(Boolean);
   const hasChannels = !!(p.website || p.facebook || line);
   return (
