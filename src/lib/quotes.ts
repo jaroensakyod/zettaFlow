@@ -16,6 +16,8 @@ export type QuoteRow = {
   version: number;
   code: string;
   name: string;
+  /** What was quoted, in short: the title when one was written, else the first items. */
+  summary: string;
   date: string;
   validUntil: string;
   customerId: string;
@@ -91,6 +93,12 @@ export async function quotesList(ctx: Context): Promise<QuotesData> {
       version: q.version,
       code: s(d.code) || s(d.name),
       name: s(d.name),
+      summary: (() => {
+        const title = s(d.name),
+          items = Array.isArray(d.lines) ? (d.lines as { name: string }[]).map((l) => s(l.name)).filter(Boolean) : [];
+        if (title && title !== s(d.code) && !/^QT-\d/.test(title)) return title;
+        return items.length ? items[0] + (items.length > 1 ? " และอีก " + (items.length - 1) + " รายการ" : "") : title;
+      })(),
       date: s(d.date),
       validUntil: s(d.validUntil),
       customerId: s(d.customerId),
@@ -124,12 +132,18 @@ export async function quotesList(ctx: Context): Promise<QuotesData> {
 export async function updateQuote(ctx: Context, id: string, input: unknown) {
   assert(canWrite(ctx, "Sales"), "ไม่มีสิทธิ์แก้ใบเสนอราคา", 403);
   const v = z
-    .object({ status: z.enum(["ร่าง", "ส่งแล้ว", "ตอบรับ", "ปฏิเสธ"]).optional(), projectId: z.union([z.uuid(), z.literal("")]).optional() })
+    .object({
+      status: z.enum(["ร่าง", "ส่งแล้ว", "ตอบรับ", "ปฏิเสธ"]).optional(),
+      projectId: z.union([z.uuid(), z.literal("")]).optional(),
+      // หัวข้องาน / รายละเอียด: what the quotation offers, in a line or two.
+      name: z.string().trim().min(1, "ใส่รายละเอียดอย่างน้อย 1 ตัวอักษร").max(500).optional(),
+    })
     .parse(input);
   const q = (await allEntities(ctx, "quotations", 5000)).find((x) => x.id === id);
   assert(q, "ไม่พบใบเสนอราคา", 404);
   const data = { ...q.data };
   if (v.status) data.status = v.status;
+  if (v.name) data.name = v.name;
   if (v.projectId !== undefined) {
     if (v.projectId) data.projectId = v.projectId;
     else delete data.projectId;

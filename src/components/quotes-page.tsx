@@ -9,6 +9,7 @@ import {
 import type { Context } from "@/lib/types";
 import type { QuotesData, QuoteRow, QuoteStage } from "@/lib/quotes";
 import { api, money, displayDate, Empty, Loading, Modal } from "./shared";
+import { PeriodBar, periodRange, todayISO, type PeriodMode } from "./finance-ledger";
 import { uploadFile } from "./platform";
 
 // Colour per stage, same family as the rest of the money pages.
@@ -30,6 +31,8 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
     [error, setError] = useState(""),
     [q, setQ] = useState(""),
     [filter, setFilter] = useState<Filter>(""),
+    [mode, setMode] = useState<PeriodMode>("month"),
+    [anchor, setAnchor] = useState(todayISO),
     [open, setOpen] = useState<QuoteRow | null>(null);
   const load = useCallback(async () => {
     try {
@@ -47,7 +50,10 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
   if (!data) return <Loading />;
 
   const term = q.trim().toLowerCase();
-  const base = data.quotes.filter((x) => !term || [x.code, x.name, x.customer, x.project, x.projectName, x.owner, stageLabel[x.stage]].join(" ").toLowerCase().includes(term));
+  const { from, to } = periodRange(mode, anchor);
+  const base = data.quotes.filter(
+    (x) => x.date >= from && x.date <= to && (!term || [x.code, x.name, x.summary, x.customer, x.project, x.projectName, x.owner, stageLabel[x.stage]].join(" ").toLowerCase().includes(term)),
+  );
   const match = (x: QuoteRow, f: Filter) =>
     !f || (f === "won" ? won.includes(x.stage) : f === "lost" ? x.stage === "ปฏิเสธ" || x.stage === "หมดอายุ" : x.stage === f);
   const rows = base.filter((x) => match(x, filter));
@@ -59,13 +65,6 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
     [Send, "รอลูกค้าตอบ", "฿" + money(sum(of("ส่งแล้ว"))), of("ส่งแล้ว").length + " ใบ", "blue"],
     [CheckCircle2, "ลูกค้าตอบรับ", "฿" + money(sum(of("won"))), of("won").length + " ใบ · ปิดการขาย " + winRate + "%", "green"],
     [XCircle, "ปฏิเสธ / หมดอายุ", "฿" + money(sum(of("lost"))), of("lost").length + " ใบ", "amber"],
-  ];
-  const accepted = of("won");
-  const flow: [string, number, React.ComponentType<{ size?: number }>][] = [
-    ["ตอบรับแล้ว", accepted.length, CheckCircle2],
-    ["เปิดคำสั่งซื้อ", accepted.filter((x) => progress(x.stage) >= 2 || x.order).length, ShoppingCart],
-    ["ออกใบแจ้งหนี้", accepted.filter((x) => progress(x.stage) >= 3).length, FileDigit],
-    ["ชำระแล้ว", accepted.filter((x) => x.stage === "ชำระแล้ว").length, Wallet],
   ];
 
   return (
@@ -81,6 +80,8 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
         </button>
       </div>
 
+      <PeriodBar mode={mode} setMode={setMode} anchor={anchor} setAnchor={setAnchor} all />
+
       <div className="fl-cards">
         {cards.map(([Ico, t, v, note, c]) => (
           <div className={"fl-card " + c} key={t}>
@@ -95,25 +96,6 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
           </div>
         ))}
       </div>
-
-      {/* Accepted quotations: how many reached each next document. */}
-      <section className="card qp-flow">
-        <h3>หลังลูกค้าตอบรับ</h3>
-        <ol>
-          {flow.map(([label, count, Icon], i) => (
-            <li key={label} className={count ? "on" : ""}>
-              <span>
-                <Icon size={18} />
-              </span>
-              <div>
-                <b>{count}</b>
-                <small>{label}</small>
-              </div>
-              {i < flow.length - 1 && <i />}
-            </li>
-          ))}
-        </ol>
-      </section>
 
       <section className="card fl-list">
         <header>
@@ -149,7 +131,7 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
                   <th>เลขที่</th>
                   <th>วันที่</th>
                   <th>ลูกค้า</th>
-                  <th>โปรเจกต์</th>
+                  <th>รายละเอียด · โปรเจกต์</th>
                   <th className="num">ยอดสุทธิ</th>
                   <th>สถานะ</th>
                   <th>ความคืบหน้า</th>
@@ -163,18 +145,16 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
                       {displayDate(x.date)}
                       {x.validUntil && <small className="qp-sub">ยืนราคาถึง {displayDate(x.validUntil)}</small>}
                     </td>
-                    <td className="primary-cell">
-                      {x.customer || "—"}
-                      {x.name && x.name !== x.code && <small>{x.name}</small>}
-                    </td>
-                    <td className="fl-project">
+                    <td className="primary-cell">{x.customer || "—"}</td>
+                    <td className="qp-what">
+                      <span>{x.summary || "—"}</span>
                       {x.project ? (
-                        <>
-                          <b>{x.project}</b>
-                          {x.projectName && x.projectName !== x.project && <small>{x.projectName}</small>}
-                        </>
+                        <small>
+                          <em>{x.project}</em>
+                          {x.projectName && x.projectName !== x.project ? x.projectName : ""}
+                        </small>
                       ) : (
-                        <span className="qp-none">ไม่ระบุ</span>
+                        <small className="qp-none">ไม่ระบุโปรเจกต์</small>
                       )}
                     </td>
                     <td className="num strong">฿{money(x.total)}</td>
@@ -246,11 +226,11 @@ function QuoteDetail({ quote: x, data, notify, navigate, reload, onClose }: { qu
   };
   const update = (body: Record<string, unknown>, msg: string) => run("update", () => api(`/quotes/${x.id}`, { method: "POST", body }), msg);
   const signed = (files || []).filter((f) => /^เซ็นแล้ว/.test(f.name));
+  const [what, setWhat] = useState(x.name && x.name !== x.code ? x.name : x.summary);
   const p = progress(x.stage);
   const t = tone[x.stage];
   const facts: [string, React.ReactNode, React.ComponentType<{ size?: number }>, boolean?][] = [
     ["ลูกค้า", x.customer || "—", User, true],
-    ["หัวข้องาน", x.name || "—", FileText, true],
     ["วันที่", displayDate(x.date), CalendarDays],
     ["ยืนราคาถึง", x.validUntil ? displayDate(x.validUntil) : "—", CalendarClock],
     ["ผู้รับผิดชอบ", x.owner || "—", UserRound],
@@ -316,6 +296,26 @@ function QuoteDetail({ quote: x, data, notify, navigate, reload, onClose }: { qu
             <section className="fd-card fd-info">
               <h4>ข้อมูลใบเสนอราคา</h4>
               <div className="fd-facts">
+                <div className="fd-fact wide">
+                  <span className="fd-fact-icon">
+                    <FileText size={16} />
+                  </span>
+                  <span className="fd-fact-text">
+                    <small>รายละเอียด (เสนออะไรให้ลูกค้า)</small>
+                    {data.canWrite ? (
+                      <span className="qp-what-edit">
+                        <textarea rows={2} value={what} maxLength={500} onChange={(e) => setWhat(e.target.value)} placeholder="เช่น ออกแบบและผลิตบูธ 6x6 ม. งาน Bangkok Fashion Expo" />
+                        {what.trim() && what.trim() !== (x.name && x.name !== x.code ? x.name : x.summary) && (
+                          <button className="primary" disabled={!!busy} onClick={() => update({ name: what.trim() }, "บันทึกรายละเอียดแล้ว")}>
+                            บันทึก
+                          </button>
+                        )}
+                      </span>
+                    ) : (
+                      <b>{x.summary || "—"}</b>
+                    )}
+                  </span>
+                </div>
                 <div className="fd-fact wide">
                   <span className="fd-fact-icon">
                     <FolderKanban size={16} />

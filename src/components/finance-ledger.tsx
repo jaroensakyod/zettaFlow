@@ -809,3 +809,42 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
     </Modal>
   );
 }
+
+/** The same period picker as รายรับ / ค่าใช้จ่าย, for other pages; `all` adds a "ทั้งหมด" choice (no date limit). */
+export type PeriodMode = Mode | "all";
+export function periodRange(mode: PeriodMode, anchor: string) {
+  return mode === "all" ? { from: "0000-01-01", to: "9999-12-31" } : range(mode, anchor);
+}
+export const todayISO = bangkokToday;
+export function PeriodBar({ mode, setMode, anchor, setAnchor, all }: { mode: PeriodMode; setMode: (m: PeriodMode) => void; anchor: string; setAnchor: (a: string) => void; all?: boolean }) {
+  const modes: [PeriodMode, string][] = [
+    ...(all ? ([["all", "ทั้งหมด"]] as [PeriodMode, string][]) : []),
+    ["day", "รายวัน"],
+    ["week", "รายสัปดาห์"],
+    ["month", "รายเดือน"],
+    ["year", "รายปี"],
+  ];
+  return (
+    <div className="fl-bar fl">
+      <div className="fc-seg" role="group" aria-label="ช่วงเวลา">
+        {modes.map(([m, t]) => (
+          <button key={m} className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => setMode(m)}>
+            {t}
+          </button>
+        ))}
+      </div>
+      {mode !== "all" && (
+        <div className="fl-nav">
+          <button className="fc-icon-btn" aria-label="ก่อนหน้า" onClick={() => setAnchor(shift(mode, anchor, -1))}>
+            <ChevronLeft size={16} />
+          </button>
+          <b>{label(mode, anchor)}</b>
+          <button className="fc-icon-btn" aria-label="ถัดไป" onClick={() => setAnchor(shift(mode, anchor, 1))}>
+            <ChevronRight size={16} />
+          </button>
+          <input type="date" value={anchor} aria-label="เลือกวันที่" onChange={(e) => e.target.value && setAnchor(e.target.value)} />
+        </div>
+      )}
+    </div>
+  );
+}
