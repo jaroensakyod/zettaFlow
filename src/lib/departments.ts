@@ -37,6 +37,17 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "งานขาย & เป้าหมาย", view: "sales_targets", icon: "Target" },
       { label: "รายงานยอดขาย", view: "reports?kind=sales", icon: "ChartNoAxesCombined" },
     ],
+    // The menu above, plus what is sold and where (set once, picked on orders and quotations).
+    sidebar: [
+      { label: "CRM & ลูกค้า", view: "customers", icon: "Users" },
+      { label: "โอกาสทางการขาย", view: "leads", icon: "FileText" },
+      { label: "ใบเสนอราคา", view: "quotations", icon: "FileText" },
+      { label: "คำสั่งซื้อ (SO)", view: "sales_orders", icon: "ShoppingCart" },
+      { label: "สินค้า & แพ็กเกจ", view: "sales_packages", icon: "Package" },
+      { label: "แพลตฟอร์มการขาย", view: "sales_platforms", icon: "Store" },
+      { label: "งานขาย & เป้าหมาย", view: "sales_targets", icon: "Target" },
+      { label: "รายงานยอดขาย", view: "reports?kind=sales", icon: "ChartNoAxesCombined" },
+    ],
   },
   {
     id: "marketing", title: "การตลาด", en: "Marketing", subtitle: "สร้างแบรนด์และเพิ่มยอดขาย", icon: "Megaphone", tone: "pink", overview: "campaigns",
@@ -84,9 +95,6 @@ export const departmentMenu: DepartmentMenu[] = [
           { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit", step: 3 },
           { label: "รับชำระเงิน", view: "payments?direction=income", icon: "Wallet", step: 4 },
           { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText", step: 5 },
-          // What is sold and where: set once, used when creating orders.
-          { label: "สินค้า & แพ็กเกจ", view: "sales_packages", icon: "Package" },
-          { label: "แพลตฟอร์มการขาย", view: "sales_platforms", icon: "Store" },
         ],
       },
       {
