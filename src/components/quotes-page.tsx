@@ -10,6 +10,7 @@ import type { Context } from "@/lib/types";
 import type { QuotesData, QuoteRow, QuoteStage } from "@/lib/quotes";
 import { api, money, displayDate, Empty, Loading, Modal } from "./shared";
 import { PeriodBar, periodRange, todayISO, type PeriodMode } from "./finance-ledger";
+import { QuoteEditor } from "./quote-editor";
 import { uploadFile } from "./platform";
 
 // Colour per stage, same family as the rest of the money pages.
@@ -33,7 +34,9 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
     [filter, setFilter] = useState<Filter>(""),
     [mode, setMode] = useState<PeriodMode>("month"),
     [anchor, setAnchor] = useState(todayISO),
-    [open, setOpen] = useState<QuoteRow | null>(null);
+    [open, setOpen] = useState<QuoteRow | null>(null),
+    // The document-style form: "new" or the id being edited.
+    [editing, setEditing] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
       const d: QuotesData = await api("/quotes");
@@ -71,7 +74,7 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
     <div className="op qp">
       <div className="op-bar">
         {data.canWrite && (
-          <button className="primary" onClick={() => navigate("quotations?manage=1&new=1")}>
+          <button className="primary" onClick={() => setEditing("new")}>
             <Plus size={16} /> เพิ่มใบเสนอราคา
           </button>
         )}
@@ -178,7 +181,18 @@ export function QuotesPage({ ctx, notify, navigate }: { ctx: Context; notify: (s
           </div>
         )}
       </section>
-      {open && <QuoteDetail quote={open} data={data} notify={notify} navigate={navigate} reload={load} onClose={() => setOpen(null)} />}
+      {open && !editing && <QuoteDetail quote={open} data={data} notify={notify} navigate={navigate} reload={load} onClose={() => setOpen(null)} onEdit={() => setEditing(open.id)} />}
+      {editing && (
+        <QuoteEditor
+          id={editing === "new" ? undefined : editing}
+          onClose={() => setEditing(null)}
+          onSaved={async (msg) => {
+            setEditing(null);
+            notify(msg);
+            await load();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -197,7 +211,7 @@ function Steps({ stage }: { stage: QuoteStage }) {
 }
 
 type FileInfo = { id: string; name: string; mime: string };
-function QuoteDetail({ quote: x, data, notify, navigate, reload, onClose }: { quote: QuoteRow; data: QuotesData; notify: (s: string) => void; navigate: (v: string) => void; reload: () => Promise<void>; onClose: () => void }) {
+function QuoteDetail({ quote: x, data, notify, navigate, reload, onClose, onEdit }: { quote: QuoteRow; data: QuotesData; notify: (s: string) => void; navigate: (v: string) => void; reload: () => Promise<void>; onClose: () => void; onEdit: () => void }) {
   const [files, setFiles] = useState<FileInfo[] | null>(null),
     [tick, setTick] = useState(0),
     [busy, setBusy] = useState(""),
@@ -475,9 +489,11 @@ function QuoteDetail({ quote: x, data, notify, navigate, reload, onClose }: { qu
         <a className="secondary as-button" href={x.printUrl} target="_blank" rel="noreferrer">
           <Printer size={15} /> พิมพ์ใบเสนอราคา
         </a>
-        <button className="secondary" onClick={() => navigate("quotations?manage=1")}>
-          <Pencil size={15} /> แก้ไขรายการ
-        </button>
+        {data.canWrite && (
+          <button className="secondary" onClick={onEdit}>
+            <Pencil size={15} /> แก้ไขใบเสนอราคา
+          </button>
+        )}
         <button className="primary" onClick={onClose}>
           ปิด
         </button>

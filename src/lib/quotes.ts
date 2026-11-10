@@ -3,7 +3,7 @@
  * accepted ones got — order opened, invoice issued, paid.
  */
 import { z } from "zod";
-import { allEntities, saveEntity } from "./data";
+import { allEntities, saveEntity, nextCode } from "./data";
 import { assert, canRead, canWrite } from "./domain";
 import { catalog } from "./catalog";
 import { docUrl } from "./documents";
@@ -149,4 +149,54 @@ export async function updateQuote(ctx: Context, id: string, input: unknown) {
     else delete data.projectId;
   }
   return saveEntity(ctx, "quotations", data, q.id, q.version);
+}
+
+export type QuoteFormCustomer = { id: string; name: string; address: string; taxId: string; branch: string; contact: string; phone: string; email: string; creditDays: number | null };
+export type QuoteForm = {
+  company: { id: string; name: string; nameEn: string; hasLogo: boolean; address: string; taxId: string; branch: string; phone: string; email: string; website: string; line: string; bank: string; bankAccount: string; bankAccountName: string; bankAccountType: string; promptPay: string; signerName: string; signerPosition: string; approverName: string; approverPosition: string; conditions: string[]; notes: string[] };
+  customers: QuoteFormCustomer[];
+  projects: { id: string; code: string; name: string }[];
+  packages: { id: string; name: string; price: number; type: string }[];
+  nextCode: string;
+  /** Editing: the quotation as saved (lines with unit / per-line discount; detail is the name's second line). */
+  quote: { id: string; version: number; code: string; data: Record<string, unknown> } | null;
+};
+/** Everything the document-style quotation form shows: our letterhead, customers with their details, projects, packages. */
+export async function quoteForm(ctx: Context, id?: string): Promise<QuoteForm> {
+  assert(canRead(ctx, "Sales"), "ไม่มีสิทธิ์ดูใบเสนอราคา", 403);
+  const none = [] as Entity[];
+  const [customers, projects, packages, quotes, next] = await Promise.all([
+    allEntities(ctx, "customers", 5000).catch(() => none),
+    allEntities(ctx, "projects", 5000).catch(() => none),
+    allEntities(ctx, "sales_packages", 2000).catch(() => none),
+    id ? allEntities(ctx, "quotations", 5000) : Promise.resolve(none),
+    nextCode(ctx, "quotations").catch(() => ({ code: "" })),
+  ]);
+  const p = (ctx.company.profile || {}) as Record<string, unknown>;
+  const q = id ? quotes.find((x) => x.id === id) : undefined;
+  if (id) assert(q, "ไม่พบใบเสนอราคา", 404);
+  const lines = (v: unknown) => s(v).split(/\r?\n/).map((x) => x.replace(/^[-•*\d.)\s]+/, "").trim()).filter(Boolean);
+  return {
+    company: {
+      id: ctx.company.id, name: s(ctx.company.name), nameEn: s(p.nameEn), hasLogo: !!s(p.logo), address: s(p.address), taxId: s(p.taxId), branch: s(p.branch),
+      phone: s(p.phone), email: s(p.email), website: s(p.website), line: s(p.line), bank: s(p.bank) || s(p.bankName), bankAccount: s(p.bankAccount),
+      bankAccountName: s(p.bankAccountName), bankAccountType: s(p.bankAccountType), promptPay: s(p.promptPay), signerName: s(p.signerName),
+      signerPosition: s(p.signerPosition), approverName: s(p.approverName), approverPosition: s(p.approverPosition), conditions: lines(p.docConditions), notes: lines(p.quotationNotes),
+    },
+    customers: customers
+      .filter((c) => c.data.status !== "inactive")
+      .map((c) => {
+        const d = c.data,
+          company = s(d.company);
+        return {
+          id: c.id, name: company || s(d.name), address: s(d.address), taxId: s(d.taxId), branch: s(d.branch), contact: s(d.contact) || (company ? s(d.name) : ""),
+          phone: s(d.phone), email: s(d.email), creditDays: d.creditDays === undefined || d.creditDays === null || d.creditDays === "" ? null : n(d.creditDays),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "th")),
+    projects: projects.filter((x) => x.data.status !== "cancelled").map((x) => ({ id: x.id, code: s(x.data.code), name: s(x.data.name) })),
+    packages: packages.filter((x) => x.data.status !== "inactive").map((x) => ({ id: x.id, name: s(x.data.name), price: n(x.data.price), type: s(x.data.type) })),
+    nextCode: s((next as { code: string }).code),
+    quote: q ? { id: q.id, version: q.version, code: s(q.data.code), data: q.data } : null,
+  };
 }

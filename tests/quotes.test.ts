@@ -34,6 +34,15 @@ test("quotation stages follow the documents made from them; a chosen project is 
     assert.equal(q.stage, "ออกใบแจ้งหนี้แล้ว");
     assert.ok(q.invoice);
     await updateQuote(ctx, sent.id, { projectId: "" });
+    // The document-style form saves each item with its detail (second line), unit and discount; totals follow.
+    const { saveEntity } = await import("../src/lib/data");
+    const { quoteForm } = await import("../src/lib/quotes");
+    const f0 = await quoteForm(ctx);
+    const made = await saveEntity(ctx, "quotations", { name: "ระบบ EliteFlow พร้อมติดตั้ง", customerId: f0.customers[0].id, date: "2026-11-10", lines: [{ name: "ระบบ EliteFlow\nแพ็กเกจ Pro 12 เดือน", qty: 1, price: 200000, unit: "ชุด", discount: 10000, discountType: "amount" }, { name: "อบรมการใช้งาน", qty: 1, price: 20000, unit: "วัน" }], vatMode: "excluded", status: "ร่าง" });
+    const f1 = await quoteForm(ctx, made.id);
+    const lines = f1.quote!.data.lines as { name: string; unit?: string; discount?: number }[];
+    assert.deepEqual([lines[0].name.split("\n")[1], lines[0].unit, lines[0].discount], ["แพ็กเกจ Pro 12 เดือน", "ชุด", 10000]);
+    assert.equal((await quotesList(ctx)).quotes.find((x) => x.id === made.id)!.total, 224700);
   } finally {
     process.chdir(cwd);
   }

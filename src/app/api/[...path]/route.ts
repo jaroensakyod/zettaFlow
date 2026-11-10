@@ -85,7 +85,7 @@ import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
 import { taxReport, incomeReport, ledger, ledgerDetail, expiries } from "@/lib/dept-views";
 import { ordersList, recordOrderPayment, setOrderWaiting } from "@/lib/orders";
-import { quotesList, updateQuote } from "@/lib/quotes";
+import { quotesList, updateQuote, quoteForm } from "@/lib/quotes";
 import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml, linkAttachment } from "@/lib/accounting";
 import { scanExpenseDocument, demoScanAllowed } from "@/lib/expenses";
 import { sampleData } from "@/lib/sample-data";
@@ -497,7 +497,9 @@ async function handle(req: NextRequest) {
     // คำสั่งซื้อ: GET /orders, POST /orders/:id/pay {payerName,paidAt,payMethod,payReference}, POST /orders/:id/status {payStatus}.
     // ใบเสนอราคา: GET /quotes, POST /quotes/:id {status?, projectId?}.
     if (path[0] === "quotes" && !path[1] && method === "GET") return response(await quotesList(ctx));
-    if (path[0] === "quotes" && path[1] && method === "POST") return response(await updateQuote(ctx, z.uuid().parse(path[1]), await body(req)));
+    // Document-style form: GET /quotes/form?id= (letterhead, customers, projects, packages, next number, the quotation when editing).
+    if (path[0] === "quotes" && path[1] === "form" && method === "GET") return response(await quoteForm(ctx, req.nextUrl.searchParams.get("id") ? z.uuid().parse(req.nextUrl.searchParams.get("id")) : undefined));
+    if (path[0] === "quotes" && path[1] && path[1] !== "form" && method === "POST") return response(await updateQuote(ctx, z.uuid().parse(path[1]), await body(req)));
     if (path[0] === "orders") {
       if (!path[1] && method === "GET") return response(await ordersList(ctx));
       if (path[2] === "pay" && method === "POST") return response(await recordOrderPayment(ctx, z.uuid().parse(path[1]), await body(req)), 201);
