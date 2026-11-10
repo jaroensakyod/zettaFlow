@@ -2,7 +2,7 @@
 // แพ็กเกจบริการ: the current package as a hero with its quota meters, then one colourful card per package. Clicking a
 // card opens its full detail — price by month/year, quotas, the departments it unlocks, what every company gets free,
 // support — with the pay buttons for the owner.
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import {
   X, Sprout, TrendingUp, Building, Crown, Workflow, FileText, MessagesSquare, Users, Headphones, Plug, Lock, Unlock, Check,
   Sparkles, Megaphone, ShoppingCart, Truck, Package, UserRound, Calculator, Receipt, Network, LayoutDashboard, CalendarDays,
@@ -58,7 +58,35 @@ export function PlanCards({
   onPay: (plan: string, cycle: "monthly" | "yearly") => void;
 }) {
   const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly"),
-    [open, setOpen] = useState<Plan | null>(null);
+    [open, setOpen] = useState<Plan | null>(null),
+    // Opened by pointing (closes when the pointer leaves) or pinned by a click / tap.
+    [pinned, setPinned] = useState(false);
+  const openTimer = useRef<ReturnType<typeof setTimeout>>(undefined),
+    closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => (clearTimeout(openTimer.current), clearTimeout(closeTimer.current)), []);
+  const hoverIn = (p: Plan) => (e: PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(closeTimer.current);
+    clearTimeout(openTimer.current);
+    if (open && pinned) return;
+    openTimer.current = setTimeout(() => {
+      setOpen(p);
+      setPinned(false);
+    }, open ? 120 : 380);
+  };
+  const hoverOut = (e: PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(openTimer.current);
+    if (pinned) return;
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(null), 260);
+  };
+  const close = () => {
+    clearTimeout(openTimer.current);
+    clearTimeout(closeTimer.current);
+    setOpen(null);
+    setPinned(false);
+  };
   const best = plans.find((p) => p.id === "growth")?.id || plans[Math.floor(plans.length / 2)]?.id;
   return (
     <section className="pk">
@@ -67,7 +95,7 @@ export function PlanCards({
           <h2>
             <Sparkles size={20} /> เลือกแพ็กเกจที่ใช่สำหรับธุรกิจคุณ
           </h2>
-          <p>กดที่แพ็กเกจเพื่อดูรายละเอียดทั้งหมด · ราคายังไม่รวม VAT 7%</p>
+          <p>วางเมาส์บนแพ็กเกจเพื่อดูรายละเอียด (กดเพื่อปักค้างไว้) · ราคายังไม่รวม VAT 7%</p>
         </div>
         <div className="pk-cycle" role="tablist" aria-label="รอบการชำระ">
           <button role="tab" aria-selected={cycle === "monthly"} className={cycle === "monthly" ? "on" : ""} onClick={() => setCycle("monthly")}>
@@ -84,7 +112,15 @@ export function PlanCards({
             mine = paid && p.id === current;
           const price = cycle === "yearly" ? Math.round(p.yearly / 12) : p.monthly;
           return (
-            <button key={p.id} className={"pk-card tone-" + t.tone + (p.id === best ? " best" : "") + (mine ? " mine" : "")} style={{ "--i": i } as CSSProperties} onClick={() => setOpen(p)}>
+            <button key={p.id} className={"pk-card tone-" + t.tone + (p.id === best ? " best" : "") + (mine ? " mine" : "")} style={{ "--i": i } as CSSProperties}
+              onPointerEnter={hoverIn(p)}
+              onPointerLeave={hoverOut}
+              onClick={() => {
+                clearTimeout(openTimer.current);
+                setOpen(p);
+                setPinned(true);
+              }}
+            >
               {p.id === best && (
                 <span className="pk-ribbon">
                   <Crown size={13} /> แนะนำ
@@ -104,25 +140,24 @@ export function PlanCards({
                 <span>/เดือน</span>
               </span>
               <small className="pk-bill">{cycle === "yearly" ? `จ่ายรายปี ฿${money(p.yearly)} · ประหยัด ฿${money(p.monthly * 12 - p.yearly)}` : `หรือรายปี ฿${money(p.yearly)}`}</small>
-              <span className="pk-list">
-                <span>
-                  <MessagesSquare size={15} /> {p.line_groups === null ? "LINE ไม่จำกัดกลุ่ม" : `${p.line_groups} LINE Groups`}
-                </span>
-                <span>
-                  <Sparkles size={15} /> AI ประมวลผล {n(p.documents)} รายการ/เดือน
-                </span>
-                <span>
-                  <Mic size={15} /> ถอดเสียง {n(p.voice_minutes)} นาที/เดือน
-                </span>
-                <span>
-                  <HardDrive size={15} /> พื้นที่จัดเก็บ {n(p.storage_gb, " GB")}
-                </span>
-                <span>
-                  <Users size={15} /> ผู้ใช้ {n(p.users, " คน")}
-                </span>
-                <span className="pk-unlock">
-                  <Unlock size={15} /> ปลดล็อก 5 ระบบ
-                </span>
+              {/* The quotas as coloured tiles: the number first, what it is underneath. */}
+              <span className="pk-stats">
+                {[
+                  { icon: MessagesSquare, v: p.line_groups === null ? "∞" : String(p.line_groups), l: "กลุ่ม LINE", c: "green" },
+                  { icon: Sparkles, v: n(p.documents), l: "AI รายการ/เดือน", c: "violet" },
+                  { icon: Mic, v: n(p.voice_minutes), l: "นาทีถอดเสียง", c: "pink" },
+                  { icon: HardDrive, v: n(p.storage_gb), l: "GB พื้นที่", c: "blue" },
+                  { icon: Users, v: p.users === null ? "∞" : String(p.users), l: "ผู้ใช้ (คน)", c: "amber" },
+                ].map((x) => (
+                  <span key={x.l} className={"pk-stat c-" + x.c}>
+                    <x.icon size={15} />
+                    <b>{x.v}</b>
+                    <small>{x.l}</small>
+                  </span>
+                ))}
+              </span>
+              <span className="pk-unlock-bar">
+                <Unlock size={14} /> ปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลัง · HR
               </span>
               <span className="pk-more">
                 {mine ? (
@@ -131,7 +166,7 @@ export function PlanCards({
                   </>
                 ) : (
                   <>
-                    ดูรายละเอียด <ChevronRight size={15} />
+                    วางเมาส์ดูรายละเอียด <ChevronRight size={15} />
                   </>
                 )}
               </span>
@@ -139,7 +174,25 @@ export function PlanCards({
           );
         })}
       </div>
-      {open && <PlanDetail plan={open} cycle={cycle} setCycle={setCycle} mine={paid && open.id === current} owner={owner} onClose={() => setOpen(null)} onPay={(c) => { setOpen(null); onPay(open.id, c); }} />}
+      {open && (
+        <PlanDetail
+          key={open.id}
+          plan={open}
+          cycle={cycle}
+          setCycle={setCycle}
+          mine={paid && open.id === current}
+          owner={owner}
+          hover={!pinned}
+          onEnter={() => clearTimeout(closeTimer.current)}
+          onLeave={hoverOut}
+          onPin={() => setPinned(true)}
+          onClose={close}
+          onPay={(c) => {
+            close();
+            onPay(open.id, c);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -150,12 +203,20 @@ function PlanDetail({
   setCycle,
   mine,
   owner,
+  hover,
+  onEnter,
+  onLeave,
+  onPin,
   onClose,
   onPay,
 }: {
   plan: Plan;
   cycle: "monthly" | "yearly";
   setCycle: (c: "monthly" | "yearly") => void;
+  hover: boolean;
+  onEnter: () => void;
+  onLeave: (e: PointerEvent) => void;
+  onPin: () => void;
   mine: boolean;
   owner: boolean;
   onClose: () => void;
@@ -180,8 +241,20 @@ function PlanDetail({
     { icon: FileText, label: "เกินโควตา", value: "฿1 / รายการ" },
   ];
   return (
-    <div className="pk-bg" onClick={onClose}>
-      <div className={"pk-detail tone-" + t.tone} role="dialog" aria-modal="true" aria-label={"แพ็กเกจ " + p.name} onClick={(e) => e.stopPropagation()}>
+    // While only pointed at, the backdrop lets the pointer through (back to the cards); a click pins it open.
+    <div className={"pk-bg" + (hover ? " hover" : "")} onClick={onClose}>
+      <div
+        className={"pk-detail tone-" + t.tone}
+        role="dialog"
+        aria-modal={!hover}
+        aria-label={"แพ็กเกจ " + p.name}
+        onPointerEnter={onEnter}
+        onPointerLeave={(e) => hover && onLeave(e)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (hover) onPin();
+        }}
+      >
         <header className="pk-dhead">
           <button className="pk-x" aria-label="ปิด" onClick={onClose}>
             <X size={18} />
