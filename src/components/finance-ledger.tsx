@@ -439,7 +439,9 @@ export function FinanceLedger({
   );
 }
 
-type DetailFile = { id: string; name: string; mime: string; role: "slip" | "receipt" | "other" };
+type DetailFile = { id: string; name: string; mime: string; role: "slip" | "receipt" | "wht" | "other" };
+const rolePrefix = { slip: "สลิป - ", receipt: "ใบเสร็จ - ", wht: "หัก ณ ที่จ่าย - " } as const;
+const roleName = { slip: "สลิปโอนเงิน", receipt: "ใบเสร็จ", wht: "หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)", other: "ไฟล์แนบ" } as const;
 type DetailInfo = {
   createdAt: string;
   updatedAt: string;
@@ -471,11 +473,11 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
       .catch((err) => setError(err.message));
   }, [sourceKind, row.id, tick]);
 
-  async function attach(file: File, role: "slip" | "receipt") {
+  async function attach(file: File, role: "slip" | "receipt" | "wht") {
     setBusy(role);
     setError("");
     try {
-      const named = new File([file], (role === "slip" ? "สลิป - " : "ใบเสร็จ - ") + file.name, { type: file.type });
+      const named = new File([file], rolePrefix[role] + file.name, { type: file.type });
       await uploadFile(named, "Finance", row.id);
       setTick((t) => t + 1);
     } catch (err) {
@@ -484,20 +486,6 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
       setBusy("");
     }
   }
-  async function issueReceipt() {
-    if (!info) return;
-    setBusy("issue");
-    try {
-      const res = await fetch(info.receipt.url, { method: "POST", redirect: "manual" });
-      if (res.type !== "opaqueredirect" && !res.ok) throw new Error(/<p>([^<]+)<\/p>/.exec(await res.text())?.[1] || "ออกเลขที่ไม่สำเร็จ");
-      setTick((t) => t + 1);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy("");
-    }
-  }
-
   const state = e ? e.payState : i!.payState;
   const amount = e ? e.net : i!.kind === "invoices" ? i!.owed : i!.amount;
   const docNo = e ? e.code || e.docNo || "#" + e.id.slice(-8) : i!.docNo;
@@ -548,7 +536,6 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
         [i!.kind === "invoices" ? "ยอดค้างรับ" : "รับเงินสุทธิ", amount],
       ];
   const slip = info?.files.find((f) => f.role === "slip");
-  const receiptFiles = info?.files.filter((f) => f.role === "receipt") || [];
   const showsSlip = !e && i!.kind !== "invoices";
 
   return (
@@ -621,54 +608,65 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
           </div>
 
           <div className="fd-col">
-            {/* Receipt: issued to the customer (income) or received from the payee (expense). */}
-            <section className={"fd-card fd-receipt " + (info ? (info.receipt.issued || info.receipt.hasFile ? "ok" : "warn") : "")}>
-              <h4>ใบเสร็จ</h4>
-              {!info ? (
-                <Loading />
-              ) : info.receipt.issued || info.receipt.hasFile ? (
-                <p className="fd-status ok">
-                  <CheckCircle2 size={18} />
-                  {e ? "ได้รับใบเสร็จแล้ว" : info.receipt.issued ? `ออกใบเสร็จแล้ว เลขที่ ${info.receipt.issued.number}` : "เก็บใบเสร็จไว้แล้ว"}
-                </p>
-              ) : (
-                <p className="fd-status warn">
-                  <AlertTriangle size={18} />
-                  {e ? "ยังไม่ได้รับใบเสร็จจากผู้รับเงิน — ขอใบเสร็จแล้วแนบเก็บไว้ที่นี่" : i!.kind === "invoices" ? "ยังไม่ได้ออกใบกำกับภาษี" : "ยังไม่ได้ออกใบเสร็จให้ลูกค้า"}
-                </p>
-              )}
-              {!!receiptFiles.length && (
-                <ul className="fd-files">
-                  {receiptFiles.map((f) => (
-                    <li key={f.id}>
-                      <button className={view?.id === f.id ? "on" : ""} onClick={() => setView(f)}>
-                        <FileText size={15} /> {f.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="fd-actions">
-                {info?.receipt.url && (
-                  <a className="secondary as-button" href={info.receipt.url} target="_blank" rel="noreferrer">
-                    <ExternalLink size={15} /> {info.receipt.issued ? "เปิดใบเสร็จ" : "ดูตัวอย่างใบเสร็จ"}
-                  </a>
-                )}
-                {info?.receipt.canIssue && !info.receipt.issued && i?.kind !== "sales" && (
-                  <button className="primary" disabled={!!busy} onClick={issueReceipt}>
-                    {busy === "issue" ? "กำลังออก…" : i?.kind === "invoices" ? "ออกใบกำกับภาษี" : "ออกใบเสร็จ"}
-                  </button>
-                )}
-                <label className={"secondary as-button" + (busy === "receipt" ? " busy" : "")}>
-                  <Upload size={15} /> {busy === "receipt" ? "กำลังแนบ…" : "แนบไฟล์ใบเสร็จ"}
-                  <input type="file" className="sr-only" accept="image/*,application/pdf" disabled={!!busy} onChange={(ev) => {
-                    const f = ev.target.files?.[0];
-                    ev.target.value = "";
-                    if (f) attach(f, "receipt");
-                  }} />
-                </label>
-              </div>
-            </section>
+            {/* Documents we must receive and keep: from the customer (income) or from the payee (expense). */}
+            {(() => {
+              const slots: { role: "receipt" | "wht"; label: string; hint: string; required: boolean }[] = e
+                ? [{ role: "receipt", label: "ใบเสร็จ / ใบกำกับภาษี", hint: "จากผู้รับเงิน", required: true }]
+                : [
+                    { role: "receipt", label: "ใบเสร็จ / หลักฐานรับเงิน", hint: "ที่ลูกค้าส่งมา", required: true },
+                    { role: "wht", label: "หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)", hint: "ถ้าลูกค้าหักภาษี ณ ที่จ่ายไว้", required: false },
+                  ];
+              const have = (r: "receipt" | "wht") => (info?.files || []).filter((f) => f.role === r);
+              const missing = slots.filter((x) => x.required && !have(x.role).length).length;
+              return (
+                <section className={"fd-card fd-receipt " + (info ? (missing ? "warn" : "ok") : "")}>
+                  <h4>{e ? "เอกสารจากผู้รับเงิน" : "เอกสารที่ต้องได้รับจากลูกค้า"}</h4>
+                  {info && (
+                    <p className={"fd-status " + (missing ? "warn" : "ok")}>
+                      {missing ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+                      {missing
+                        ? e
+                          ? "ยังไม่ได้รับใบเสร็จจากผู้รับเงิน — ขอเอกสารแล้วแนบเก็บไว้ที่นี่"
+                          : "ยังไม่ได้รับใบเสร็จจากลูกค้า — ขอเอกสารแล้วแนบเก็บไว้ที่นี่"
+                        : "ได้รับเอกสารครบแล้ว"}
+                    </p>
+                  )}
+                  <ul className="fd-slots">
+                    {slots.map((slot) => {
+                      const got = have(slot.role);
+                      return (
+                        <li key={slot.role} className={got.length ? "got" : slot.required ? "need" : "opt"}>
+                          <div className="fd-slot-head">
+                            {got.length ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                            <span>
+                              <b>{slot.label}</b>
+                              <small>{got.length ? "ได้รับแล้ว " + got.length + " ไฟล์" : (slot.required ? "ยังไม่ได้รับ · " : "ไม่บังคับ · ") + slot.hint}</small>
+                            </span>
+                            <label className={"secondary as-button" + (busy === slot.role ? " busy" : "")}>
+                              <Upload size={14} /> {busy === slot.role ? "กำลังแนบ…" : got.length ? "แนบเพิ่ม" : "แนบไฟล์"}
+                              <input type="file" className="sr-only" accept="image/*,application/pdf" disabled={!!busy} onChange={(ev) => {
+                                const f = ev.target.files?.[0];
+                                ev.target.value = "";
+                                if (f) attach(f, slot.role);
+                              }} />
+                            </label>
+                          </div>
+                          {!!got.length && (
+                            <div className="fd-slot-files">
+                              {got.map((f) => (
+                                <button key={f.id} className={view?.id === f.id ? "on" : ""} onClick={() => setView(f)}>
+                                  <FileText size={14} /> {f.name.replace(/^(ใบเสร็จ|หัก ณ ที่จ่าย|สลิป) - /, "")}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            })()}
 
             {showsSlip && (
               <section className={"fd-card " + (slip ? "" : "fd-receipt warn")}>
@@ -719,7 +717,7 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
               ) : (
                 <a href={"/api/files/" + view.id} target="_blank" rel="noreferrer">เปิด {view.name}</a>
               )}
-              {view && <figcaption>{view.role === "slip" ? "สลิปโอนเงิน" : view.role === "receipt" ? "ใบเสร็จ" : "ไฟล์แนบ"} · {view.name}</figcaption>}
+              {view && <figcaption>{roleName[view.role]} · {view.name}</figcaption>}
             </figure>
             {!!info && info.files.filter((f) => f.role === "other").length > 0 && (
               <ul className="fd-files">

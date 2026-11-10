@@ -295,7 +295,9 @@ export async function ledger(ctx: Context, from: string, to: string) {
   return { from, to, expenses: exp.sort(byDate), income: inc.sort(byDate), salesIncluded: sales };
 }
 
-export type DetailFile = { id: string; name: string; mime: string; role: "slip" | "receipt" | "other" };
+/** receipt = ใบเสร็จ, wht = หนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ), slip = สลิปโอนเงิน — told apart by the name prefix
+ *  the detail window gives a file when it is attached ("ใบเสร็จ - …", "หัก ณ ที่จ่าย - …", "สลิป - …"). */
+export type DetailFile = { id: string; name: string; mime: string; role: "slip" | "receipt" | "wht" | "other" };
 export type LedgerDetail = {
   createdAt: string;
   updatedAt: string;
@@ -343,7 +345,7 @@ export async function ledgerDetail(ctx: Context, kind: string, id: string): Prom
       : null;
   const list = (await files(ctx, id)) as { id: string; name: string; mime: string }[];
   const role = (f: { id: string; name: string }): DetailFile["role"] =>
-    /^ใบเสร็จ/.test(f.name) || f.id === d.receiptId ? "receipt" : /^สลิป/.test(f.name) ? "slip" : "other";
+    /^ใบเสร็จ/.test(f.name) || f.id === d.receiptId ? "receipt" : /^(หัก ณ ที่จ่าย|50 ทวิ)/.test(f.name) ? "wht" : /^สลิป/.test(f.name) ? "slip" : "other";
   let out: DetailFile[] = list.map((f) => ({ id: f.id, name: f.name, mime: f.mime, role: role(f) }));
   // A payment's first picture with no label is the transfer slip (what LINE and the old form attached).
   if (kind === "payments" && !out.some((f) => f.role === "slip")) {
