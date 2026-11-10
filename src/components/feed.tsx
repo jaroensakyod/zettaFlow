@@ -39,6 +39,7 @@ import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
 import { AdCard } from "./ad-card";
+import { IndustryPicker, RelatedIndustries } from "./industry-picker";
 import { PostMock, SampleFeed, sampleAds, sampleLogo, samplePosts, sampleSuggest } from "./feed-samples";
 
 /** Every this many posts the feed shows one sponsored card. */
@@ -399,14 +400,9 @@ export function Feed({
               ))}
             </select>
           </label>
-          <label className="li-select">
-            <span className="sr-only">ประเภทธุรกิจ</span>
-            <select value={industry} onChange={(e) => setIndustry(e.target.value)}>
-              <option value="">ทุกประเภทธุรกิจ</option>
-              <IndustryOptions />
-            </select>
-          </label>
+          <IndustryPicker value={industry} onChange={setIndustry} />
         </div>
+        <RelatedIndustries value={industry} onChange={setIndustry} />
         {error && <p className="form-error">{error}</p>}
         {!posts ? (
           <section className="card">
