@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Eye,
   EyeOff,
@@ -411,20 +411,6 @@ type BillingData = {
   /** Free-trial meters (null on a paid plan). */
   trial?: Record<string, { used: number; limit: number | null }> | null;
 };
-const trialLabels: [string, string][] = [
-  ["documents", "รายการจาก LINE และเว็บ"],
-  ["ai_files", "ไฟล์/รูปที่ AI อ่าน"],
-  ["ai_chat", "คำถามถึงน้องโฟลว์"],
-  ["ai_calls", "การใช้ AI ทั้งหมด"],
-  ["line_groups", "กลุ่ม LINE"],
-  ["users", "ผู้ใช้"],
-];
-const usageLabels: [keyof Usage, string][] = [
-  ["workflows", "AI Workflows (Template)"],
-  ["documents", "เอกสาร/เดือน"],
-  ["line_groups", "กลุ่ม LINE"],
-  ["users", "ผู้ใช้ Dashboard"],
-];
 /** Subscription status, quotas, overage and paying by bank slip. */
 export function SubscriptionPanel({
   ctx,
@@ -454,54 +440,10 @@ export function SubscriptionPanel({
   }, [load]);
   if (!data) return error ? <p className="form-error">{error}</p> : <Loading />;
   const s = data.subscription;
-  const daysLeft = Math.max(0, Math.ceil((Date.parse(s.trial_ends_at) - Date.now()) / 86400000));
   const owner = ctx.member.role === "owner";
   return (
     <>
       <PlanAdBanner />
-      <section className="pk-now">
-        <div className="pk-now-plan">
-          <small>แพ็กเกจปัจจุบัน</small>
-          <b>{data.plan.name}</b>
-          <span className={"status-pill " + (data.active ? "good" : "bad")}>
-            {s.status === "trial"
-              ? data.active
-                ? `ทดลองใช้ฟรี เหลือ ${daysLeft} วัน`
-                : "หมดช่วงทดลอง"
-              : s.status === "active"
-                ? "ใช้งานอยู่"
-                : s.status === "past_due"
-                  ? "ค้างชำระ"
-                  : "ยกเลิก"}
-          </span>
-          {s.current_period_end && <small>รอบบิลถึง {displayDate(s.current_period_end)}</small>}
-        </div>
-        <div className="pk-now-use">
-          {(data.trial
-            ? trialLabels.map(([k, label]) => data.trial![k] && { k: "t" + k, label, used: data.trial![k]!.used, limit: data.trial![k]!.limit })
-            : usageLabels.map(([k, label]) => ({ k, label, used: data.usage[k], limit: data.limits[k] }))
-          ).map((m) => {
-            if (!m) return null;
-            const pct = m.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
-            return (
-              <div className={"pk-now-m" + (m.limit !== null && m.used >= m.limit ? " over" : "")} key={m.k} title={m.label}>
-                <small>{m.label}</small>
-                <b>
-                  {m.used.toLocaleString("th-TH")}
-                  <i> / {m.limit === null ? "ไม่จำกัด" : m.limit.toLocaleString("th-TH")}</i>
-                </b>
-                {m.limit !== null && <span style={{ "--p": pct + "%" } as CSSProperties} />}
-              </div>
-            );
-          })}
-        </div>
-        {data.overage.total > 0 && (
-          <p className="note">
-            เกินโควตาเดือนนี้ (เรียกเก็บรอบถัดไป, ระบบยังทำงานต่อ): เอกสาร ฿{money(data.overage.documents)} · OCR ฿
-            {money(data.overage.ocr)} · AI ฿{money(data.overage.ai_runs)} = <b>฿{money(data.overage.total)}</b>
-          </p>
-        )}
-      </section>
       <PlanCards
         plans={data.plans}
         current={s.plan}
