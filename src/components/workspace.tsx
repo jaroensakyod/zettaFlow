@@ -106,9 +106,8 @@ const toolKeys = [
 ];
 // Shortcuts shown in the top bar; everything else lives under the แผนก menu.
 const primary: [string, string, LucideIcon][] = [
-  ["feed", "เครือข่ายธุรกิจ", Network],
-  ["jobs", "หางาน & จับคู่", BriefcaseBusiness],
   ["dashboard", "ภาพรวม", LayoutDashboard],
+  ["feed", "เครือข่ายธุรกิจ", Network],
   ["customers", "ลูกค้า", UserRound],
   ["suppliers", "Supplier", Truck],
   ["company", "บริษัท", Building2],
@@ -430,7 +429,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     (next: string) => {
       setMenu(false);
       setSearchOpen(false);
-      router.push(next === "feed" ? "/feed" : "/workspace/" + next);
+      router.push("/workspace/" + next);
     },
     [router],
   );
@@ -544,7 +543,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         <header className="topnav" ref={navRef}>
           <button
             className="topnav-brand"
-            onClick={() => navigate("feed")}
+            onClick={() => navigate("dashboard")}
           >
             {brand === "EliteFlow" ? (
               <img className="topnav-logo" src="/brand/eliteflow-mark.png" alt="" width={36} height={36} />
