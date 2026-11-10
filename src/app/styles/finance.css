@@ -279,3 +279,27 @@
   .fc-sample-toggle { height: 32px; padding: 0 10px; }
   .fc-sample-banner { padding: 10px 12px; }
 }
+
+/* Tax summary on the overview (ภาษีขาย / ภาษีซื้อ / ภ.พ.30 / หัก ณ ที่จ่าย / CIT) */
+.fc-tax-links { display: inline-flex; gap: 12px; }
+.fc-tax-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.fc-tax-item { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--fc-soft); border-left: 3px solid var(--fc-violet); min-width: 0; }
+.fc-tax-item span { font-size: 13px; color: var(--muted); }
+.fc-tax-item b { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-tax-item small { font-size: 11.5px; color: var(--muted); }
+.fc-tax-item.green { border-left-color: var(--fc-green); }
+.fc-tax-item.blue { border-left-color: var(--fc-blue); }
+.fc-tax-item.pink { border-left-color: var(--fc-pink); }
+.fc-tax-item.amber { border-left-color: var(--fc-amber); }
+@media (max-width: 1280px) { .fc-tax-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .fc-tax-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+
+/* รายรับ page: the ภ.พ.30 line (ภาษีขาย − ภาษีซื้อ) */
+.income-vat { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.income-vat > svg { color: var(--accent); flex: none; }
+.income-vat > span { flex: 1; min-width: 0; line-height: 1.6; }
+.income-vat small { display: block; color: var(--muted); font-size: 12px; }
+.income-vat .down { color: #e11d48; }
+.income-vat .up { color: #16a34a; }
+.income-page td.down { color: #e11d48; }
+@media (max-width: 640px) { .income-vat { flex-wrap: wrap; } }

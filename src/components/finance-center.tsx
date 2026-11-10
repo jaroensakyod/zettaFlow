@@ -26,7 +26,6 @@ const tabs: { id: Tab; label: string; short: string; icon: React.ComponentType<{
   { id: "plan", label: "วางแผนงบประมาณ", short: "งบประมาณ", icon: ClipboardList },
   { id: "allocate", label: "จัดสรรงบแผนก", short: "รายแผนก", icon: Network },
   { id: "track", label: "ติดตามผล & วิเคราะห์", short: "ติดตามผล", icon: ChartLine },
-  { id: "tax", label: "ภาษี", short: "ภาษี", icon: Landmark },
   { id: "closing", label: "ปิดงบประจำปี", short: "ปิดงบ", icon: CircleCheck },
   { id: "compare", label: "เปรียบเทียบหลายปี", short: "หลายปี", icon: Layers },
 ];
@@ -210,7 +209,7 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
         <SampleCtx.Provider value={sample}>
           {/* key: remount the editors so sample values never stay in a form after switching back to real data */}
           <div key={sample ? "sample" : "real"} className={"fc-body" + (loading && !sample ? " fc-busy" : "") + (sample ? " fc-is-sample" : "")} role="tabpanel">
-            {tab === "overview" && <Overview d={view} period={period} go={go} />}
+            {tab === "overview" && <Overview d={view} period={period} go={go} navigate={navigate} />}
             {tab === "plan" && <PlanTab d={view} saved={saved} />}
             {tab === "allocate" && <AllocateTab d={view} saved={saved} />}
             {tab === "track" && (
@@ -222,7 +221,6 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
                 </div>
               </>
             )}
-            {tab === "tax" && <TaxTab d={view} navigate={navigate} />}
             {tab === "closing" && <ClosingCard d={view} saved={saved} notify={notify} large />}
             {tab === "compare" && <CompareTab d={view} />}
             {ctx.demo && !sample && <p className="fc-note">โหมดตัวอย่าง: ตัวเลขคำนวณจากข้อมูลตัวอย่างในระบบ</p>}
@@ -234,7 +232,7 @@ export function FinanceCenter({ ctx, notify, navigate }: { ctx: Context; notify:
 }
 
 // ---------- overview ----------
-function Overview({ d, period, go }: { d: FinanceOverview; period: Period; go: (t: Tab) => void }) {
+function Overview({ d, period, go, navigate }: { d: FinanceOverview; period: Period; go: (t: Tab) => void; navigate: (v: string) => void }) {
   return (
     <>
       <Kpis d={d} />
@@ -248,6 +246,7 @@ function Overview({ d, period, go }: { d: FinanceOverview; period: Period; go: (
         <SummaryCard d={d} />
         <StatusCard d={d} go={go} />
       </div>
+      <TaxCard d={d} navigate={navigate} />
       <div className="fc-grid fc-grid-2">
         <YearsTable d={d} />
         <ClosingCard d={d} />
@@ -955,28 +954,58 @@ function BudgetEditor({ d, saved, preview }: { d: FinanceOverview; saved: (m: st
   );
 }
 
-function TaxTab({ d, navigate }: { d: FinanceOverview; navigate: (v: string) => void }) {
-  const t = d.totals;
+// Every tax in one place: ภ.พ.30 (sales VAT − purchase VAT), withholding to remit, and the CIT estimate.
+type TaxRow = { month: string; vat: number; pnd3: number; pnd53: number; outVat?: number; income?: number };
+function TaxCard({ d, navigate }: { d: FinanceOverview; navigate: (v: string) => void }) {
+  const sample = useSample(),
+    [rows, setRows] = useState<TaxRow[] | null>(null);
+  useEffect(() => {
+    if (!sample) api("/tax-report").then(setRows).catch(() => setRows([]));
+  }, [sample]);
+  const month = (d.today || new Date().toISOString()).slice(0, 7),
+    year = rows?.filter((r) => r.month.startsWith(String(d.year))) || [],
+    sum = (f: (r: TaxRow) => number) => Math.round(year.reduce((s, r) => s + f(r), 0) * 100) / 100,
+    now = rows?.find((r) => r.month === month),
+    outVat = sum((r) => r.outVat || 0),
+    inVat = sum((r) => r.vat),
+    vatNow = Math.round(((now?.outVat || 0) - (now?.vat || 0)) * 100) / 100,
+    whtNow = Math.round(((now?.pnd3 || 0) + (now?.pnd53 || 0)) * 100) / 100,
+    show = (v: number) => (sample || !rows ? "—" : thb(v));
+  const items: [string, string, string, string][] = [
+    ["ภาษีขายทั้งปี", show(outVat), "จากใบแจ้งหนี้", "green"],
+    ["ภาษีซื้อทั้งปี", show(inVat), "จากค่าใช้จ่ายที่ตรวจแล้ว", "blue"],
+    [
+      "ภ.พ.30 เดือนนี้",
+      sample || !rows ? "—" : vatNow >= 0 ? thb(vatNow) : "ขอคืน " + thb(-vatNow),
+      vatNow > 0 ? "ต้องชำระภายในวันที่ 15 เดือนหน้า" : "ภาษีขาย − ภาษีซื้อ",
+      "pink",
+    ],
+    ["หัก ณ ที่จ่ายค้างนำส่ง", show(whtNow), "ภ.ง.ด.3 / ภ.ง.ด.53 เดือนนี้", "amber"],
+    ["ภาษีเงินได้นิติบุคคล", thb(d.totals.tax), "ประมาณการ 20% ของกำไร", "purple"],
+  ];
   return (
-    <div className="fc-grid fc-grid-2">
-      <Card title={`ประมาณการภาษีเงินได้นิติบุคคล ปี ${d.year}`} icon={Percent}>
-        <ul className="fc-sum-list">
-          <li><span>กำไรก่อนภาษี</span><b>{thb(t.profit)}</b></li>
-          <li><span>อัตราภาษีที่ใช้ประมาณการ</span><b>20%</b></li>
-          <li><span>ภาษีเงินได้นิติบุคคล (ประมาณการ)</span><b className="down">{thb(t.tax)}</b></li>
-        </ul>
-        <p className="fc-note">
-          คำนวณจากกำไรตามรายการในระบบ ยังไม่รวมรายการปรับปรุงทางภาษี — ตัวเลขจริงให้ผู้สอบบัญชียืนยัน
-        </p>
-      </Card>
-      <Card title="ภาษีซื้อ ภ.พ.30 และหัก ณ ที่จ่าย" icon={Landmark}>
-        <p className="fc-text">ดูภาษีซื้อ ภ.พ.30 และ ภ.ง.ด.3 / ภ.ง.ด.53 รายเดือน จากค่าใช้จ่ายที่ตรวจแล้ว</p>
-        <button className="primary" onClick={() => navigate("tax")}>
-          <Landmark size={16} />
-          เปิดหน้าภาษี & ภ.ง.ด.
-        </button>
-      </Card>
-    </div>
+    <Card
+      title={`ภาษี ปี ${d.year}`}
+      icon={Landmark}
+      className="fc-tax"
+      action={
+        <span className="fc-tax-links">
+          <button className="fc-link" onClick={() => navigate("income")}>รายรับ</button>
+          <button className="fc-link" onClick={() => navigate("expenses")}>ค่าใช้จ่าย</button>
+        </span>
+      }
+    >
+      <div className="fc-tax-grid">
+        {items.map(([label, value, note, tone]) => (
+          <div key={label} className={"fc-tax-item " + tone}>
+            <span>{label}</span>
+            <b>{value}</b>
+            <small>{note}</small>
+          </div>
+        ))}
+      </div>
+      <p className="fc-note">ตัวเลขคำนวณจากรายการในระบบ ยังไม่รวมรายการปรับปรุงทางภาษี — ตัวเลขจริงให้ผู้สอบบัญชียืนยัน</p>
+    </Card>
   );
 }
 

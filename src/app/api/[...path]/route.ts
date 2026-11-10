@@ -83,7 +83,7 @@ import { receiptsList } from "@/lib/receipts";
 import { b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
-import { taxReport, expiries } from "@/lib/dept-views";
+import { taxReport, incomeReport, expiries } from "@/lib/dept-views";
 import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml, linkAttachment } from "@/lib/accounting";
 import { scanExpenseDocument, demoScanAllowed } from "@/lib/expenses";
 import { sampleData } from "@/lib/sample-data";
@@ -491,6 +491,7 @@ async function handle(req: NextRequest) {
       }
     }
     if (path[0] === "tax-report") return response(await taxReport(ctx));
+    if (path[0] === "income-report") return response(await incomeReport(ctx));
     if (path[0] === "expiries") return response(await expiries(ctx));
     // บันทึกค่าใช้จ่าย form: AI reads one uploaded file into rows (nothing saved), and files uploaded before the
     // first save are linked to the expense afterwards.

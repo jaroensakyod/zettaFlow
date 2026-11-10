@@ -86,6 +86,7 @@ import { CompanySettings, Team } from "./settings";
 import { ChatHub } from "./b2b-chat";
 import { EmployeesPage } from "./employees-page";
 import { FinanceCenter } from "./finance-center";
+import { IncomePage } from "./income-page";
 import { ReceiptsPage } from "./receipts-page";
 import { CompanyProfilePage } from "./company-profile";
 import { ProjectsPage } from "./projects";
@@ -197,6 +198,11 @@ const extra: Record<
     label: "บันทึกค่าใช้จ่าย",
     icon: "Wallet",
     description: "กรอกข้อมูลค่าใช้จ่าย เพื่ออนุมัติและบันทึกเข้าระบบ",
+  },
+  income: {
+    label: "รายรับ",
+    icon: "Wallet",
+    description: "รายรับ ใบแจ้งหนี้ ภาษีขาย ภ.พ.30 และยอดที่ลูกค้าค้างชำระ",
   },
   tax: {
     label: "ภาษี & ภ.ง.ด.",
@@ -518,7 +524,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       ? ctx.member.role === "owner"
       : key === "tax"
       ? ctx.member.role === "owner" || ctx.member.departments.includes("Finance")
-      : key === "receipts"
+      : key === "receipts" || key === "income"
       ? ctx.member.role === "owner" || ctx.member.departments.includes("Finance")
       : key === "transfers"
       ? ctx.member.role === "owner" || ctx.member.departments.includes("Warehouse")
@@ -757,6 +763,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "expenses" && catalog[view] ? (
             <>
               <Accounting key={"acc:" + fullView} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
+              <h2 className="acc-table-title">ภาษีซื้อและหัก ณ ที่จ่าย รายเดือน</h2>
+              <TaxReport navigate={navigate} compact />
               <h2 className="acc-table-title">ตารางค่าใช้จ่ายทั้งหมด</h2>
               <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} refresh={lastSync.getTime()} />
             </>
@@ -765,6 +773,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               {!searchParams.get("id") && <LinePending key={"line:" + view} kind={view} ctx={ctx} notify={notify} changed={load} />}
               <ProjectsPage ctx={ctx} notify={notify} changed={load} navigate={navigate} />
             </>
+          ) : view === "income" ? (
+            <IncomePage key={fullView} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
           ) : view === "finance" ? (
             <FinanceCenter key={fullView} ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "employees" ? (

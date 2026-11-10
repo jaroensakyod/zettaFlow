@@ -55,31 +55,34 @@ export const departmentMenu: DepartmentMenu[] = [
   {
     id: "accounting", title: "บัญชีและการเงิน", en: "Accounting", subtitle: "ดูแลการเงินครบวงจร", icon: "Calculator", tone: "green", overview: "expenses",
     items: [
+      { label: "Financial Center", view: "finance", icon: "ChartNoAxesCombined" },
+      { label: "รายรับ", view: "income", icon: "TrendingUp" },
       { label: "ใบแจ้งหนี้ (AR)", view: "invoices", icon: "FileText" },
-      { label: "ใบรับวางบิล (AP)", view: "bills", icon: "ReceiptText" },
+      { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText" },
       { label: "ค่าใช้จ่าย", view: "expenses", icon: "Receipt" },
-      { label: "การชำระเงิน", view: "payments", icon: "CreditCard" },
-      { label: "ภาษี & ภ.ง.ด.", view: "tax", icon: "Landmark" },
-      { label: "งบการเงิน & รายงาน", view: "reports?kind=expenses", icon: "ChartNoAxesCombined" },
+      { label: "ใบรับวางบิล (AP)", view: "bills", icon: "ReceiptText" },
     ],
     sidebar: [
-      { label: "Financial Center", sub: "ภาพรวมการเงินองค์กร", view: "finance", icon: "Landmark" },
+      // Three places only: the summary dashboard, money in, money out. Tax sits on each page (ภาษีขาย on รายรับ,
+      // ภาษีซื้อ / หัก ณ ที่จ่าย on ค่าใช้จ่าย, the full picture on Financial Center), not in a menu of its own.
+      { label: "Financial Center", sub: "ภาพรวม · กำไรขาดทุน · ภาษี", view: "finance", icon: "Landmark" },
+      {
+        label: "รายรับ", view: "income", icon: "TrendingUp",
+        children: [
+          { label: "รายการรายรับ", view: "income", icon: "FileText" },
+          { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit" },
+          { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText" },
+        ],
+      },
       {
         label: "ค่าใช้จ่าย", view: "expenses", icon: "FileSpreadsheet",
         children: [
           { label: "บันทึกค่าใช้จ่าย", view: "expense-new", icon: "FilePen" },
           { label: "รายการค่าใช้จ่าย", view: "expenses", icon: "FileText" },
           { label: "รออนุมัติ", view: "expenses?filter=pending", icon: "FileClock" },
-          { label: "รายงาน", view: "reports?kind=expenses", icon: "FileChartColumn" },
+          { label: "ใบรับวางบิล", view: "bills", icon: "ReceiptText" },
         ],
       },
-      { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit" },
-      { label: "การชำระเงิน", view: "payments", icon: "CalendarDays" },
-      { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText" },
-      { label: "ภาษี & ภ.ง.ด.", view: "tax", icon: "BadgeDollarSign" },
-      { label: "งบการเงิน", view: "reports?kind=payments", icon: "ChartColumn" },
-      { label: "ปิดงบประจำปี", view: "finance?tab=closing", icon: "ClipboardCheck" },
-      { label: "วางแผนงบประมาณ", view: "finance?tab=plan", icon: "Target" },
       { label: "ตั้งค่า", view: "company", icon: "Settings" },
     ],
     tagline: ["จัดการการเงิน", "ได้อย่างเป็นระบบ โปร่งใส ตรวจสอบได้"],

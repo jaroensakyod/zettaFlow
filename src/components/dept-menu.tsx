@@ -7,7 +7,7 @@ import {
   Gavel, Landmark, ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt,
   ReceiptText, Scale, Search, ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users,
   Wallet, Wrench, FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign,
-  ChartColumn, Settings, type LucideIcon,
+  ChartColumn, Settings, TrendingUp, type LucideIcon,
 } from "lucide-react";
 import { departmentMenu, baseView } from "@/lib/departments";
 
@@ -16,7 +16,7 @@ const icons: Record<string, LucideIcon> = {
   CalendarOff, Car, ChartNoAxesCombined, ClipboardCheck, Clock, CreditCard, Files, FileText, Gauge, Gavel, Landmark,
   ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt, ReceiptText, Scale,
   ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users, Wallet, Wrench,
-  FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign, ChartColumn, Settings,
+  FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign, ChartColumn, Settings, TrendingUp,
 };
 /** The department the user last opened a page from; its sidebar wins when a page belongs to several. */
 export const DEPT_KEY = "eliteflow-dept";

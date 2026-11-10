@@ -9,7 +9,8 @@ import { StockTransfers } from "./stock-transfers";
 type TaxMonth = { month: string; spend: number; vat: number; pnd3: number; pnd53: number; docs: number; pending: number };
 const monthName = (m: string) => new Date(m + "-01").toLocaleDateString("th-TH", { month: "long", year: "numeric" });
 
-export function TaxReport({ navigate }: { navigate: (v: string) => void }) {
+/** compact: the monthly table only, under the ค่าใช้จ่าย page (its cards already show this month). */
+export function TaxReport({ navigate, compact }: { navigate: (v: string) => void; compact?: boolean }) {
   const [rows, setRows] = useState<TaxMonth[] | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -20,6 +21,7 @@ export function TaxReport({ navigate }: { navigate: (v: string) => void }) {
   const now = rows[0];
   return (
     <>
+      {!compact && (
       <div className="expense-cards">
         {(
           [
@@ -37,6 +39,7 @@ export function TaxReport({ navigate }: { navigate: (v: string) => void }) {
           </div>
         ))}
       </div>
+      )}
       <p className="note">
         {now ? "ยอดเดือน " + monthName(now.month) + " · " : ""}นับเฉพาะเอกสารที่ตรวจแล้ว ภาษีซื้อขอคืนได้เฉพาะใบกำกับภาษีเต็มรูป · ยื่นภายในวันที่ 7 (กระดาษ) หรือ 15 (ออนไลน์) ของเดือนถัดไป
       </p>
@@ -73,9 +76,11 @@ export function TaxReport({ navigate }: { navigate: (v: string) => void }) {
           </table>
         </div>
       )}
-      <button className="secondary" onClick={() => navigate("expenses")}>
-        ไปหน้าค่าใช้จ่าย
-      </button>
+      {!compact && (
+        <button className="secondary" onClick={() => navigate("expenses")}>
+          ไปหน้าค่าใช้จ่าย
+        </button>
+      )}
     </>
   );
 }

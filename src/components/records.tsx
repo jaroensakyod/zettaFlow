@@ -284,6 +284,9 @@ export function Records({
   changed,
   refresh = 0,
   only,
+  preset,
+  addLabel,
+  newSignal = 0,
 }: {
   kind: string;
   ctx: Context;
@@ -292,6 +295,12 @@ export function Records({
   refresh?: number;
   /** A menu link such as "content?channel=social" narrows the list to matching rows. */
   only?: { label: string; test: (e: Entity) => boolean };
+  /** Values a new record starts with, e.g. direction "income" on the รายรับ page. */
+  preset?: Record<string, unknown>;
+  /** Text of the add button (default "เพิ่ม" + page name). */
+  addLabel?: string;
+  /** Bump to open the add form from outside (a page's own header button). */
+  newSignal?: number;
 }) {
   const module = catalog[kind];
   const [rows, setRows] = useState<Entity[]>([]),
@@ -346,6 +355,10 @@ export function Records({
       .then(setOptions)
       .catch((e) => notify(e.message));
   }, [kind, notify]);
+  useEffect(() => {
+    if (newSignal) open("edit");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newSignal]);
   async function open(type: typeof modal, item?: Entity) {
     setRow(item);
     setModal(type);
@@ -359,7 +372,9 @@ export function Records({
             reference: crypto.randomUUID(),
             notes: "",
           }
-        : initialValues(kind, item),
+        : item || !preset
+          ? initialValues(kind, item)
+          : { ...initialValues(kind), ...preset },
     );
     if (type === "files" && item) {
       try {
@@ -482,7 +497,7 @@ export function Records({
           {writable && !archived && (
             <button className="primary" onClick={() => open("edit")}>
               <Plus size={16} />
-              เพิ่ม{module.label}
+              {addLabel || "เพิ่ม" + module.label}
             </button>
           )}
         </div>

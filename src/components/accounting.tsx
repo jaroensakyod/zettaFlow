@@ -14,6 +14,7 @@ import { LinePending } from "./line-review";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
 import { currencies, formatMoney, isForeign } from "@/lib/fx";
+import { FinanceTabs } from "./income-page";
 
 type Overview = {
   month: string;
@@ -28,7 +29,6 @@ type Overview = {
 };
 type Option = { id: string; kind: string; name: string };
 type Draft = Record<string, unknown> & { lines?: Line[] };
-const tabs = ["ค่าใช้จ่าย", "รายรับ", "ภาษี", "สมุดรายวัน", "รายงาน"];
 const filters = { all: "ทั้งหมด", pending: "รอตรวจ", saved: "บันทึกแล้ว" } as const;
 const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 const gross = (d: Record<string, unknown>) => computeExpense(Number(d.amount), (d.vatMode as VatMode) || "none", Number(d.whtRate) || 0, String(d.docType || "")).gross;
@@ -177,19 +177,13 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
   if (!data) return error ? <p className="form-error">{error}</p> : <Loading />;
   return (
     <div className="acc">
-      <div className="acc-tabs" role="tablist">
-        {tabs.map((t, i) => (
-          <button key={t} role="tab" aria-selected={i === 0} className={i === 0 ? "active" : ""} disabled={i > 0}>
-            {t}
-            {i > 0 && <em>เร็วๆ นี้</em>}
-          </button>
-        ))}
+      <FinanceTabs current="expenses" navigate={navigate}>
         {writable && navigate && (
           <button className="primary acc-new" onClick={() => navigate("expense-new")}>
             <Plus size={16} /> บันทึกค่าใช้จ่าย
           </button>
         )}
-      </div>
+      </FinanceTabs>
       <div className="expense-cards">
         {(
           [

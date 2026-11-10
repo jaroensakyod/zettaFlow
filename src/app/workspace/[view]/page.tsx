@@ -8,6 +8,7 @@ export const metadata = {
 const extra = [
   "finance",
   "receipts",
+  "income",
   "profile",
   "feed",
   "jobs",

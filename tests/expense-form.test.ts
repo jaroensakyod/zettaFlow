@@ -52,7 +52,8 @@ test("every department page shows its own sidebar; app-wide pages show none", as
   assert.equal(departmentOf("expense-new")?.id, "accounting");
   assert.equal(departmentOf("employees")?.id, "hr");
   assert.equal(departmentOf("quotations")?.id, "sales");
-  assert.equal(departmentOf("reports?kind=expenses")?.id, "accounting");
+  assert.equal(departmentOf("income")?.id, "accounting");
+  assert.equal(departmentOf("invoices")?.id, "accounting");
   assert.equal(departmentOf("dashboard"), undefined);
   assert.equal(departmentOf("company"), undefined);
   assert.equal(departmentOf("company", "accounting")?.id, "accounting");
