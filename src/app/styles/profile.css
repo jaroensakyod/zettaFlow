@@ -526,3 +526,34 @@
 .vis-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: #64748b; background: #f1f3f6; border: 1px solid #e2e5ec; }
 .vis-chip.pub { color: #15803d; background: #ecfdf3; border-color: #bbf7d0; }
 .vis-chip + .vis-chip, .vis-legend .vis-chip:not(:first-child) { margin-left: 8px; }
+
+/* เกี่ยวกับ tab v2: colourful sub-tabs, every field its own tinted card (green = public, grey = private) */
+.cp-about-edit .company-tabs { gap: 8px; padding: 6px; border: 0; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(30, 20, 60, .05); }
+.cp-about-edit .company-tabs button { --tc: #7c3aed; padding: 9px 16px; border: 0; border-radius: 12px; font-size: 13px; color: #5b5570; transition: background .2s, color .2s, transform .15s; }
+.cp-about-edit .company-tabs button:nth-child(2) { --tc: #db2777; }
+.cp-about-edit .company-tabs button:nth-child(3) { --tc: #2563eb; }
+.cp-about-edit .company-tabs button:nth-child(4) { --tc: #d97706; }
+.cp-about-edit .company-tabs button:hover { color: var(--tc); background: color-mix(in srgb, var(--tc) 8%, #fff); }
+.cp-about-edit .company-tabs button.active { color: #fff; background: linear-gradient(135deg, var(--tc), color-mix(in srgb, var(--tc) 70%, #ec4899)); box-shadow: 0 6px 14px color-mix(in srgb, var(--tc) 30%, transparent); }
+.cp-about-edit .company-section { padding: 22px; border-radius: 20px; }
+.cp-about-edit .company-section > h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font-size: 18px; }
+.cp-about-edit .company-section > h2::before { content: ""; width: 10px; height: 26px; border-radius: 99px; background: linear-gradient(180deg, #8b5cf6, #ec4899); }
+.cp-about-edit .company-grid { gap: 14px; align-items: stretch; }
+/* field cards */
+.cp-about-edit .vis-field { padding: 12px 14px 14px; border-radius: 16px; border: 1px solid #ece9f5; background: #fafafc; transition: border-color .2s, background .2s, box-shadow .2s; }
+.cp-about-edit .vis-field:focus-within { box-shadow: 0 0 0 3px rgba(139, 92, 246, .15); border-color: #c4b5fd; }
+.cp-about-edit .vis-field.is-pub { background: linear-gradient(180deg, #f2fcf5, #fff 70%); border-color: #c9f0d6; }
+.cp-about-edit .vis-field.is-pub.is-fixed { background: linear-gradient(180deg, #f5f2ff, #fff 70%); border-color: #e2d9fb; }
+.cp-about-edit .vis-field.is-priv { background: linear-gradient(180deg, #f6f7f9, #fff 70%); }
+.cp-about-edit .vis-field > label { display: grid; gap: 8px; font-size: 12.5px; font-weight: 700; color: #3b3651; min-height: 22px; }
+.cp-about-edit .vis-field > label > input, .cp-about-edit .vis-field > label > select, .cp-about-edit .vis-field > label > textarea, .cp-about-edit .vis-field > label > div { margin: 0; background: #fff; }
+.cp-about-edit .vis-field > label > :is(input, select, textarea) { width: 100%; }
+.cp-about-edit .vis-field .field-hint { margin: -2px 0 0; font-weight: 500; }
+.cp-about-edit .vis-toggle { top: 10px; right: 12px; }
+.cp-about-edit .vis-toggle.pub { background: #dcfce7; border-color: #86efac; }
+.cp-about-edit .vis-toggle.fixed.pub { color: #6d28d9; background: #ede9fe; border-color: #c4b5fd; }
+/* legend */
+.cp-about-edit .vis-legend { margin: 0; padding: 12px 16px; border: 0; border-radius: 16px; background: linear-gradient(90deg, #f0fdf4, #f5f3ff 55%, #fdf2f8); font-size: 13px; }
+.cp-about-edit .company-actions { position: sticky; bottom: 12px; z-index: 5; justify-content: flex-end; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, .92); backdrop-filter: blur(6px); box-shadow: 0 10px 30px rgba(40, 20, 90, .12); }
+@media (max-width: 760px) {
+}

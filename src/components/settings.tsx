@@ -164,7 +164,7 @@ export function CompanySettings({
       const fixed = alwaysPublicFields.includes(k) ? "pub" : (toggleableFields as readonly string[]).includes(k) ? "" : "private";
       const on = fixed === "pub" || (!fixed && pub.has(k));
       return (
-        <div className={"vis-field" + (wide ? " wide" : "")} key={k}>
+        <div className={"vis-field" + (wide ? " wide" : "") + (on ? " is-pub" : " is-priv") + (fixed ? " is-fixed" : "")} key={k}>
           {node}
           {fixed ? (
             <span className={"vis-toggle fixed" + (on ? " pub" : "")} title={on ? "สาธารณะเสมอ (แสดงบนการ์ดบริษัท)" : "ส่วนตัวเสมอ"}>
