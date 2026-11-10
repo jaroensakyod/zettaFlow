@@ -7743,3 +7743,11 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .li { grid-template-columns: 270px minmax(0, 1fr) 330px; justify-content: stretch; }
 @media (max-width: 1240px) { .li { grid-template-columns: 230px minmax(0, 1fr); } }
 @media (max-width: 860px) { .li { grid-template-columns: minmax(0, 1fr); } .main:has(> .li) { padding-left: 16px; padding-right: 16px; } }
+/* Side columns scroll on their own (the feed keeps the page scroll); a thin scrollbar shows only when pointed at */
+@media (min-width: 861px) {
+  .li-left, .li-right { max-height: calc(100vh - 100px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 16px; margin: -2px -4px 0; scrollbar-width: thin; scrollbar-color: transparent transparent; align-content: start; }
+  .li-left:hover, .li-right:hover { scrollbar-color: #d4cdea transparent; }
+  .li-left::-webkit-scrollbar, .li-right::-webkit-scrollbar { width: 6px; }
+  .li-left::-webkit-scrollbar-thumb, .li-right::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; }
+  .li-left:hover::-webkit-scrollbar-thumb, .li-right:hover::-webkit-scrollbar-thumb { background: #d4cdea; }
+}
