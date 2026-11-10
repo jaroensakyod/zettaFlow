@@ -253,9 +253,37 @@ export function seedCompany(add: Add, now = Date.now()) {
     const lines = qtItems.filter(() => rand() < 0.7).map(([name, qty, price]) => ({ name, qty, price }));
     qts.push(add("quotations", { name: code("QT", i + 1), customerId: cus[[0, 3, 1, 9, 11, 7, 2, 4][i]], date: day(-40 + i * 5), validUntil: day(-10 + i * 5), lines: lines.length ? lines : [{ name: qtItems[0][0], qty: 1, price: qtItems[0][2] }], discount: i % 3 === 0 ? 5000 : 0, vatMode: "excluded", owner: person([1, 2, 3][i % 3]), status }));
   });
+  // Where the company sells, and what (a package per platform when the price differs).
+  const plat = [
+    ["หน้าร้าน / ขายตรง", "หน้าร้าน", 0, ""],
+    ["Shopee · Siri Studio", "Marketplace", 8, "https://shopee.co.th/siristudio"],
+    ["Lazada · Siri Studio", "Marketplace", 7, "https://www.lazada.co.th/shop/siristudio"],
+    ["TikTok Shop", "Social Commerce", 5, "https://www.tiktok.com/@siristudio"],
+    ["LINE OA", "Social Commerce", 0, "https://lin.ee/siristudio"],
+  ].map(([name, type, feePercent, shopUrl]) => add("sales_platforms", { name, type, feePercent, shopUrl, status: "active" }));
+  const pkgs = [
+    ["แพ็กเกจบูธมาตรฐาน 3x3 ม.", "PKG-B33", "แพ็กเกจ", 0, 89000, "ออกแบบ ผลิต ติดตั้ง รื้อถอน บูธ 3x3 ม."],
+    ["แพ็กเกจบูธพรีเมียม 6x6 ม.", "PKG-B66", "แพ็กเกจ", 0, 235000, "บูธ 6x6 ม. พร้อมไฟ เสียง และพนักงาน PC 2 คน"],
+    ["ป้ายโรลอัพ 80x200 ซม.", "SKU-RU80", "สินค้า", 1, 1290, "ป้ายพร้อมขาตั้ง ส่งฟรี"],
+    ["ป้ายโรลอัพ 80x200 ซม.", "SKU-RU80-LZ", "สินค้า", 2, 1350, "ราคาบน Lazada"],
+    ["ชุดของพรีเมียมงานอีเวนต์ 100 ชิ้น", "PKG-GIFT", "แพ็กเกจ", 3, 15900, "ของแจกพร้อมสกรีนโลโก้"],
+    ["ค่าออกแบบกราฟิก (ต่องาน)", "SRV-GFX", "บริการ", 4, 4500, "ออกแบบอาร์ตเวิร์ก 2 รอบแก้ไข"],
+  ].map(([name, code, type, pf, price, description]) => ({ id: add("sales_packages", { name, code, type, platformId: plat[pf as number], price, description, status: "active" }), name: name as string, price: price as number, pf: pf as number }));
+  // Orders: from quotations (booth jobs) and from the platforms; some paid, some waiting.
   [[0, 0, "ออกใบแจ้งหนี้แล้ว"], [1, 3, "กำลังจัดส่ง"], [7, 4, "รอดำเนินการ"]].forEach(([q, c, status], i) =>
-    add("sales_orders", { name: code("SO", i + 1), customerId: cus[c as number], quotationId: qts[q as number], date: day(-30 + i * 8), deliveryDate: day(-15 + i * 12), lines: [{ name: "งานบูธตามใบเสนอราคา", qty: 1, price: [235000, 312000, 198000][i] }], vatMode: "excluded", projectId: prj[[0, 4, 1][i]], status }),
+    add("sales_orders", { name: code("SO", i + 1), customerId: cus[c as number], quotationId: qts[q as number], platformId: plat[0], packageId: pkgs[1].id, date: day(-30 + i * 8), deliveryDate: day(-15 + i * 12), lines: [{ name: "งานบูธตามใบเสนอราคา", qty: 1, price: [235000, 312000, 198000][i] }], vatMode: "excluded", projectId: prj[[0, 4, 1][i]], status, payStatus: i === 0 ? "ชำระแล้ว" : i === 1 ? "รอชำระ" : "ยังไม่ชำระ", ...(i === 0 ? { paidAt: day(-20), payerName: "ฝ่ายบัญชีลูกค้า", payMethod: "โอนธนาคาร", payReference: "KBANK-881204" } : {}) }),
   );
+  [
+    [2, 5, 3, -9, "ชำระแล้ว", "ชำระผ่านแพลตฟอร์ม"], [3, 6, 2, -7, "ชำระแล้ว", "ชำระผ่านแพลตฟอร์ม"], [4, 2, 1, -5, "รอชำระ", ""],
+    [5, 8, 2, -3, "ชำระแล้ว", "พร้อมเพย์"], [0, 10, 1, -2, "ยังไม่ชำระ", ""], [2, 1, 10, -1, "ยังไม่ชำระ", ""],
+  ].forEach(([k, c, qty, d, payStatus, payMethod], i) => {
+    const pk = pkgs[k as number];
+    add("sales_orders", {
+      name: pk.name + " × " + qty, code: code("SO", 4 + i), customerId: cus[c as number], platformId: plat[pk.pf], packageId: pk.id, date: day(d as number),
+      lines: [{ name: pk.name, qty, price: pk.price }], vatMode: "included", status: payStatus === "ชำระแล้ว" ? "ส่งแล้ว" : "รอดำเนินการ", payStatus,
+      ...(payStatus === "ชำระแล้ว" ? { paidAt: day(d as number), payerName: "ลูกค้า " + (i + 1), payMethod, payReference: "ORD-" + (240100 + i) } : {}),
+    });
+  });
   const invoiceRows = [
     [0, -50, 30, 235000, "paid"], [3, -45, 60, 312000, "partial"], [1, -38, 30, 128000, "issued"], [9, -35, 45, 86000, "issued"],
     [2, -28, 30, 54000, "paid"], [7, -20, 30, 97500, "issued"], [11, -12, 30, 410000, "issued"], [4, -8, 30, 65000, "issued"],

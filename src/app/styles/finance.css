@@ -605,3 +605,38 @@ dialog.modal:has(.fd) { width: min(1100px, 95vw); max-width: none; }
 .fl-pay-filter button.on { background: var(--t); border-color: var(--t); color: #fff; }
 .fl-pay-filter button.on i { background: rgba(255, 255, 255, .25); color: #fff; }
 @media (max-width: 900px) { .fl-pay-filter { margin-left: 0; width: 100%; } }
+
+/* คำสั่งซื้อ page */
+.op { display: grid; gap: 14px; min-width: 0; }
+.op-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+.op-bar button { display: inline-flex; align-items: center; gap: 6px; }
+.op-platforms { padding: 14px 16px; }
+.op-platforms h3 { margin: 0 0 10px; font-size: 15px; }
+.op-platform-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.op-platform-list button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--th-surface, #fff); text-align: left; cursor: pointer; min-width: 0; }
+.op-platform-list button i { width: 10px; height: 38px; flex: none; border-radius: 6px; background: var(--pc); }
+.op-platform-list button > span { flex: 1; min-width: 0; display: grid; }
+.op-platform-list button b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.op-platform-list button small { font-size: 11.5px; color: var(--muted); }
+.op-platform-list button em { font-style: normal; display: grid; text-align: right; font-weight: 700; font-size: 14px; color: var(--pc); }
+.op-platform-list button.on { border-color: var(--pc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--pc) 25%, transparent); }
+.op-chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: #fff; background: var(--pc); white-space: nowrap; }
+.fl-list header h3 .op-chip { margin-left: 8px; }
+.op-clear { margin: -4px 0 8px; }
+.op-wait { display: flex; gap: 6px; margin-bottom: 10px; }
+.op-wait button { flex: 1; height: 34px; border-radius: 999px; border: 1px solid var(--line); background: var(--th-surface, #fff); font-weight: 600; cursor: pointer; }
+.op-wait button.on.unpaid { background: #ea580c; border-color: #ea580c; color: #fff; }
+.op-wait button.on.waiting { background: #6b7280; border-color: #6b7280; color: #fff; }
+.op-pay { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: var(--th-surface, #fff); border: 1px solid var(--line); }
+.op-pay label { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.op-pay input, .op-pay select { height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; font: inherit; color: var(--ink); background: var(--th-surface, #fff); }
+.op-pay-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.op-pay .op-file { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; cursor: pointer; color: var(--ink); }
+.op-pay .op-file.has { border-color: #16a34a; color: #15803d; }
+.op-pay button.primary { display: inline-flex; justify-content: center; align-items: center; gap: 6px; height: 42px; }
+.op-slip { margin-top: 10px; align-items: center; }
+.op-slip .fd-status { margin: 0 auto 0 0; font-size: 13px; }
+.op-create .form-grid label.wide { grid-column: 1 / -1; }
+.op-total { text-align: right; font-size: 15px; margin: 10px 0 0; }
+.op-total b { font-size: 22px; color: var(--accent); }
+.fd-fact .op-chip { white-space: normal; }

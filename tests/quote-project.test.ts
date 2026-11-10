@@ -32,15 +32,15 @@ test("accepting a quotation creates its project; the SO and the ledger carry the
     await saveEntity(ctx, "quotations", { ...again.data, notes: "เซ็นแล้ว" }, again.id, again.version);
     assert.equal((await allEntities(ctx, "projects", 500)).filter((p) => p.data.code === code).length, 1);
 
-    // Default next step: straight to an invoice, in the quotation's project, once only.
-    const inv = await convertEntity(ctx, "quotations", q.id);
-    assert.equal(inv.kind, "invoices");
-    assert.equal(inv.record.data.projectId, projects[0].id, "the invoice belongs to the quotation's project");
-    await assert.rejects(() => convertEntity(ctx, "quotations", q.id, "invoices"), /สร้างไปแล้ว/);
-    // A team that ships first can still open a sales order from it.
-    const so = await convertEntity(ctx, "quotations", q.id, "sales_orders");
+    // Default next step: a sales order, in the quotation's project, once only.
+    const so = await convertEntity(ctx, "quotations", q.id);
     assert.equal(so.kind, "sales_orders");
-    assert.equal(so.record.data.projectId, projects[0].id);
+    assert.equal(so.record.data.projectId, projects[0].id, "the order belongs to the quotation's project");
+    await assert.rejects(() => convertEntity(ctx, "quotations", q.id, "sales_orders"), /สร้างไปแล้ว/);
+    // Or straight to an invoice for work that needs no order.
+    const inv = await convertEntity(ctx, "quotations", q.id, "invoices");
+    assert.equal(inv.kind, "invoices");
+    assert.equal(inv.record.data.projectId, projects[0].id);
     // The รายรับ list shows the quotation code on the unpaid invoice.
     const day = String(inv.record.data.date);
     const rows = (await ledger(ctx, day, day)).income.filter((r) => r.kind === "invoices" && r.id === inv.record.id);

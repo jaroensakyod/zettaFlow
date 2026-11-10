@@ -16,7 +16,7 @@ type IncomeReport = {
   overdue: number;
   overdueCount: number;
   invoices: number;
-  pipeline: { quotesSent: Stage; quotesAccepted: Stage; ordersToInvoice: Stage } | null;
+  pipeline: { quotesSent: Stage; quotesAccepted: Stage; ordersToInvoice: Stage; ordersUnpaid: Stage } | null;
 };
 type TaxMonth = { month: string; vat: number };
 const thisMonth = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
@@ -109,19 +109,18 @@ export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: stri
 /** ขั้นตอนการขาย: how many documents wait at each stage, each stage opens its page. */
 function SalesFlow({ data, month, navigate }: { data: IncomeReport; month: IncomeMonth; navigate: (v: string) => void }) {
   const p = data.pipeline;
-  // Waiting for an invoice: accepted quotations not invoiced yet (plus sales orders, for teams that still use them).
-  const toInvoice = p ? { count: p.quotesAccepted.count + p.ordersToInvoice.count, amount: p.quotesAccepted.amount + p.ordersToInvoice.amount } : null;
   const steps: [number, string, string, string, string][] = [
     [1, "ใบเสนอราคา", p ? p.quotesSent.count + " ใบ รอลูกค้าตอบ" : "—", p ? "฿" + money(p.quotesSent.amount) : "", "quotations"],
-    [2, "ใบแจ้งหนี้", toInvoice ? toInvoice.count + " งานตอบรับแล้ว รอออกใบแจ้งหนี้" : "—", toInvoice ? "฿" + money(toInvoice.amount) : "", "invoices"],
-    [3, "รับชำระเงิน", data.openInvoices + " ใบแจ้งหนี้ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income"],
-    [4, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts"],
+    [2, "คำสั่งซื้อ", p ? p.ordersUnpaid.count + " คำสั่งซื้อ ยังไม่ได้รับเงิน" : "—", p ? "฿" + money(p.ordersUnpaid.amount) : "", "sales_orders"],
+    [3, "ใบแจ้งหนี้", p ? p.ordersToInvoice.count + p.quotesAccepted.count + " งาน รอออกใบแจ้งหนี้" : "—", p ? "฿" + money(p.ordersToInvoice.amount + p.quotesAccepted.amount) : "", "invoices"],
+    [4, "รับชำระเงิน", data.openInvoices + " ใบแจ้งหนี้ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income"],
+    [5, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts"],
   ];
   return (
     <section className="card sales-flow" aria-label="ขั้นตอนการขาย">
       <header>
         <b>ขั้นตอนการขาย</b>
-        <small>ทำใบเสนอราคา → ลูกค้าตอบรับ (แนบไฟล์ที่ลูกค้าเซ็น) → กด "ออกใบแจ้งหนี้" ที่ใบเสนอราคา → รับเงิน → เก็บใบเสร็จ</small>
+        <small>ใบเสนอราคา → ลูกค้าตอบรับ → เปิดคำสั่งซื้อ (แพ็กเกจ · แพลตฟอร์ม) → ออกใบแจ้งหนี้ → รับเงิน → เก็บใบเสร็จ</small>
       </header>
       <ol>
         {steps.map(([n, label, note, amount, view], i) => (

@@ -78,11 +78,15 @@ export const departmentMenu: DepartmentMenu[] = [
         label: "รายรับ", view: "income", icon: "TrendingUp", section: { tone: "green", caption: "ขาย · ออกเอกสาร · รับเงิน" },
         children: [
           { label: "ภาพรวมรายรับ", view: "income", icon: "ChartColumn" },
-          // The sales flow, in order: quote (customer accepts) → invoice → money in → receipt.
+          // The sales flow, in order: quote → order (which package, which platform, paid?) → invoice → money in → receipt.
           { label: "ใบเสนอราคา", view: "quotations", icon: "FileText", step: 1 },
-          { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit", step: 2 },
-          { label: "รับชำระเงิน", view: "payments?direction=income", icon: "Wallet", step: 3 },
-          { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText", step: 4 },
+          { label: "คำสั่งซื้อ", view: "sales_orders", icon: "ShoppingCart", step: 2 },
+          { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit", step: 3 },
+          { label: "รับชำระเงิน", view: "payments?direction=income", icon: "Wallet", step: 4 },
+          { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText", step: 5 },
+          // What is sold and where: set once, used when creating orders.
+          { label: "สินค้า & แพ็กเกจ", view: "sales_packages", icon: "Package" },
+          { label: "แพลตฟอร์มการขาย", view: "sales_platforms", icon: "Store" },
         ],
       },
       {

@@ -69,8 +69,8 @@ export type Conversion = { from: string; to: string; label: string; when: string
 /** Next-step buttons: accepted quotation → invoice (or → SO for teams that ship first), SO → invoice, paid AP bill →
  *  payment, hired applicant → employee. The first rule for a page is its default. */
 export const conversions: Conversion[] = [
+  { from: "quotations", to: "sales_orders", label: "เปิดคำสั่งซื้อ", when: ["ตอบรับ"] },
   { from: "quotations", to: "invoices", label: "ออกใบแจ้งหนี้", when: ["ตอบรับ"] },
-  { from: "quotations", to: "sales_orders", label: "แปลงเป็นคำสั่งซื้อ (SO)", when: ["ตอบรับ"] },
   { from: "sales_orders", to: "invoices", label: "ออกใบแจ้งหนี้", when: ["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว"], done: "ออกใบแจ้งหนี้แล้ว" },
   { from: "bills", to: "payments", label: "บันทึกการจ่ายเงิน", when: ["จ่ายแล้ว"] },
   { from: "recruitment", to: "employees", label: "สร้างข้อมูลพนักงาน", when: ["รับเข้าทำงาน"] },

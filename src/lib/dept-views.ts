@@ -110,20 +110,24 @@ export type SalesStage = { count: number; amount: number };
 export async function incomeReport(ctx: Context) {
   assert(canRead(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
   const base = await incomeMonths(ctx);
-  let pipeline: { quotesSent: SalesStage; quotesAccepted: SalesStage; ordersToInvoice: SalesStage } | null = null;
+  let pipeline: { quotesSent: SalesStage; quotesAccepted: SalesStage; ordersToInvoice: SalesStage; ordersUnpaid: SalesStage } | null = null;
   if (canRead(ctx, "Sales")) {
     const [quotes, orders, invoices] = await Promise.all([allEntities(ctx, "quotations", 5000), allEntities(ctx, "sales_orders", 5000), allEntities(ctx, "invoices", 5000)]);
     const invoiced = (id: string) => invoices.some((i) => String(i.data.description || "").includes("#" + id.slice(0, 8)));
     const total = (kind: string, d: Record<string, unknown>) => catalog[kind].computed?.total?.calc(d) || 0,
       add = (st: SalesStage, v: number) => ((st.count += 1), (st.amount = r2(st.amount + v)));
     const converted = new Set(orders.map((o) => String(o.data.quotationId || "")));
-    pipeline = { quotesSent: { count: 0, amount: 0 }, quotesAccepted: { count: 0, amount: 0 }, ordersToInvoice: { count: 0, amount: 0 } };
+    pipeline = { quotesSent: { count: 0, amount: 0 }, quotesAccepted: { count: 0, amount: 0 }, ordersToInvoice: { count: 0, amount: 0 }, ordersUnpaid: { count: 0, amount: 0 } };
     for (const q of quotes) {
       if (q.data.status === "ส่งแล้ว") add(pipeline.quotesSent, total("quotations", q.data));
       else if (q.data.status === "ตอบรับ" && !converted.has(q.id) && !invoiced(q.id)) add(pipeline.quotesAccepted, total("quotations", q.data));
     }
-    for (const o of orders)
-      if (["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว"].includes(String(o.data.status))) add(pipeline.ordersToInvoice, total("sales_orders", o.data));
+    for (const o of orders) {
+      // Paid on the order itself (platform / transfer): no invoice needed.
+      const paid = o.data.payStatus === "ชำระแล้ว" || !!o.data.paymentId;
+      if (o.data.status !== "ยกเลิก" && !paid) add(pipeline.ordersUnpaid, total("sales_orders", o.data));
+      if (!paid && ["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว"].includes(String(o.data.status))) add(pipeline.ordersToInvoice, total("sales_orders", o.data));
+    }
   }
   return { ...base, pipeline };
 }
@@ -249,11 +253,13 @@ export async function ledger(ctx: Context, from: string, to: string) {
       inv = d.invoiceId ? invoiceById.get(String(d.invoiceId)) : undefined,
       rate = inv ? Number(inv.data.vat) || 0 : 0,
       vat = r2((amount * rate) / (100 + rate)),
-      pr = inv ? invoiceProject(inv) : null;
+      // Recorded from a sales order (บันทึกการชำระ): show the order's number, customer and project.
+      order = orders.find((o) => o.data.paymentId === p.id),
+      pr = inv ? invoiceProject(inv) : order ? projectOf(order.data.projectId) : null;
     inc.push({
       id: p.id, kind: "payments", date: String(d.date).slice(0, 10),
-      docNo: inv ? String(inv.data.name || "") : String(d.reference || "") || sysRef(p.id), name: String(d.name || ""),
-      customer: inv ? customerName.get(String(inv.data.customerId)) || "" : "", method: String(d.method || ""),
+      docNo: inv ? String(inv.data.name || "") : order ? String(order.data.code || order.data.name || "") : String(d.reference || "") || sysRef(p.id), name: String(d.name || ""),
+      customer: inv ? customerName.get(String(inv.data.customerId)) || "" : order ? customerName.get(String(order.data.customerId)) || "" : "", method: String(d.method || ""),
       reference: String(d.reference || ""), invoice: inv ? String(inv.data.name || "") : "",
       amount: r2(amount), vat, base: r2(amount - vat), notes: String(d.notes || ""),
       project: pr?.project || "", projectName: pr?.projectName || "", payState: "ชำระแล้ว", owed: 0, dueDate: "",
@@ -314,7 +320,7 @@ export type LedgerDetail = {
 /** The full picture behind one row of the รายรับ / ค่าใช้จ่าย list (opened from the list). */
 export async function ledgerDetail(ctx: Context, kind: string, id: string): Promise<LedgerDetail> {
   assert(canRead(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
-  assert(["payments", "expenses", "invoices", "sales"].includes(kind), "ประเภทไม่ถูกต้อง");
+  assert(["payments", "expenses", "invoices", "sales", "sales_orders"].includes(kind), "ประเภทไม่ถูกต้อง");
   const rows = await allEntities(ctx, kind, 5000);
   const e = rows.find((r) => r.id === id);
   assert(e, "ไม่พบรายการ", 404);
@@ -349,7 +355,7 @@ export async function ledgerDetail(ctx: Context, kind: string, id: string): Prom
     /^ใบเสร็จ/.test(f.name) || f.id === d.receiptId ? "receipt" : /^(หัก ณ ที่จ่าย|50 ทวิ)/.test(f.name) ? "wht" : /^สลิป/.test(f.name) ? "slip" : "other";
   let out: DetailFile[] = list.map((f) => ({ id: f.id, name: f.name, mime: f.mime, role: role(f) }));
   // A payment's first picture with no label is the transfer slip (what LINE and the old form attached).
-  if (kind === "payments" && !out.some((f) => f.role === "slip")) {
+  if ((kind === "payments" || kind === "sales_orders") && !out.some((f) => f.role === "slip")) {
     const first = out.find((f) => f.role === "other" && f.mime.startsWith("image/"));
     if (first) first.role = "slip";
   }
