@@ -70,12 +70,15 @@ export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: stri
         navigate={navigate}
         extraCards={
           <>
-            <div className="card expense-card">
-              <small>
-                <HandCoins size={15} /> ลูกค้าค้างชำระ (ทั้งหมด)
-              </small>
-              <b>฿{money(data.outstanding)}</b>
-              <em className="fl-note">{data.openInvoices} ใบแจ้งหนี้รอรับเงิน</em>
+            <div className="fl-card amber">
+              <span className="fl-card-icon">
+                <HandCoins size={22} />
+              </span>
+              <div>
+                <small>ลูกค้าค้างชำระ (ทั้งหมด)</small>
+                <b>฿{money(data.outstanding)}</b>
+                <em>{data.openInvoices} ใบแจ้งหนี้รอรับเงิน</em>
+              </div>
             </div>
           </>
         }

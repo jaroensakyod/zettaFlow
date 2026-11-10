@@ -80,21 +80,32 @@ export function FinanceLedger({
 }) {
   const [mode, setMode] = useState<Mode>("month"),
     [anchor, setAnchor] = useState(bangkokToday),
-    [data, setData] = useState<Ledger | null>(null),
+    [raw, setRaw] = useState<Ledger | null>(null),
     [error, setError] = useState(""),
     [q, setQ] = useState(""),
     [open, setOpen] = useState<Expense | Income | null>(null);
   const { from, to } = range(mode, anchor);
+  // A single day is drawn against the rest of its week, so fetch the week and narrow the numbers to the day.
+  const fetchRange = mode === "day" ? range("week", anchor) : { from, to };
   useEffect(() => {
     let live = true;
     setError("");
-    api(`/ledger?from=${from}&to=${to}`)
-      .then((d: Ledger) => live && setData(d))
+    api(`/ledger?from=${fetchRange.from}&to=${fetchRange.to}`)
+      .then((d: Ledger) => live && setRaw(d))
       .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, [from, to]);
+  }, [fetchRange.from, fetchRange.to]);
+  const data = useMemo(
+    () =>
+      raw && {
+        ...raw,
+        expenses: raw.expenses.filter((r) => r.date >= from && r.date <= to),
+        income: raw.income.filter((r) => r.date >= from && r.date <= to),
+      },
+    [raw, from, to],
+  );
 
   const totals = useMemo(() => {
     const e = data?.expenses || [],
@@ -113,12 +124,12 @@ export function FinanceLedger({
     };
   }, [data]);
 
-  // Bars: each day of the month, or each month of the year.
+  // Bars: the days of the week (a day: its week, that day highlighted), each day of the month, or each month of the year.
   const bars = useMemo(() => {
-    if (!data || mode === "day") return [];
+    if (!raw) return [];
     const [y, m] = anchor.split("-").map(Number);
     const keys =
-      mode === "week"
+      mode === "week" || mode === "day"
         ? weekdaysTh.map((t, k) => {
             const key = addDays(monday(anchor), k);
             return { key, label: t + " " + Number(key.slice(8)) };
@@ -129,12 +140,15 @@ export function FinanceLedger({
     const len = mode === "year" ? 7 : 10;
     return keys.map((k) => ({
       ...k,
+      on: mode === "day" && k.key === anchor,
       value:
         kind === "expenses"
-          ? r2(data.expenses.filter((r) => r.date.slice(0, len) === k.key).reduce((s, r) => s + r.gross, 0))
-          : r2(data.income.filter((r) => r.date.slice(0, len) === k.key).reduce((s, r) => s + r.amount, 0)),
+          ? r2(raw.expenses.filter((r) => r.date.slice(0, len) === k.key).reduce((s, r) => s + r.gross, 0))
+          : r2(raw.income.filter((r) => r.date.slice(0, len) === k.key).reduce((s, r) => s + r.amount, 0)),
     }));
-  }, [data, mode, anchor, kind]);
+  }, [raw, mode, anchor, kind]);
+  const modeName = { day: "รายวัน", week: "รายสัปดาห์", month: "รายเดือน", year: "รายปี" }[mode],
+    barsBy = { day: "เทียบวันอื่นในสัปดาห์เดียวกัน", week: "แยกตามวัน (จันทร์–อาทิตย์)", month: "แยกตามวันในเดือน", year: "แยกตามเดือน" }[mode];
   const groups = useMemo(() => {
     const map = new Map<string, number>();
     if (kind === "expenses") for (const r of data?.expenses || []) map.set(r.category || "ไม่ระบุหมวด", (map.get(r.category || "ไม่ระบุหมวด") || 0) + r.gross);
@@ -149,18 +163,19 @@ export function FinanceLedger({
   const max = Math.max(1, ...bars.map((b) => b.value)),
     gmax = Math.max(1, ...groups.map((g) => g.v));
 
-  const cards: [React.ComponentType<{ size?: number }>, string, string, string?][] =
+  // Each card has its own colour so the eye can tell them apart at a glance.
+  const cards: [React.ComponentType<{ size?: number }>, string, string, string, string][] =
     kind === "expenses"
       ? [
-          [Receipt, "ค่าใช้จ่ายรวม", "฿" + money(totals.out), (data?.expenses.length || 0) + " รายการ"],
-          [Landmark, "ภาษีซื้อขอคืนได้ (VAT)", "฿" + money(totals.inVat), "เฉพาะใบกำกับภาษีเต็มรูป"],
-          [HandCoins, "หัก ณ ที่จ่าย", "฿" + money(totals.wht), "ภ.ง.ด.3 / ภ.ง.ด.53 ที่ต้องนำส่ง"],
-          [Wallet, "จ่ายจริงสุทธิ", "฿" + money(totals.paid), totals.pending ? totals.pending + " รายการยังรอตรวจ" : "หลังหัก ณ ที่จ่าย"],
+          [Receipt, "ค่าใช้จ่ายรวม", "฿" + money(totals.out), (data?.expenses.length || 0) + " รายการ", "pink"],
+          [Landmark, "ภาษีซื้อขอคืนได้ (VAT)", "฿" + money(totals.inVat), "เฉพาะใบกำกับภาษีเต็มรูป", "blue"],
+          [HandCoins, "หัก ณ ที่จ่าย", "฿" + money(totals.wht), "ภ.ง.ด.3 / ภ.ง.ด.53 ที่ต้องนำส่ง", "amber"],
+          [Wallet, "จ่ายจริงสุทธิ", "฿" + money(totals.paid), totals.pending ? totals.pending + " รายการยังรอตรวจ" : "หลังหัก ณ ที่จ่าย", "violet"],
         ]
       : [
-          [TrendingUp, "รายรับรวม", "฿" + money(totals.in), (data?.income.length || 0) + " รายการ"],
-          [Landmark, "ภาษีขาย (VAT) ในยอดรับ", "฿" + money(totals.outVat), "จากใบแจ้งหนี้ที่อ้างอิง"],
-          [Wallet, "รายรับก่อน VAT", "฿" + money(totals.inBase), "ยอดที่เป็นรายได้จริง"],
+          [TrendingUp, "รายรับรวม", "฿" + money(totals.in), (data?.income.length || 0) + " รายการ", "green"],
+          [Landmark, "ภาษีขาย (VAT) ในยอดรับ", "฿" + money(totals.outVat), "จากใบแจ้งหนี้ที่อ้างอิง", "blue"],
+          [Wallet, "รายรับก่อน VAT", "฿" + money(totals.inBase), "ยอดที่เป็นรายได้จริง", "teal"],
         ];
 
   return (
@@ -213,14 +228,17 @@ export function FinanceLedger({
         </div>
       </section>
 
-      <div className="expense-cards">
-        {cards.map(([Ico, t, v, note]) => (
-          <div className="card expense-card" key={t}>
-            <small>
-              <Ico size={15} /> {t}
-            </small>
-            <b>{v}</b>
-            {note && <em className="fl-note">{note}</em>}
+      <div className="fl-cards">
+        {cards.map(([Ico, t, v, note, tone]) => (
+          <div className={"fl-card " + tone} key={t}>
+            <span className="fl-card-icon">
+              <Ico size={22} />
+            </span>
+            <div>
+              <small>{t}</small>
+              <b>{v}</b>
+              <em>{note}</em>
+            </div>
           </div>
         ))}
         {extraCards}
@@ -231,14 +249,20 @@ export function FinanceLedger({
         !error && <Loading />
       ) : (
         <>
-          {mode !== "day" && (
+          {(
             <div className="fl-grid">
               <section className="card fl-chart">
-                <h3>{kind === "expenses" ? "ค่าใช้จ่าย" : "รายรับ"}{mode === "year" ? "รายเดือน" : "รายวัน"}</h3>
+                <h3>
+                  {kind === "expenses" ? "ค่าใช้จ่าย" : "รายรับ"}
+                  {modeName}
+                  <span className={"fl-mode-chip " + kind}>{label(mode, anchor)}</span>
+                </h3>
+                <p className="fl-chart-sub">{barsBy}</p>
                 <div className={"fl-bars " + kind + (mode === "month" ? " days" : "")}>
                   {bars.map((b) => (
                     <button
                       key={b.key}
+                      className={b.on ? "on" : ""}
                       title={`${b.label}: ฿${money(b.value)}`}
                       onClick={() => {
                         if (mode === "year") {
