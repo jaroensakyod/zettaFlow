@@ -592,3 +592,16 @@ dialog.modal:has(.fd) { width: min(1100px, 95vw); max-width: none; }
 .fl-bars button:last-child:hover .fl-tip, .fl-bars button:nth-last-child(2):hover .fl-tip { transform: translate(0, 0); }
 .fl-bars button:last-child .fl-tip::after, .fl-bars button:nth-last-child(2) .fl-tip::after { left: auto; right: 10px; }
 .fl-chart { overflow: visible; }
+
+/* List header: filter by payment status */
+.fl-pay-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.fl-pay-filter button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--th-surface, #fff); font-size: 13px; font-weight: 600; color: var(--th-ink-2, #3b3554); cursor: pointer; }
+.fl-pay-filter button i { font-style: normal; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bg); font-size: 11.5px; text-align: center; }
+.fl-pay-filter button.paid { --t: #16a34a; }
+.fl-pay-filter button.waiting { --t: #6b7280; }
+.fl-pay-filter button.unpaid { --t: #ea580c; }
+.fl-pay-filter button.all { --t: var(--accent); }
+.fl-pay-filter button:hover { border-color: var(--t); color: var(--t); }
+.fl-pay-filter button.on { background: var(--t); border-color: var(--t); color: #fff; }
+.fl-pay-filter button.on i { background: rgba(255, 255, 255, .25); color: #fff; }
+@media (max-width: 900px) { .fl-pay-filter { margin-left: 0; width: 100%; } }

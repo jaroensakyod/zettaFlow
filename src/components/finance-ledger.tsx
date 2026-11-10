@@ -95,6 +95,8 @@ export function FinanceLedger({
     [raw, setRaw] = useState<Ledger | null>(null),
     [error, setError] = useState(""),
     [q, setQ] = useState(""),
+    // Show only one payment status (ชำระแล้ว / รอชำระ / ยังไม่ชำระ), or all.
+    [pay, setPay] = useState<PayState | "">(""),
     [open, setOpen] = useState<Expense | Income | null>(null);
   const { from, to } = range(mode, anchor);
   // A single day is drawn against the rest of its week, so fetch the week and narrow the numbers to the day.
@@ -169,8 +171,13 @@ export function FinanceLedger({
   }, [data, kind]);
 
   const term = q.trim().toLowerCase();
-  const expRows = (data?.expenses || []).filter((r) => !term || [r.name, r.code, r.category, r.payee, r.docNo, r.projectName, r.payState].join(" ").toLowerCase().includes(term));
-  const incRows = (data?.income || []).filter((r) => !term || [r.name, r.docNo, r.customer, r.invoice, r.reference, r.method, r.project, r.payState].join(" ").toLowerCase().includes(term));
+  const byText = <T,>(rows: T[], text: (r: T) => string) => rows.filter((r) => !term || text(r).toLowerCase().includes(term));
+  const expAll = byText(data?.expenses || [], (r) => [r.name, r.code, r.category, r.payee, r.docNo, r.projectName, r.project].join(" ")),
+    incAll = byText(data?.income || [], (r) => [r.name, r.docNo, r.customer, r.invoice, r.reference, r.method, r.project, r.projectName].join(" "));
+  const listAll: { payState: PayState }[] = kind === "expenses" ? expAll : incAll;
+  const payCount = (st: PayState | "") => (st ? listAll.filter((r) => r.payState === st).length : listAll.length);
+  const expRows = expAll.filter((r) => !pay || r.payState === pay);
+  const incRows = incAll.filter((r) => !pay || r.payState === pay);
   const balance = r2(totals.in - totals.out);
   const max = Math.max(1, ...bars.map((b) => b.value)),
     gmax = Math.max(1, ...groups.map((g) => g.v));
@@ -321,6 +328,14 @@ export function FinanceLedger({
               <h3>
                 รายการ{kind === "expenses" ? "ค่าใช้จ่าย" : "รายรับ"} · {label(mode, anchor)}
               </h3>
+              <div className="fl-pay-filter" role="group" aria-label="กรองตามสถานะการชำระ">
+                {(["", "ชำระแล้ว", "รอชำระ", "ยังไม่ชำระ"] as const).map((st) => (
+                  <button key={st || "all"} className={(pay === st ? "on " : "") + (st ? payTone[st] : "all")} aria-pressed={pay === st} onClick={() => setPay(st)}>
+                    {st || "ทั้งหมด"}
+                    <i>{payCount(st)}</i>
+                  </button>
+                ))}
+              </div>
               <label className="fl-search">
                 <Search size={15} />
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหารายการ ผู้รับเงิน เลขที่เอกสาร…" />
