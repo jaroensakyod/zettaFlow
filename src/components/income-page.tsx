@@ -1,12 +1,11 @@
 "use client";
 // รายรับ: money in, with its tax on the same page — ภาษีขาย (output VAT) from invoices, the ภ.พ.30 balance against
-// ภาษีซื้อ from expenses, and what customers still owe. Below: the income records themselves (payments marked income).
+// ภาษีซื้อ from expenses, what customers still owe, the sales flow, and the period summary with every income row.
 import { useEffect, useState } from "react";
 import { TrendingUp, Landmark, HandCoins, AlertTriangle, Plus, LayoutDashboard, Receipt, FileDigit, ChevronRight } from "lucide-react";
-import type { Context, Entity } from "@/lib/types";
-import { api, money, Empty, Loading } from "./shared";
-import { Records } from "./records";
-import { LinePending } from "./line-review";
+import type { Context } from "@/lib/types";
+import { api, money, Loading } from "./shared";
+import { FinanceLedger } from "./finance-ledger";
 
 type IncomeMonth = { month: string; income: number; invoiced: number; outVat: number; docs: number };
 type Stage = { count: number; amount: number };
@@ -20,7 +19,6 @@ type IncomeReport = {
   pipeline: { quotesSent: Stage; quotesAccepted: Stage; ordersToInvoice: Stage } | null;
 };
 type TaxMonth = { month: string; vat: number };
-const monthName = (m: string) => new Date(m + "-01").toLocaleDateString("th-TH", { month: "long", year: "numeric" });
 const thisMonth = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
 
 /** Financial Center · รายรับ · ค่าใช้จ่าย — the same three places as the sidebar, on top of each page. */
@@ -42,21 +40,15 @@ export function FinanceTabs({ current, navigate, children }: { current: "finance
   );
 }
 
-export function IncomePage({ ctx, notify, changed, navigate }: { ctx: Context; notify: (s: string) => void; changed: () => void; navigate: (v: string) => void }) {
+export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: string) => void }) {
   const [data, setData] = useState<IncomeReport | null>(null),
     [tax, setTax] = useState<TaxMonth[]>([]),
-    [error, setError] = useState(""),
-    [signal, setSignal] = useState(0),
-    [tick, setTick] = useState(0);
+    [error, setError] = useState("");
   const writable = ctx.member.role !== "viewer";
   useEffect(() => {
     api("/income-report").then(setData).catch((e) => setError(e.message));
     api("/tax-report").then(setTax).catch(() => {});
-  }, [tick]);
-  const refresh = () => {
-    setTick((t) => t + 1);
-    changed();
-  };
+  }, []);
   if (error) return <p className="form-error">{error}</p>;
   if (!data) return <Loading />;
   const month = thisMonth(),
@@ -67,29 +59,27 @@ export function IncomePage({ ctx, notify, changed, navigate }: { ctx: Context; n
     <div className="acc income-page">
       <FinanceTabs current="income" navigate={navigate}>
         {writable && (
-          <button className="primary acc-new" onClick={() => setSignal((n) => n + 1)}>
+          <button className="primary acc-new" onClick={() => navigate("payments?direction=income&new=1")}>
             <Plus size={16} /> บันทึกรายรับ
           </button>
         )}
       </FinanceTabs>
-      <div className="expense-cards">
-        {(
-          [
-            [TrendingUp, "รายรับเดือนนี้", "฿" + money(now.income)],
-            [Landmark, "ภาษีขาย (ภ.พ.30) เดือนนี้", "฿" + money(now.outVat)],
-            [HandCoins, "ลูกค้าค้างชำระ", "฿" + money(data.outstanding)],
-            [AlertTriangle, "ใบแจ้งหนี้เกินกำหนด", data.overdueCount + " ใบ" + (data.overdue ? " · ฿" + money(data.overdue) : "")],
-          ] as const
-        ).map(([Ico, label, value]) => (
-          <div className="card expense-card" key={label}>
-            <small>
-              <Ico size={15} /> {label}
-            </small>
-            <b>{value}</b>
-          </div>
-        ))}
-      </div>
       <SalesFlow data={data} month={now} navigate={navigate} />
+      <FinanceLedger
+        kind="income"
+        navigate={navigate}
+        extraCards={
+          <>
+            <div className="card expense-card">
+              <small>
+                <HandCoins size={15} /> ลูกค้าค้างชำระ (ทั้งหมด)
+              </small>
+              <b>฿{money(data.outstanding)}</b>
+              <em className="fl-note">{data.openInvoices} ใบแจ้งหนี้รอรับเงิน</em>
+            </div>
+          </>
+        }
+      />
       <section className="card income-vat">
         <Landmark size={18} />
         <span>
@@ -103,53 +93,12 @@ export function IncomePage({ ctx, notify, changed, navigate }: { ctx: Context; n
           <FileDigit size={15} /> ใบแจ้งหนี้
         </button>
       </section>
-      {!data.months.length ? (
-        <Empty title="ยังไม่มีรายรับ" description="บันทึกรายรับ หรือออกใบแจ้งหนี้ ระบบจะสรุปยอดและภาษีขายให้รายเดือน" />
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>เดือน</th>
-                <th>รายรับ</th>
-                <th>ออกใบแจ้งหนี้</th>
-                <th>ภาษีขาย (ภ.พ.30)</th>
-                <th>ภาษีซื้อ</th>
-                <th>ภาษีต้องชำระ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.months.map((m) => {
-                const iv = tax.find((t) => t.month === m.month)?.vat || 0,
-                  due = Math.round((m.outVat - iv) * 100) / 100;
-                return (
-                  <tr key={m.month}>
-                    <td className="primary-cell">{monthName(m.month)}</td>
-                    <td>฿{money(m.income)}</td>
-                    <td>฿{money(m.invoiced)}</td>
-                    <td>฿{money(m.outVat)}</td>
-                    <td>฿{money(iv)}</td>
-                    <td className={due > 0 ? "down" : ""}>{due < 0 ? "ขอคืน ฿" + money(-due) : "฿" + money(due)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {!!data.overdueCount && (
+        <p className="note income-overdue">
+          <AlertTriangle size={14} /> ใบแจ้งหนี้เกินกำหนด {data.overdueCount} ใบ · ฿{money(data.overdue)} —{" "}
+          <button className="fc-link" onClick={() => navigate("invoices")}>ดูใบแจ้งหนี้</button>
+        </p>
       )}
-      <h2 className="acc-table-title">รายการรายรับ</h2>
-      <LinePending kind="payments" ctx={ctx} notify={notify} changed={refresh} />
-      <Records
-        kind="payments"
-        ctx={ctx}
-        notify={notify}
-        changed={refresh}
-        refresh={tick}
-        only={{ label: "รายรับ", test: (e: Entity) => e.data.direction === "income" }}
-        preset={{ direction: "income" }}
-        addLabel="บันทึกรายรับ"
-        newSignal={signal}
-      />
     </div>
   );
 }

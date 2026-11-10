@@ -86,7 +86,8 @@ import { CompanySettings, Team } from "./settings";
 import { ChatHub } from "./b2b-chat";
 import { EmployeesPage } from "./employees-page";
 import { FinanceCenter } from "./finance-center";
-import { IncomePage } from "./income-page";
+import { IncomePage, FinanceTabs } from "./income-page";
+import { FinanceLedger } from "./finance-ledger";
 import { ReceiptsPage } from "./receipts-page";
 import { CompanyProfilePage } from "./company-profile";
 import { ProjectsPage } from "./projects";
@@ -761,11 +762,22 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             />
           ) : view === "expense-new" ? (
             <ExpenseForm key={searchParams.get("id") || "new"} ctx={ctx} id={searchParams.get("id")} navigate={navigate} notify={notify} changed={load} />
+          ) : view === "expenses" && catalog[view] && !searchParams.get("filter") ? (
+            // รายการค่าใช้จ่าย: a summary only — totals with tax for a day / month / year and every row in detail.
+            <div className="acc">
+              <FinanceTabs current="expenses" navigate={navigate}>
+                {ctx.member.role !== "viewer" && (
+                  <button className="primary acc-new" onClick={() => navigate("expense-new")}>
+                    <Plus size={16} /> บันทึกค่าใช้จ่าย
+                  </button>
+                )}
+              </FinanceTabs>
+              <FinanceLedger kind="expenses" navigate={navigate} />
+            </div>
           ) : view === "expenses" && catalog[view] ? (
+            // รออนุมัติ: drop receipts, AI reads them, a person checks each one.
             <>
               <Accounting key={"acc:" + fullView} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
-              <h2 className="acc-table-title">ภาษีซื้อและหัก ณ ที่จ่าย รายเดือน</h2>
-              <TaxReport navigate={navigate} compact />
               <h2 className="acc-table-title">ตารางค่าใช้จ่ายทั้งหมด</h2>
               <Records key={view} kind={view} ctx={ctx} notify={notify} changed={load} refresh={lastSync.getTime()} />
             </>
@@ -775,7 +787,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               <ProjectsPage ctx={ctx} notify={notify} changed={load} navigate={navigate} />
             </>
           ) : view === "income" ? (
-            <IncomePage key={fullView} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
+            <IncomePage key={fullView} ctx={ctx} navigate={navigate} />
           ) : view === "finance" ? (
             <FinanceCenter key={fullView} ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "employees" ? (
@@ -804,6 +816,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                 only={listFilter}
                 preset={listFilter && "preset" in listFilter ? listFilter.preset : undefined}
                 addLabel={view === "payments" && searchParams.get("direction") === "income" ? "บันทึกรับชำระ" : undefined}
+                newSignal={searchParams.get("new") ? 1 : 0}
               />
             </>
           ) : view === "ai-inbox" || view === "templates" ? (
