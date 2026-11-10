@@ -14,7 +14,7 @@ test("every conversion produces a record its target page accepts, and is recogni
   } as Record<string, Record<string, unknown>>;
   for (const c of conversions) {
     const src = { id: "abcdef12-0000-4000-8000-000000000000", kind: c.from, data: sources[c.from] };
-    const { data, exists } = convertData(src);
+    const { data, exists } = convertData(src, c.to);
     const fitted = fitToPage(c.to, data);
     validateEntity(c.to, fitted);
     assert.ok(exists({ id: "x", kind: c.to, data: fitted }), c.from + " → " + c.to + " should be detected as done");

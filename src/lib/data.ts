@@ -818,8 +818,8 @@ export async function setTemplateTarget(ctx: Context, id: string, input: unknown
   dbError(error);
 }
 /** Next step for a document (quotation → SO → invoice, paid bill → payment, hired applicant → employee). Runs once per source. */
-export async function convertEntity(ctx: Context, kind: string, id: string) {
-  const rule = conversions.find((c) => c.from === kind);
+export async function convertEntity(ctx: Context, kind: string, id: string, to?: string) {
+  const rule = conversions.find((c) => c.from === kind && (!to || c.to === to));
   assert(rule, "แปลงเอกสารนี้ไม่ได้", 404);
   let src: Entity | undefined;
   if (ctx.demo) src = (await demoRead()).entities.find((e) => e.id === id && e.kind === kind && !e.archived_at);
@@ -831,7 +831,7 @@ export async function convertEntity(ctx: Context, kind: string, id: string) {
   }
   assert(src && canRead(ctx, src.department), "ไม่พบรายการ", 404);
   assert(rule.when.includes(String(src.data.status)), "ทำได้เมื่อสถานะเป็น " + rule.when.join(" / "));
-  const { data, exists } = convertData(src);
+  const { data, exists } = convertData(src, rule.to);
   assert(!(await allEntities(ctx, rule.to, 5000)).some(exists), "สร้างไปแล้ว", 409);
   // The sales order (and the invoice after it) carry the quotation's project.
   if (kind === "quotations" && !data.projectId) {

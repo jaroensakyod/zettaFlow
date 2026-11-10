@@ -629,7 +629,10 @@ async function handle(req: NextRequest) {
     }
     if (path[0] === "options") return response(await entityOptions(ctx));
     if (path[0] === "convert" && method === "POST")
-      return response(await convertEntity(ctx, z.string().max(40).parse(path[1]), z.uuid().parse(path[2])), 201);
+      return response(
+        await convertEntity(ctx, z.string().max(40).parse(path[1]), z.uuid().parse(path[2]), z.object({ to: z.string().max(40).optional() }).catch({}).parse(await body(req).catch(() => ({}))).to),
+        201,
+      );
     if (path[0] === "projects" && method === "GET")
       return response(path[1] ? await projectDetail(ctx, z.uuid().parse(path[1])) : await projectsOverview(ctx));
     if (path[0] === "entities") {

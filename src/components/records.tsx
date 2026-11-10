@@ -702,7 +702,7 @@ export function Records({
                                 className="small-button"
                                 onClick={async () => {
                                   try {
-                                    await api("/convert/" + kind + "/" + item.id, { method: "POST", body: {} });
+                                    await api("/convert/" + kind + "/" + item.id, { method: "POST", body: { to: c.to } });
                                     notify(c.label + " แล้ว · ดูได้ที่หน้า" + catalog[c.to].label);
                                     await load();
                                     changed();

@@ -1,4 +1,4 @@
-// A quotation the customer accepts becomes a project named by its code; the sales order made from it carries
+// A quotation the customer accepts becomes a project named by its code; the invoice (or sales order) made from it carries
 // that project, and the รายรับ / ค่าใช้จ่าย lists show the code in their โปรเจกต์ column.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -32,8 +32,19 @@ test("accepting a quotation creates its project; the SO and the ledger carry the
     await saveEntity(ctx, "quotations", { ...again.data, notes: "เซ็นแล้ว" }, again.id, again.version);
     assert.equal((await allEntities(ctx, "projects", 500)).filter((p) => p.data.code === code).length, 1);
 
-    const so = await convertEntity(ctx, "quotations", q.id);
-    assert.equal(so.record.data.projectId, projects[0].id, "the sales order belongs to the quotation's project");
+    // Default next step: straight to an invoice, in the quotation's project, once only.
+    const inv = await convertEntity(ctx, "quotations", q.id);
+    assert.equal(inv.kind, "invoices");
+    assert.equal(inv.record.data.projectId, projects[0].id, "the invoice belongs to the quotation's project");
+    await assert.rejects(() => convertEntity(ctx, "quotations", q.id, "invoices"), /สร้างไปแล้ว/);
+    // A team that ships first can still open a sales order from it.
+    const so = await convertEntity(ctx, "quotations", q.id, "sales_orders");
+    assert.equal(so.kind, "sales_orders");
+    assert.equal(so.record.data.projectId, projects[0].id);
+    // The รายรับ list shows the quotation code on the unpaid invoice.
+    const day = String(inv.record.data.date);
+    const rows = (await ledger(ctx, day, day)).income.filter((r) => r.kind === "invoices" && r.id === inv.record.id);
+    assert.equal(rows[0]?.project, code);
 
     // An expense filed to that project shows the quotation code in the list.
     const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);

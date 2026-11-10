@@ -112,14 +112,15 @@ export async function incomeReport(ctx: Context) {
   const base = await incomeMonths(ctx);
   let pipeline: { quotesSent: SalesStage; quotesAccepted: SalesStage; ordersToInvoice: SalesStage } | null = null;
   if (canRead(ctx, "Sales")) {
-    const [quotes, orders] = await Promise.all([allEntities(ctx, "quotations", 5000), allEntities(ctx, "sales_orders", 5000)]);
+    const [quotes, orders, invoices] = await Promise.all([allEntities(ctx, "quotations", 5000), allEntities(ctx, "sales_orders", 5000), allEntities(ctx, "invoices", 5000)]);
+    const invoiced = (id: string) => invoices.some((i) => String(i.data.description || "").includes("#" + id.slice(0, 8)));
     const total = (kind: string, d: Record<string, unknown>) => catalog[kind].computed?.total?.calc(d) || 0,
       add = (st: SalesStage, v: number) => ((st.count += 1), (st.amount = r2(st.amount + v)));
     const converted = new Set(orders.map((o) => String(o.data.quotationId || "")));
     pipeline = { quotesSent: { count: 0, amount: 0 }, quotesAccepted: { count: 0, amount: 0 }, ordersToInvoice: { count: 0, amount: 0 } };
     for (const q of quotes) {
       if (q.data.status === "ส่งแล้ว") add(pipeline.quotesSent, total("quotations", q.data));
-      else if (q.data.status === "ตอบรับ" && !converted.has(q.id)) add(pipeline.quotesAccepted, total("quotations", q.data));
+      else if (q.data.status === "ตอบรับ" && !converted.has(q.id) && !invoiced(q.id)) add(pipeline.quotesAccepted, total("quotations", q.data));
     }
     for (const o of orders)
       if (["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว"].includes(String(o.data.status))) add(pipeline.ordersToInvoice, total("sales_orders", o.data));
@@ -204,11 +205,11 @@ export async function ledger(ctx: Context, from: string, to: string) {
   const customerName = new Map(customers.map((c) => [c.id, String(c.data.name || "")]));
   const invoiceById = new Map(invoices.map((i) => [i.id, i]));
   type Row = Rows[number];
-  // invoice → its sales order (by the "#id" the conversion writes) → the quotation → its code
+  // invoice → the quotation it was made from (directly, or through a sales order) by the "#id" the conversion writes
   const quoteOfInvoice = (inv: Row) => {
     const text = String(inv.data.description || "");
     const so = orders.find((o) => text.includes("#" + o.id.slice(0, 8)));
-    const q = so && quotes.find((x) => x.id === so.data.quotationId);
+    const q = quotes.find((x) => text.includes("#" + x.id.slice(0, 8))) || (so && quotes.find((x) => x.id === so.data.quotationId));
     return q ? String(q.data.code || q.data.name || "") : "";
   };
   const invoiceProject = (inv: Row) => projectOf(inv.data.projectId) || { project: quoteOfInvoice(inv), projectName: "" };

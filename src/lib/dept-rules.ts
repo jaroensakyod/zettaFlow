@@ -66,16 +66,28 @@ const ref = (e: { id: string; data: Record<string, unknown> }) => String(e.data.
 
 type Row = { id: string; kind: string; data: Record<string, unknown> };
 export type Conversion = { from: string; to: string; label: string; when: string[]; done?: string };
-/** Next-step buttons: quotation → SO → invoice, paid AP bill → payment, hired applicant → employee. */
+/** Next-step buttons: accepted quotation → invoice (or → SO for teams that ship first), SO → invoice, paid AP bill →
+ *  payment, hired applicant → employee. The first rule for a page is its default. */
 export const conversions: Conversion[] = [
+  { from: "quotations", to: "invoices", label: "ออกใบแจ้งหนี้", when: ["ตอบรับ"] },
   { from: "quotations", to: "sales_orders", label: "แปลงเป็นคำสั่งซื้อ (SO)", when: ["ตอบรับ"] },
   { from: "sales_orders", to: "invoices", label: "ออกใบแจ้งหนี้", when: ["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว"], done: "ออกใบแจ้งหนี้แล้ว" },
   { from: "bills", to: "payments", label: "บันทึกการจ่ายเงิน", when: ["จ่ายแล้ว"] },
   { from: "recruitment", to: "employees", label: "สร้างข้อมูลพนักงาน", when: ["รับเข้าทำงาน"] },
 ];
 /** The new record's data, and how to tell it was already created (so a document converts once). */
-export function convertData(src: Row): { data: Record<string, unknown>; exists: (r: Row) => boolean } {
+export function convertData(src: Row, to?: string): { data: Record<string, unknown>; exists: (r: Row) => boolean } {
   const d = src.data;
+  // Accepted quotation straight to an invoice: same figures, the quotation's project, "#id" so it converts once.
+  if (src.kind === "quotations" && to !== "sales_orders") {
+    const lines = Array.isArray(d.lines) ? (d.lines as { qty: number; price: number }[]) : [];
+    const sub = Math.max(0, (lines.length ? lines.reduce((s, l) => s + num(l.qty) * num(l.price), 0) : num(d.subtotal)) - num(d.discount));
+    const base = d.vatMode === "included" ? r2(sub / 1.07) : sub;
+    return {
+      data: { name: "INV-" + String(d.code || d.name), customerId: d.customerId, projectId: d.projectId, date: today(), dueDate: plusDays(30), subtotal: r2(base), vat: d.vatMode === "none" ? 0 : 7, description: "ตามใบเสนอราคา " + ref(src) },
+      exists: (r) => r.kind === "invoices" && String(r.data.description || "").includes("#" + src.id.slice(0, 8)),
+    };
+  }
   switch (src.kind) {
     case "quotations":
       return {

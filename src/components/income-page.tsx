@@ -109,18 +109,19 @@ export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: stri
 /** ขั้นตอนการขาย: how many documents wait at each stage, each stage opens its page. */
 function SalesFlow({ data, month, navigate }: { data: IncomeReport; month: IncomeMonth; navigate: (v: string) => void }) {
   const p = data.pipeline;
+  // Waiting for an invoice: accepted quotations not invoiced yet (plus sales orders, for teams that still use them).
+  const toInvoice = p ? { count: p.quotesAccepted.count + p.ordersToInvoice.count, amount: p.quotesAccepted.amount + p.ordersToInvoice.amount } : null;
   const steps: [number, string, string, string, string][] = [
     [1, "ใบเสนอราคา", p ? p.quotesSent.count + " ใบ รอลูกค้าตอบ" : "—", p ? "฿" + money(p.quotesSent.amount) : "", "quotations"],
-    [2, "ลูกค้ายืนยัน", p ? p.quotesAccepted.count + " ใบ รอเปิดคำสั่งซื้อ" : "—", p ? "฿" + money(p.quotesAccepted.amount) : "", "sales_orders"],
-    [3, "ออกใบแจ้งหนี้", p ? p.ordersToInvoice.count + " คำสั่งซื้อ รอออกใบ" : "—", p ? "฿" + money(p.ordersToInvoice.amount) : "", "invoices"],
-    [4, "รับชำระเงิน", data.openInvoices + " ใบ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income"],
-    [5, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts"],
+    [2, "ใบแจ้งหนี้", toInvoice ? toInvoice.count + " งานตอบรับแล้ว รอออกใบแจ้งหนี้" : "—", toInvoice ? "฿" + money(toInvoice.amount) : "", "invoices"],
+    [3, "รับชำระเงิน", data.openInvoices + " ใบแจ้งหนี้ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income"],
+    [4, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts"],
   ];
   return (
     <section className="card sales-flow" aria-label="ขั้นตอนการขาย">
       <header>
         <b>ขั้นตอนการขาย</b>
-        <small>ทำใบเสนอราคา → ลูกค้าตอบรับ (แนบไฟล์ที่ลูกค้าเซ็นในใบเสนอราคา) → แปลงเป็นคำสั่งซื้อ → ออกใบแจ้งหนี้ → รับเงิน → ออกใบเสร็จ</small>
+        <small>ทำใบเสนอราคา → ลูกค้าตอบรับ (แนบไฟล์ที่ลูกค้าเซ็น) → กด "ออกใบแจ้งหนี้" ที่ใบเสนอราคา → รับเงิน → เก็บใบเสร็จ</small>
       </header>
       <ol>
         {steps.map(([n, label, note, amount, view], i) => (
@@ -137,7 +138,7 @@ function SalesFlow({ data, month, navigate }: { data: IncomeReport; month: Incom
           </li>
         ))}
       </ol>
-      {!p && <p className="note">ตัวเลขใบเสนอราคาและคำสั่งซื้อแสดงเฉพาะผู้ที่มีสิทธิ์ฝ่ายขาย</p>}
+      {!p && <p className="note">ตัวเลขใบเสนอราคาแสดงเฉพาะผู้ที่มีสิทธิ์ฝ่ายขาย</p>}
     </section>
   );
 }
