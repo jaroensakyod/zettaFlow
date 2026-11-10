@@ -10,11 +10,16 @@ import {
   ChartColumn, Settings, TrendingUp, Store, Lock, type LucideIcon,
 } from "lucide-react";
 import { departmentMenu, baseView } from "@/lib/departments";
-import { useCoins } from "./coins";
+import { subscriptionActive, type Subscription } from "@/lib/billing";
+import { api } from "./shared";
 
-/** แผนกของฉัน: บัญชีและการเงิน is free for every company; any other department opens once its system is bought in App Shop. */
+/**
+ * แผนกของฉัน: บัญชีและการเงิน is free for every company. A paid package (Starter and up, active — not a trial) unlocks
+ * การตลาด, เซลล์, จัดซื้อ (under งานทั่วไป / บริหารองค์กร), คลัง and HR. Event, IT and กฎหมาย stay locked.
+ */
 export const FREE_DEPARTMENT = "accounting";
-const deptModule: Record<string, string> = { marketing: "marketing", warehouse: "inventory", hr: "hr", event: "event", it: "it", legal: "legal" };
+export const PACKAGE_DEPARTMENTS = ["sales", "marketing", "warehouse", "hr", "admin"];
+export const departmentLocked = (id: string, paid: boolean) => id !== FREE_DEPARTMENT && !(paid && PACKAGE_DEPARTMENTS.includes(id));
 
 const icons: Record<string, LucideIcon> = {
   AppWindow, ArrowLeftRight, Award, BadgePercent, BookOpen, Building2, Calculator, CalendarClock, CalendarDays,
@@ -34,6 +39,9 @@ export const MenuIcon = ({ name, size = 16 }: { name: string; size?: number }) =
   const C = icons[name] || FileText;
   return <C size={size} />;
 };
+
+// Package departments open the package page; the others have nothing to buy yet, so App Shop.
+const unlockView = (id: string) => (PACKAGE_DEPARTMENTS.includes(id) ? "pricing" : "store");
 
 export function DepartmentMegaMenu({
   view,
@@ -66,9 +74,13 @@ export function DepartmentMegaMenu({
     clearTimeout(leaveTimer.current);
     leaveTimer.current = setTimeout(() => setOpenId(""), 140);
   };
-  const { data: coins } = useCoins();
-  const owned = new Set((coins?.modules || []).filter((m) => m.owned).map((m) => m.id));
-  const locked = (id: string) => id !== FREE_DEPARTMENT && !(deptModule[id] && owned.has(deptModule[id]));
+  const [paid, setPaid] = useState(false);
+  useEffect(() => {
+    api("/billing")
+      .then((b: { subscription?: Subscription }) => setPaid(!!b.subscription && b.subscription.status === "active" && subscriptionActive(b.subscription)))
+      .catch(() => setPaid(false));
+  }, []);
+  const locked = (id: string) => departmentLocked(id, paid);
   const q = query.trim().toLowerCase();
   const cards = useMemo(
     () =>
@@ -92,7 +104,7 @@ export function DepartmentMegaMenu({
       <div className="dept-menu-head">
         <div>
           <h2>แผนกของฉัน</h2>
-          <p>บัญชีและการเงินใช้ได้ฟรี · แผนกอื่นปลดล็อกได้ที่ App Shop</p>
+          <p>{paid ? "แพ็กเกจของคุณเปิดใช้ การตลาด · เซลล์ · จัดซื้อ · คลัง · HR แล้ว" : "บัญชีและการเงินใช้ได้ฟรี · อัปเกรดแพ็กเกจเพื่อปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลัง · HR"}</p>
         </div>
         <label className="dept-menu-search">
           <Search size={16} />
@@ -118,9 +130,9 @@ export function DepartmentMegaMenu({
             <div className="dept-menu-title">
               <button
                 className="dept-menu-go"
-                title={lock ? d.title + " · ล็อกอยู่ ปลดล็อกได้ที่ App Shop" : "ไปหน้า" + d.title}
+                title={lock ? d.title + " · ล็อกอยู่" : "ไปหน้า" + d.title}
                 onClick={() => {
-                  if (lock) return navigate("store");
+                  if (lock) return navigate(unlockView(d.id));
                   rememberDept(d.id);
                   navigate(d.overview);
                 }}
@@ -132,11 +144,11 @@ export function DepartmentMegaMenu({
                   <b>
                     {d.title} <small>({d.en})</small>
                   </b>
-                  <em>{lock ? "ล็อกอยู่ · ปลดล็อกที่ App Shop" : d.subtitle}</em>
+                  <em>{lock ? (PACKAGE_DEPARTMENTS.includes(d.id) ? "ล็อกอยู่ · อัปเกรดแพ็กเกจเพื่อใช้งาน" : "ล็อกอยู่ · เร็วๆ นี้") : d.subtitle}</em>
                 </span>
               </button>
               {lock ? (
-                <button className="dept-menu-lock" aria-label={"ปลดล็อก" + d.title + "ที่ App Shop"} onClick={() => navigate("store")}>
+                <button className="dept-menu-lock" aria-label={"ปลดล็อก" + d.title} onClick={() => navigate(unlockView(d.id))}>
                   <Lock size={15} />
                 </button>
               ) : (
