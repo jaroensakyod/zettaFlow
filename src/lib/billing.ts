@@ -1,54 +1,29 @@
-// ZettaFlow AI subscription catalogue (deck slide 29). Prices exclude VAT 7%.
-export type PlanId = "starter" | "growth" | "enterprise";
+// EliteFlow AI packages (poster, Nov 2026). Prices exclude VAT 7%; yearly = 10 months (2 months free).
+// Every company gets accounting and the free features; any paid package also unlocks marketing, sales, procurement,
+// warehouse and HR (see dept-menu.tsx). Mirrored in the plans table (0054_poster_plans.sql).
+export type PlanId = "starter" | "growth" | "business" | "enterprise";
 export type Plan = {
   id: PlanId;
   name: string;
   monthly: number;
   yearly: number;
   workflows: number | null;
+  /** AI-processed items (documents) per month. */
   documents: number | null;
   line_groups: number | null;
   users: number | null;
+  /** Voice transcription minutes per month. */
+  voice_minutes: number | null;
+  storage_gb: number | null;
   support: string;
   api: string;
 };
 export const plans: Plan[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    monthly: 1190,
-    yearly: 11900,
-    workflows: 5,
-    documents: 1000,
-    line_groups: 2,
-    users: 2,
-    support: "Email",
-    api: "—",
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    monthly: 3490,
-    yearly: 34900,
-    workflows: 20,
-    documents: 4000,
-    line_groups: 10,
-    users: 10,
-    support: "Priority",
-    api: "Optional",
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    monthly: 8900,
-    yearly: 89000,
-    workflows: null,
-    documents: 20000, // fair use; overage billed beyond this
-    line_groups: null,
-    users: null,
-    support: "Dedicated",
-    api: "Yes",
-  },
+  { id: "starter", name: "Starter", monthly: 2590, yearly: 25900, workflows: 5, documents: 2500, line_groups: 3, users: 5, voice_minutes: 60, storage_gb: 5, support: "Email", api: "—" },
+  { id: "growth", name: "Growth", monthly: 3590, yearly: 35900, workflows: 20, documents: 5000, line_groups: 5, users: 10, voice_minutes: 150, storage_gb: 15, support: "Priority", api: "Optional" },
+  { id: "business", name: "Business", monthly: 5990, yearly: 59900, workflows: 50, documents: 10000, line_groups: 10, users: 25, voice_minutes: 300, storage_gb: 40, support: "Priority", api: "Yes" },
+  // documents: fair use; overage billed beyond this
+  { id: "enterprise", name: "Enterprise", monthly: 9990, yearly: 99900, workflows: null, documents: 25000, line_groups: null, users: null, voice_minutes: 900, storage_gb: 100, support: "บริการตั้งค่า + ซัพพอร์ต Exclusive", api: "Yes" },
 ];
 export type AddonId = "ocr_plus" | "exec_dashboard" | "extra_user" | "erp" | "custom_workflow" | "custom_form";
 export const addons: { id: AddonId; name: string; price: number; unit: string; detail: string }[] = [

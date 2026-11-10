@@ -2,13 +2,27 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
-import { addons } from "@/lib/billing";
+import { addons, plans as billingPlans } from "@/lib/billing";
 
-const plans = [
-  { name: "Starter", for: "ร้านค้า / ธุรกิจขนาดเล็ก", monthly: 1190, yearly: 11900, rows: ["5 AI Workflows", "1,000 เอกสาร/เดือน", "2 กลุ่ม LINE", "2 ผู้ใช้ Dashboard", "Email support"] },
-  { name: "Growth", for: "ธุรกิจหลายแผนก", monthly: 3490, yearly: 34900, popular: true, rows: ["20 AI Workflows", "4,000 เอกสาร/เดือน", "10 กลุ่ม LINE", "10 ผู้ใช้ Dashboard", "API Integration (เสริม)", "Priority support"] },
-  { name: "Enterprise", for: "องค์กร / หลายบริษัท", monthly: 8900, yearly: 89000, rows: ["Workflows ไม่จำกัด", "20,000 เอกสาร/เดือน (Fair use)", "รวม AI OCR Plus + AI Insight", "กลุ่ม LINE ไม่จำกัด", "ผู้ใช้ไม่จำกัด", "API Integration", "Dedicated support"] },
-];
+// The packages from billing.ts, written as the poster lists them.
+const forWho: Record<string, string> = { starter: "ร้านค้า / ทีมเล็ก", growth: "SME ที่กำลังโต", business: "บริษัทหลายแผนก", enterprise: "องค์กร / หลายบริษัท" };
+const num = (v: number | null, unit: string, none: string) => (v === null ? none : v.toLocaleString("th-TH") + unit);
+const plans = billingPlans.map((p) => ({
+  name: p.name,
+  for: forWho[p.id] || "",
+  monthly: p.monthly,
+  yearly: p.yearly,
+  popular: p.id === "growth",
+  rows: [
+    num(p.line_groups, " LINE Groups", "LINE ไม่จำกัดกลุ่ม"),
+    "AI ประมวลผล " + num(p.documents, " รายการ/เดือน", "ไม่จำกัด"),
+    "ถอดเสียง " + num(p.voice_minutes, " นาที/เดือน", "ไม่จำกัด"),
+    "พื้นที่จัดเก็บ " + num(p.storage_gb, " GB", "ไม่จำกัด"),
+    "ผู้ใช้ " + num(p.users, " คน", "ไม่จำกัด"),
+    "ปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลัง · HR",
+    ...(p.id === "enterprise" ? ["บริการตั้งค่า + ซัพพอร์ต Exclusive"] : []),
+  ],
+}));
 
 export function PricingCards() {
   const [yearly, setYearly] = useState(false);

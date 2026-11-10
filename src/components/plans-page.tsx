@@ -6,7 +6,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import {
   X, Sprout, TrendingUp, Building, Crown, Workflow, FileText, MessagesSquare, Users, Headphones, Plug, Lock, Unlock, Check,
   Sparkles, Megaphone, ShoppingCart, Truck, Package, UserRound, Calculator, Receipt, Network, LayoutDashboard, CalendarDays,
-  Bell, Building2, FolderOpen, ChevronRight, CreditCard, CalendarRange, BadgePercent,
+  Bell, Building2, FolderOpen, ChevronRight, CreditCard, CalendarRange, BadgePercent, Mic, HardDrive,
 } from "lucide-react";
 import { money } from "./shared";
 import type { Plan } from "@/lib/billing";
@@ -109,10 +109,13 @@ export function PlanCards({
                   <MessagesSquare size={15} /> {p.line_groups === null ? "LINE ไม่จำกัดกลุ่ม" : `${p.line_groups} LINE Groups`}
                 </span>
                 <span>
-                  <FileText size={15} /> เอกสาร {n(p.documents)} รายการ/เดือน
+                  <Sparkles size={15} /> AI ประมวลผล {n(p.documents)} รายการ/เดือน
                 </span>
                 <span>
-                  <Workflow size={15} /> AI Workflows {n(p.workflows)}
+                  <Mic size={15} /> ถอดเสียง {n(p.voice_minutes)} นาที/เดือน
+                </span>
+                <span>
+                  <HardDrive size={15} /> พื้นที่จัดเก็บ {n(p.storage_gb, " GB")}
                 </span>
                 <span>
                   <Users size={15} /> ผู้ใช้ {n(p.users, " คน")}
@@ -167,11 +170,14 @@ function PlanDetail({
   const base = cycle === "yearly" ? p.yearly : p.monthly;
   const quotas = [
     { icon: MessagesSquare, label: "กลุ่ม LINE", value: n(p.line_groups, " กลุ่ม") },
-    { icon: FileText, label: "เอกสาร / เดือน", value: n(p.documents, " รายการ") },
+    { icon: Sparkles, label: "AI ประมวลผล / เดือน", value: n(p.documents, " รายการ") },
+    { icon: Mic, label: "ถอดเสียง / เดือน", value: n(p.voice_minutes, " นาที") },
+    { icon: HardDrive, label: "พื้นที่จัดเก็บ", value: n(p.storage_gb, " GB") },
+    { icon: Users, label: "ผู้ใช้", value: n(p.users, " คน") },
     { icon: Workflow, label: "AI Workflows", value: n(p.workflows) },
-    { icon: Users, label: "ผู้ใช้ Dashboard", value: n(p.users, " คน") },
     { icon: Headphones, label: "ซัพพอร์ต", value: p.support },
     { icon: Plug, label: "API", value: p.api === "—" ? "ไม่มี" : p.api },
+    { icon: FileText, label: "เกินโควตา", value: "฿1 / รายการ" },
   ];
   return (
     <div className="pk-bg" onClick={onClose}>

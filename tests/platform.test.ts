@@ -188,7 +188,7 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
       "select * from request_payment($1,'starter','monthly',null,'{}','REF1')",
       [c],
     );
-    assert.equal(Number(pay.amount), 1273.3);
+    assert.equal(Number(pay.amount), 2771.3);
     await assert.rejects(
       db.query("select request_payment($1,'starter','monthly',null,'{}','REF1')", [c]),
       /ถูกใช้แล้ว/,
@@ -211,7 +211,7 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
       "select * from request_payment($1,'growth','monthly',null,'{}','REF2',array['exec_dashboard'],2)",
       [c],
     );
-    assert.equal(Number(pay2.amount), Math.round((3490 + 990 + 300) * 107) / 100);
+    assert.equal(Number(pay2.amount), Math.round((3590 + 990 + 300) * 107) / 100);
     await assert.rejects(db.query("select request_payment($1,'growth','monthly',null,'{}','REF3',array['hack'])", [c]));
     await login(null);
     await db.query("select confirm_payment($1,'verified')", [pay2.id]);
@@ -219,7 +219,7 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
     assert.equal((await one<{ h: boolean }>(db, "select has_addon($1,'custom_form')as h", [c])).h, false);
     await db.exec("reset role;");
     assert.equal((await one<{ l: number }>(db, "select plan_limit($1,'users')as l", [c])).l, 12);
-    assert.equal((await one<{ d: number }>(db, "select documents d from plans where id='enterprise'")).d, 20000);
+    assert.equal((await one<{ d: number }>(db, "select documents d from plans where id='enterprise'")).d, 25000);
     // support chat: owner sends, other tenants cannot read, operator replies via service role
     await login(owner, "owner@test.local");
     await db.query("select support_send($1,'ช่วยตั้งค่า LINE หน่อย')", [c]);

@@ -198,7 +198,7 @@ export async function requestPayment(ctx: Context, input: unknown) {
   requireOwner(ctx);
   const { plan, cycle, attachmentId, addons: chosen, extraUsers } = z
     .object({
-      plan: z.enum(["starter", "growth", "enterprise"]),
+      plan: z.enum(["starter", "growth", "business", "enterprise"]),
       cycle: z.enum(["monthly", "yearly"]),
       attachmentId: z.uuid(),
       addons: z.array(z.enum(["ocr_plus", "exec_dashboard", "erp", "custom_workflow", "custom_form"])).max(5).default([]),

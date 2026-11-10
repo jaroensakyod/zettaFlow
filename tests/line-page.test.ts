@@ -80,8 +80,9 @@ test("packageTiers: ranges from the billing plans' LINE group ceilings", () => {
   assert.deepEqual(
     t.map((x) => [x.id, x.range, x.current]),
     [
-      ["starter", "1 – 2 กลุ่ม", false],
-      ["growth", "3 – 10 กลุ่ม", true],
+      ["starter", "1 – 3 กลุ่ม", false],
+      ["growth", "4 – 5 กลุ่ม", true],
+      ["business", "6 – 10 กลุ่ม", false],
       ["enterprise", "ไม่จำกัดกลุ่ม", false],
     ],
   );

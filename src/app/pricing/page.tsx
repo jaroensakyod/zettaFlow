@@ -11,44 +11,47 @@ const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["500", "700", "
 
 export const metadata = {
   title: "แพ็กเกจและราคา — EliteFlow",
-  description: "เปรียบเทียบแพ็กเกจ Starter, Growth และ Enterprise ของ EliteFlow พร้อม Add-on และค่าใช้งานเกินโควตา",
+  description: "เปรียบเทียบแพ็กเกจ Starter, Growth, Business และ Enterprise ของ EliteFlow พร้อม Add-on และค่าใช้งานเกินโควตา",
   icons: { icon: "/brand/eliteflow-icon.png", apple: "/brand/eliteflow-mark.png" },
 };
 
-const count = (n: number | null) => (n === null ? "ไม่จำกัด" : n.toLocaleString("th-TH"));
+const count = (n: number | null, unit = "") => (n === null ? "ไม่จำกัด" : n.toLocaleString("th-TH") + unit);
 type Cell = string | boolean;
-const rows: { group: string; items: [string, Cell, Cell, Cell][] }[] = [
+const each = (f: (p: (typeof plans)[number]) => Cell) => plans.map(f);
+const rows: { group: string; items: [string, ...Cell[]][] }[] = [
   {
     group: "โควตาการใช้งาน",
     items: [
-      ["AI Workflows", count(plans[0].workflows), count(plans[1].workflows), count(plans[2].workflows)],
-      ["เอกสารต่อเดือน", count(plans[0].documents), count(plans[1].documents), count(plans[2].documents) + " (Fair use)"],
-      ["กลุ่ม LINE", count(plans[0].line_groups), count(plans[1].line_groups), count(plans[2].line_groups)],
-      ["ผู้ใช้ Dashboard", count(plans[0].users), count(plans[1].users), count(plans[2].users)],
+      ["กลุ่ม LINE", ...each((p) => count(p.line_groups))],
+      ["AI ประมวลผลต่อเดือน", ...each((p) => count(p.documents) + (p.id === "enterprise" ? " (Fair use)" : ""))],
+      ["ถอดเสียงต่อเดือน", ...each((p) => count(p.voice_minutes, " นาที"))],
+      ["พื้นที่จัดเก็บ", ...each((p) => count(p.storage_gb, " GB"))],
+      ["ผู้ใช้", ...each((p) => count(p.users, " คน"))],
+      ["AI Workflows", ...each((p) => count(p.workflows))],
     ],
   },
   {
     group: "ระบบงานบริษัท",
     items: [
-      ["ลูกค้า สต็อก งาน โครงการ การเงิน และทุกแผนก", true, true, true],
-      ["เครือข่ายธุรกิจ ลงอัปเดตและติดตามบริษัท", true, true, true],
-      ["หางาน & จับคู่งาน พร้อมส่งข้อเสนอ", true, true, true],
-      ["น้องโฟลว์: เปิดหน้า สร้างงาน ตอบจากข้อมูลบริษัท", true, true, true],
-      ["แชร์ Dashboard ด้วยลิงก์และรหัสผ่าน", true, true, true],
+      ["บัญชี ลูกค้า Supplier ภาษี เอกสาร Dashboard (ฟรีทุกบริษัท)", ...each(() => true)],
+      ["ปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลังสินค้า · HR", ...each(() => true)],
+      ["เครือข่ายธุรกิจ ลงอัปเดตและติดตามบริษัท", ...each(() => true)],
+      ["น้องโฟลว์: เปิดหน้า สร้างงาน ตอบจากข้อมูลบริษัท", ...each(() => true)],
+      ["แชร์ Dashboard ด้วยลิงก์และรหัสผ่าน", ...each(() => true)],
     ],
   },
   {
     group: "AI",
     items: [
-      ["AI OCR Plus (ใบกำกับภาษี ใบเสร็จ สัญญา)", "Add-on", "Add-on", true],
-      ["AI Insight: น้องโฟลว์ตอบคำถามอิสระและสรุปเอกสาร", "Add-on", "Add-on", true],
+      ["AI OCR Plus (ใบกำกับภาษี ใบเสร็จ สัญญา)", ...each((p) => (p.id === "enterprise" ? true : "Add-on"))],
+      ["AI Insight: น้องโฟลว์ตอบคำถามอิสระและสรุปเอกสาร", ...each((p) => (p.id === "enterprise" ? true : "Add-on"))],
     ],
   },
   {
     group: "เชื่อมต่อและบริการ",
     items: [
-      ["API Integration", false, "เสริม", true],
-      ["ฝ่ายดูแลลูกค้า", "Email", "Priority", "Dedicated"],
+      ["API Integration", ...each((p) => (p.api === "—" ? false : p.api === "Optional" ? "เสริม" : true))],
+      ["ฝ่ายดูแลลูกค้า", ...each((p) => p.support)],
     ],
   },
 ];
@@ -101,16 +104,18 @@ export default function PricingPage() {
               {rows.map((g) => (
                 <tbody key={g.group}>
                   <tr className="pr-group">
-                    <th scope="colgroup" colSpan={4}>
+                    <th scope="colgroup" colSpan={plans.length + 1}>
                       {g.group}
                     </th>
                   </tr>
-                  {g.items.map(([label, a, b, c]) => (
+                  {g.items.map(([label, ...cells]) => (
                     <tr key={label}>
                       <th scope="row">{label}</th>
-                      <td><Value v={a} /></td>
-                      <td className="pop"><Value v={b} /></td>
-                      <td><Value v={c} /></td>
+                      {cells.map((v, i) => (
+                        <td key={i} className={plans[i]?.id === "growth" ? "pop" : ""}>
+                          <Value v={v} />
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

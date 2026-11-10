@@ -2656,3 +2656,17 @@ insert into public.entity_schemas(kind,department,fields)values('sales_orders','
 -- ใบเสนอราคา: optional project (what job the quote is for); accepting it then uses that project.
 insert into public.entity_schemas(kind,department,fields)values('quotations','Sales','[{"key":"name","label":"หัวข้องาน","type":"text","required":true},{"key":"customerId","label":"ลูกค้า","type":"relation","required":true,"resource":"customers"},{"key":"projectId","label":"โปรเจกต์ (ถ้ามี)","type":"relation","required":false,"resource":"projects"},{"key":"date","label":"วันที่","type":"date","required":true},{"key":"validUntil","label":"ยืนราคาถึง","type":"date","required":false},{"key":"lines","label":"รายการสินค้า/บริการ","type":"lines","required":false},{"key":"subtotal","label":"มูลค่า (ถ้าไม่ใส่รายการ)","type":"number","required":false,"min":0},{"key":"discount","label":"ส่วนลด (บาท)","type":"number","required":false,"min":0},{"key":"vatMode","label":"VAT","type":"select","required":false,"options":["excluded","included","none"]},{"key":"owner","label":"ผู้รับผิดชอบ","type":"text","required":false},{"key":"status","label":"สถานะ","type":"select","required":true,"options":["ร่าง","ส่งแล้ว","ตอบรับ","ปฏิเสธ"]},{"key":"notes","label":"หมายเหตุ","type":"textarea","required":false}]'::jsonb)on conflict(kind)do update set department=excluded.department,fields=excluded.fields;
 
+-- 0054: the four packages from the Nov 2026 poster (prices exclude VAT 7%; yearly = 10 months).
+--   Starter 2,590 · Growth 3,590 · Business 5,990 (new) · Enterprise 9,990
+--   LINE groups 3 / 5 / 10 / unlimited · AI items 2,500 / 5,000 / 10,000 / 25,000 · voice 60 / 150 / 300 / 900 min
+--   storage 5 / 15 / 40 / 100 GB · users 5 / 10 / 25 / unlimited. Mirrors `plans` in src/lib/billing.ts.
+alter table public.plans add column if not exists voice_minutes int;
+alter table public.plans add column if not exists storage_gb int;
+insert into public.plans(id,name,monthly,yearly,workflows,documents,line_groups,users,ordinal,voice_minutes,storage_gb)values
+ ('starter','Starter',2590,25900,5,2500,3,5,1,60,5),
+ ('growth','Growth',3590,35900,20,5000,5,10,2,150,15),
+ ('business','Business',5990,59900,50,10000,10,25,3,300,40),
+ ('enterprise','Enterprise',9990,99900,null,25000,null,null,4,900,100)
+on conflict(id)do update set name=excluded.name,monthly=excluded.monthly,yearly=excluded.yearly,workflows=excluded.workflows,
+ documents=excluded.documents,line_groups=excluded.line_groups,users=excluded.users,ordinal=excluded.ordinal,
+ voice_minutes=excluded.voice_minutes,storage_gb=excluded.storage_gb;

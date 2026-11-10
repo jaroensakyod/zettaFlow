@@ -30,14 +30,15 @@ test("slip QR: checksum, parsing and verdicts", () => {
   assert.equal(judgeSlip(qr, null, null, false).status, "verified");
 });
 test("billing: VAT, overage and active status", () => {
-  assert.deepEqual(planPrice("growth", "monthly"), { base: 3490, vat: 244.3, total: 3734.3 });
-  assert.equal(planPrice("starter", "yearly").base, 11900);
-  const o = overage("starter", { workflows: 1, documents: 1200, ocr: 600, ai_runs: 1200, line_groups: 1, users: 1 });
+  assert.deepEqual(planPrice("growth", "monthly"), { base: 3590, vat: 251.3, total: 3841.3 });
+  assert.equal(planPrice("starter", "yearly").base, 25900);
+  assert.deepEqual([planById("business").monthly, planById("business").line_groups, planById("enterprise").voice_minutes], [5990, 10, 900]);
+  const o = overage("starter", { workflows: 1, documents: 2700, ocr: 1350, ai_runs: 2700, line_groups: 1, users: 1 });
   assert.equal(o.documents, 200);
   assert.equal(o.ocr, 150);
   assert.equal(o.ai_runs, 400);
   assert.equal(o.total, 750);
-  assert.equal(overage("enterprise", { workflows: 1, documents: 25000, ocr: 0, ai_runs: 0, line_groups: 1, users: 1 }).total, 5000);
+  assert.equal(overage("enterprise", { workflows: 1, documents: 30000, ocr: 0, ai_runs: 0, line_groups: 1, users: 1 }).total, 5000);
   const now = Date.parse("2026-10-13T00:00:00Z");
   const sub = { plan: "growth" as const, cycle: "monthly" as const, status: "trial" as const, trial_ends_at: "2026-10-20T00:00:00Z", current_period_end: null, addons: [], extra_users: 0 };
   assert.equal(subscriptionActive(sub, now), true);
@@ -101,9 +102,9 @@ test("share password rate limit: per link+client, per link, per client", () => {
 });
 import { hasAddon, pdfPages, planById } from "../src/lib/billing";
 test("add-ons: pricing, entitlements, enterprise fair use, PDF pages", () => {
-  assert.equal(planById("enterprise").documents, 20000);
-  assert.equal(planPrice("growth", "monthly", { addons: ["exec_dashboard"] }).base, 3490 + 990);
-  assert.equal(planPrice("starter", "yearly", { addons: ["ocr_plus"], extraUsers: 2 }).base, 11900 + 5990 + 3000);
+  assert.equal(planById("enterprise").documents, 25000);
+  assert.equal(planPrice("growth", "monthly", { addons: ["exec_dashboard"] }).base, 3590 + 990);
+  assert.equal(planPrice("starter", "yearly", { addons: ["ocr_plus"], extraUsers: 2 }).base, 25900 + 5990 + 3000);
   const base = { status: "active" as const, plan: "growth" as const, addons: [] as string[] };
   assert.equal(hasAddon(base, "exec_dashboard"), false);
   assert.equal(hasAddon({ ...base, addons: ["exec_dashboard"] }, "exec_dashboard"), true);
