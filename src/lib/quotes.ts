@@ -156,7 +156,10 @@ export type QuoteForm = {
   company: { id: string; name: string; nameEn: string; hasLogo: boolean; address: string; taxId: string; branch: string; phone: string; email: string; website: string; line: string; bank: string; bankAccount: string; bankAccountName: string; bankAccountType: string; promptPay: string; signerName: string; signerPosition: string; approverName: string; approverPosition: string; conditions: string[]; notes: string[] };
   customers: QuoteFormCustomer[];
   projects: { id: string; code: string; name: string }[];
-  packages: { id: string; name: string; price: number; type: string }[];
+  /** สินค้า & แพ็กเกจ (Sales) — packages, products and services we sell. */
+  packages: { id: string; name: string; price: number; type: string; code: string; description: string }[];
+  /** Stock items from the warehouse (สต็อกสินค้า) with what is on hand. */
+  products: { id: string; name: string; sku: string; category: string; unit: string; price: number; stock: number }[];
   nextCode: string;
   /** Editing: the quotation as saved (lines with unit / per-line discount; detail is the name's second line). */
   quote: { id: string; version: number; code: string; data: Record<string, unknown> } | null;
@@ -165,10 +168,11 @@ export type QuoteForm = {
 export async function quoteForm(ctx: Context, id?: string): Promise<QuoteForm> {
   assert(canRead(ctx, "Sales"), "ไม่มีสิทธิ์ดูใบเสนอราคา", 403);
   const none = [] as Entity[];
-  const [customers, projects, packages, quotes, next] = await Promise.all([
+  const [customers, projects, packages, products, quotes, next] = await Promise.all([
     allEntities(ctx, "customers", 5000).catch(() => none),
     allEntities(ctx, "projects", 5000).catch(() => none),
     allEntities(ctx, "sales_packages", 2000).catch(() => none),
+    canRead(ctx, "Warehouse") ? allEntities(ctx, "products", 5000).catch(() => none) : Promise.resolve(none),
     id ? allEntities(ctx, "quotations", 5000) : Promise.resolve(none),
     nextCode(ctx, "quotations").catch(() => ({ code: "" })),
   ]);
@@ -195,7 +199,13 @@ export async function quoteForm(ctx: Context, id?: string): Promise<QuoteForm> {
       })
       .sort((a, b) => a.name.localeCompare(b.name, "th")),
     projects: projects.filter((x) => x.data.status !== "cancelled").map((x) => ({ id: x.id, code: s(x.data.code), name: s(x.data.name) })),
-    packages: packages.filter((x) => x.data.status !== "inactive").map((x) => ({ id: x.id, name: s(x.data.name), price: n(x.data.price), type: s(x.data.type) })),
+    packages: packages
+      .filter((x) => x.data.status !== "inactive")
+      .map((x) => ({ id: x.id, name: s(x.data.name), price: n(x.data.price), type: s(x.data.type) || "แพ็กเกจ", code: s(x.data.code), description: s(x.data.description) })),
+    products: products
+      .filter((x) => x.data.status !== "inactive")
+      .map((x) => ({ id: x.id, name: s(x.data.name), sku: s(x.data.sku), category: s(x.data.category), unit: s(x.data.unit), price: n(x.data.price), stock: n(x.data.stock) }))
+      .sort((a, b) => a.name.localeCompare(b.name, "th")),
     nextCode: s((next as { code: string }).code),
     quote: q ? { id: q.id, version: q.version, code: s(q.data.code), data: q.data } : null,
   };

@@ -3,9 +3,10 @@
 // info box, item table, totals, payment, conditions, contact, signatures) and every blank on it is a field — pick the
 // customer and its details fill in, add items or packages, set discount and VAT, and see the total as you type.
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X, Plus, Trash2, FileText, Calendar, Clock, User, Phone, Mail, Globe, Building2, Landmark, Layers, ClipboardList, Headphones,
-  FolderKanban, Package, Save, Send, Printer, MessageCircle,
+  FolderKanban, Package, Save, Send, Printer, MessageCircle, Search, Boxes, Wrench, Gift, Check,
 } from "lucide-react";
 import type { QuoteForm } from "@/lib/quotes";
 import { api, money, Loading } from "./shared";
@@ -23,6 +24,108 @@ const thai = (iso: string) => {
   return `${d} ${["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."][m - 1]} ${y + 543}`;
 };
 const r2 = (x: number) => Math.round(x * 100) / 100;
+
+/**
+ * เลือกจากสินค้า & แพ็กเกจ: what we sell, by tab — packages, products & services (สินค้า & แพ็กเกจ) and stock items from
+ * the warehouse with what is on hand. Click a card to add it as an item; it stays open to add more.
+ */
+type PickTab = "แพ็กเกจ" | "สินค้า" | "บริการ" | "สต็อก";
+function ItemPicker({ form, onAdd, onClose }: { form: QuoteForm; onAdd: (it: Item) => void; onClose: () => void }) {
+  const tabs: { key: PickTab; label: string; icon: typeof Package; count: number }[] = [
+    { key: "แพ็กเกจ", label: "แพ็กเกจ", icon: Gift, count: form.packages.filter((p) => p.type === "แพ็กเกจ").length },
+    { key: "สินค้า", label: "สินค้า", icon: Package, count: form.packages.filter((p) => p.type === "สินค้า").length },
+    { key: "บริการ", label: "บริการ", icon: Wrench, count: form.packages.filter((p) => p.type === "บริการ").length },
+    { key: "สต็อก", label: "สต็อกสินค้า (คลัง)", icon: Boxes, count: form.products.length },
+  ];
+  const [tab, setTab] = useState<PickTab>(tabs.find((t) => t.count)?.key || "แพ็กเกจ"),
+    [q, setQ] = useState(""),
+    [added, setAdded] = useState<Record<string, number>>({});
+  const needle = q.trim().toLowerCase();
+  type Card = { id: string; name: string; sub: string; price: number; unit: string; detail: string; stock?: number };
+  const cards: Card[] = (
+    tab === "สต็อก"
+      ? form.products.map((p) => ({ id: p.id, name: p.name, sub: [p.sku, p.category].filter(Boolean).join(" · "), price: p.price, unit: p.unit || "ชิ้น", detail: "", stock: p.stock }))
+      : form.packages
+          .filter((p) => p.type === tab)
+          .map((p) => ({ id: p.id, name: p.name, sub: p.code, price: p.price, unit: tab === "บริการ" ? "งาน" : tab === "แพ็กเกจ" ? "ชุด" : "ชิ้น", detail: p.description.split(/\r?\n/)[0] || "" }))
+  ).filter((c) => !needle || (c.name + " " + c.sub).toLowerCase().includes(needle));
+  const total = Object.values(added).reduce((a, b) => a + b, 0);
+  // On the page body: the editor overlay scrolls (and blurs), which would carry a fixed window along with it.
+  return createPortal(
+    <div className="qe-picker-bg" onClick={onClose}>
+      <div className="qe-picker" role="dialog" aria-label="เลือกจากสินค้า & แพ็กเกจ" onClick={(e) => e.stopPropagation()}>
+        <header>
+          <span className="qe-pick-ico">
+            <Package size={18} />
+          </span>
+          <div>
+            <b>เลือกจากสินค้า & แพ็กเกจ</b>
+            <small>กดที่การ์ดเพื่อเพิ่มเป็นรายการในใบเสนอราคา · กดซ้ำเพื่อเพิ่มอีกแถว</small>
+          </div>
+          <button className="qe-x" aria-label="ปิด" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+        <nav className="qe-tabs">
+          {tabs.map((t) => (
+            <button key={t.key} className={tab === t.key ? "on" : ""} onClick={() => setTab(t.key)}>
+              <t.icon size={15} /> {t.label} <i>{t.count}</i>
+            </button>
+          ))}
+        </nav>
+        <label className="qe-search">
+          <Search size={15} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ รหัส หรือ SKU" autoFocus />
+        </label>
+        <div className="qe-cards">
+          {cards.map((c) => (
+            <button
+              key={c.id}
+              className={"qe-card" + (added[c.id] ? " added" : "")}
+              onClick={() => {
+                onAdd({ ...blank(), name: c.name, detail: c.detail, price: c.price, unit: c.unit });
+                setAdded((a) => ({ ...a, [c.id]: (a[c.id] || 0) + 1 }));
+              }}
+            >
+              <span className="qe-card-top">
+                <b>{c.name}</b>
+                {added[c.id] ? (
+                  <em>
+                    <Check size={12} /> เพิ่มแล้ว{added[c.id] > 1 ? " ×" + added[c.id] : ""}
+                  </em>
+                ) : (
+                  <Plus size={16} />
+                )}
+              </span>
+              {(c.sub || c.detail) && <small>{[c.sub, c.detail].filter(Boolean).join(" · ")}</small>}
+              <span className="qe-card-foot">
+                <strong>฿{money(c.price)}</strong>
+                <span>/ {c.unit}</span>
+                {c.stock !== undefined && <span className={"qe-stock" + (c.stock <= 0 ? " out" : "")}>{c.stock <= 0 ? "หมดสต็อก" : "คงเหลือ " + c.stock.toLocaleString("th-TH")}</span>}
+              </span>
+            </button>
+          ))}
+          {!cards.length && (
+            <p className="qe-empty">
+              {needle
+                ? "ไม่พบรายการที่ค้นหา"
+                : tab === "สต็อก"
+                  ? "ยังไม่มีสินค้าในคลัง (หรือไม่มีสิทธิ์ดูคลังสินค้า)"
+                  : `ยังไม่มี${tab}ที่บันทึกไว้ · เพิ่มได้ที่ รายรับ › สินค้า & แพ็กเกจ`}
+            </p>
+          )}
+        </div>
+        <footer>
+          <span>{total ? `เพิ่มแล้ว ${total} รายการ` : "ยังไม่ได้เลือก"}</span>
+          <button className="primary" onClick={onClose}>
+            <Check size={15} /> เสร็จแล้ว
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 const fmt = (x: number) => x.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: () => void; onSaved: (msg: string, id: string) => void }) {
@@ -34,6 +137,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
     name: "", customerId: "", projectId: "", date: today(), validUntil: plus(today(), 14), owner: "", vatMode: "excluded", discount: 0, notes: "",
   });
   const [items, setItems] = useState<Item[]>([blank()]);
+  const [picking, setPicking] = useState(false);
   useEffect(() => {
     api("/quotes/form" + (id ? "?id=" + id : ""))
       .then((f: QuoteForm) => {
@@ -184,7 +288,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
             </p>
           </div>
           <div className="qe-title">
-            <FileText size={34} />
+            <FileText size={26} />
             <span>
               <b>ใบเสนอราคา</b>
               <small>Quotation</small>
@@ -392,27 +496,23 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
             <button className="secondary" onClick={() => setItems((l) => [...l, blank()])}>
               <Plus size={15} /> เพิ่มรายการ
             </button>
-            {!!form.packages.length && (
-              <label className="qe-from-pkg">
-                <Package size={15} />
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const pk = form.packages.find((x) => x.id === e.target.value);
-                    if (!pk) return;
-                    setItems((l) => [...l.filter((x) => x.name.trim() || x.price), { ...blank(), name: pk.name, price: pk.price, unit: pk.type === "บริการ" ? "งาน" : pk.type === "แพ็กเกจ" ? "ชุด" : "ชิ้น" }]);
-                  }}
-                >
-                  <option value="">+ เพิ่มจากสินค้า & แพ็กเกจ</option>
-                  {form.packages.map((pk) => (
-                    <option key={pk.id} value={pk.id}>
-                      {pk.name} · ฿{money(pk.price)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            <button className="qe-pick-btn" onClick={() => setPicking(true)}>
+              <span className="qe-pick-ico">
+                <Package size={16} />
+              </span>
+              <span>
+                <b>เลือกจากสินค้า & แพ็กเกจ</b>
+                <small>แพ็กเกจ · สินค้า · บริการ · สต็อก</small>
+              </span>
+            </button>
           </div>
+          {picking && (
+            <ItemPicker
+              form={form}
+              onClose={() => setPicking(false)}
+              onAdd={(it) => setItems((l) => [...l.filter((x) => x.name.trim() || x.price), it])}
+            />
+          )}
         </div>
 
         <div className="qe-row qe-bottom">
@@ -552,7 +652,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
                 <i />
                 <b>{role}</b>
                 <span>({name || "................................"})</span>
-                <small>{pos}</small>
+                <small>{pos || " "}</small>
               </div>
             ))}
           </section>
