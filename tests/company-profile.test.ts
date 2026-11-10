@@ -73,7 +73,7 @@ test("company profiles: public card, counts, who follows whom, one company's upd
     // Visibility: Alice hides contact info, shows products and (now that she chose) her tax id; bank never leaves.
     await login(alice);
     await db.query(
-      `select save_company($1,'{"name":"Alice Co","description":"ผลิตเฟอร์นิเจอร์","website":"https://alice.example","phone":"02-111","address":"1 ถนนสุขุมวิท","taxId":"0105555555555","bankAccount":"123-4","cover":"data:image/webp;base64,AAAA","visibility":"main,products"}'::jsonb)`,
+      `select save_company($1,'{"name":"Alice Co","description":"ผลิตเฟอร์นิเจอร์","website":"https://alice.example","phone":"02-111","address":"1 ถนนสุขุมวิท","taxId":"0105555555555","bankAccount":"123-4","cover":"data:image/webp;base64,AAAA","visibility":"main,products","bio":"โต๊ะไม้สักสั่งทำ"}'::jsonb)`,
       [a],
     );
     await db.exec("reset role;");
@@ -81,6 +81,7 @@ test("company profiles: public card, counts, who follows whom, one company's upd
     await login(bob);
     const v = await val<{ website: string; details: Record<string, string>; products: { name: string; price: number }[]; visibility: string | null }>("select feed_company_profile($1,$2)", [b, a]);
     assert.equal(v.website, "");
+    assert.equal((v as unknown as { bio: string }).bio, "โต๊ะไม้สักสั่งทำ");
     assert.deepEqual(v.details, { taxId: "0105555555555" });
     assert.deepEqual(v.products.map((x) => [x.name, Number(x.price)]), [["โต๊ะไม้สัก", 4500]]);
     assert.equal(v.visibility, null);

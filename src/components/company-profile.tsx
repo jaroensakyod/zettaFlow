@@ -160,6 +160,15 @@ export function CompanyProfilePage({
           <div className="cp-title">
             <h1>{p.name}</h1>
             {p.name_en && <p className="cp-en">{p.name_en}</p>}
+            {p.bio ? (
+              <p className="cp-bio">{p.bio}</p>
+            ) : (
+              canEdit && (
+                <button className="cp-bio-add" onClick={() => setTab("about")}>
+                  <Plus size={14} /> เพิ่ม Bio สั้นๆ ใต้ชื่อบริษัท
+                </button>
+              )
+            )}
             <p className="cp-meta">
               {p.industry && (
                 <span>

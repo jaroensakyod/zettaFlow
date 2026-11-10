@@ -196,6 +196,8 @@ export async function feedCompanies(ctx: Context, search: string | null): Promis
 export type CompanyProfile = {
   id: string;
   name: string;
+  /** Short public line under the name (profile.bio). */
+  bio?: string;
   name_en: string;
   industry: string;
   province: string;
@@ -234,6 +236,7 @@ export async function feedProfile(ctx: Context, target: string | null): Promise<
     return {
       id,
       name: c.name,
+      bio: own ? String(s.company.profile.bio || "") : "",
       name_en: own ? String(s.company.profile.nameEn || "") : "",
       industry: c.industry,
       province: c.province,

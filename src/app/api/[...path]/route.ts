@@ -836,6 +836,7 @@ async function handle(req: NextRequest) {
         !profile.taxId || /^\d{13}$/.test(profile.taxId),
         "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก",
       );
+      assert(!profile.bio || profile.bio.length <= 160, "Bio ยาวได้ไม่เกิน 160 ตัวอักษร");
       assert(
         !profile.visibility || /^(none|(main|address|social|products)(,(main|address|social|products))*)$/.test(profile.visibility),
         "การตั้งค่าการมองเห็นไม่ถูกต้อง",

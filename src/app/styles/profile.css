@@ -522,3 +522,7 @@
   .cp-about-cols { grid-template-columns: minmax(0, 1fr); }
 }
 .cp-about-edit .company-profile { max-width: none; margin: 0; }
+/* Bio under the company name */
+.cp-bio { margin: 4px 0 2px; max-width: 640px; font-size: 14.5px; line-height: 1.55; color: #3b3651; }
+.cp-bio-add { justify-self: start; width: fit-content; margin: 4px 0 2px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px dashed #c4b5fd; border-radius: 99px; background: #faf7ff; color: #6d28d9; font-size: 12.5px; font-weight: 600; }
+.cp-bio-add:hover { background: #f3edff; }

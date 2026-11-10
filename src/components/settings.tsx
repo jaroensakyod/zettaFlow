@@ -280,6 +280,16 @@ export function CompanySettings({
                     onChange={(e) => set("nameEn", e.target.value)}
                   />
                 </label>
+                <label className="wide">
+                  {field("bio").label}
+                  <input
+                    maxLength={160}
+                    placeholder="เช่น รับออกแบบและติดตั้งบูธงานแฟร์ ครบจบในที่เดียว"
+                    value={text("bio")}
+                    onChange={(e) => set("bio", e.target.value)}
+                  />
+                  <small className="field-hint">แสดงใต้ชื่อบริษัทในหน้าโปรไฟล์ · {text("bio").length}/160</small>
+                </label>
                 <label>
                   {field("taxId").label}
                   <input
