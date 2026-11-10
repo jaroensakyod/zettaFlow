@@ -32,14 +32,14 @@ import {
   Info,
   Building2,
 } from "lucide-react";
-import { businessTypeGroups, industryMatches } from "@/lib/catalog";
+import { businessGroupOf, businessTypeGroups, industryMatches } from "@/lib/catalog";
 import { FEED_MAX_IMAGES } from "@/lib/types";
 import type { Context, FeedAlert, FeedComment, FeedKind, FeedPost, FeedSuggestion, NetworkCompany } from "@/lib/types";
 import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
 import { AdCard } from "./ad-card";
-import { IndustryPicker, RelatedIndustries } from "./industry-picker";
+import { IndustryPicker, industryLabel } from "./industry-picker";
 import { PostMock, SampleFeed, sampleAds, sampleLogo, samplePosts, sampleSuggest } from "./feed-samples";
 
 /** Every this many posts the feed shows one sponsored card. */
@@ -301,14 +301,19 @@ export function Feed({
     logo = String(profile.logo || ""),
     myIndustry = String(profile.industry || ""),
     q = search.trim().toLowerCase(),
-    shown = (posts || []).filter(
-      (p) =>
-        industryMatches(industry, p.company.industry) &&
-        (!q || [p.company.name, p.meta.title || "", p.body].join(" ").toLowerCase().includes(q)),
-    ),
+    // A chosen business type shows its own posts first, then the rest of its main group (หมวดหลัก).
+    mainGroup = industry.startsWith("group:") ? industry.slice(6) : industry ? businessGroupOf(industry) : "",
+    inScope = (type: string) => !industry || industryMatches(industry, type) || (!!mainGroup && businessGroupOf(type) === mainGroup),
+    shown = (posts || [])
+      .filter(
+        (p) =>
+          inScope(p.company.industry) &&
+          (!q || [p.company.name, p.meta.title || "", p.body].join(" ").toLowerCase().includes(q)),
+      )
+      .sort((a, b) => Number(b.company.industry === industry) - Number(a.company.industry === industry)),
     writer = ctx.member.role !== "viewer",
     // Sample posts, ads and suggestions only in the public demo; real companies see the real network only.
-    samples = ctx.demo && !q && !industry && ["all", "post", "job", "partner"].includes(tab) ? samplePosts.filter((x) => tab === "all" || x.kind === tab) : [];
+    samples = ctx.demo && !q && ["all", "post", "job", "partner"].includes(tab) ? samplePosts.filter((x) => (tab === "all" || x.kind === tab) && inScope(x.meta.split(" · ")[0])) : [];
   return (
     <div className="li">
       <aside className="li-left">
@@ -402,13 +407,18 @@ export function Feed({
           </label>
           <IndustryPicker value={industry} onChange={setIndustry} />
         </div>
-        <RelatedIndustries value={industry} onChange={setIndustry} />
+        {industry && mainGroup && (
+          <p className="ip-scope">
+            แสดงโพสต์จาก <b>{industryLabel(industry)}</b>
+            {!industry.startsWith("group:") && <> และธุรกิจอื่นในหมวด <b>{mainGroup}</b></>}
+          </p>
+        )}
         {error && <p className="form-error">{error}</p>}
         {!posts ? (
           <section className="card">
             <Loading />
           </section>
-        ) : shown.length ? (
+        ) : shown.length || samples.length ? (
           <>
           {shown.map((p, i) => (
             <Fragment key={p.id}>

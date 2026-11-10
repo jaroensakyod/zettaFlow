@@ -1,6 +1,6 @@
 "use client";
 // Business-type filter for เครือข่ายธุรกิจ: a searchable, grouped picker (group list on the left, its types as chips on
-// the right; typing ranks matches across every group), plus a row of the most related types once one is chosen.
+// the right; typing ranks matches across every group).
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import {
   Building2, Check, ChevronDown, Search, Sprout, UtensilsCrossed, ShoppingBag, Factory, HardHat, Wrench, Megaphone, Cpu, Landmark,
@@ -45,21 +45,6 @@ function score(o: Option, q: string) {
   if (label.includes(q)) return 60;
   if (group.includes(q)) return o.whole ? 50 : 30;
   return 0;
-}
-
-/** Types most like the chosen one: same group first, ranked by shared words, then any other group's types sharing a word. */
-export function relatedTypes(value: string, limit = 8): Option[] {
-  if (!value) return [];
-  if (value.startsWith("group:")) {
-    const group = value.slice(6);
-    return allOptions.filter((o) => o.group === group && !o.whole).slice(0, limit);
-  }
-  const group = businessGroupOf(value),
-    mine = new Set(words(value));
-  const shared = (o: Option) => words(o.label).filter((w) => mine.has(w)).length;
-  const same = allOptions.filter((o) => o.group === group && !o.whole && o.value !== value).sort((a, b) => shared(b) - shared(a));
-  const other = allOptions.filter((o) => o.group !== group && !o.whole && shared(o) > 0).sort((a, b) => shared(b) - shared(a));
-  return [...other.slice(0, 2), ...same].slice(0, limit);
 }
 
 export const industryLabel = (value: string) => (!value ? "ทุกประเภทธุรกิจ" : value.startsWith("group:") ? "ทั้งหมวด" + value.slice(6) : value);
@@ -207,32 +192,6 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/** Under the toolbar once a type is chosen: the closest types to hop to, and a way back to everything. */
-export function RelatedIndustries({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  if (!value) return null;
-  const group = value.startsWith("group:") ? value.slice(6) : businessGroupOf(value);
-  const [, color] = look(group);
-  const list = relatedTypes(value);
-  return (
-    <div className="ip-related" style={{ "--ic": color } as CSSProperties}>
-      <span className="ip-related-k">ที่เกี่ยวข้อง</span>
-      {!value.startsWith("group:") && group && (
-        <button type="button" className="ip-chip whole" onClick={() => onChange("group:" + group)}>
-          ทั้งหมวด{group}
-        </button>
-      )}
-      {list.map((o) => (
-        <button type="button" key={o.value} className="ip-chip" onClick={() => onChange(o.value)}>
-          {o.label}
-        </button>
-      ))}
-      <button type="button" className="ip-clear" onClick={() => onChange("")}>
-        <X size={13} /> ล้างตัวกรอง
-      </button>
     </div>
   );
 }

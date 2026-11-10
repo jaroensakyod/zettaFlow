@@ -7790,11 +7790,6 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .ip-result > svg { color: var(--ic); }
 .ip-dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #fff; background: var(--ic); }
 .ip-empty { margin: 0; padding: 24px; text-align: center; color: #8a84a3; }
-/* Related types under the toolbar */
-.ip-related { --ic: #6d28d9; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--ic) 6%, #fff); border: 1px solid color-mix(in srgb, var(--ic) 15%, transparent); animation: ipIn .25s ease; }
-.ip-related-k { font-size: 12px; font-weight: 800; color: var(--ic); margin-right: 2px; }
-.ip-clear { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 6px 10px; border: 0; border-radius: 999px; background: none; font-size: 12px; font-weight: 600; color: #8a84a3; }
-.ip-clear:hover { color: #dc2626; background: #fef2f2; }
 @media (max-width: 760px) {
   .ip-pop { position: fixed; left: 16px; right: 16px; top: 120px; width: auto; }
   .ip-body { grid-template-columns: minmax(0, 1fr); height: 60vh; grid-template-rows: auto 1fr; }
@@ -7804,3 +7799,5 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .ip-group { justify-content: flex-start; }
 .ip-result { justify-content: stretch; justify-items: start; }
 .ip-result > svg { justify-self: end; }
+.ip-scope { margin: 0; padding: 2px 4px; font-size: 12.5px; color: #6b6585; }
+.ip-scope b { color: #4c1d95; }
