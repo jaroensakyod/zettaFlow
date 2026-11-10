@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import {
   Eye,
   EyeOff,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { api, Empty, Loading, Modal, money, displayDate, PasswordInput } from "./shared";
 import { Donut } from "./dashboard-charts";
-import { PlanCards } from "./plans-page";
+import { PlanCards, PlanAdBanner } from "./plans-page";
 import type { Context, Role } from "@/lib/types";
 import type { Widget, Layout } from "@/lib/platform";
 import { addons, planPrice, type Plan, type Subscription, type Usage } from "@/lib/billing";
@@ -458,85 +458,43 @@ export function SubscriptionPanel({
   const owner = ctx.member.role === "owner";
   return (
     <>
-      <section className="z-card pk-hero">
-        <div className="section-actions">
-          <div>
-            <small className="pk-hero-k">แพ็กเกจปัจจุบัน</small>
-            <h2>
-              แพ็กเกจ {data.plan.name}{" "}
-              <span className={"status-pill " + (data.active ? "good" : "bad")}>
-                {s.status === "trial"
-                  ? data.active
-                    ? `ทดลองใช้ฟรี เหลือ ${daysLeft} วัน`
-                    : "หมดช่วงทดลอง"
-                  : s.status === "active"
-                    ? "ใช้งานอยู่"
-                    : s.status === "past_due"
-                      ? "ค้างชำระ"
-                      : "ยกเลิก"}
-              </span>
-            </h2>
-            <small>
-              {s.current_period_end
-                ? "รอบบิลถึง " + displayDate(s.current_period_end)
-                : "ทดลองใช้ 14 วัน ไม่ต้องใช้บัตรเครดิต"}
-            </small>
-          </div>
+      <PlanAdBanner />
+      <section className="pk-now">
+        <div className="pk-now-plan">
+          <small>แพ็กเกจปัจจุบัน</small>
+          <b>{data.plan.name}</b>
+          <span className={"status-pill " + (data.active ? "good" : "bad")}>
+            {s.status === "trial"
+              ? data.active
+                ? `ทดลองใช้ฟรี เหลือ ${daysLeft} วัน`
+                : "หมดช่วงทดลอง"
+              : s.status === "active"
+                ? "ใช้งานอยู่"
+                : s.status === "past_due"
+                  ? "ค้างชำระ"
+                  : "ยกเลิก"}
+          </span>
+          {s.current_period_end && <small>รอบบิลถึง {displayDate(s.current_period_end)}</small>}
         </div>
-        {data.trial && (
-          <>
-            <h3 className="form-section-title">โควตาช่วงทดลองใช้ฟรี 14 วัน</h3>
-            <div className="usage-grid">
-              {trialLabels.map(([k, label]) => {
-                const m = data.trial![k];
-                if (!m) return null;
-                const pct = m.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
-                return (
-                  <div className="widget-card" key={"t" + k}>
-                    <small>{label}</small>
-                    <strong>
-                      {m.used.toLocaleString("th-TH")}
-                      <small style={{ display: "inline" }}> / {m.limit ?? "ไม่จำกัด"}</small>
-                    </strong>
-                    {m.limit !== null && (
-                      <div className={"meter" + (m.used >= m.limit ? " over" : "")}>
-                        <span style={{ width: pct + "%" }} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="note">ครบโควตาช่วงทดลองแล้ว ระบบจะหยุดเฉพาะส่วนนั้น ข้อมูลที่บันทึกไว้ยังอยู่ครบ เลือกแพ็กเกจด้านล่างเพื่อใช้งานต่อได้ทันที</p>
-          </>
-        )}
-        {!data.trial && (
-        <div className="usage-grid">
-          {usageLabels.map(([k, label]) => {
-            const used = data.usage[k],
-              limit = data.limits[k];
-            const pct = limit ? Math.min(100, (used / limit) * 100) : 0;
+        <div className="pk-now-use">
+          {(data.trial
+            ? trialLabels.map(([k, label]) => data.trial![k] && { k: "t" + k, label, used: data.trial![k]!.used, limit: data.trial![k]!.limit })
+            : usageLabels.map(([k, label]) => ({ k, label, used: data.usage[k], limit: data.limits[k] }))
+          ).map((m) => {
+            if (!m) return null;
+            const pct = m.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
             return (
-              <div className="widget-card" key={k}>
-                <small>{label}</small>
-                <strong>
-                  {used.toLocaleString("th-TH")}
-                  <small style={{ display: "inline" }}> / {limit ?? "ไม่จำกัด"}</small>
-                </strong>
-                {limit !== null && (
-                  <div className={"meter" + (used > limit ? " over" : "")}>
-                    <span style={{ width: pct + "%" }} />
-                  </div>
-                )}
+              <div className={"pk-now-m" + (m.limit !== null && m.used >= m.limit ? " over" : "")} key={m.k} title={m.label}>
+                <small>{m.label}</small>
+                <b>
+                  {m.used.toLocaleString("th-TH")}
+                  <i> / {m.limit === null ? "ไม่จำกัด" : m.limit.toLocaleString("th-TH")}</i>
+                </b>
+                {m.limit !== null && <span style={{ "--p": pct + "%" } as CSSProperties} />}
               </div>
             );
           })}
         </div>
-        )}
-        <p className="note">
-          AI เดือนนี้: อ่านรูป (OCR) {data.usage.ocr.toLocaleString("th-TH")} รูป · วิเคราะห์ PDF {data.usage.ai_runs.toLocaleString("th-TH")} ไฟล์
-          {" "}({(data.usage as Usage & { pages?: number }).pages ?? 0} หน้า, สูงสุด 10 หน้า/ไฟล์)
-        </p>
         {data.overage.total > 0 && (
           <p className="note">
             เกินโควตาเดือนนี้ (เรียกเก็บรอบถัดไป, ระบบยังทำงานต่อ): เอกสาร ฿{money(data.overage.documents)} · OCR ฿

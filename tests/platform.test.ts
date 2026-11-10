@@ -240,6 +240,10 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
     await login(null);
     await db.query("insert into promos(title,active)values('A',true),('B',false)");
     await db.query("insert into promos(title,ends_at)values('C',now()-interval '1 day')");
+    // billing banner: picture/clip must be an https:// link with a known type
+    await db.query("insert into promos(title,active,placement,media_url,media_type)values('D',false,'billing','https://x.test/a.mp4','video')");
+    await assert.rejects(db.query("insert into promos(title,media_url)values('E','http://x.test/a.png')"));
+    await assert.rejects(db.query("insert into promos(title,media_type)values('E','gif')"));
     await db.exec("reset role;set role anon;");
     assert.deepEqual((await db.query<{ title: string }>("select title from promos")).rows.map((r) => r.title), ["A"]);
     await assert.rejects(db.query("insert into promos(title)values('X')"));

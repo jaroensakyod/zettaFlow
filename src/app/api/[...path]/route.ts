@@ -120,6 +120,7 @@ import {
   adminList,
   adminSave,
   adminDelete,
+  promoMediaUpload,
 } from "@/lib/engage";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -574,6 +575,7 @@ async function handle(req: NextRequest) {
         if (method === "GET") return response(await adminThread(ctx, path[2]));
         return response(await adminReply(ctx, path[2], await body(req)), 201);
       }
+      if (path[1] === "promo-media" && method === "POST") return response(await promoMediaUpload(ctx, await body(req)));
       if (path[1] === "promos" || path[1] === "announcements") {
         if (method === "GET") return response(await adminList(ctx, path[1]));
         if (method === "DELETE") {

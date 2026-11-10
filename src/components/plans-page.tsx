@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { money } from "./shared";
 import type { Plan } from "@/lib/billing";
+import type { Promo } from "@/lib/engage";
 
 type Tone = { icon: typeof Sprout; tone: string; tagline: string; who: string };
 const toneOf: Record<string, Tone> = {
@@ -350,5 +351,62 @@ function PlanDetail({
         </footer>
       </div>
     </div>
+  );
+}
+
+// ---------- Banner at the top of แพ็กเกจบริการ ----------
+// Promotions with placement "billing" (หลังบ้าน › โปรโมชันและโฆษณา) rotate here, each with an optional picture or clip.
+// With none published yet, a built-in slide keeps the space useful.
+type Ad = Pick<Promo, "id" | "title" | "body" | "cta_label" | "cta_url" | "tone" | "media_url" | "media_type">;
+const fallbackAds: Ad[] = [
+  { id: "f1", title: "จ่ายรายปี ฟรี 2 เดือน", body: "เลือกรอบรายปีในแพ็กเกจใดก็ได้ จ่ายเพียง 10 เดือน ใช้ได้ทั้งปี", cta_label: "", cta_url: "", tone: "violet" },
+  { id: "f2", title: "อัปเกรดตั้งแต่ Starter ปลดล็อกทุกแผนก", body: "การตลาด · ฝ่ายขาย · จัดซื้อ · คลังสินค้า · HR ทำงานร่วมกับบัญชีได้ทันที", cta_label: "", cta_url: "", tone: "pink" },
+];
+export function PlanAdBanner() {
+  const [ads, setAds] = useState<Ad[] | null>(null),
+    [i, setI] = useState(0),
+    [hold, setHold] = useState(false);
+  useEffect(() => {
+    fetch("/api/public-content", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { promos: [] }))
+      .then((d: { promos?: Promo[] }) => setAds((d.promos || []).filter((p) => p.placement === "billing")))
+      .catch(() => setAds([]));
+  }, []);
+  const list = ads === null ? [] : ads.length ? ads : fallbackAds;
+  const ad = list[i % Math.max(1, list.length)];
+  useEffect(() => {
+    if (list.length < 2 || hold) return;
+    const t = setTimeout(() => setI((n) => (n + 1) % list.length), ad?.media_type === "video" ? 12000 : 6000);
+    return () => clearTimeout(t);
+  }, [i, list.length, hold, ad?.media_type]);
+  if (!ad) return <section className="pk-ad pk-ad-wait" aria-hidden />;
+  const media = ad.media_url && (ad.media_type === "video" ? (
+    <video key={ad.id} className="pk-ad-media" src={ad.media_url} muted loop autoPlay playsInline />
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img key={ad.id} className="pk-ad-media" src={ad.media_url} alt={ad.title} />
+  ));
+  const external = ad.cta_url.startsWith("https://");
+  return (
+    <section className={"pk-ad tone-" + ad.tone + (media ? " has-media" : "")} onPointerEnter={() => setHold(true)} onPointerLeave={() => setHold(false)} aria-roledescription="carousel" aria-label="โปรโมชัน">
+      {media}
+      <div className="pk-ad-copy" key={"c" + ad.id}>
+        <span className="pk-ad-k"><Megaphone size={13} /> โปรโมชัน</span>
+        <h2>{ad.title}</h2>
+        {ad.body && <p>{ad.body}</p>}
+        {ad.cta_label && ad.cta_url && (
+          <a className="pk-ad-cta" href={ad.cta_url} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+            {ad.cta_label} <ChevronRight size={15} />
+          </a>
+        )}
+      </div>
+      {list.length > 1 && (
+        <div className="pk-ad-dots">
+          {list.map((a, n) => (
+            <button key={a.id} type="button" aria-label={"โปรโมชันที่ " + (n + 1)} className={n === i % list.length ? "on" : ""} onClick={() => setI(n)} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

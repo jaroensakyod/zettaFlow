@@ -256,7 +256,66 @@ function SupportInbox({ notify }: { notify: (s: string) => void }) {
 }
 
 type Row = Partial<Promo & Announcement> & { id?: string };
-const placementLabels: Record<string, string> = { landing: "หน้าเว็บไซต์ (โปรโมชัน)", feed: "เครือข่ายธุรกิจ (โฆษณา)", both: "ทั้งสองที่" };
+const placementLabels: Record<string, string> = { landing: "หน้าเว็บไซต์ (โปรโมชัน)", feed: "เครือข่ายธุรกิจ (โฆษณา)", both: "ทั้งสองที่", billing: "หน้าแพ็กเกจบริการ (แบนเนอร์)" };
+
+/** Picture or clip for a promotion: upload a file (straight to storage) or paste an https:// link. */
+function PromoMedia({ initial }: { initial: Row }) {
+  const [url, setUrl] = useState(initial.media_url || ""),
+    [type, setType] = useState<string>(initial.media_type || ""),
+    [busy, setBusy] = useState(""),
+    [err, setErr] = useState("");
+  async function upload(file: File) {
+    setErr("");
+    setBusy("กำลังอัปโหลด…");
+    try {
+      const r: { direct: boolean; url?: string; publicUrl?: string; type?: string } = await api("/admin/promo-media", { method: "POST", body: { mime: file.type, size: file.size } });
+      if (!r.direct) throw new Error("โหมดเดโมอัปโหลดไฟล์ไม่ได้ ใส่ลิงก์ https:// แทนได้");
+      const put = await fetch(r.url!, { method: "PUT", headers: { "Content-Type": file.type, "x-upsert": "false" }, body: file });
+      if (!put.ok) throw new Error("อัปโหลดไม่สำเร็จ (" + put.status + ")");
+      setUrl(r.publicUrl!);
+      setType(r.type!);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  return (
+    <div className="promo-media">
+      <input type="hidden" name="media_url" value={url} />
+      <input type="hidden" name="media_type" value={url ? type || "image" : ""} />
+      <b>รูปหรือคลิปโฆษณา</b>
+      <small className="muted">แนะนำแนวนอน 1600×500 px · รูป PNG/JPG/WEBP/GIF หรือคลิป MP4/WEBM ไม่เกิน 50 MB</small>
+      {url ? (
+        <div className="promo-media-preview">
+          {type === "video" ? <video src={url} muted loop autoPlay playsInline /> : <img src={url} alt="" />}
+          <button type="button" className="secondary" onClick={() => { setUrl(""); setType(""); }}>
+            <Trash2 size={14} /> เอาออก
+          </button>
+        </div>
+      ) : (
+        <div className="promo-media-pick">
+          <label className="secondary promo-media-file">
+            อัปโหลดรูป / คลิป
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+          </label>
+          <span className="muted">หรือ</span>
+          <input
+            placeholder="วางลิงก์ https://…"
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (!v) return;
+              setUrl(v);
+              setType(/\.(mp4|webm)(\?|$)/i.test(v) ? "video" : "image");
+            }}
+          />
+        </div>
+      )}
+      {busy && <small>{busy}</small>}
+      {err && <p className="form-error">{err}</p>}
+    </div>
+  );
+}
 function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; notify: (s: string) => void }) {
   const [rows, setRows] = useState<Row[]>([]),
     [edit, setEdit] = useState<Row | null>(null),
@@ -281,6 +340,7 @@ function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; not
           <span>
             <b>{r.title}</b> <small className="muted">{r.body}</small>{" "}
             {promo && <span className="status-pill">{placementLabels[r.placement || "landing"]}</span>}{" "}
+            {promo && r.media_url && <span className="status-pill">{r.media_type === "video" ? "มีคลิป" : "มีรูป"}</span>}{" "}
             <span className={"status-pill " + (r.active ? "good" : "bad")}>{r.active ? "แสดงอยู่" : "ซ่อน"}</span>
           </span>
           <div className="row-actions">
@@ -313,7 +373,7 @@ function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; not
                 body: f.get("body"),
                 active: f.get("active") === "on",
               };
-              if (promo) Object.assign(body, { cta_label: f.get("cta_label"), cta_url: f.get("cta_url"), tone: f.get("tone"), placement: f.get("placement"), ordinal: Number(f.get("ordinal") || 0), ends_at: end ? new Date(end).toISOString() : null });
+              if (promo) Object.assign(body, { cta_label: f.get("cta_label"), cta_url: f.get("cta_url"), tone: f.get("tone"), placement: f.get("placement"), media_url: f.get("media_url") || "", media_type: f.get("media_type") || "", ordinal: Number(f.get("ordinal") || 0), ends_at: end ? new Date(end).toISOString() : null });
               else Object.assign(body, { level: f.get("level"), popup: f.get("popup") === "on", expires_at: end ? new Date(end).toISOString() : null });
               try {
                 await api(`/admin/${kind}${edit.id ? "/" + edit.id : ""}`, { method: edit.id ? "PATCH" : "POST", body });
@@ -333,6 +393,7 @@ function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; not
               รายละเอียด
               <textarea name="body" defaultValue={edit.body} rows={3} maxLength={promo ? 500 : 2000} required={!promo} />
             </label>
+            {promo && <PromoMedia initial={edit} />}
             {promo ? (
               <div className="form-grid">
                 <label>

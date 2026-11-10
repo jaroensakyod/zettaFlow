@@ -15,8 +15,11 @@ export type Promo = {
   cta_label: string;
   cta_url: string;
   tone: "violet" | "pink" | "blue" | "green";
-  /** landing = public home page banner, feed = sponsored card in เครือข่ายธุรกิจ, both. */
-  placement?: "landing" | "feed" | "both";
+  /** landing = public home page banner, feed = sponsored card in เครือข่ายธุรกิจ, both, billing = banner on แพ็กเกจบริการ. */
+  placement?: "landing" | "feed" | "both" | "billing";
+  /** Optional picture or clip (public URL) shown with the promotion. */
+  media_url?: string;
+  media_type?: "" | "image" | "video";
   active: boolean;
   starts_at: string;
   ends_at: string | null;
@@ -147,7 +150,9 @@ const promoSchema = z.object({
   cta_label: z.string().trim().max(40).default(""),
   cta_url: z.string().trim().max(300).regex(/^(https:\/\/|\/|$)/, "ลิงก์ต้องขึ้นต้นด้วย https:// หรือ /").default(""),
   tone: z.enum(["violet", "pink", "blue", "green"]).default("violet"),
-  placement: z.enum(["landing", "feed", "both"]).default("landing"),
+  placement: z.enum(["landing", "feed", "both", "billing"]).default("landing"),
+  media_url: z.string().trim().max(500).regex(/^(https:\/\/|$)/, "ลิงก์รูป/คลิปต้องขึ้นต้นด้วย https://").default(""),
+  media_type: z.enum(["", "image", "video"]).default(""),
   active: z.boolean().default(true),
   ends_at: z.iso.datetime({ offset: true }).nullable().default(null),
   ordinal: z.number().int().min(0).max(100).default(0),
@@ -161,6 +166,23 @@ const announcementSchema = z.object({
   expires_at: z.iso.datetime({ offset: true }).nullable().default(null),
 });
 type Kind = "promos" | "announcements";
+const PROMO_BUCKET = "eliteflow-promo";
+const promoMedia: Record<string, "image" | "video"> = { "image/png": "image", "image/jpeg": "image", "image/webp": "image", "image/gif": "image", "video/mp4": "video", "video/webm": "video" };
+/** Admin uploads a promo picture or clip straight to public storage: returns a one-time PUT URL and the public URL to save. */
+export async function promoMediaUpload(ctx: Context, input: unknown) {
+  requireAdmin(ctx);
+  const v = z.object({ mime: z.string().max(100), size: z.number().int().min(1) }).parse(input);
+  const type = promoMedia[v.mime];
+  assert(type, "รองรับเฉพาะรูป PNG/JPG/WEBP/GIF หรือคลิป MP4/WEBM", 400);
+  assert(v.size <= 50_000_000, "ไฟล์ใหญ่เกิน 50 MB", 400);
+  if (ctx.demo || !configured()) return { direct: false as const };
+  const ext = v.mime.split("/")[1].replace("jpeg", "jpg");
+  const path = `promos/${randomUUID()}.${ext}`;
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.storage.from(PROMO_BUCKET).createSignedUploadUrl(path);
+  dbError(error);
+  return { direct: true as const, url: data!.signedUrl, publicUrl: sb.storage.from(PROMO_BUCKET).getPublicUrl(path).data.publicUrl, type };
+}
 export async function adminList(ctx: Context, kind: Kind) {
   requireAdmin(ctx);
   if (ctx.demo) {

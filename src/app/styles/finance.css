@@ -1010,3 +1010,49 @@ textarea.qe-input { height: auto; resize: vertical; line-height: 1.45; padding: 
 .pk-chips.free span { background: #fff; border: 1px solid var(--cb); color: #2b2545; }
 .pk-chips.free svg { color: var(--c); }
 @media (max-width: 640px) { .pk-services { grid-template-columns: minmax(0, 1fr); } }
+
+/* Promotion banner on แพ็กเกจบริการ (placement "billing"): picture/clip fills the card, copy sits on a soft shade */
+.pk-ad { --ad-a: #7c3aed; --ad-b: #2563eb; position: relative; overflow: hidden; min-height: 200px; display: flex; align-items: center; padding: 28px 32px; border-radius: 22px; color: #fff; background: linear-gradient(120deg, var(--ad-a), var(--ad-b)); box-shadow: 0 18px 40px color-mix(in srgb, var(--ad-a) 28%, transparent); }
+.pk-ad.tone-pink { --ad-a: #db2777; --ad-b: #f97316; }
+.pk-ad.tone-blue { --ad-a: #2563eb; --ad-b: #06b6d4; }
+.pk-ad.tone-green { --ad-a: #059669; --ad-b: #65a30d; }
+.pk-ad::before { content: ""; position: absolute; right: -60px; top: -80px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .25), transparent 70%); pointer-events: none; }
+.pk-ad-wait { background: linear-gradient(120deg, #ede9fe, #e0e7ff); box-shadow: none; }
+.pk-ad-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: pkAdIn .6s ease; }
+.pk-ad.has-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15, 10, 40, .62) 0%, rgba(15, 10, 40, .25) 50%, transparent 75%); pointer-events: none; }
+.pk-ad-copy { position: relative; z-index: 1; max-width: 560px; display: grid; gap: 8px; justify-items: start; animation: pkAdIn .5s ease; }
+.pk-ad-k { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, .2); backdrop-filter: blur(4px); }
+.pk-ad h2 { margin: 0; font-size: 26px; line-height: 1.25; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+.pk-ad p { margin: 0; font-size: 14px; opacity: .92; }
+.pk-ad-cta { margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 9px 16px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--ad-a); background: #fff; text-decoration: none; transition: transform .2s; }
+.pk-ad-cta:hover { transform: translateX(3px); }
+.pk-ad-dots { position: absolute; z-index: 1; right: 20px; bottom: 16px; display: flex; gap: 6px; }
+.pk-ad-dots button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .5); cursor: pointer; transition: width .3s, background .3s; }
+.pk-ad-dots button.on { width: 24px; background: #fff; }
+@keyframes pkAdIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* Compact current-package bar under the banner */
+.pk-now { display: grid; grid-template-columns: auto 1fr; gap: 10px 20px; align-items: center; margin-top: 14px; padding: 12px 16px; border-radius: 16px; background: #fff; border: 1px solid #ece7f8; }
+.pk-now-plan { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pk-now-plan > small { color: #6b6585; }
+.pk-now-plan b { font-size: 17px; color: #5b21b6; }
+.pk-now-use { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.pk-now-m { --p: 0%; position: relative; overflow: hidden; display: grid; padding: 6px 12px 8px; border-radius: 12px; background: #f7f5ff; min-width: 120px; }
+.pk-now-m small { font-size: 11px; color: #6b6585; white-space: nowrap; }
+.pk-now-m b { font-size: 15px; color: #2b2545; }
+.pk-now-m i { font-style: normal; font-size: 11px; font-weight: 600; color: #8a84a3; }
+.pk-now-m > span { position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: linear-gradient(90deg, #8b5cf6, #2563eb); }
+.pk-now-m.over > span { background: #dc2626; }
+.pk-now .note { grid-column: 1 / -1; margin: 0; }
+/* Admin: promo picture / clip picker */
+.promo-media { display: grid; gap: 6px; margin-bottom: 12px; padding: 12px; border-radius: 12px; border: 1px dashed #d8d2ee; background: #fbfaff; }
+.promo-media-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.promo-media-pick input { flex: 1; min-width: 180px; }
+.promo-media-file { cursor: pointer; }
+.promo-media-preview { display: grid; gap: 8px; justify-items: start; }
+.promo-media-preview img, .promo-media-preview video { width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; }
+@media (max-width: 760px) {
+  .pk-ad { min-height: 170px; padding: 22px 20px; }
+  .pk-ad h2 { font-size: 20px; }
+  .pk-now { grid-template-columns: 1fr; }
+  .pk-now-use { justify-content: flex-start; }
+}
