@@ -485,3 +485,44 @@ button.fl-ov { cursor: pointer; }
 .fl-pay::before { background: rgba(255, 255, 255, .9); }
 .fl-project b { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--accent); }
 .fl-project small { display: block; font-size: 11.5px; color: var(--muted); }
+
+/* Row detail (รับชำระ / ค่าใช้จ่าย): summary header, facts, money, who recorded it, receipt + slip with preview */
+dialog.modal:has(.fd) { width: min(1100px, 95vw); max-width: none; }
+.fd { display: grid; gap: 14px; }
+.fd-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 20px; border-radius: 16px; color: #fff; background: linear-gradient(135deg, var(--c1), var(--c2)); }
+.fd-paid .fd-head { --c1: #34d399; --c2: #15803d; }
+.fd-unpaid .fd-head { --c1: #fb923c; --c2: #c2410c; }
+.fd-waiting .fd-head { --c1: #a1a1aa; --c2: #52525b; }
+.fd-head > div { display: grid; gap: 2px; min-width: 0; }
+.fd-head small { font-size: 13px; opacity: .9; }
+.fd-head b { font-size: 32px; line-height: 1.1; }
+.fd-head span:not(.fl-pay) { font-size: 14px; opacity: .95; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-head .fl-pay { background: rgba(255, 255, 255, .22); color: #fff; font-size: 14px; padding: 6px 14px; }
+.fd-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.fd-col { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.fd-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--th-surface, #fff); }
+.fd-card h4 { margin: 0 0 8px; font-size: 14px; color: var(--accent); }
+.fd-card dl { margin: 0; display: grid; gap: 7px; }
+.fd-card dl div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+.fd-card dt { color: var(--muted); }
+.fd-card dt small { font-size: 11.5px; }
+.fd-card dd { margin: 0; font-weight: 600; word-break: break-word; }
+.fd-money div.total { padding-top: 7px; border-top: 1px dashed var(--line); }
+.fd-money div.total dd { font-size: 17px; color: var(--accent); }
+.fd-money dd { text-align: right; }
+.fd-receipt.ok { border-color: #86efac; background: #f0fdf4; }
+.fd-receipt.warn { border-color: #fdba74; background: #fff7ed; }
+.fd-status { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 700; font-size: 14px; }
+.fd-status.ok { color: #15803d; }
+.fd-status.warn { color: #c2410c; }
+.fd-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fd-actions .as-button, .fd-actions button { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; font-size: 13px; cursor: pointer; }
+.fd-actions .busy { opacity: .6; pointer-events: none; }
+.fd-files { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
+.fd-files button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--th-surface, #fff); font-size: 13px; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-files button.on, .fd-actions button.on { border-color: var(--accent); color: var(--accent); }
+.fd-preview { margin: 0; min-height: 260px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); overflow: hidden; }
+.fd-preview img { max-width: 100%; max-height: 460px; display: block; }
+.fd-preview object { width: 100%; height: 460px; }
+.fd-preview figcaption { width: 100%; padding: 8px 12px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: var(--th-surface, #fff); }
+@media (max-width: 860px) { .fd-grid { grid-template-columns: minmax(0, 1fr); } .fd-card dl div { grid-template-columns: 110px minmax(0, 1fr); } }

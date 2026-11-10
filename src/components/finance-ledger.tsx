@@ -2,7 +2,8 @@
 // สรุปรายรับ / ค่าใช้จ่าย: pick a day, month or year → totals with their tax (VAT, หัก ณ ที่จ่าย), money in vs out for
 // the same period, a breakdown by day/month and by category, and every row — click one to see it in full with its file.
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale, Landmark, HandCoins, Wallet, Receipt, Search, FileText, Pencil, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale, Landmark, HandCoins, Wallet, Receipt, Search, FileText, Pencil, ExternalLink, CheckCircle2, AlertTriangle, Upload } from "lucide-react";
+import { uploadFile } from "./platform";
 import { api, money, displayDate, Empty, Loading, Modal } from "./shared";
 import { categoryLabel } from "@/lib/expense-categories";
 
@@ -438,96 +439,304 @@ export function FinanceLedger({
   );
 }
 
-/** One row in full, with the file the expense was recorded from. */
+type DetailFile = { id: string; name: string; mime: string; role: "slip" | "receipt" | "other" };
+type DetailInfo = {
+  createdAt: string;
+  updatedAt: string;
+  recorder: string;
+  line: { group: string; sender: string } | null;
+  account: { bank: string; number: string; name: string; type: string; promptPay: string } | null;
+  files: DetailFile[];
+  receipt: { issued: { number: string; date: string } | null; url: string; hasFile: boolean; canIssue: boolean };
+};
+const dateTime = (s: string) =>
+  s ? new Date(s).toLocaleString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }) : "—";
+
+/** One row in full: what it was, project, who paid / was paid and how, the slip, the receipt, and who recorded it. */
 function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind: "expenses" | "income"; navigate: (v: string) => void; onClose: () => void }) {
-  const [files, setFiles] = useState<{ id: string; mime: string; name: string }[] | null>(null);
-  useEffect(() => {
-    api("/files?entity=" + row.id)
-      .then(setFiles)
-      .catch(() => setFiles([]));
-  }, [row.id]);
+  const [info, setInfo] = useState<DetailInfo | null>(null),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(""),
+    [tick, setTick] = useState(0),
+    [view, setView] = useState<DetailFile | null>(null);
   const e = kind === "expenses" ? (row as Expense) : null,
     i = kind === "income" ? (row as Income) : null;
-  const main = e ? files?.find((f) => f.id === e.receiptId) || files?.[0] : files?.[0];
-  const fields: [string, string][] = e
+  const sourceKind = e ? "expenses" : i!.kind;
+  useEffect(() => {
+    api(`/ledger/detail?kind=${sourceKind}&id=${row.id}`)
+      .then((d: DetailInfo) => {
+        setInfo(d);
+        setView((v) => (v && d.files.some((f) => f.id === v.id) ? v : d.files.find((f) => f.role === "slip") || d.files.find((f) => f.role === "receipt") || d.files[0] || null));
+      })
+      .catch((err) => setError(err.message));
+  }, [sourceKind, row.id, tick]);
+
+  async function attach(file: File, role: "slip" | "receipt") {
+    setBusy(role);
+    setError("");
+    try {
+      const named = new File([file], (role === "slip" ? "สลิป - " : "ใบเสร็จ - ") + file.name, { type: file.type });
+      await uploadFile(named, "Finance", row.id);
+      setTick((t) => t + 1);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function issueReceipt() {
+    if (!info) return;
+    setBusy("issue");
+    try {
+      const res = await fetch(info.receipt.url, { method: "POST", redirect: "manual" });
+      if (res.type !== "opaqueredirect" && !res.ok) throw new Error(/<p>([^<]+)<\/p>/.exec(await res.text())?.[1] || "ออกเลขที่ไม่สำเร็จ");
+      setTick((t) => t + 1);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const state = e ? e.payState : i!.payState;
+  const amount = e ? e.net : i!.kind === "invoices" ? i!.owed : i!.amount;
+  const docNo = e ? e.code || e.docNo || "#" + e.id.slice(-8) : i!.docNo;
+  const project = (e || i)!.project ? (e || i)!.project + ((e || i)!.projectName && (e || i)!.projectName !== (e || i)!.project ? " · " + (e || i)!.projectName : "") : "—";
+  const acct = info?.account;
+  const accountText = !i
+    ? ""
+    : i.method === "เงินสด"
+      ? "เงินสด"
+      : acct && (acct.bank || acct.number)
+        ? [acct.bank, acct.number, acct.type && "(" + acct.type + ")"].filter(Boolean).join(" ") + (acct.name ? " · " + acct.name : "")
+        : acct?.promptPay
+          ? "พร้อมเพย์ " + acct.promptPay
+          : "ยังไม่ได้ตั้งบัญชีบริษัท";
+
+  const facts: [string, React.ReactNode][] = e
     ? [
-        ["วันที่", displayDate(e.date)],
-        ["เลขที่เอกสาร", e.code || e.docNo || "—"],
-        ["หมวด", e.category ? categoryLabel(e.category) : "—"],
-        ["ผู้รับเงิน", e.payee || "—"],
+        ["วันที่จ่าย", displayDate(e.date)],
+        ["รายการ", e.name],
+        ["หมวดค่าใช้จ่าย", e.category ? categoryLabel(e.category) : "—"],
+        ["โปรเจกต์", project],
+        ["จ่ายให้", e.payee || "—"],
+        ["ช่องทางการจ่าย", e.payStatus || "—"],
         ["ประเภทเอกสาร", e.docType || "—"],
-        ["ยอดก่อน VAT", "฿" + money(e.base)],
-        ["VAT", "฿" + money(e.vat) + (e.vat && !e.claimable ? " (ขอคืนไม่ได้)" : "")],
-        ["ยอดรวม", "฿" + money(e.gross)],
-        ["หัก ณ ที่จ่าย", e.wht ? "฿" + money(e.wht) + " · " + e.whtForm : "—"],
-        ["จ่ายสุทธิ", "฿" + money(e.net)],
-        ["โปรเจกต์", e.project ? e.project + (e.projectName && e.projectName !== e.project ? " · " + e.projectName : "") : "—"],
-        ["การชำระ", e.payState + (e.payStatus ? " · " + e.payStatus : "")],
-        ["สถานะ", e.pending ? "รอตรวจ" : "บันทึกแล้ว"],
-        ["หมายเหตุ", e.notes || "—"],
+        ["เลขที่เอกสารผู้ขาย", e.docNo || "—"],
       ]
     : [
-        ["วันที่", displayDate(i!.date)],
-        ["เลขที่เอกสาร", i!.docNo],
-        ["ที่มา", i!.kind === "sales" ? "ยอดขาย (ฝ่ายขาย)" : i!.kind === "invoices" ? "ใบแจ้งหนี้ที่ยังไม่ได้รับเงิน" : "รับชำระเงิน"],
-        ["โปรเจกต์", i!.project ? i!.project + (i!.projectName && i!.projectName !== i!.project ? " · " + i!.projectName : "") : "—"],
-        ["สถานะการชำระ", i!.payState + (i!.owed ? " · ค้าง ฿" + money(i!.owed) : "") + (i!.dueDate ? " · ครบกำหนด " + displayDate(i!.dueDate) : "")],
-        ["ลูกค้า", i!.customer || "—"],
+        [i!.kind === "invoices" ? "วันที่ออกใบแจ้งหนี้" : "วันที่ได้รับชำระ", displayDate(i!.date)],
+        ["รายการ", i!.name],
+        ["โปรเจกต์", project],
+        ["ชำระมาจาก", i!.customer || "—"],
         ["ใบแจ้งหนี้", i!.invoice || "—"],
-        ["ช่องทาง", i!.method || "—"],
-        ["เลขอ้างอิง", i!.reference || "—"],
-        ["ยอดก่อน VAT", "฿" + money(i!.base)],
-        ["VAT", "฿" + money(i!.vat)],
-        ["รับเงิน", "฿" + money(i!.amount)],
-        ["หมายเหตุ", i!.notes || "—"],
+        ["ช่องทางการเงิน", i!.kind === "sales" ? i!.method || "ยอดขาย" : i!.method || "—"],
+        ["เลขอ้างอิงการโอน", i!.reference || "—"],
+        ["เข้าบัญชี", accountText],
+        ...(i!.kind === "invoices" ? ([["ครบกำหนดชำระ", displayDate(i!.dueDate)]] as [string, React.ReactNode][]) : []),
       ];
+  const money3: [string, number, string?][] = e
+    ? [
+        ["ยอดก่อน VAT", e.base],
+        ["VAT", e.vat, e.vat && !e.claimable ? "ขอคืนไม่ได้" : undefined],
+        ["หัก ณ ที่จ่าย", -e.wht, e.whtForm || undefined],
+        ["จ่ายสุทธิ", e.net],
+      ]
+    : [
+        ["ยอดก่อน VAT", i!.base],
+        ["VAT", i!.vat],
+        [i!.kind === "invoices" ? "ยอดค้างรับ" : "รับเงินสุทธิ", amount],
+      ];
+  const slip = info?.files.find((f) => f.role === "slip");
+  const receiptFiles = info?.files.filter((f) => f.role === "receipt") || [];
+  const showsSlip = !e && i!.kind !== "invoices";
+
   return (
-    <Modal title={row.name || "รายละเอียด"} onClose={onClose}>
-      <div className="fl-detail">
-        <dl>
-          {fields.map(([k, v]) => (
-            <div key={k}>
-              <dt>{k}</dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
-        <figure>
-          {files === null ? (
-            <Loading />
-          ) : !main ? (
-            <div className="acc-noreceipt">
-              <FileText size={28} />
-              <span>ไม่มีไฟล์แนบ</span>
-            </div>
-          ) : main.mime === "application/pdf" ? (
-            <object data={"/api/files/" + main.id} type="application/pdf" aria-label={main.name}>
-              <a href={"/api/files/" + main.id} target="_blank" rel="noreferrer">
-                เปิด {main.name}
-              </a>
-            </object>
-          ) : main.mime.startsWith("image/") ? (
-            <a href={"/api/files/" + main.id} target="_blank" rel="noreferrer">
-              <img src={"/api/files/" + main.id} alt={main.name} />
-            </a>
-          ) : (
-            <a href={"/api/files/" + main.id} target="_blank" rel="noreferrer">
-              เปิด {main.name}
-            </a>
-          )}
-          {!!files && files.length > 1 && (
-            <figcaption>
-              ไฟล์อื่น:{" "}
-              {files
-                .filter((f) => f !== main)
-                .map((f) => (
-                  <a key={f.id} href={"/api/files/" + f.id} target="_blank" rel="noreferrer">
-                    {f.name}
-                  </a>
+    <Modal title={(e ? "ค่าใช้จ่าย" : i!.kind === "invoices" ? "ใบแจ้งหนี้" : "รับชำระ") + " · " + docNo} onClose={onClose}>
+      <div className={"fd fd-" + payTone[state]}>
+        <header className="fd-head">
+          <div>
+            <small>{e ? "จ่ายสุทธิ" : i!.kind === "invoices" ? "ยอดค้างรับ" : "รับเงิน"}</small>
+            <b>฿{money(amount)}</b>
+            <span>{row.name}</span>
+          </div>
+          <span className={"fl-pay " + payTone[state]}>{state}</span>
+        </header>
+
+        <div className="fd-grid">
+          <div className="fd-col">
+            <section className="fd-card">
+              <h4>{e ? "ข้อมูลการจ่าย" : "ข้อมูลการรับชำระ"}</h4>
+              <dl>
+                {facts.map(([k, v]) => (
+                  <div key={k}>
+                    <dt>{k}</dt>
+                    <dd>{v}</dd>
+                  </div>
                 ))}
-            </figcaption>
-          )}
-        </figure>
+              </dl>
+            </section>
+            <section className="fd-card">
+              <h4>ยอดเงิน</h4>
+              <dl className="fd-money">
+                {money3.map(([k, v, note]) => (
+                  <div key={k} className={k.includes("สุทธิ") || k === "ยอดค้างรับ" ? "total" : ""}>
+                    <dt>
+                      {k}
+                      {note && <small> · {note}</small>}
+                    </dt>
+                    <dd>{v < 0 ? "−฿" + money(-v) : "฿" + money(v)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+            <section className="fd-card">
+              <h4>ผู้ดำเนินการ</h4>
+              <dl>
+                <div>
+                  <dt>บันทึกโดย</dt>
+                  <dd>{info ? info.recorder || (info.line ? "ระบบ (จาก LINE)" : "—") : "…"}</dd>
+                </div>
+                {info?.line && (
+                  <div>
+                    <dt>ที่มา</dt>
+                    <dd>
+                      LINE{info.line.group ? " · กลุ่ม " + info.line.group : ""}
+                      {info.line.sender ? " · ส่งโดย " + info.line.sender : ""}
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt>บันทึกเมื่อ</dt>
+                  <dd>{info ? dateTime(info.createdAt) : "…"}</dd>
+                </div>
+                {info && info.updatedAt && info.updatedAt !== info.createdAt && (
+                  <div>
+                    <dt>แก้ไขล่าสุด</dt>
+                    <dd>{dateTime(info.updatedAt)}</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          </div>
+
+          <div className="fd-col">
+            {/* Receipt: issued to the customer (income) or received from the payee (expense). */}
+            <section className={"fd-card fd-receipt " + (info ? (info.receipt.issued || info.receipt.hasFile ? "ok" : "warn") : "")}>
+              <h4>ใบเสร็จ</h4>
+              {!info ? (
+                <Loading />
+              ) : info.receipt.issued || info.receipt.hasFile ? (
+                <p className="fd-status ok">
+                  <CheckCircle2 size={18} />
+                  {e ? "ได้รับใบเสร็จแล้ว" : info.receipt.issued ? `ออกใบเสร็จแล้ว เลขที่ ${info.receipt.issued.number}` : "เก็บใบเสร็จไว้แล้ว"}
+                </p>
+              ) : (
+                <p className="fd-status warn">
+                  <AlertTriangle size={18} />
+                  {e ? "ยังไม่ได้รับใบเสร็จจากผู้รับเงิน — ขอใบเสร็จแล้วแนบเก็บไว้ที่นี่" : i!.kind === "invoices" ? "ยังไม่ได้ออกใบกำกับภาษี" : "ยังไม่ได้ออกใบเสร็จให้ลูกค้า"}
+                </p>
+              )}
+              {!!receiptFiles.length && (
+                <ul className="fd-files">
+                  {receiptFiles.map((f) => (
+                    <li key={f.id}>
+                      <button className={view?.id === f.id ? "on" : ""} onClick={() => setView(f)}>
+                        <FileText size={15} /> {f.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="fd-actions">
+                {info?.receipt.url && (
+                  <a className="secondary as-button" href={info.receipt.url} target="_blank" rel="noreferrer">
+                    <ExternalLink size={15} /> {info.receipt.issued ? "เปิดใบเสร็จ" : "ดูตัวอย่างใบเสร็จ"}
+                  </a>
+                )}
+                {info?.receipt.canIssue && !info.receipt.issued && i?.kind !== "sales" && (
+                  <button className="primary" disabled={!!busy} onClick={issueReceipt}>
+                    {busy === "issue" ? "กำลังออก…" : i?.kind === "invoices" ? "ออกใบกำกับภาษี" : "ออกใบเสร็จ"}
+                  </button>
+                )}
+                <label className={"secondary as-button" + (busy === "receipt" ? " busy" : "")}>
+                  <Upload size={15} /> {busy === "receipt" ? "กำลังแนบ…" : "แนบไฟล์ใบเสร็จ"}
+                  <input type="file" className="sr-only" accept="image/*,application/pdf" disabled={!!busy} onChange={(ev) => {
+                    const f = ev.target.files?.[0];
+                    ev.target.value = "";
+                    if (f) attach(f, "receipt");
+                  }} />
+                </label>
+              </div>
+            </section>
+
+            {showsSlip && (
+              <section className={"fd-card " + (slip ? "" : "fd-receipt warn")}>
+                <h4>สลิปโอนเงิน</h4>
+                {!info ? null : slip ? (
+                  <p className="fd-status ok">
+                    <CheckCircle2 size={18} /> แนบสลิปแล้ว
+                  </p>
+                ) : (
+                  <p className="fd-status warn">
+                    <AlertTriangle size={18} /> ยังไม่มีสลิป
+                  </p>
+                )}
+                <div className="fd-actions">
+                  {slip && (
+                    <button className={"secondary" + (view?.id === slip.id ? " on" : "")} onClick={() => setView(slip)}>
+                      <FileText size={15} /> ดูสลิป
+                    </button>
+                  )}
+                  <label className={"secondary as-button" + (busy === "slip" ? " busy" : "")}>
+                    <Upload size={15} /> {busy === "slip" ? "กำลังแนบ…" : slip ? "แนบสลิปเพิ่ม" : "แนบสลิป"}
+                    <input type="file" className="sr-only" accept="image/*,application/pdf" disabled={!!busy} onChange={(ev) => {
+                      const f = ev.target.files?.[0];
+                      ev.target.value = "";
+                      if (f) attach(f, "slip");
+                    }} />
+                  </label>
+                </div>
+              </section>
+            )}
+
+            <figure className="fd-preview">
+              {!info ? (
+                <Loading />
+              ) : !view ? (
+                <div className="acc-noreceipt">
+                  <FileText size={28} />
+                  <span>{showsSlip ? "ยังไม่มีสลิปหรือใบเสร็จแนบ" : "ยังไม่มีไฟล์แนบ"}</span>
+                </div>
+              ) : view.mime === "application/pdf" ? (
+                <object data={"/api/files/" + view.id} type="application/pdf" aria-label={view.name}>
+                  <a href={"/api/files/" + view.id} target="_blank" rel="noreferrer">เปิด {view.name}</a>
+                </object>
+              ) : view.mime.startsWith("image/") ? (
+                <a href={"/api/files/" + view.id} target="_blank" rel="noreferrer" title="เปิดภาพเต็ม">
+                  <img src={"/api/files/" + view.id} alt={view.name} />
+                </a>
+              ) : (
+                <a href={"/api/files/" + view.id} target="_blank" rel="noreferrer">เปิด {view.name}</a>
+              )}
+              {view && <figcaption>{view.role === "slip" ? "สลิปโอนเงิน" : view.role === "receipt" ? "ใบเสร็จ" : "ไฟล์แนบ"} · {view.name}</figcaption>}
+            </figure>
+            {!!info && info.files.filter((f) => f.role === "other").length > 0 && (
+              <ul className="fd-files">
+                {info.files
+                  .filter((f) => f.role === "other")
+                  .map((f) => (
+                    <li key={f.id}>
+                      <button className={view?.id === f.id ? "on" : ""} onClick={() => setView(f)}>
+                        <FileText size={15} /> {f.name}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        {error && <p className="form-error">{error}</p>}
       </div>
       <div className="modal-footer">
         {e ? (

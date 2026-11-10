@@ -1,6 +1,10 @@
 // Read-only department pages built from existing records: monthly tax summary and an expiry tracker.
 import { allEntities } from "./data";
-import { assert, canRead } from "./domain";
+import { assert, canRead, canWrite } from "./domain";
+import { demoRead } from "./demo";
+import { files } from "./files";
+import { issuedAll, docUrl } from "./documents";
+import { supabaseServer } from "./supabase/server";
 import { catalog } from "./catalog";
 import { awaitingReview, expenseCalc, whtForm } from "./tax";
 import type { Context } from "./types";
@@ -289,4 +293,83 @@ export async function ledger(ctx: Context, from: string, to: string) {
   }
   const byDate = (a: { date: string }, b: { date: string }) => b.date.localeCompare(a.date);
   return { from, to, expenses: exp.sort(byDate), income: inc.sort(byDate), salesIncluded: sales };
+}
+
+export type DetailFile = { id: string; name: string; mime: string; role: "slip" | "receipt" | "other" };
+export type LedgerDetail = {
+  createdAt: string;
+  updatedAt: string;
+  /** Who recorded it: the member, and the LINE group / sender when it came from LINE. */
+  recorder: string;
+  line: { group: string; sender: string } | null;
+  /** The company account money came into (income) — from the company profile. */
+  account: { bank: string; number: string; name: string; type: string; promptPay: string } | null;
+  files: DetailFile[];
+  /** Income: the receipt we issue to the customer. Expenses: the receipt we got from the payee. */
+  receipt: { issued: { number: string; date: string } | null; url: string; hasFile: boolean; canIssue: boolean };
+};
+/** The full picture behind one row of the รายรับ / ค่าใช้จ่าย list (opened from the list). */
+export async function ledgerDetail(ctx: Context, kind: string, id: string): Promise<LedgerDetail> {
+  assert(canRead(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
+  assert(["payments", "expenses", "invoices", "sales"].includes(kind), "ประเภทไม่ถูกต้อง");
+  const rows = await allEntities(ctx, kind, 5000);
+  const e = rows.find((r) => r.id === id);
+  assert(e, "ไม่พบรายการ", 404);
+  const raw = e as unknown as { created_by?: string; created_at?: string; updated_at?: string };
+  // Recorder's name from the company's members (falls back quietly when the list is not readable).
+  let recorder = "";
+  if (raw.created_by) {
+    if (ctx.demo) recorder = (await demoRead()).members.find((m) => m.user_id === raw.created_by)?.name || "";
+    else {
+      const sb = await supabaseServer();
+      const { data } = await sb.from("memberships").select("name,email").eq("company_id", ctx.company.id).eq("user_id", raw.created_by).maybeSingle();
+      recorder = data ? String(data.name || data.email || "") : "";
+    }
+    if (!recorder && raw.created_by === ctx.user.id) recorder = ctx.member.name || ctx.user.email;
+  }
+  const d = e.data;
+  const line = d.sourceVia === "LINE" ? { group: String(d.sourceGroup || ""), sender: String(d.sourceSender || "") } : null;
+  const p = ctx.company.profile || {};
+  const str = (v: unknown) => (v === null || v === undefined ? "" : String(v)).trim();
+  const account =
+    kind === "payments" || kind === "sales" || kind === "invoices"
+      ? {
+          bank: str(p.bank) || str(p.bankName),
+          number: str(p.bankAccount),
+          name: str(p.bankAccountName),
+          type: str(p.bankAccountType),
+          promptPay: str(p.promptPay),
+        }
+      : null;
+  const list = (await files(ctx, id)) as { id: string; name: string; mime: string }[];
+  const role = (f: { id: string; name: string }): DetailFile["role"] =>
+    /^ใบเสร็จ/.test(f.name) || f.id === d.receiptId ? "receipt" : /^สลิป/.test(f.name) ? "slip" : "other";
+  let out: DetailFile[] = list.map((f) => ({ id: f.id, name: f.name, mime: f.mime, role: role(f) }));
+  // A payment's first picture with no label is the transfer slip (what LINE and the old form attached).
+  if (kind === "payments" && !out.some((f) => f.role === "slip")) {
+    const first = out.find((f) => f.role === "other" && f.mime.startsWith("image/"));
+    if (first) first.role = "slip";
+  }
+  // An expense's own document (the receipt AI read) is its receipt.
+  if (kind === "expenses" && !out.some((f) => f.role === "receipt")) {
+    const first = out.find((f) => f.role === "other");
+    if (first) first.role = "receipt";
+  }
+  out = out.sort((a, b) => a.role.localeCompare(b.role));
+  const docKind = kind === "invoices" ? "tax_invoice" : "receipt";
+  const issued = kind === "payments" || kind === "invoices" ? (await issuedAll(ctx)).get(`${docKind}:${id}`) || null : null;
+  return {
+    createdAt: str(raw.created_at),
+    updatedAt: str(raw.updated_at),
+    recorder,
+    line,
+    account,
+    files: out,
+    receipt: {
+      issued: issued ? { number: issued.number, date: issued.date } : null,
+      url: kind === "payments" || kind === "invoices" ? docUrl(docKind, id) : "",
+      hasFile: out.some((f) => f.role === "receipt"),
+      canIssue: canWrite(ctx, "Finance") && (kind === "payments" || kind === "invoices"),
+    },
+  };
 }
