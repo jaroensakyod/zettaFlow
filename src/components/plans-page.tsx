@@ -23,12 +23,13 @@ const n = (v: number | null, unit = "") => (v === null ? "ไม่จำกั�
 
 /** What a paid package unlocks in แผนกของฉัน (see dept-menu.tsx). */
 const unlocks = [
-  { label: "การตลาด", icon: Megaphone },
-  { label: "เซลล์", icon: TrendingUp },
-  { label: "จัดซื้อ", icon: ShoppingCart },
-  { label: "คลังสินค้า", icon: Package },
-  { label: "ระบบ HR", icon: Users },
+  { label: "การตลาด", icon: Megaphone, c: "pink" },
+  { label: "เซลล์", icon: TrendingUp, c: "violet" },
+  { label: "จัดซื้อ", icon: ShoppingCart, c: "orange" },
+  { label: "คลังสินค้า", icon: Package, c: "blue" },
+  { label: "ระบบ HR", icon: Users, c: "amber" },
 ];
+const palette = ["green", "violet", "blue", "pink", "amber", "teal", "orange", "indigo"];
 /** Free for every company, paid or not. */
 const freeFeatures = [
   { label: "AI ผ่าน LINE (1 กลุ่ม)", icon: MessagesSquare },
@@ -95,7 +96,7 @@ export function PlanCards({
           <h2>
             <Sparkles size={20} /> เลือกแพ็กเกจที่ใช่สำหรับธุรกิจคุณ
           </h2>
-          <p>วางเมาส์บนแพ็กเกจเพื่อดูรายละเอียด (กดเพื่อปักค้างไว้) · ราคายังไม่รวม VAT 7%</p>
+          <p>ราคายังไม่รวม VAT 7% · เปลี่ยนหรือยกเลิกแพ็กเกจได้ทุกเมื่อ</p>
         </div>
         <div className="pk-cycle" role="tablist" aria-label="รอบการชำระ">
           <button role="tab" aria-selected={cycle === "monthly"} className={cycle === "monthly" ? "on" : ""} onClick={() => setCycle("monthly")}>
@@ -159,17 +160,11 @@ export function PlanCards({
               <span className="pk-unlock-bar">
                 <Unlock size={14} /> ปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลัง · HR
               </span>
-              <span className="pk-more">
-                {mine ? (
-                  <>
-                    <Check size={15} /> แพ็กเกจของคุณ
-                  </>
-                ) : (
-                  <>
-                    วางเมาส์ดูรายละเอียด <ChevronRight size={15} />
-                  </>
-                )}
-              </span>
+              {mine && (
+                <span className="pk-more">
+                  <Check size={15} /> แพ็กเกจของคุณ
+                </span>
+              )}
             </button>
           );
         })}
@@ -230,15 +225,17 @@ function PlanDetail({
   }, [onClose]);
   const base = cycle === "yearly" ? p.yearly : p.monthly;
   const quotas = [
-    { icon: MessagesSquare, label: "กลุ่ม LINE", value: n(p.line_groups, " กลุ่ม") },
-    { icon: Sparkles, label: "AI ประมวลผล / เดือน", value: n(p.documents, " รายการ") },
-    { icon: Mic, label: "ถอดเสียง / เดือน", value: n(p.voice_minutes, " นาที") },
-    { icon: HardDrive, label: "พื้นที่จัดเก็บ", value: n(p.storage_gb, " GB") },
-    { icon: Users, label: "ผู้ใช้", value: n(p.users, " คน") },
-    { icon: Workflow, label: "AI Workflows", value: n(p.workflows) },
-    { icon: Headphones, label: "ซัพพอร์ต", value: p.support },
-    { icon: Plug, label: "API", value: p.api === "—" ? "ไม่มี" : p.api },
-    { icon: FileText, label: "เกินโควตา", value: "฿1 / รายการ" },
+    { icon: MessagesSquare, label: "กลุ่ม LINE", value: n(p.line_groups, " กลุ่ม"), c: "green" },
+    { icon: Sparkles, label: "AI ประมวลผล / เดือน", value: n(p.documents, " รายการ"), c: "violet" },
+    { icon: Mic, label: "ถอดเสียง / เดือน", value: n(p.voice_minutes, " นาที"), c: "pink" },
+    { icon: HardDrive, label: "พื้นที่จัดเก็บ", value: n(p.storage_gb, " GB"), c: "blue" },
+    { icon: Users, label: "ผู้ใช้", value: n(p.users, " คน"), c: "amber" },
+    { icon: Workflow, label: "AI Workflows", value: n(p.workflows), c: "teal" },
+  ];
+  const services = [
+    { icon: Headphones, label: "ซัพพอร์ต", value: p.support, c: "indigo" },
+    { icon: Plug, label: "API", value: p.api === "—" ? "ไม่มี" : p.api === "Optional" ? "เสริมได้" : "มี", c: "teal" },
+    { icon: FileText, label: "เกินโควตา", value: "฿1 / รายการ · ระบบไม่หยุด", c: "orange" },
   ];
   return (
     // While only pointed at, the backdrop lets the pointer through (back to the cards); a click pins it open.
@@ -288,10 +285,12 @@ function PlanDetail({
               <BadgePercent size={16} /> จ่ายรายปีประหยัด <b>฿{money(p.monthly * 12 - p.yearly)}</b> (ฟรี 2 เดือน) · เฉลี่ย ฿{money(Math.round(p.yearly / 12))}/เดือน
             </p>
           )}
-          <h4>โควตาการใช้งาน</h4>
+          <h4>
+            <Sparkles size={16} /> โควตาการใช้งาน
+          </h4>
           <div className="pk-quota">
             {quotas.map((q, i) => (
-              <div key={q.label} style={{ "--i": i } as CSSProperties}>
+              <div key={q.label} className={"c-" + q.c} style={{ "--i": i } as CSSProperties}>
                 <span>
                   <q.icon size={18} />
                 </span>
@@ -300,12 +299,21 @@ function PlanDetail({
               </div>
             ))}
           </div>
+          <div className="pk-services">
+            {services.map((x) => (
+              <span key={x.label} className={"c-" + x.c}>
+                <x.icon size={15} />
+                <small>{x.label}</small>
+                <b>{x.value}</b>
+              </span>
+            ))}
+          </div>
           <h4>
             <Unlock size={16} /> ปลดล็อกระบบสำคัญในแผนกของฉัน
           </h4>
           <div className="pk-chips unlock">
             {unlocks.map((u, i) => (
-              <span key={u.label} style={{ "--i": i } as CSSProperties}>
+              <span key={u.label} className={"c-" + u.c} style={{ "--i": i } as CSSProperties}>
                 <u.icon size={15} /> {u.label}
               </span>
             ))}
@@ -314,8 +322,8 @@ function PlanDetail({
             <Check size={16} /> ใช้ได้ฟรีทุกบริษัท (รวมอยู่แล้ว)
           </h4>
           <div className="pk-chips free">
-            {freeFeatures.map((f) => (
-              <span key={f.label}>
+            {freeFeatures.map((f, i) => (
+              <span key={f.label} className={"c-" + palette[i % palette.length]}>
                 <f.icon size={14} /> {f.label}
               </span>
             ))}

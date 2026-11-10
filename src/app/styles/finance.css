@@ -984,3 +984,29 @@ textarea.qe-input { height: auto; resize: vertical; line-height: 1.45; padding: 
 .pk-quota b { font-size: 15px; }
 .pk-body { gap: 8px; padding-top: 14px; }
 .pk-dhead { padding-top: 22px; padding-bottom: 20px; }
+
+/* Package popup v3: every item its own colour (shared palette with the card tiles) */
+.pk-detail .c-green, .pk-card .c-green { --c: #16a34a; --cs: #ecfdf3; --cb: #bbf7d0; }
+.pk-detail .c-violet, .pk-card .c-violet { --c: #7c3aed; --cs: #f5f3ff; --cb: #ddd6fe; }
+.pk-detail .c-pink, .pk-card .c-pink { --c: #db2777; --cs: #fdf2f8; --cb: #fbcfe8; }
+.pk-detail .c-blue, .pk-card .c-blue { --c: #2563eb; --cs: #eff6ff; --cb: #bfdbfe; }
+.pk-detail .c-amber, .pk-card .c-amber { --c: #d97706; --cs: #fffbeb; --cb: #fde68a; }
+.pk-detail .c-teal { --c: #0d9488; --cs: #f0fdfa; --cb: #99f6e4; }
+.pk-detail .c-orange { --c: #ea580c; --cs: #fff7ed; --cb: #fed7aa; }
+.pk-detail .c-indigo { --c: #4f46e5; --cs: #eef2ff; --cb: #c7d2fe; }
+.pk-body h4 { color: #2b2545; }
+.pk-body h4 svg { color: var(--pk-b); }
+.pk-quota > div { background: var(--cs); border: 1px solid var(--cb); }
+.pk-quota > div > span { background: var(--c); }
+.pk-quota small { color: #5b5570; }
+.pk-quota b { color: var(--c); font-size: 16px; }
+.pk-services { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pk-services span { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 8px 12px; border-radius: 12px; background: var(--cs); border: 1px dashed var(--cb); }
+.pk-services svg { grid-row: 1 / 3; color: var(--c); }
+.pk-services small { font-size: 11px; color: #6b6585; }
+.pk-services b { font-size: 13px; color: var(--c); line-height: 1.25; }
+.pk-chips.unlock span { background: var(--c); box-shadow: 0 6px 14px color-mix(in srgb, var(--c) 30%, transparent); }
+.pk-chips.free { padding: 10px; border-radius: 14px; background: #fafaff; border: 1px solid #efecf8; }
+.pk-chips.free span { background: #fff; border: 1px solid var(--cb); color: #2b2545; }
+.pk-chips.free svg { color: var(--c); }
+@media (max-width: 640px) { .pk-services { grid-template-columns: minmax(0, 1fr); } }
