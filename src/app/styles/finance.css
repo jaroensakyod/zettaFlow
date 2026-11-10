@@ -545,3 +545,34 @@ dialog.modal:has(.fd) { width: min(1100px, 95vw); max-width: none; }
 .fd-slot-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .fd-slot-files button { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 12.5px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fd-slot-files button.on { border-color: var(--accent); color: var(--accent); }
+
+/* Detail · left cards v2: icon tiles for the facts, a money summary with a coloured total, the recorder with an avatar */
+.fd-facts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.fd-fact { display: flex; gap: 10px; align-items: flex-start; padding: 10px 11px; border-radius: 12px; background: var(--bg); min-width: 0; }
+.fd-fact.wide { grid-column: 1 / -1; }
+.fd-fact-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 9px; background: var(--th-accent-soft, #efeafd); color: var(--accent); }
+.fd-fact-text { display: grid; gap: 2px; min-width: 0; }
+.fd-fact-text small { font-size: 12px; color: var(--muted); }
+.fd-fact-text b { font-size: 14.5px; font-weight: 600; color: var(--th-ink, #241f3a); word-break: break-word; line-height: 1.35; }
+.fd-fact.empty .fd-fact-icon { background: var(--th-surface, #fff); color: var(--muted); }
+.fd-fact.empty b { color: var(--muted); font-weight: 500; }
+.fd-project { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.fd-project em { font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; padding: 2px 8px; border-radius: 6px; background: var(--accent); color: #fff; }
+.fd-sum-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 2px; font-size: 14px; border-bottom: 1px dashed var(--line); }
+.fd-sum-row span { color: var(--muted); display: grid; }
+.fd-sum-row small { font-size: 11.5px; }
+.fd-sum-row b { font-weight: 600; }
+.fd-sum-total { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 12px 14px; border-radius: 12px; color: #fff; background: linear-gradient(135deg, var(--c1), var(--c2)); }
+.fd-sum-total.paid { --c1: #34d399; --c2: #15803d; }
+.fd-sum-total.unpaid { --c1: #fb923c; --c2: #c2410c; }
+.fd-sum-total.waiting { --c1: #a1a1aa; --c2: #52525b; }
+.fd-sum-total span { font-size: 14px; font-weight: 600; opacity: .95; }
+.fd-sum-total b { font-size: 22px; }
+.fd-who-row { display: flex; align-items: center; gap: 12px; }
+.fd-avatar { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 50%; font-weight: 700; font-size: 17px; color: #fff; background: linear-gradient(135deg, var(--th-accent-2, #a855f7), var(--accent)); }
+.fd-who-row > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.fd-who-row b { font-size: 15px; }
+.fd-who-row small { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.fd-line-chip { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 7px 10px; border-radius: 10px; background: #ecfdf3; font-size: 12.5px; color: #166534; }
+.fd-line-chip b { padding: 1px 7px; border-radius: 6px; background: #06c755; color: #fff; font-size: 11px; }
+@media (max-width: 560px) { .fd-facts { grid-template-columns: minmax(0, 1fr); } }

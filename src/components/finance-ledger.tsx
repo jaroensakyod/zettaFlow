@@ -2,7 +2,7 @@
 // สรุปรายรับ / ค่าใช้จ่าย: pick a day, month or year → totals with their tax (VAT, หัก ณ ที่จ่าย), money in vs out for
 // the same period, a breakdown by day/month and by category, and every row — click one to see it in full with its file.
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale, Landmark, HandCoins, Wallet, Receipt, Search, FileText, Pencil, ExternalLink, CheckCircle2, AlertTriangle, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale, Landmark, HandCoins, Wallet, Receipt, Search, FileText, Pencil, ExternalLink, CheckCircle2, AlertTriangle, Upload, CalendarDays, FolderKanban, Building2, CreditCard, Hash, Tag, Clock } from "lucide-react";
 import { uploadFile } from "./platform";
 import { api, money, displayDate, Empty, Loading, Modal } from "./shared";
 import { categoryLabel } from "@/lib/expense-categories";
@@ -489,7 +489,6 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
   const state = e ? e.payState : i!.payState;
   const amount = e ? e.net : i!.kind === "invoices" ? i!.owed : i!.amount;
   const docNo = e ? e.code || e.docNo || "#" + e.id.slice(-8) : i!.docNo;
-  const project = (e || i)!.project ? (e || i)!.project + ((e || i)!.projectName && (e || i)!.projectName !== (e || i)!.project ? " · " + (e || i)!.projectName : "") : "—";
   const acct = info?.account;
   const accountText = !i
     ? ""
@@ -501,27 +500,36 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
           ? "พร้อมเพย์ " + acct.promptPay
           : "ยังไม่ได้ตั้งบัญชีบริษัท";
 
-  const facts: [string, React.ReactNode][] = e
+  type Fact = { label: string; value: React.ReactNode; icon: React.ComponentType<{ size?: number }>; wide?: boolean; empty?: boolean };
+  const projectValue = (e || i)!.project ? (
+    <span className="fd-project">
+      <em>{(e || i)!.project}</em>
+      {(e || i)!.projectName && (e || i)!.projectName !== (e || i)!.project && <span>{(e || i)!.projectName}</span>}
+    </span>
+  ) : (
+    "—"
+  );
+  const fact = (label: string, value: React.ReactNode, icon: Fact["icon"], wide?: boolean): Fact => ({ label, value: value || "—", icon, wide, empty: !value || value === "—" });
+  const facts: Fact[] = e
     ? [
-        ["วันที่จ่าย", displayDate(e.date)],
-        ["รายการ", e.name],
-        ["หมวดค่าใช้จ่าย", e.category ? categoryLabel(e.category) : "—"],
-        ["โปรเจกต์", project],
-        ["จ่ายให้", e.payee || "—"],
-        ["ช่องทางการจ่าย", e.payStatus || "—"],
-        ["ประเภทเอกสาร", e.docType || "—"],
-        ["เลขที่เอกสารผู้ขาย", e.docNo || "—"],
+        fact("รายการ", e.name, FileText, true),
+        fact("โปรเจกต์", projectValue, FolderKanban, true),
+        fact("วันที่จ่าย", displayDate(e.date), CalendarDays),
+        fact("หมวดค่าใช้จ่าย", e.category ? categoryLabel(e.category) : "", Tag),
+        fact("จ่ายให้", e.payee, Building2),
+        fact("ช่องทางการจ่าย", e.payStatus, CreditCard),
+        fact("ประเภทเอกสาร", e.docType, Receipt),
+        fact("เลขที่เอกสารผู้ขาย", e.docNo, Hash),
       ]
     : [
-        [i!.kind === "invoices" ? "วันที่ออกใบแจ้งหนี้" : "วันที่ได้รับชำระ", displayDate(i!.date)],
-        ["รายการ", i!.name],
-        ["โปรเจกต์", project],
-        ["ชำระมาจาก", i!.customer || "—"],
-        ["ใบแจ้งหนี้", i!.invoice || "—"],
-        ["ช่องทางการเงิน", i!.kind === "sales" ? i!.method || "ยอดขาย" : i!.method || "—"],
-        ["เลขอ้างอิงการโอน", i!.reference || "—"],
-        ["เข้าบัญชี", accountText],
-        ...(i!.kind === "invoices" ? ([["ครบกำหนดชำระ", displayDate(i!.dueDate)]] as [string, React.ReactNode][]) : []),
+        fact("รายการ", i!.name, FileText, true),
+        fact("โปรเจกต์", projectValue, FolderKanban, true),
+        fact(i!.kind === "invoices" ? "วันที่ออกใบแจ้งหนี้" : "วันที่ได้รับชำระ", displayDate(i!.date), CalendarDays),
+        ...(i!.kind === "invoices" ? [fact("ครบกำหนดชำระ", displayDate(i!.dueDate), Clock)] : [fact("ใบแจ้งหนี้", i!.invoice, Receipt)]),
+        fact("ชำระมาจาก", i!.customer, Building2, true),
+        fact("ช่องทางการเงิน", i!.kind === "sales" ? i!.method || "ยอดขาย" : i!.method, CreditCard),
+        fact("เลขอ้างอิงการโอน", i!.reference, Hash),
+        fact("เข้าบัญชี", accountText, Landmark, true),
       ];
   const money3: [string, number, string?][] = e
     ? [
@@ -563,58 +571,57 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
 
         <div className="fd-grid">
           <div className="fd-col">
-            <section className="fd-card">
+            <section className="fd-card fd-info">
               <h4>{e ? "ข้อมูลการจ่าย" : "ข้อมูลการรับชำระ"}</h4>
-              <dl>
-                {facts.map(([k, v]) => (
-                  <div key={k}>
-                    <dt>{k}</dt>
-                    <dd>{v}</dd>
+              <div className="fd-facts">
+                {facts.map((f) => (
+                  <div key={f.label} className={"fd-fact" + (f.wide ? " wide" : "") + (f.empty ? " empty" : "")}>
+                    <span className="fd-fact-icon">
+                      <f.icon size={16} />
+                    </span>
+                    <span className="fd-fact-text">
+                      <small>{f.label}</small>
+                      <b>{f.value}</b>
+                    </span>
                   </div>
                 ))}
-              </dl>
+              </div>
             </section>
-            <section className="fd-card">
+            <section className="fd-card fd-sum">
               <h4>ยอดเงิน</h4>
-              <dl className="fd-money">
-                {money3.map(([k, v, note]) => (
-                  <div key={k} className={k.includes("สุทธิ") || k === "ยอดค้างรับ" ? "total" : ""}>
-                    <dt>
-                      {k}
-                      {note && <small> · {note}</small>}
-                    </dt>
-                    <dd>{v < 0 ? "−฿" + money(-v) : "฿" + money(v)}</dd>
-                  </div>
-                ))}
-              </dl>
+              {money3.slice(0, -1).map(([k, v, note]) => (
+                <div key={k} className="fd-sum-row">
+                  <span>
+                    {k}
+                    {note && <small>{note}</small>}
+                  </span>
+                  <b>{v < 0 ? "−฿" + money(-v) : "฿" + money(v)}</b>
+                </div>
+              ))}
+              <div className={"fd-sum-total " + payTone[state]}>
+                <span>{money3[money3.length - 1][0]}</span>
+                <b>฿{money(money3[money3.length - 1][1])}</b>
+              </div>
             </section>
-            <section className="fd-card">
+            <section className="fd-card fd-who">
               <h4>ผู้ดำเนินการ</h4>
-              <dl>
-                <div>
-                  <dt>บันทึกโดย</dt>
-                  <dd>{info ? info.recorder || (info.line ? "ระบบ (จาก LINE)" : "—") : "…"}</dd>
-                </div>
-                {info?.line && (
-                  <div>
-                    <dt>ที่มา</dt>
-                    <dd>
-                      LINE{info.line.group ? " · กลุ่ม " + info.line.group : ""}
-                      {info.line.sender ? " · ส่งโดย " + info.line.sender : ""}
-                    </dd>
-                  </div>
-                )}
-                <div>
-                  <dt>บันทึกเมื่อ</dt>
-                  <dd>{info ? dateTime(info.createdAt) : "…"}</dd>
-                </div>
-                {info && info.updatedAt && info.updatedAt !== info.createdAt && (
-                  <div>
-                    <dt>แก้ไขล่าสุด</dt>
-                    <dd>{dateTime(info.updatedAt)}</dd>
-                  </div>
-                )}
-              </dl>
+              <div className="fd-who-row">
+                <span className="fd-avatar">{(info?.recorder || (info?.line ? "L" : "?")).trim().charAt(0).toUpperCase()}</span>
+                <span>
+                  <b>{info ? info.recorder || (info.line ? "ระบบ (จาก LINE)" : "ไม่ทราบผู้บันทึก") : "…"}</b>
+                  <small>
+                    <Clock size={12} /> บันทึกเมื่อ {info ? dateTime(info.createdAt) : "…"}
+                    {info && info.updatedAt && info.updatedAt !== info.createdAt ? " · แก้ไขล่าสุด " + dateTime(info.updatedAt) : ""}
+                  </small>
+                </span>
+              </div>
+              {info?.line && (
+                <p className="fd-line-chip">
+                  <b>LINE</b>
+                  {info.line.group ? "กลุ่ม " + info.line.group : ""}
+                  {info.line.sender ? " · ส่งโดย " + info.line.sender : ""}
+                </p>
+              )}
             </section>
           </div>
 
