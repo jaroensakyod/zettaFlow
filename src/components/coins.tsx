@@ -61,7 +61,7 @@ const icons: Record<string, LucideIcon> = {
 const statusText: Record<string, string> = { pending: "รอ Admin ยืนยัน", verified: "เหรียญเข้าแล้ว", rejected: "ไม่ผ่าน" };
 
 /** Shared store state; screens refresh each other through the "ef:coins" event. */
-function useCoins() {
+export function useCoins() {
   const [data, setData] = useState<StoreData | null>(null);
   const load = useCallback(() => api("/coins").then(setData).catch(() => {}), []);
   useEffect(() => {

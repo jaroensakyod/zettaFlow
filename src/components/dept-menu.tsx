@@ -7,9 +7,14 @@ import {
   Gavel, Landmark, ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt,
   ReceiptText, Scale, Search, ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users,
   Wallet, Wrench, FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign,
-  ChartColumn, Settings, TrendingUp, Store, type LucideIcon,
+  ChartColumn, Settings, TrendingUp, Store, Lock, type LucideIcon,
 } from "lucide-react";
 import { departmentMenu, baseView } from "@/lib/departments";
+import { useCoins } from "./coins";
+
+/** แผนกของฉัน: บัญชีและการเงิน is free for every company; any other department opens once its system is bought in App Shop. */
+export const FREE_DEPARTMENT = "accounting";
+const deptModule: Record<string, string> = { marketing: "marketing", warehouse: "inventory", hr: "hr", event: "event", it: "it", legal: "legal" };
 
 const icons: Record<string, LucideIcon> = {
   AppWindow, ArrowLeftRight, Award, BadgePercent, BookOpen, Building2, Calculator, CalendarClock, CalendarDays,
@@ -61,6 +66,9 @@ export function DepartmentMegaMenu({
     clearTimeout(leaveTimer.current);
     leaveTimer.current = setTimeout(() => setOpenId(""), 140);
   };
+  const { data: coins } = useCoins();
+  const owned = new Set((coins?.modules || []).filter((m) => m.owned).map((m) => m.id));
+  const locked = (id: string) => id !== FREE_DEPARTMENT && !(deptModule[id] && owned.has(deptModule[id]));
   const q = query.trim().toLowerCase();
   const cards = useMemo(
     () =>
@@ -83,8 +91,8 @@ export function DepartmentMegaMenu({
     >
       <div className="dept-menu-head">
         <div>
-          <h2>เลือกแผนกเพื่อเข้าสู่ระบบงาน</h2>
-          <p>จัดการทุกแผนกในองค์กร เชื่อมต่อข้อมูลกันแบบครบวงจร</p>
+          <h2>แผนกของฉัน</h2>
+          <p>บัญชีและการเงินใช้ได้ฟรี · แผนกอื่นปลดล็อกได้ที่ App Shop</p>
         </div>
         <label className="dept-menu-search">
           <Search size={16} />
@@ -95,20 +103,24 @@ export function DepartmentMegaMenu({
       {/* Same layout as the design: 5 departments on top, 4 below (one grid while searching). */}
       {(q ? [cards] : [cards.slice(0, 5), cards.slice(5)]).filter((r) => r.length).map((row, i) => (
         <div key={i} className={"dept-menu-grid" + (q ? "" : row.length === 5 ? " cols-5" : " cols-4")}>
-          {row.map((d, n) => (
+          {row.map((d, n) => {
+          const lock = locked(d.id);
+          const isOpen = !lock && (!!q || openId === d.id);
+          return (
           <section
             key={d.id}
-            className={"dept-menu-card tone-" + d.tone + (q || openId === d.id ? " open" : "")}
+            className={"dept-menu-card tone-" + d.tone + (isOpen ? " open" : "") + (lock ? " locked" : "")}
             style={{ "--i": i * 5 + n } as CSSProperties}
-            onPointerEnter={hoverOpen(d.id)}
-            onPointerLeave={hoverClose}
+            onPointerEnter={lock ? undefined : hoverOpen(d.id)}
+            onPointerLeave={lock ? undefined : hoverClose}
           >
             {/* The title opens the department main page; the arrow toggles its list (pointing at the card does too). */}
             <div className="dept-menu-title">
               <button
                 className="dept-menu-go"
-                title={"ไปหน้า" + d.title}
+                title={lock ? d.title + " · ล็อกอยู่ ปลดล็อกได้ที่ App Shop" : "ไปหน้า" + d.title}
                 onClick={() => {
+                  if (lock) return navigate("store");
                   rememberDept(d.id);
                   navigate(d.overview);
                 }}
@@ -120,20 +132,26 @@ export function DepartmentMegaMenu({
                   <b>
                     {d.title} <small>({d.en})</small>
                   </b>
-                  <em>{d.subtitle}</em>
+                  <em>{lock ? "ล็อกอยู่ · ปลดล็อกที่ App Shop" : d.subtitle}</em>
                 </span>
               </button>
+              {lock ? (
+                <button className="dept-menu-lock" aria-label={"ปลดล็อก" + d.title + "ที่ App Shop"} onClick={() => navigate("store")}>
+                  <Lock size={15} />
+                </button>
+              ) : (
               <button
                 className="dept-menu-toggle"
                 aria-label={"เมนูย่อย" + d.title}
-                aria-expanded={!!q || openId === d.id}
+                aria-expanded={isOpen}
                 onClick={() => setOpenId(openId === d.id ? "" : d.id)}
               >
-                <ChevronDown size={16} className={"dept-menu-arrow" + (q || openId === d.id ? " flip" : "")} />
+                <ChevronDown size={16} className={"dept-menu-arrow" + (isOpen ? " flip" : "")} />
               </button>
+              )}
             </div>
             {/* Always rendered so it can animate; inert while closed so hidden links can't take focus. */}
-            <div className="dept-menu-drop" inert={!q && openId !== d.id}>
+            <div className="dept-menu-drop" inert={!isOpen}>
             <ul>
               {d.items.map((i, k) => (
                 <li key={i.label} style={{ "--k": k } as CSSProperties}>
@@ -146,7 +164,8 @@ export function DepartmentMegaMenu({
             </ul>
             </div>
           </section>
-        ))}
+          );
+        })}
         </div>
       ))}
 

@@ -116,7 +116,6 @@ const primary: [string, string, LucideIcon][] = [
   ["projects", "โปรเจกต์", Folder],
   ["chat", "แชท", MessageCircle],
   ["integrations", "LINE", MessagesSquare],
-  ["store", "App Shop", Store],
 ];
 const extra: Record<
   string,
@@ -572,7 +571,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <button
               className={
                 "topnav-link" +
-                (menu || !primary.some(([key]) => key === navKey)
+                (menu || (navKey !== "store" && !primary.some(([key]) => key === navKey))
                   ? " active"
                   : "")
               }
@@ -588,9 +587,20 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               }}
             >
               <Grid2X2 size={16} />
-              แผนก
+              แผนกของฉัน
               <ChevronDown size={14} className={menu ? "flip" : ""} />
             </button>
+            {/* App Shop right after แผนกของฉัน: where the locked departments are unlocked. */}
+            {visible("store") && (
+              <button
+                className={"topnav-link" + (navKey === "store" ? " active" : "")}
+                aria-current={navKey === "store" ? "page" : undefined}
+                onClick={() => navigate("store")}
+              >
+                <Store size={16} />
+                App Shop
+              </button>
+            )}
           </nav>
           <div className="topnav-actions">
             <ThemeApplier />

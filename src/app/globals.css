@@ -7701,3 +7701,10 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
     font-size: 13px;
   }
 }
+/* แผนกของฉัน: departments not unlocked yet (only บัญชีและการเงิน is free; the rest open from App Shop) */
+.dept-menu-card.locked { background: #f7f6fa; border-style: dashed; }
+.dept-menu-card.locked .dept-menu-icon { filter: grayscale(1); opacity: .55; }
+.dept-menu-card.locked .dept-menu-go b, .dept-menu-card.locked .dept-menu-go b small { color: #8a849c; }
+.dept-menu-card.locked .dept-menu-go em { color: #a29cb4; font-style: normal; }
+.dept-menu-lock { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin-right: 12px; border: 0; border-radius: 50%; background: #ece9f3; color: #6b6585; cursor: pointer; }
+.dept-menu-lock:hover { background: var(--th-accent, #6d4ad8); color: #fff; }
