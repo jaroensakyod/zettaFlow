@@ -640,3 +640,57 @@ dialog.modal:has(.fd) { width: min(1100px, 95vw); max-width: none; }
 .op-total { text-align: right; font-size: 15px; margin: 10px 0 0; }
 .op-total b { font-size: 22px; color: var(--accent); }
 .fd-fact .op-chip { white-space: normal; }
+
+/* ใบเสนอราคา page — one colour per status: draft grey · sent blue · won green · paid deep green · expired amber · rejected red */
+.qp { --q-draft: #6b7280; --q-sent: #2563eb; --q-won: #16a34a; --q-paid: #047857; --q-expired: #d97706; --q-rejected: #dc2626; }
+.qp-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 700; color: #fff; white-space: nowrap; background: var(--q); }
+.qp-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .9); }
+.qp-pill.draft, .qr-draft, .qp-filter .draft, .qp-status .draft { --q: var(--q-draft); }
+.qp-pill.sent, .qr-sent, .qp-filter .sent, .qp-status .sent { --q: var(--q-sent); }
+.qp-pill.won, .qr-won, .qp-filter .won, .qp-status .won { --q: var(--q-won); }
+.qp-pill.paid, .qr-paid { --q: var(--q-paid); }
+.qp-pill.expired, .qr-expired, .qp-filter .expired { --q: var(--q-expired); }
+.qp-pill.rejected, .qr-rejected, .qp-status .rejected { --q: var(--q-rejected); }
+.qp-filter button { --t: var(--q, var(--accent)); }
+.fl-table tbody tr.fl-row[class*="qr-"] { --row: var(--q); background: color-mix(in srgb, var(--q) 7%, var(--th-surface, #fff)); }
+.qp-sub { display: block; font-size: 11px; color: var(--muted); }
+.qp-none { color: var(--muted); font-size: 12.5px; }
+.qp-steps { display: inline-flex; align-items: center; gap: 4px; }
+.qp-steps i { width: 22px; height: 6px; border-radius: 4px; background: color-mix(in srgb, var(--q-won) 18%, transparent); }
+.qp-steps i.done { background: var(--q-won); }
+.qr-paid .qp-steps i.done { background: var(--q-paid); }
+/* flow strip */
+.qp-flow { padding: 14px 16px; }
+.qp-flow h3 { margin: 0 0 10px; font-size: 15px; }
+.qp-flow ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.qp-flow li { position: relative; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--bg); }
+.qp-flow li > span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; flex: none; background: var(--th-surface, #fff); color: var(--muted); }
+.qp-flow li.on > span { background: var(--q-won); color: #fff; box-shadow: 0 8px 18px color-mix(in srgb, var(--q-won) 30%, transparent); }
+.qp-flow li div { display: grid; }
+.qp-flow li b { font-size: 22px; line-height: 1.1; }
+.qp-flow li small { font-size: 12.5px; color: var(--muted); }
+.qp-flow li > i { position: absolute; right: -9px; top: 50%; width: 8px; height: 2px; background: var(--line); }
+/* detail: header and total follow the status colour */
+.fd[class*="qd-"] .fd-head { --c1: color-mix(in srgb, var(--q) 70%, #fff); --c2: var(--q); }
+.qd-draft { --q: #6b7280; } .qd-sent { --q: #2563eb; } .qd-won { --q: #16a34a; } .qd-paid { --q: #047857; } .qd-expired { --q: #d97706; } .qd-rejected { --q: #dc2626; }
+.fd[class*="qd-"] .fd-head .fl-pay { background: rgba(255, 255, 255, .22); color: #fff; }
+.fd-sum-total[class*="qs-"] { --c1: color-mix(in srgb, var(--q) 70%, #fff); --c2: var(--q); }
+.qs-draft { --q: #6b7280; } .qs-sent { --q: #2563eb; } .qs-won { --q: #16a34a; } .qs-paid { --q: #047857; } .qs-expired { --q: #d97706; } .qs-rejected { --q: #dc2626; }
+.qp-project { width: 100%; height: 36px; margin-top: 2px; padding: 0 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--th-surface, #fff); font: inherit; font-weight: 600; color: var(--ink); }
+.qp-status { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.qp-status button { display: inline-flex; justify-content: center; align-items: center; gap: 4px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--th-surface, #fff); font-size: 13px; font-weight: 600; cursor: pointer; color: var(--th-ink-2, #3b3554); }
+.qp-status button:hover:not(:disabled) { border-color: var(--q); color: var(--q); }
+.qp-status button.on { background: var(--q); border-color: var(--q); color: #fff; }
+.qp-warn { margin: 10px 0 0; font-size: 13px; }
+.qp-track ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; position: relative; }
+.qp-track li { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 10px; }
+.qp-track li > i { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 50%; font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--bg); border: 1.5px solid var(--line); }
+.qp-track li.done > i { background: #16a34a; border-color: #16a34a; color: #fff; }
+.qp-track li.next { background: #f0fdf4; }
+.qp-track li.next > i { border-color: #16a34a; color: #16a34a; }
+.qp-track li > span { flex: 1; display: grid; min-width: 0; }
+.qp-track li b { font-size: 14px; }
+.qp-track li small { font-size: 12px; color: var(--muted); }
+.qp-track li button.secondary { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; font-size: 12.5px; }
+.qp-track.off { opacity: .6; }
+@media (max-width: 900px) { .qp-flow ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } .qp-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

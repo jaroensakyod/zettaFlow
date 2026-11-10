@@ -88,6 +88,7 @@ import { EmployeesPage } from "./employees-page";
 import { FinanceCenter } from "./finance-center";
 import { IncomePage, FinanceTabs } from "./income-page";
 import { OrdersPage } from "./orders-page";
+import { QuotesPage } from "./quotes-page";
 import { FinanceLedger } from "./finance-ledger";
 import { ReceiptsPage } from "./receipts-page";
 import { CompanyProfilePage } from "./company-profile";
@@ -788,6 +789,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               {!searchParams.get("id") && <LinePending key={"line:" + view} kind={view} ctx={ctx} notify={notify} changed={load} />}
               <ProjectsPage ctx={ctx} notify={notify} changed={load} navigate={navigate} />
             </>
+          ) : view === "quotations" && !searchParams.get("manage") ? (
+            <QuotesPage key={fullView} ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "sales_orders" && !searchParams.get("manage") ? (
             <OrdersPage key={fullView} ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "income" ? (

@@ -178,7 +178,11 @@ export async function saveEntity(ctx: Context, kind: string, input: unknown, id?
 export async function quoteProject(ctx: Context, quote: Entity) {
   const code = String(quote.data.code || quote.data.name || "").trim();
   if (!code) return null;
-  const found = (await allEntities(ctx, "projects", 5000)).find((p) => String(p.data.code || "") === code);
+  const projects = await allEntities(ctx, "projects", 5000);
+  // The project chosen on the quotation wins; otherwise one named by the quotation code (made the first time).
+  const chosen = quote.data.projectId ? projects.find((p) => p.id === quote.data.projectId) : undefined;
+  if (chosen) return chosen;
+  const found = projects.find((p) => String(p.data.code || "") === code);
   if (found) return found;
   return saveEntityCore(ctx, "projects", {
     name: String(quote.data.name || code),

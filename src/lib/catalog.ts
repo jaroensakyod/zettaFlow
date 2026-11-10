@@ -708,7 +708,7 @@ modules.push(
   {
     key: "quotations", label: "ใบเสนอราคา", description: "ออกใบเสนอราคา คิดส่วนลดและ VAT แล้วติดตามผลจนลูกค้าตอบรับ",
     department: "Sales", icon: "FileText", columns: ["name", "code", "customerId", "date", "total", "status"],
-    fields: [f("name", "หัวข้องาน", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("date", "วันที่", "date", true), f("validUntil", "ยืนราคาถึง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, owner, status(["ร่าง", "ส่งแล้ว", "ตอบรับ", "ปฏิเสธ"]), notes],
+    fields: [f("name", "หัวข้องาน", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("projectId", "โปรเจกต์ (ถ้ามี)", "relation", false, { resource: "projects" }), f("date", "วันที่", "date", true), f("validUntil", "ยืนราคาถึง", "date"), lines, f("subtotal", "มูลค่า (ถ้าไม่ใส่รายการ)", "number", false, { min: 0 }), f("discount", "ส่วนลด (บาท)", "number", false, { min: 0 }), vatMode, owner, status(["ร่าง", "ส่งแล้ว", "ตอบรับ", "ปฏิเสธ"]), notes],
     computed: { total: { label: "ยอดสุทธิ", calc: docTotal } },
   },
   {

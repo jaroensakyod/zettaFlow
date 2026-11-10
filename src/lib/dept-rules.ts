@@ -91,7 +91,7 @@ export function convertData(src: Row, to?: string): { data: Record<string, unkno
   switch (src.kind) {
     case "quotations":
       return {
-        data: { name: String(d.name), customerId: d.customerId, quotationId: src.id, date: today(), deliveryDate: plusDays(14), lines: d.lines, subtotal: d.subtotal, discount: d.discount, vatMode: d.vatMode, status: "รอดำเนินการ", notes: "จากใบเสนอราคา " + ref(src) },
+        data: { name: String(d.name), customerId: d.customerId, quotationId: src.id, projectId: d.projectId, date: today(), deliveryDate: plusDays(14), lines: d.lines, subtotal: d.subtotal, discount: d.discount, vatMode: d.vatMode, status: "รอดำเนินการ", notes: "จากใบเสนอราคา " + ref(src) },
         exists: (r) => r.kind === "sales_orders" && r.data.quotationId === src.id,
       };
     case "sales_orders": {

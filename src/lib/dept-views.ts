@@ -319,8 +319,8 @@ export type LedgerDetail = {
 };
 /** The full picture behind one row of the รายรับ / ค่าใช้จ่าย list (opened from the list). */
 export async function ledgerDetail(ctx: Context, kind: string, id: string): Promise<LedgerDetail> {
-  assert(canRead(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
-  assert(["payments", "expenses", "invoices", "sales", "sales_orders"].includes(kind), "ประเภทไม่ถูกต้อง");
+  assert(canRead(ctx, kind === "quotations" || kind === "sales_orders" ? "Sales" : "Finance") || canRead(ctx, "Finance"), "ไม่มีสิทธิ์ดูรายการนี้", 403);
+  assert(["payments", "expenses", "invoices", "sales", "sales_orders", "quotations"].includes(kind), "ประเภทไม่ถูกต้อง");
   const rows = await allEntities(ctx, kind, 5000);
   const e = rows.find((r) => r.id === id);
   assert(e, "ไม่พบรายการ", 404);
