@@ -70,6 +70,28 @@ test("company profiles: public card, counts, who follows whom, one company's upd
     assert.deepEqual(only.map((x) => x.company_id), [a]);
     assert.equal(((await val<unknown[]>("select feed_list($1)", [b])) as unknown[]).length, 2);
 
+    // Visibility: Alice hides contact info, shows products and (now that she chose) her tax id; bank never leaves.
+    await login(alice);
+    await db.query(
+      `select save_company($1,'{"name":"Alice Co","description":"ผลิตเฟอร์นิเจอร์","website":"https://alice.example","phone":"02-111","address":"1 ถนนสุขุมวิท","taxId":"0105555555555","bankAccount":"123-4","cover":"data:image/webp;base64,AAAA","visibility":"main,products"}'::jsonb)`,
+      [a],
+    );
+    await db.exec("reset role;");
+    await db.query("insert into entities(company_id,kind,department,data)values($1,'sales_packages','Sales','{\"name\":\"โต๊ะไม้สัก\",\"type\":\"สินค้า\",\"price\":4500,\"status\":\"active\"}'),($1,'sales_packages','Sales','{\"name\":\"เลิกขาย\",\"price\":1,\"status\":\"inactive\"}')", [a]);
+    await login(bob);
+    const v = await val<{ website: string; details: Record<string, string>; products: { name: string; price: number }[]; visibility: string | null }>("select feed_company_profile($1,$2)", [b, a]);
+    assert.equal(v.website, "");
+    assert.deepEqual(v.details, { taxId: "0105555555555" });
+    assert.deepEqual(v.products.map((x) => [x.name, Number(x.price)]), [["โต๊ะไม้สัก", 4500]]);
+    assert.equal(v.visibility, null);
+    assert.ok(!JSON.stringify(v).includes("123-4") && !JSON.stringify(v).includes("สุขุมวิท"));
+    // Her own view has everything, including the switches.
+    await login(alice);
+    const mineV = await val<{ visibility: string; details: Record<string, string>; products: unknown[] }>("select feed_company_profile($1,$1)", [a]);
+    assert.equal(mineV.visibility, "main,products");
+    assert.equal(mineV.details.address, "1 ถนนสุขุมวิท");
+    await login(bob);
+
     // Cover for any signed-in user; outsiders without a company cannot read profiles.
     assert.equal(await val("select company_cover($1)", [a]), "data:image/webp;base64,AAAA");
     await login(stranger);

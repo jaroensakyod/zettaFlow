@@ -83,7 +83,7 @@ import { ExpenseForm } from "./expense-form";
 import { departmentOf } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
-import { CompanySettings, Team } from "./settings";
+import { Team } from "./settings";
 import { ChatHub } from "./b2b-chat";
 import { EmployeesPage } from "./employees-page";
 import { FinanceCenter } from "./finance-center";
@@ -444,7 +444,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       setPreferredDept(sessionStorage.getItem(DEPT_KEY));
     } catch {}
   }, [fullView]);
-  const sideDept = departmentOf(fullView, preferredDept);
+  // The company page is the company's own profile: no department sidebar.
+  const sideDept = view === "company" || view === "profile" ? undefined : departmentOf(fullView, preferredDept);
   const navKey = view === "profile" ? "feed" : view;
   // Menu links like "content?channel=social" or "leaves?status=pending" narrow a record list.
   const listFilter = (() => {
@@ -842,10 +843,15 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "ai-inbox" || view === "templates" ? (
             <AiWorkspace ctx={ctx} view={view} notify={notify} changed={load} />
           ) : view === "company" ? (
-            <>
-              <SampleDataCard ctx={ctx} notify={notify} changed={load} />
-              <CompanySettings ctx={ctx} notify={notify} changed={load} />
-            </>
+            <CompanyProfilePage
+              key={fullView}
+              home
+              ctx={ctx}
+              notify={notify}
+              navigate={navigate}
+              changed={load}
+              aboutExtra={<SampleDataCard ctx={ctx} notify={notify} changed={load} />}
+            />
           ) : view === "team" ? (
             <Team ctx={ctx} notify={notify} />
           ) : view === "integrations" ? (

@@ -1001,4 +1001,6 @@ export const companyFields: Field[] = [
   f("invoiceNotes", "หมายเหตุท้ายใบแจ้งหนี้ (บรรทัดละข้อ)", "textarea"),
   f("receiptNotes", "หมายเหตุท้ายใบเสร็จ (บรรทัดละข้อ)", "textarea"),
   f("description", "เกี่ยวกับบริษัท", "textarea"),
+  /** Sections other companies may see on our company page: main,address,social,products ("none" = all private). */
+  f("visibility", "การมองเห็นข้อมูลบริษัท"),
 ];

@@ -212,7 +212,14 @@ export type CompanyProfile = {
   mine: boolean;
   following: boolean;
   follows_us: boolean;
+  /** Own company only: the sections other companies may see ("main,social" by default, "none" = all private). */
+  visibility?: string | null;
+  /** Company facts the target lets us see (all of them on our own page). */
+  details?: Partial<Record<"taxId" | "legal" | "employees" | "founded" | "address" | "zip" | "phone" | "email", string>>;
+  /** Active สินค้า & แพ็กเกจ, when the company shows them (always on our own page). */
+  products?: CompanyProduct[];
 };
+export type CompanyProduct = { id: string; name: string; code: string; type: string; price: number; description: string };
 export type FollowRow = { id: string; name: string; industry: string; province: string; has_logo: boolean; since: string; mine: boolean; following: boolean };
 
 /** A company's profile page in the network: public card, counts and follow state (own company when id is empty). */
@@ -243,6 +250,20 @@ export async function feedProfile(ctx: Context, target: string | null): Promise<
       mine: own,
       following: follows.includes(id),
       follows_us: false,
+      visibility: own ? String(s.company.profile.visibility || "main,social") : null,
+      details: own
+        ? Object.fromEntries(
+            (["taxId", "legal", "employees", "founded", "address", "zip", "phone", "email"] as const)
+              .map((k) => [k, String(s.company.profile[k] || "")])
+              .filter(([, v]) => v),
+          )
+        : {},
+      products: own
+        ? s.entities
+            .filter((e) => e.kind === "sales_packages" && !e.archived_at && (e.data.status || "active") === "active")
+            .slice(0, 200)
+            .map((e) => ({ id: e.id, name: String(e.data.name || ""), code: String(e.data.code || ""), type: String(e.data.type || ""), price: Number(e.data.price || 0), description: String(e.data.description || "") }))
+        : [],
     };
   }
   const sb = await supabaseServer();

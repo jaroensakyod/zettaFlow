@@ -1,7 +1,8 @@
 "use client";
-// A company's page in the business network (ours or another company's): cover, logo, about, public channels,
-// its updates, and who follows it / whom it follows. Opened from names and logos across the feed.
-import { useCallback, useEffect, useState } from "react";
+// A company's page in the business network (ours or another company's): cover, logo, and three tabs — ทั้งหมด
+// (updates), สินค้าและบริการ (active packages, if the company shows them) and เกี่ยวกับ (company facts; on our own
+// page the full editable company form with public/private switches). Also the บริษัท page of the top menu.
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,28 +12,36 @@ import {
   Pencil,
   Plus,
   Users,
-  UserCheck,
-  Newspaper,
   Info,
   CalendarDays,
   MapPin,
   Building2,
   PenSquare,
   Camera,
+  Package,
+  LayoutGrid,
+  Lock,
+  Phone,
+  Mail,
+  Hash,
+  Users2,
+  Settings2,
 } from "lucide-react";
 import type { Context, FeedPost } from "@/lib/types";
-import type { CompanyProfile, FollowRow } from "@/lib/feed";
-import { api, Empty, Loading } from "./shared";
+import type { CompanyProduct, CompanyProfile, FollowRow } from "@/lib/feed";
+import { api, Empty, Loading, money } from "./shared";
 import { CompanyLogo, PostCard, lineLink } from "./feed";
-import { saveCompanyImage } from "./settings";
+import { CompanySettings, saveCompanyImage } from "./settings";
 
-type Tab = "posts" | "about" | "followers" | "following";
+type Tab = "all" | "products" | "about" | "followers" | "following";
 const tabs: [Tab, string, typeof Users][] = [
-  ["posts", "อัปเดต", Newspaper],
+  ["all", "ทั้งหมด", LayoutGrid],
+  ["products", "สินค้าและบริการ", Package],
   ["about", "เกี่ยวกับ", Info],
-  ["followers", "ผู้ติดตาม", Users],
-  ["following", "กำลังติดตาม", UserCheck],
 ];
+/** Old links used ?tab=posts. */
+const tabOf = (t: string | null): Tab =>
+  t && ["all", "products", "about", "followers", "following"].includes(t) ? (t as Tab) : "all";
 const joinedText = (iso: string) =>
   new Date(iso).toLocaleDateString("th-TH", { month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
 const external = (url: string) => (/^https?:\/\//i.test(url) ? url : "https://" + url);
@@ -42,17 +51,23 @@ export function CompanyProfilePage({
   notify,
   navigate,
   changed,
+  home = false,
+  aboutExtra,
 }: {
   ctx: Context;
   notify: (s: string) => void;
   navigate: (v: string) => void;
-  /** Reloads the workspace (company profile in ctx) after a new logo or cover is saved. */
+  /** Reloads the workspace (company profile in ctx) after a new logo, cover or company details are saved. */
   changed?: () => void;
+  /** Opened as บริษัท from the top menu (our own page, no "back to the network" link). */
+  home?: boolean;
+  /** Extra cards under our own เกี่ยวกับ tab (e.g. demo sample data). */
+  aboutExtra?: ReactNode;
 }) {
   const params = useSearchParams(),
     id = params.get("id") || ctx.company.id,
     [profile, setProfile] = useState<CompanyProfile | null>(null),
-    [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "posts"),
+    [tab, setTab] = useState<Tab>(tabOf(params.get("tab"))),
     [error, setError] = useState(""),
     [uploading, setUploading] = useState<"" | "logo" | "cover">(""),
     // New pictures show at once (the logo/cover URLs are cached by the browser for a few minutes).
@@ -67,7 +82,7 @@ export function CompanyProfilePage({
   }, [id]);
   useEffect(() => {
     setProfile(null);
-    setTab((params.get("tab") as Tab) || "posts");
+    setTab(tabOf(params.get("tab")));
     load();
   }, [load, params]);
   const open = (companyId: string) => navigate(companyId === ctx.company.id ? "profile" : "profile?id=" + companyId);
@@ -118,9 +133,11 @@ export function CompanyProfilePage({
     logoSrc: boolean | string = fresh.logo || (p.mine ? String(ctx.company.profile.logo || "") || p.has_logo : p.has_logo);
   return (
     <div className="cp">
-      <button className="cp-back" onClick={() => navigate("feed")}>
-        <ArrowLeft size={16} /> เครือข่ายธุรกิจ
-      </button>
+      {!home && (
+        <button className="cp-back" onClick={() => navigate("feed")}>
+          <ArrowLeft size={16} /> เครือข่ายธุรกิจ
+        </button>
+      )}
       <section className="card cp-hero">
         <div className={"cp-cover" + (coverSrc ? "" : " empty")} style={coverSrc ? { backgroundImage: `url("${coverSrc}")` } : undefined}>
           {canEdit && (
@@ -159,7 +176,7 @@ export function CompanyProfilePage({
               </span>
             </p>
             <p className="cp-counts">
-              <button onClick={() => setTab("posts")}>
+              <button onClick={() => setTab("all")}>
                 <b>{p.posts.toLocaleString()}</b> อัปเดต
               </button>
               <button onClick={() => setTab("followers")}>
@@ -177,8 +194,8 @@ export function CompanyProfilePage({
                 <button className="primary" onClick={() => navigate("feed")} disabled={viewer}>
                   <PenSquare size={16} /> ลงอัปเดต
                 </button>
-                <button className="secondary" onClick={() => navigate("company")}>
-                  <Pencil size={16} /> แก้ไขหน้าบริษัท
+                <button className="secondary" onClick={() => setTab("about")}>
+                  <Pencil size={16} /> แก้ไขข้อมูลบริษัท
                 </button>
               </>
             ) : (
@@ -198,52 +215,184 @@ export function CompanyProfilePage({
           {tabs.map(([key, label, Ico]) => (
             <button key={key} className={tab === key ? "active" : ""} aria-current={tab === key} onClick={() => setTab(key)}>
               <Ico size={16} /> {label}
+              {key === "products" && !!p.products?.length && <span className="cp-tab-count">{p.products.length}</span>}
             </button>
           ))}
         </nav>
       </section>
 
-      <div className="cp-body">
-        <aside className="cp-side">
-          <section className="card cp-card">
-            <h2>เกี่ยวกับ</h2>
-            {p.about ? <p className="cp-about clamp">{p.about}</p> : <p className="muted">{p.mine ? "ยังไม่ได้เขียนแนะนำบริษัท — เพิ่มได้ที่ แก้ไขหน้าบริษัท" : "ยังไม่มีคำแนะนำบริษัท"}</p>}
-            <Channels p={p} line={line} />
-          </section>
-        </aside>
-        <main className="cp-main">
-          {tab === "posts" && <CompanyPosts ctx={ctx} id={p.id} name={p.name} notify={notify} navigate={navigate} mine={p.mine} />}
-          {tab === "about" && (
+      {tab === "all" || tab === "followers" || tab === "following" ? (
+        <div className="cp-body">
+          <aside className="cp-side">
             <section className="card cp-card">
-              <h2>เกี่ยวกับ {p.name}</h2>
-              {p.about ? <p className="cp-about">{p.about}</p> : <p className="muted">ยังไม่มีคำแนะนำบริษัท</p>}
-              <dl className="cp-facts">
-                {p.industry && (
-                  <>
-                    <dt>ประเภทธุรกิจ</dt>
-                    <dd>{p.industry}</dd>
-                  </>
-                )}
-                {p.province && (
-                  <>
-                    <dt>จังหวัด</dt>
-                    <dd>{p.province}</dd>
-                  </>
-                )}
-                <dt>เข้าร่วม EliteFlow</dt>
-                <dd>{joinedText(p.joined)}</dd>
-              </dl>
+              <h2>เกี่ยวกับ</h2>
+              {p.about ? <p className="cp-about clamp">{p.about}</p> : <p className="muted">{p.mine ? "ยังไม่ได้เขียนแนะนำบริษัท — เพิ่มได้ที่แท็บ เกี่ยวกับ" : "ยังไม่มีคำแนะนำบริษัท"}</p>}
               <Channels p={p} line={line} />
+              <button className="cp-more" onClick={() => setTab("about")}>
+                ดูข้อมูลบริษัททั้งหมด
+              </button>
             </section>
+            {!!p.products?.length && (
+              <section className="card cp-card">
+                <h2>สินค้าและบริการ</h2>
+                <ul className="cp-mini-products">
+                  {p.products.slice(0, 4).map((x) => (
+                    <li key={x.id}>
+                      <span>{x.name}</span>
+                      <b>฿{money(x.price)}</b>
+                    </li>
+                  ))}
+                </ul>
+                <button className="cp-more" onClick={() => setTab("products")}>
+                  ดูทั้งหมด {p.products.length} รายการ
+                </button>
+              </section>
+            )}
+          </aside>
+          <main className="cp-main">
+            {tab === "all" && <CompanyPosts ctx={ctx} id={p.id} name={p.name} notify={notify} navigate={navigate} mine={p.mine} />}
+            {(tab === "followers" || tab === "following") && (
+              <FollowList ctx={ctx} id={p.id} dir={tab} name={p.name} mine={p.mine} notify={notify} open={open} />
+            )}
+          </main>
+        </div>
+      ) : tab === "products" ? (
+        <Products p={p} navigate={navigate} setTab={setTab} />
+      ) : p.mine ? (
+        <div className="cp-about-edit">
+          <CompanySettings
+            embedded
+            ctx={ctx}
+            notify={notify}
+            changed={() => {
+              changed?.();
+              load();
+            }}
+          />
+          {aboutExtra}
+        </div>
+      ) : (
+        <AboutView p={p} line={line} />
+      )}
+    </div>
+  );
+}
+
+const typeTone: Record<string, string> = { แพ็กเกจ: "violet", สินค้า: "blue", บริการ: "green" };
+function Products({ p, navigate, setTab }: { p: CompanyProfile; navigate: (v: string) => void; setTab: (t: Tab) => void }) {
+  const list: CompanyProduct[] = p.products || [];
+  const shown = p.mine && (p.visibility || "").split(",").includes("products");
+  const known = ["แพ็กเกจ", "สินค้า", "บริการ"];
+  const groups: [string, CompanyProduct[]][] = known.map((t) => [t, list.filter((x) => (x.type || "สินค้า") === t)] as [string, CompanyProduct[]]);
+  const other = list.filter((x) => !known.includes(x.type || "สินค้า"));
+  if (other.length) groups.push(["อื่นๆ", other]);
+  return (
+    <div className="cp-products">
+      {p.mine && (
+        <section className={"card cp-products-bar" + (shown ? " pub" : "")}>
+          {shown ? <Globe size={18} /> : <Lock size={18} />}
+          <span>
+            <b>{shown ? "บริษัทอื่นในเครือข่ายเห็นรายการนี้" : "ตอนนี้เป็นส่วนตัว เห็นเฉพาะทีมของคุณ"}</b>
+            <small>เปลี่ยนได้ที่แท็บ เกี่ยวกับ › ใครเห็นข้อมูลบริษัท</small>
+          </span>
+          <button className="secondary" onClick={() => setTab("about")}>
+            <Settings2 size={15} /> ตั้งค่าการมองเห็น
+          </button>
+          <button className="primary" onClick={() => navigate("sales_packages")}>
+            <Package size={15} /> จัดการสินค้า & แพ็กเกจ
+          </button>
+        </section>
+      )}
+      {!list.length ? (
+        <section className="card">
+          <Empty
+            title={p.mine ? "ยังไม่มีสินค้าหรือแพ็กเกจที่เปิดขาย" : "ไม่มีสินค้าและบริการที่แสดง"}
+            description={p.mine ? "เพิ่มได้ที่ ฝ่ายขาย › สินค้า & แพ็กเกจ แล้วจะขึ้นที่นี่อัตโนมัติ" : "บริษัทนี้ยังไม่ได้เปิดให้ดูรายการสินค้าและบริการ"}
+          />
+        </section>
+      ) : (
+        groups
+          .filter(([, items]) => items.length)
+          .map(([type, items]) => (
+            <section key={type} className="cp-product-group">
+              <h3>
+                {type} <small>{items.length} รายการ</small>
+              </h3>
+              <div className="cp-product-grid">
+                {items.map((x) => (
+                  <article key={x.id} className={"card cp-product tone-" + (typeTone[type] || "violet")}>
+                    <span className="cp-product-type">{type}</span>
+                    <h4>{x.name}</h4>
+                    {x.code && <small className="cp-product-code">{x.code}</small>}
+                    {x.description && <p>{x.description}</p>}
+                    <b className="cp-product-price">฿{money(x.price)}</b>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))
+      )}
+    </div>
+  );
+}
+
+/** Another company's เกี่ยวกับ tab: only the sections it made public. */
+function AboutView({ p, line }: { p: CompanyProfile; line: string }) {
+  const d = p.details || {};
+  const row = (icon: ReactNode, label: string, value?: string) =>
+    value ? (
+      <div className="cp-fact" key={label}>
+        {icon}
+        <span>
+          <small>{label}</small>
+          <b>{value}</b>
+        </span>
+      </div>
+    ) : null;
+  const main = [
+    row(<Building2 size={16} />, "ประเภทธุรกิจ", p.industry),
+    row(<Users2 size={16} />, "จำนวนพนักงาน", d.employees),
+    row(<CalendarDays size={16} />, "วันที่ก่อตั้ง", d.founded ? new Date(d.founded).toLocaleDateString("th-TH", { dateStyle: "long" }) : ""),
+    row(<Hash size={16} />, "เลขประจำตัวผู้เสียภาษี", d.taxId),
+    row(<Info size={16} />, "ประเภทนิติบุคคล", d.legal),
+    row(<CalendarDays size={16} />, "เข้าร่วม EliteFlow", joinedText(p.joined)),
+  ].filter(Boolean);
+  const address = [row(<MapPin size={16} />, "จังหวัด", p.province), row(<MapPin size={16} />, "ที่อยู่", [d.address, d.zip].filter(Boolean).join(" "))].filter(Boolean);
+  const contact = [row(<Phone size={16} />, "โทรศัพท์", d.phone), row(<Mail size={16} />, "อีเมล", d.email)].filter(Boolean);
+  const hasChannels = !!(p.website || p.facebook || line);
+  return (
+    <div className="cp-about-view">
+      <section className="card cp-card">
+        <h2>เกี่ยวกับ {p.name}</h2>
+        {p.name_en && <p className="cp-en">{p.name_en}</p>}
+        {p.about ? <p className="cp-about">{p.about}</p> : <p className="muted">ยังไม่มีคำแนะนำบริษัท</p>}
+        <div className="cp-fact-grid">{main}</div>
+      </section>
+      <div className="cp-about-cols">
+        <section className="card cp-card">
+          <h2>ที่อยู่</h2>
+          {address.length > 1 ? <div className="cp-fact-grid one">{address}</div> : <>{address}<Private /></>}
+        </section>
+        <section className="card cp-card">
+          <h2>ช่องทางติดต่อ</h2>
+          {contact.length || hasChannels ? (
+            <>
+              {!!contact.length && <div className="cp-fact-grid one">{contact}</div>}
+              <Channels p={p} line={line} />
+            </>
+          ) : (
+            <Private />
           )}
-          {(tab === "followers" || tab === "following") && (
-            <FollowList ctx={ctx} id={p.id} dir={tab} name={p.name} mine={p.mine} notify={notify} open={open} />
-          )}
-        </main>
+        </section>
       </div>
     </div>
   );
 }
+const Private = () => (
+  <p className="cp-private">
+    <Lock size={14} /> บริษัทนี้ตั้งข้อมูลส่วนนี้เป็นส่วนตัว
+  </p>
+);
 
 function Channels({ p, line }: { p: CompanyProfile; line: string }) {
   if (!p.website && !p.facebook && !line) return null;

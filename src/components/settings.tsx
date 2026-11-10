@@ -90,10 +90,13 @@ export function CompanySettings({
   ctx,
   notify,
   changed,
+  embedded = false,
 }: {
   ctx: Context;
   notify: (s: string) => void;
   changed: () => void;
+  /** Inside the company page's เกี่ยวกับ tab: no cover/logo header (the page has one), plus who-sees-what switches. */
+  embedded?: boolean;
 }) {
   const [values, setValues] = useState<Record<string, unknown>>(() =>
       profileOf(ctx),
@@ -177,6 +180,14 @@ export function CompanySettings({
         }
       }}
     >
+      {embedded && (
+        <VisibilityCard
+          value={String(values.visibility || "main,social")}
+          disabled={!owner || busy}
+          onChange={(v) => set("visibility", v)}
+        />
+      )}
+      {!embedded && (
       <section className="card company-hero">
         <div
           className="company-cover"
@@ -227,6 +238,7 @@ export function CompanySettings({
           </div>
         </div>
       </section>
+      )}
       <div className="company-tabs" role="tablist">
         {companyTabs.map(([key, label]) => (
           <button
@@ -384,6 +396,45 @@ export function CompanySettings({
         </div>
       )}
     </form>
+  );
+}
+/** Who sees each part of the company page: public (any company in the network) or private (our team only). */
+export const visibilitySections = [
+  ["main", "ข้อมูลหลัก", "เกี่ยวกับบริษัท ประเภทธุรกิจ จำนวนพนักงาน วันที่ก่อตั้ง เลขผู้เสียภาษี"],
+  ["address", "ที่อยู่", "ที่อยู่บริษัทและรหัสไปรษณีย์ (จังหวัดแสดงเสมอ)"],
+  ["social", "ช่องทางติดต่อ", "โทรศัพท์ อีเมล เว็บไซต์ LINE Facebook"],
+  ["products", "สินค้าและบริการ", "สินค้า & แพ็กเกจที่เปิดขายอยู่ พร้อมราคา"],
+] as const;
+function VisibilityCard({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (v: string) => void }) {
+  const on = new Set(value === "none" ? [] : value.split(","));
+  const toggle = (k: string) => {
+    const next = new Set(on);
+    if (next.has(k)) next.delete(k);
+    else next.add(k);
+    onChange(next.size ? visibilitySections.map(([key]) => key).filter((key) => next.has(key)).join(",") : "none");
+  };
+  return (
+    <section className="card vis-card">
+      <div className="vis-head">
+        <h2>ใครเห็นข้อมูลบริษัท</h2>
+        <small>เลือกว่าส่วนไหนให้บริษัทอื่นในเครือข่ายเห็น · ข้อมูลธนาคารและเอกสารเป็นส่วนตัวเสมอ · กดบันทึกข้อมูลด้านล่างเพื่อใช้</small>
+      </div>
+      <div className="vis-grid">
+        {visibilitySections.map(([key, label, hint]) => {
+          const pub = on.has(key);
+          return (
+            <button type="button" key={key} className={"vis-item" + (pub ? " pub" : "")} disabled={disabled} aria-pressed={pub} onClick={() => toggle(key)}>
+              <span className="vis-switch" aria-hidden><i /></span>
+              <span>
+                <b>{label}</b>
+                <small>{hint}</small>
+              </span>
+              <em>{pub ? "สาธารณะ" : "ส่วนตัว"}</em>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 export function Team({

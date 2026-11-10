@@ -459,3 +459,66 @@
   color: var(--accent);
   font-weight: 600;
 }
+
+/* Company page v2: ทั้งหมด / สินค้าและบริการ / เกี่ยวกับ */
+.cp-side { display: grid; gap: 12px; }
+.cp-tab-count { margin-left: 2px; padding: 1px 7px; border-radius: 99px; font-size: 11px; background: var(--accent-soft, #f1ecff); color: var(--accent, #6d28d9); }
+.cp-more { justify-self: start; padding: 6px 0; border: 0; background: none; color: var(--accent, #6d28d9); font-size: 13px; font-weight: 700; }
+.cp-more:hover { text-decoration: underline; }
+.cp-mini-products { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cp-mini-products li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #f8f6fd; font-size: 13px; }
+.cp-mini-products li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-mini-products li b { color: #6d28d9; white-space: nowrap; }
+/* products */
+.cp-products { display: grid; gap: 16px; }
+.cp-products-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-left: 4px solid #94a3b8; }
+.cp-products-bar.pub { border-left-color: #16a34a; }
+.cp-products-bar > svg { color: #64748b; flex: none; }
+.cp-products-bar.pub > svg { color: #16a34a; }
+.cp-products-bar > span { flex: 1; min-width: 220px; display: grid; }
+.cp-products-bar small { color: var(--muted); }
+.cp-product-group h3 { margin: 0 0 10px; font-size: 16px; }
+.cp-product-group h3 small { color: var(--muted); font-weight: 500; font-size: 12px; }
+.cp-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.cp-product { --t: #7c3aed; --ts: #f5f3ff; position: relative; display: grid; align-content: start; gap: 6px; padding: 16px; border-top: 4px solid var(--t); transition: transform .2s, box-shadow .2s; }
+.cp-product:hover { transform: translateY(-3px); box-shadow: 0 12px 26px color-mix(in srgb, var(--t) 18%, transparent); }
+.cp-product.tone-blue { --t: #2563eb; --ts: #eff6ff; }
+.cp-product.tone-green { --t: #16a34a; --ts: #ecfdf3; }
+.cp-product-type { justify-self: start; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; color: var(--t); background: var(--ts); }
+.cp-product h4 { margin: 0; font-size: 15px; }
+.cp-product-code { color: var(--muted); font-size: 11px; }
+.cp-product p { margin: 0; font-size: 13px; color: #5b5570; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.cp-product-price { margin-top: 4px; font-size: 18px; color: var(--t); }
+/* about: our own (editable) and another company's (read only) */
+.cp-about-edit { display: grid; gap: 14px; }
+.cp-about-edit .company-profile { display: grid; gap: 14px; }
+.cp-about-view { display: grid; gap: 14px; }
+.cp-about-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.cp-fact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
+.cp-fact-grid.one { grid-template-columns: minmax(0, 1fr); }
+.cp-fact { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: #f8f6fd; }
+.cp-fact > svg { flex: none; margin-top: 2px; color: var(--accent, #6d28d9); }
+.cp-fact span { display: grid; min-width: 0; }
+.cp-fact small { color: var(--muted); font-size: 11.5px; }
+.cp-fact b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; white-space: pre-wrap; }
+.cp-private { display: flex; align-items: center; gap: 6px; margin: 0; padding: 10px 12px; border-radius: 12px; background: #f6f6f8; color: var(--muted); font-size: 13px; }
+/* who-sees-what switches */
+.vis-card { padding: 18px; display: grid; gap: 12px; }
+.vis-head { display: grid; gap: 2px; }
+.vis-head h2 { margin: 0; font-size: 16px; }
+.vis-head small { color: var(--muted); }
+.vis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.vis-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: #fbfafe; text-align: left; justify-content: stretch; transition: border-color .2s, background .2s; }
+.vis-item b { display: block; font-size: 14px; color: #2b2545; }
+.vis-item small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 500; line-height: 1.4; }
+.vis-item em { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; color: #64748b; background: #eef0f4; white-space: nowrap; }
+.vis-item.pub { border-color: #bbf7d0; background: #f3fdf6; }
+.vis-item.pub em { color: #15803d; background: #dcfce7; }
+.vis-switch { position: relative; width: 38px; height: 22px; border-radius: 99px; background: #cbd5e1; transition: background .2s; flex: none; }
+.vis-switch i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); transition: transform .2s; }
+.vis-item.pub .vis-switch { background: #22c55e; }
+.vis-item.pub .vis-switch i { transform: translateX(16px); }
+@media (max-width: 860px) {
+  .cp-about-cols { grid-template-columns: minmax(0, 1fr); }
+}
+.cp-about-edit .company-profile { max-width: none; margin: 0; }

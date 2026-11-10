@@ -837,6 +837,10 @@ async function handle(req: NextRequest) {
         "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก",
       );
       assert(
+        !profile.visibility || /^(none|(main|address|social|products)(,(main|address|social|products))*)$/.test(profile.visibility),
+        "การตั้งค่าการมองเห็นไม่ถูกต้อง",
+      );
+      assert(
         !profile.founded || validDate(profile.founded),
         "วันที่ก่อตั้งไม่ถูกต้อง",
       );
