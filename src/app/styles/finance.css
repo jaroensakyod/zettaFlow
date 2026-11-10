@@ -405,3 +405,14 @@ button.fl-ov { cursor: pointer; }
   .fl-op { display: none; }
   .fl-search { min-width: 0; width: 100%; }
 }
+
+/* Accounting pages: one-line heading (title + short description), no eyebrow or date chip — the page has its own period picker. */
+.page-heading.compact { margin-bottom: 10px; align-items: center; }
+.page-heading.compact > div:first-child { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.page-heading.compact .eyebrow, .page-heading.compact .date-chip { display: none; }
+.page-heading.compact h1 { font-size: 26px; margin: 0; line-height: 1.2; }
+.page-heading.compact p { margin: 0; font-size: 12.5px; }
+.page-heading.compact .refresh-button { width: 36px; height: 36px; }
+.main:has(> .page-heading.compact) { padding-top: 18px; }
+.page-heading.compact ~ .acc .acc-tabs, .page-heading.compact ~ * .acc-tabs { margin-bottom: 10px; }
+.fl-bar { margin-top: -2px; }

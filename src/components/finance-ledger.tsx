@@ -16,23 +16,39 @@ type Income = {
   invoice: string; amount: number; vat: number; base: number; notes: string;
 };
 type Ledger = { from: string; to: string; expenses: Expense[]; income: Income[]; salesIncluded: boolean };
-type Mode = "day" | "month" | "year";
+type Mode = "day" | "week" | "month" | "year";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const bangkokToday = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
 const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 const monthsTh = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 const r2 = (n: number) => Math.round(n * 100) / 100;
+const weekdaysTh = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
+const addDays = (iso: string, n: number) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
+/** Monday of the week the date falls in (Thai weeks start on Monday). */
+const monday = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return addDays(iso, -((new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7));
+};
+const shortDate = (iso: string) => {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${d} ${monthsTh[m - 1]}`;
+};
 
 function range(mode: Mode, anchor: string) {
   const [y, m] = anchor.split("-").map(Number);
   if (mode === "day") return { from: anchor, to: anchor };
+  if (mode === "week") return { from: monday(anchor), to: addDays(monday(anchor), 6) };
   if (mode === "month") return { from: `${y}-${pad(m)}-01`, to: `${y}-${pad(m)}-${pad(lastDay(y, m))}` };
   return { from: `${y}-01-01`, to: `${y}-12-31` };
 }
 function shift(mode: Mode, anchor: string, dir: number) {
   const [y, m, d] = anchor.split("-").map(Number);
   if (mode === "day") return new Date(Date.UTC(y, m - 1, d + dir)).toISOString().slice(0, 10);
+  if (mode === "week") return addDays(anchor, dir * 7);
   if (mode === "month") {
     const t = new Date(Date.UTC(y, m - 1 + dir, 1));
     return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-01`;
@@ -43,6 +59,11 @@ function label(mode: Mode, anchor: string) {
   const [y, m, d] = anchor.split("-").map(Number);
   const be = y + 543;
   if (mode === "day") return `${d} ${monthsTh[m - 1]} ${be}`;
+  if (mode === "week") {
+    const a = monday(anchor),
+      b = addDays(a, 6);
+    return `${shortDate(a)} – ${shortDate(b)} ${Number(b.slice(0, 4)) + 543}`;
+  }
   if (mode === "month") return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("th-TH", { month: "long", year: "numeric", timeZone: "UTC" });
   return "ปี " + be;
 }
@@ -97,10 +118,15 @@ export function FinanceLedger({
     if (!data || mode === "day") return [];
     const [y, m] = anchor.split("-").map(Number);
     const keys =
-      mode === "month"
-        ? Array.from({ length: lastDay(y, m) }, (_, k) => ({ key: `${y}-${pad(m)}-${pad(k + 1)}`, label: String(k + 1) }))
-        : monthsTh.map((t, k) => ({ key: `${y}-${pad(k + 1)}`, label: t }));
-    const len = mode === "month" ? 10 : 7;
+      mode === "week"
+        ? weekdaysTh.map((t, k) => {
+            const key = addDays(monday(anchor), k);
+            return { key, label: t + " " + Number(key.slice(8)) };
+          })
+        : mode === "month"
+          ? Array.from({ length: lastDay(y, m) }, (_, k) => ({ key: `${y}-${pad(m)}-${pad(k + 1)}`, label: String(k + 1) }))
+          : monthsTh.map((t, k) => ({ key: `${y}-${pad(k + 1)}`, label: t }));
+    const len = mode === "year" ? 7 : 10;
     return keys.map((k) => ({
       ...k,
       value:
@@ -144,6 +170,7 @@ export function FinanceLedger({
           {(
             [
               ["day", "รายวัน"],
+              ["week", "รายสัปดาห์"],
               ["month", "รายเดือน"],
               ["year", "รายปี"],
             ] as const
@@ -207,7 +234,7 @@ export function FinanceLedger({
           {mode !== "day" && (
             <div className="fl-grid">
               <section className="card fl-chart">
-                <h3>{kind === "expenses" ? "ค่าใช้จ่าย" : "รายรับ"}{mode === "month" ? "รายวัน" : "รายเดือน"}</h3>
+                <h3>{kind === "expenses" ? "ค่าใช้จ่าย" : "รายรับ"}{mode === "year" ? "รายเดือน" : "รายวัน"}</h3>
                 <div className={"fl-bars " + kind + (mode === "month" ? " days" : "")}>
                   {bars.map((b) => (
                     <button
