@@ -451,7 +451,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       if (k === "channel" && v === "social")
         return { label: "Social Media", test: (e: Entity) => ["Facebook", "Instagram", "TikTok", "LINE OA", "YouTube"].includes(String(e.data.channel)) };
       const f = m.fields.find((x) => x.key === k && x.options?.includes(v));
-      if (f) return { label: f.label + ": " + v, test: (e: Entity) => e.data[k] === v };
+      // A new record on a narrowed list starts with that value (รับชำระเงิน = payments?direction=income).
+      if (f) return { label: k === "direction" && v === "income" ? "รับเงิน" : f.label + ": " + v, test: (e: Entity) => e.data[k] === v, preset: { [k]: v } };
     }
   })();
   // แผนก opens when a mouse points at it and fades out shortly after the pointer leaves both the button and the menu.
@@ -801,6 +802,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                 notify={notify}
                 changed={load}
                 only={listFilter}
+                preset={listFilter && "preset" in listFilter ? listFilter.preset : undefined}
+                addLabel={view === "payments" && searchParams.get("direction") === "income" ? "บันทึกรับชำระ" : undefined}
               />
             </>
           ) : view === "ai-inbox" || view === "templates" ? (

@@ -76,6 +76,7 @@ async function incomeMonths(ctx: Context) {
   }
   const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
   let outstanding = 0,
+    openInvoices = 0,
     overdue = 0,
     overdueCount = 0;
   for (const e of invoices) {
@@ -90,18 +91,36 @@ async function incomeMonths(ctx: Context) {
       m.outVat = r2(m.outVat + vat);
     }
     outstanding = r2(outstanding + owed);
+    if (owed > 0) openInvoices++;
     if (owed > 0 && d.dueDate && String(d.dueDate) < today) {
       overdue = r2(overdue + owed);
       overdueCount++;
     }
   }
-  return { months: Object.values(months).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 24), outstanding, overdue, overdueCount, invoices: invoices.length };
+  return { months: Object.values(months).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 24), outstanding, openInvoices, overdue, overdueCount, invoices: invoices.length };
 }
 
-/** รายรับ page: monthly income with output VAT, and receivables. */
+export type SalesStage = { count: number; amount: number };
+/** รายรับ page: monthly income with output VAT, receivables, and where each sale stands in the flow
+ *  ใบเสนอราคา → คำสั่งซื้อ (ลูกค้ายืนยัน) → ใบแจ้งหนี้ → รับชำระ. */
 export async function incomeReport(ctx: Context) {
   assert(canRead(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
-  return incomeMonths(ctx);
+  const base = await incomeMonths(ctx);
+  let pipeline: { quotesSent: SalesStage; quotesAccepted: SalesStage; ordersToInvoice: SalesStage } | null = null;
+  if (canRead(ctx, "Sales")) {
+    const [quotes, orders] = await Promise.all([allEntities(ctx, "quotations", 5000), allEntities(ctx, "sales_orders", 5000)]);
+    const total = (kind: string, d: Record<string, unknown>) => catalog[kind].computed?.total?.calc(d) || 0,
+      add = (st: SalesStage, v: number) => ((st.count += 1), (st.amount = r2(st.amount + v)));
+    const converted = new Set(orders.map((o) => String(o.data.quotationId || "")));
+    pipeline = { quotesSent: { count: 0, amount: 0 }, quotesAccepted: { count: 0, amount: 0 }, ordersToInvoice: { count: 0, amount: 0 } };
+    for (const q of quotes) {
+      if (q.data.status === "ส่งแล้ว") add(pipeline.quotesSent, total("quotations", q.data));
+      else if (q.data.status === "ตอบรับ" && !converted.has(q.id)) add(pipeline.quotesAccepted, total("quotations", q.data));
+    }
+    for (const o of orders)
+      if (["รอดำเนินการ", "กำลังจัดส่ง", "ส่งแล้ว"].includes(String(o.data.status))) add(pipeline.ordersToInvoice, total("sales_orders", o.data));
+  }
+  return { ...base, pipeline };
 }
 
 // Which date on which page counts as "expires".

@@ -2,14 +2,23 @@
 // รายรับ: money in, with its tax on the same page — ภาษีขาย (output VAT) from invoices, the ภ.พ.30 balance against
 // ภาษีซื้อ from expenses, and what customers still owe. Below: the income records themselves (payments marked income).
 import { useEffect, useState } from "react";
-import { TrendingUp, Landmark, HandCoins, AlertTriangle, Plus, LayoutDashboard, Receipt, FileDigit } from "lucide-react";
+import { TrendingUp, Landmark, HandCoins, AlertTriangle, Plus, LayoutDashboard, Receipt, FileDigit, ChevronRight } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { api, money, Empty, Loading } from "./shared";
 import { Records } from "./records";
 import { LinePending } from "./line-review";
 
 type IncomeMonth = { month: string; income: number; invoiced: number; outVat: number; docs: number };
-type IncomeReport = { months: IncomeMonth[]; outstanding: number; overdue: number; overdueCount: number; invoices: number };
+type Stage = { count: number; amount: number };
+type IncomeReport = {
+  months: IncomeMonth[];
+  outstanding: number;
+  openInvoices: number;
+  overdue: number;
+  overdueCount: number;
+  invoices: number;
+  pipeline: { quotesSent: Stage; quotesAccepted: Stage; ordersToInvoice: Stage } | null;
+};
 type TaxMonth = { month: string; vat: number };
 const monthName = (m: string) => new Date(m + "-01").toLocaleDateString("th-TH", { month: "long", year: "numeric" });
 const thisMonth = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
@@ -80,6 +89,7 @@ export function IncomePage({ ctx, notify, changed, navigate }: { ctx: Context; n
           </div>
         ))}
       </div>
+      <SalesFlow data={data} month={now} navigate={navigate} />
       <section className="card income-vat">
         <Landmark size={18} />
         <span>
@@ -141,5 +151,41 @@ export function IncomePage({ ctx, notify, changed, navigate }: { ctx: Context; n
         newSignal={signal}
       />
     </div>
+  );
+}
+
+/** ขั้นตอนการขาย: how many documents wait at each stage, each stage opens its page. */
+function SalesFlow({ data, month, navigate }: { data: IncomeReport; month: IncomeMonth; navigate: (v: string) => void }) {
+  const p = data.pipeline;
+  const steps: [number, string, string, string, string][] = [
+    [1, "ใบเสนอราคา", p ? p.quotesSent.count + " ใบ รอลูกค้าตอบ" : "—", p ? "฿" + money(p.quotesSent.amount) : "", "quotations"],
+    [2, "ลูกค้ายืนยัน", p ? p.quotesAccepted.count + " ใบ รอเปิดคำสั่งซื้อ" : "—", p ? "฿" + money(p.quotesAccepted.amount) : "", "sales_orders"],
+    [3, "ออกใบแจ้งหนี้", p ? p.ordersToInvoice.count + " คำสั่งซื้อ รอออกใบ" : "—", p ? "฿" + money(p.ordersToInvoice.amount) : "", "invoices"],
+    [4, "รับชำระเงิน", data.openInvoices + " ใบ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income"],
+    [5, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts"],
+  ];
+  return (
+    <section className="card sales-flow" aria-label="ขั้นตอนการขาย">
+      <header>
+        <b>ขั้นตอนการขาย</b>
+        <small>ทำใบเสนอราคา → ลูกค้าตอบรับ (แนบไฟล์ที่ลูกค้าเซ็นในใบเสนอราคา) → แปลงเป็นคำสั่งซื้อ → ออกใบแจ้งหนี้ → รับเงิน → ออกใบเสร็จ</small>
+      </header>
+      <ol>
+        {steps.map(([n, label, note, amount, view], i) => (
+          <li key={n}>
+            <button onClick={() => navigate(view)}>
+              <i>{n}</i>
+              <span>
+                <b>{label}</b>
+                <small>{note}</small>
+                {amount && <em>{amount}</em>}
+              </span>
+            </button>
+            {i < steps.length - 1 && <ChevronRight size={16} className="sales-flow-arrow" />}
+          </li>
+        ))}
+      </ol>
+      {!p && <p className="note">ตัวเลขใบเสนอราคาและคำสั่งซื้อแสดงเฉพาะผู้ที่มีสิทธิ์ฝ่ายขาย</p>}
+    </section>
   );
 }

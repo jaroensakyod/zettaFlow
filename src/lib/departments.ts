@@ -2,7 +2,15 @@
 // (catalog kind or extra view); `?kind=` opens the report page on that department's data.
 export type MenuItem = { label: string; view: string; icon: string };
 /** A left-sidebar entry; a group shows its children indented under it. */
-export type SideItem = MenuItem & { children?: MenuItem[]; /** Small second line under the label. */ sub?: string };
+/** step: numbered stage of a flow (ใบเสนอราคา ① → ใบแจ้งหนี้ ③ …), drawn as a numbered dot on a line. */
+export type SideChild = MenuItem & { step?: number };
+export type SideItem = MenuItem & {
+  children?: SideChild[];
+  /** Small second line under the label. */
+  sub?: string;
+  /** A big heading (รายรับ / ค่าใช้จ่าย) with its pages always listed under it, coloured by tone. */
+  section?: { tone: "green" | "pink" | "violet"; caption: string };
+};
 export type DepartmentMenu = {
   id: string;
   title: string;
@@ -67,20 +75,24 @@ export const departmentMenu: DepartmentMenu[] = [
       // ภาษีซื้อ / หัก ณ ที่จ่าย on ค่าใช้จ่าย, the full picture on Financial Center), not in a menu of its own.
       { label: "Financial Center", sub: "ภาพรวม · กำไรขาดทุน · ภาษี", view: "finance", icon: "Landmark" },
       {
-        label: "รายรับ", view: "income", icon: "TrendingUp",
+        label: "รายรับ", view: "income", icon: "TrendingUp", section: { tone: "green", caption: "ขาย · ออกเอกสาร · รับเงิน" },
         children: [
-          { label: "รายการรายรับ", view: "income", icon: "FileText" },
-          { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit" },
-          { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText" },
+          { label: "ภาพรวมรายรับ", view: "income", icon: "ChartColumn" },
+          // The sales flow, in order: quote → customer confirms (SO) → invoice → money in → receipt.
+          { label: "ใบเสนอราคา", view: "quotations", icon: "FileText", step: 1 },
+          { label: "คำสั่งซื้อ (SO)", view: "sales_orders", icon: "ClipboardCheck", step: 2 },
+          { label: "ใบแจ้งหนี้", view: "invoices", icon: "FileDigit", step: 3 },
+          { label: "รับชำระเงิน", view: "payments?direction=income", icon: "Wallet", step: 4 },
+          { label: "ใบเสร็จรับเงิน", view: "receipts", icon: "ScrollText", step: 5 },
         ],
       },
       {
-        label: "ค่าใช้จ่าย", view: "expenses", icon: "FileSpreadsheet",
+        label: "ค่าใช้จ่าย", view: "expenses", icon: "Receipt", section: { tone: "pink", caption: "บันทึก · อนุมัติ · จ่ายเงิน" },
         children: [
-          { label: "บันทึกค่าใช้จ่าย", view: "expense-new", icon: "FilePen" },
-          { label: "รายการค่าใช้จ่าย", view: "expenses", icon: "FileText" },
-          { label: "รออนุมัติ", view: "expenses?filter=pending", icon: "FileClock" },
-          { label: "ใบรับวางบิล", view: "bills", icon: "ReceiptText" },
+          { label: "รายการค่าใช้จ่าย", view: "expenses", icon: "ChartColumn" },
+          { label: "บันทึกค่าใช้จ่าย", view: "expense-new", icon: "FilePen", step: 1 },
+          { label: "รออนุมัติ", view: "expenses?filter=pending", icon: "FileClock", step: 2 },
+          { label: "ใบรับวางบิล", view: "bills", icon: "ReceiptText", step: 3 },
         ],
       },
       { label: "ตั้งค่า", view: "company", icon: "Settings" },

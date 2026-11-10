@@ -63,6 +63,38 @@ export function DepartmentSidebar({
       <nav className="dept-side-nav">
         {sidebarOf(dept).map((item) => {
           const inGroup = item.children?.some((c) => c === current);
+          // A big section: heading button, then its pages always listed; flow stages get numbered dots on a line.
+          if (item.section)
+            return (
+              <section key={item.label} className={"dept-side-section tone-" + item.section.tone + (inGroup || item === current ? " open" : "")}>
+                <button
+                  className={"dept-side-sec-head" + (item === current ? " active" : "")}
+                  aria-current={item === current ? "page" : undefined}
+                  onClick={() => go(item.view)}
+                >
+                  <span className="dept-side-sec-icon">
+                    <MenuIcon name={item.icon} size={18} />
+                  </span>
+                  <span className="dept-side-two">
+                    {item.label}
+                    <small>{item.section.caption}</small>
+                  </span>
+                </button>
+                <div className="dept-side-steps">
+                  {item.children?.map((c) => (
+                    <button
+                      key={c.label}
+                      className={"dept-side-step" + (c.step ? " numbered" : " lead") + (c === current ? " active" : "")}
+                      aria-current={c === current ? "page" : undefined}
+                      onClick={() => go(c.view)}
+                    >
+                      {c.step ? <i>{c.step}</i> : <MenuIcon name={c.icon} size={15} />}
+                      <span>{c.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
           return (
             <div key={item.label} className={"dept-side-group" + (inGroup ? " open" : "")}>
               <button
