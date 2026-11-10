@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { api, Empty, Loading, Modal, money, displayDate, PasswordInput } from "./shared";
 import { Donut } from "./dashboard-charts";
+import { PlanCards } from "./plans-page";
 import type { Context, Role } from "@/lib/types";
 import type { Widget, Layout } from "@/lib/platform";
 import { addons, planPrice, type Plan, type Subscription, type Usage } from "@/lib/billing";
@@ -457,9 +458,10 @@ export function SubscriptionPanel({
   const owner = ctx.member.role === "owner";
   return (
     <>
-      <section className="z-card">
+      <section className="z-card pk-hero">
         <div className="section-actions">
           <div>
+            <small className="pk-hero-k">แพ็กเกจปัจจุบัน</small>
             <h2>
               แพ็กเกจ {data.plan.name}{" "}
               <span className={"status-pill " + (data.active ? "good" : "bad")}>
@@ -542,33 +544,14 @@ export function SubscriptionPanel({
           </p>
         )}
       </section>
-      <div className="pricing-grid">
-        {data.plans.map((p) => (
-          <article className="card pricing-card" key={p.id}>
-            <h3>{p.name}</h3>
-            <strong>฿{money(p.monthly)}</strong>
-            <small>/เดือน · ฿{money(p.yearly)}/ปี (ฟรี 2 เดือน) · ไม่รวม VAT 7%</small>
-            <ul>
-              <li>AI Workflows: {p.workflows ?? "ไม่จำกัด"}</li>
-              <li>เอกสาร/เดือน: {p.documents?.toLocaleString("th-TH") ?? "ไม่จำกัด"}</li>
-              <li>กลุ่ม LINE: {p.line_groups ?? "ไม่จำกัด"}</li>
-              <li>ผู้ใช้ Dashboard: {p.users ?? "ไม่จำกัด"}</li>
-              <li>API: {p.api} · Support: {p.support}</li>
-            </ul>
-            {owner && (
-              <div className="row-actions">
-                <button className="secondary" onClick={() => setPay({ plan: p.id, cycle: "monthly" })}>
-                  ชำระรายเดือน
-                </button>
-                <button className="primary" onClick={() => setPay({ plan: p.id, cycle: "yearly" })}>
-                  รายปี
-                </button>
-              </div>
-            )}
-          </article>
-        ))}
-      </div>
-      <section className="z-card">
+      <PlanCards
+        plans={data.plans}
+        current={s.plan}
+        paid={s.status === "active" && data.active}
+        owner={owner}
+        onPay={(plan, cycle) => setPay({ plan, cycle })}
+      />
+      <section className="z-card pk-addons">
         <h2>Premium Add-ons</h2>
         <div className="usage-grid">
           {addons.map((a) => (
