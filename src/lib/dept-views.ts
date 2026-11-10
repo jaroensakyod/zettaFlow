@@ -157,6 +157,7 @@ export type LedgerExpense = {
   id: string; date: string; code: string; name: string; category: string; payee: string; docType: string; docNo: string;
   base: number; vat: number; claimable: number; gross: number; wht: number; whtForm: string; net: number;
   status: string; pending: boolean; projectId: string; receiptId: string; notes: string;
+  projectName: string; payState: "ชำระแล้ว" | "รอชำระ" | "ยังไม่ชำระ"; payStatus: string;
 };
 export type LedgerIncome = {
   id: string; kind: "payments" | "sales"; date: string; name: string; customer: string; method: string; reference: string;
@@ -179,6 +180,8 @@ export async function ledger(ctx: Context, from: string, to: string) {
     sales ? allEntities(ctx, "sales", 5000) : Promise.resolve([]),
     canRead(ctx, "Sales") ? allEntities(ctx, "customers", 5000) : Promise.resolve([]),
   ]);
+  const projects = await allEntities(ctx, "projects", 5000).catch(() => []);
+  const projectName = new Map(projects.map((p) => [p.id, String(p.data.name || "")]));
   const customerName = new Map(customers.map((c) => [c.id, String(c.data.name || "")]));
   const invoiceById = new Map(invoices.map((i) => [i.id, i]));
   const exp: LedgerExpense[] = expenses
@@ -193,6 +196,15 @@ export async function ledger(ctx: Context, from: string, to: string) {
         whtForm: whtForm(String(d.taxId || ""), Number(d.whtRate) || 0), net: c.net,
         status: String(d.status || ""), pending: awaitingReview(d), projectId: String(d.projectId || ""),
         receiptId: String(d.receiptId || ""), notes: String(d.notes || ""),
+        projectName: projectName.get(String(d.projectId || "")) || "",
+        payStatus: String(d.payStatus || ""),
+        // Paid when marked paid or settled by transfer / petty cash; approved but unpaid waits for payment.
+        payState:
+          d.status === "paid" || d.payStatus === "โอนแล้ว" || d.payStatus === "เงินสดย่อย"
+            ? "ชำระแล้ว"
+            : d.status === "approved"
+              ? "รอชำระ"
+              : "ยังไม่ชำระ",
       };
     });
   const inc: LedgerIncome[] = [];

@@ -10,7 +10,9 @@ type Expense = {
   id: string; date: string; code: string; name: string; category: string; payee: string; docType: string; docNo: string;
   base: number; vat: number; claimable: number; gross: number; wht: number; whtForm: string; net: number;
   status: string; pending: boolean; projectId: string; receiptId: string; notes: string;
+  projectName: string; payState: "ชำระแล้ว" | "รอชำระ" | "ยังไม่ชำระ"; payStatus: string;
 };
+const payTone = { ชำระแล้ว: "paid", รอชำระ: "waiting", ยังไม่ชำระ: "unpaid" } as const;
 type Income = {
   id: string; kind: "payments" | "sales"; date: string; name: string; customer: string; method: string; reference: string;
   invoice: string; amount: number; vat: number; base: number; notes: string;
@@ -157,7 +159,7 @@ export function FinanceLedger({
   }, [data, kind]);
 
   const term = q.trim().toLowerCase();
-  const expRows = (data?.expenses || []).filter((r) => !term || [r.name, r.code, r.category, r.payee, r.docNo].join(" ").toLowerCase().includes(term));
+  const expRows = (data?.expenses || []).filter((r) => !term || [r.name, r.code, r.category, r.payee, r.docNo, r.projectName, r.payState].join(" ").toLowerCase().includes(term));
   const incRows = (data?.income || []).filter((r) => !term || [r.name, r.customer, r.invoice, r.reference, r.method].join(" ").toLowerCase().includes(term));
   const balance = r2(totals.in - totals.out);
   const max = Math.max(1, ...bars.map((b) => b.value)),
@@ -317,46 +319,44 @@ export function FinanceLedger({
                   <table className="fl-table">
                     <thead>
                       <tr>
+                        <th>เลขที่เอกสาร</th>
                         <th>วันที่</th>
-                        <th>รายการ</th>
-                        <th>หมวด</th>
-                        <th>ผู้รับเงิน</th>
-                        <th className="num">ก่อน VAT</th>
-                        <th className="num">VAT</th>
-                        <th className="num">หัก ณ ที่จ่าย</th>
-                        <th className="num">ยอดรวม</th>
-                        <th className="num">จ่ายสุทธิ</th>
+                        <th>รายการค่าใช้จ่าย</th>
+                        <th>โปรเจกต์</th>
+                        <th className="num">ยอดสุทธิ</th>
+                        <th>สถานะการชำระ</th>
                       </tr>
                     </thead>
                     <tbody>
                       {expRows.map((r) => (
                         <tr key={r.id} onClick={() => setOpen(r)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(r)}>
+                          <td className="fl-docno">
+                            {/* No document number yet: the system reference (#first 8 of the id), the same one used across the app. */}
+                            {r.code || r.docNo || <span className="fl-ref" title="เลขอ้างอิงในระบบ">#{r.id.slice(0, 8)}</span>}
+                          </td>
                           <td>{displayDate(r.date)}</td>
                           <td className="primary-cell">
                             {r.name}
                             <small>
-                              {r.code || r.docNo}
+                              {r.category ? categoryLabel(r.category) : ""}
                               {r.pending && <span className="badge pending">รอตรวจ</span>}
                             </small>
                           </td>
-                          <td>{r.category ? categoryLabel(r.category) : "—"}</td>
-                          <td>{r.payee || "—"}</td>
-                          <td className="num">{money(r.base)}</td>
-                          <td className="num">{money(r.vat)}</td>
-                          <td className="num">{r.wht ? money(r.wht) : "—"}</td>
-                          <td className="num">{money(r.gross)}</td>
-                          <td className="num strong">{money(r.net)}</td>
+                          <td>{r.projectName || "—"}</td>
+                          <td className="num strong">฿{money(r.net)}</td>
+                          <td>
+                            <span className={"fl-pay " + payTone[r.payState]}>{r.payState}</span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr>
                         <td colSpan={4}>รวม {expRows.length} รายการ</td>
-                        <td className="num">{money(expRows.reduce((s, r) => s + r.base, 0))}</td>
-                        <td className="num">{money(expRows.reduce((s, r) => s + r.vat, 0))}</td>
-                        <td className="num">{money(expRows.reduce((s, r) => s + r.wht, 0))}</td>
-                        <td className="num">{money(expRows.reduce((s, r) => s + r.gross, 0))}</td>
-                        <td className="num strong">{money(expRows.reduce((s, r) => s + r.net, 0))}</td>
+                        <td className="num strong">฿{money(expRows.reduce((s, r) => s + r.net, 0))}</td>
+                        <td>
+                          ค้างชำระ ฿{money(expRows.filter((r) => r.payState !== "ชำระแล้ว").reduce((s, r) => s + r.net, 0))}
+                        </td>
                       </tr>
                     </tfoot>
                   </table>
@@ -439,6 +439,8 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
         ["ยอดรวม", "฿" + money(e.gross)],
         ["หัก ณ ที่จ่าย", e.wht ? "฿" + money(e.wht) + " · " + e.whtForm : "—"],
         ["จ่ายสุทธิ", "฿" + money(e.net)],
+        ["โปรเจกต์", e.projectName || "—"],
+        ["การชำระ", e.payState + (e.payStatus ? " · " + e.payStatus : "")],
         ["สถานะ", e.pending ? "รอตรวจ" : "บันทึกแล้ว"],
         ["หมายเหตุ", e.notes || "—"],
       ]

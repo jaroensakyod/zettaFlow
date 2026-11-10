@@ -443,3 +443,28 @@ button.fl-ov { cursor: pointer; }
 .fl-bars button.on small { color: var(--ink); font-weight: 700; }
 @media (max-width: 1280px) { .fl-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .fl-cards { grid-template-columns: minmax(0, 1fr); } .fl-card b { font-size: 26px; } }
+
+/* Summary cards v2: the whole card is the colour (no top stripe), white text, a soft light circle for depth */
+.fl-card { position: relative; overflow: hidden; border: 0; border-top: 0; color: #fff; background: linear-gradient(135deg, var(--c1), var(--c2)); box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--c2) 60%, transparent); padding: 20px; }
+.fl-card::after { content: ""; position: absolute; right: -36px; top: -46px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255, 255, 255, .14); pointer-events: none; }
+.fl-card::before { content: ""; position: absolute; right: 30px; bottom: -60px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, .08); pointer-events: none; }
+.fl-card.pink { --c1: #f472b6; --c2: #db2777; }
+.fl-card.blue { --c1: #60a5fa; --c2: #2563eb; }
+.fl-card.amber { --c1: #fbbf24; --c2: #ea580c; }
+.fl-card.violet { --c1: #a78bfa; --c2: #6d28d9; }
+.fl-card.green { --c1: #4ade80; --c2: #15803d; }
+.fl-card.teal { --c1: #2dd4bf; --c2: #0f766e; }
+.fl-card-icon { position: relative; z-index: 1; background: rgba(255, 255, 255, .22); color: #fff; box-shadow: none; backdrop-filter: blur(2px); }
+.fl-card > div { position: relative; z-index: 1; }
+.fl-card small { color: rgba(255, 255, 255, .92); font-size: 15px; }
+.fl-card b { color: #fff; font-size: 31px; text-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.fl-card em { color: rgba(255, 255, 255, .85); }
+
+/* Payment status in the expense list */
+.fl-docno { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--th-ink-2, #3b3554); white-space: nowrap; }
+.fl-pay { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.fl-pay::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.fl-pay.paid { background: #dcfce7; color: #15803d; }
+.fl-pay.waiting { background: #fef3c7; color: #b45309; }
+.fl-pay.unpaid { background: #fee2e2; color: #b91c1c; }
+.fl-ref { color: var(--muted); }
