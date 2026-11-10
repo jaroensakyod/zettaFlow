@@ -576,3 +576,19 @@ dialog.modal:has(.fd) { width: min(1100px, 95vw); max-width: none; }
 .fd-line-chip { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 7px 10px; border-radius: 10px; background: #ecfdf3; font-size: 12.5px; color: #166534; }
 .fd-line-chip b { padding: 1px 7px; border-radius: 6px; background: #06c755; color: #fff; font-size: 11px; }
 @media (max-width: 560px) { .fd-facts { grid-template-columns: minmax(0, 1fr); } }
+
+/* Bar tooltip: date + amount above the bar on hover / keyboard focus */
+.fl-bars button { position: relative; }
+.fl-tip { position: absolute; left: 50%; z-index: 5; display: grid; gap: 1px; justify-items: center; padding: 6px 10px; border-radius: 9px; background: #1f1a3a; color: #fff; white-space: nowrap; pointer-events: none; opacity: 0; transform: translate(-50%, 4px); transition: opacity .12s, transform .12s; box-shadow: 0 8px 20px rgba(20, 10, 60, .25); }
+.fl-tip::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; background: #1f1a3a; transform: translateX(-50%) rotate(45deg); }
+.fl-tip em { font-style: normal; font-size: 11px; opacity: .8; }
+.fl-tip b { font-size: 14px; }
+.fl-bars button:hover .fl-tip, .fl-bars button:focus-visible .fl-tip { opacity: 1; transform: translate(-50%, 0); }
+.fl-bars button:hover i { opacity: 1; }
+.fl-bars button:first-child .fl-tip, .fl-bars button:nth-child(2) .fl-tip { left: 0; transform: translate(0, 4px); }
+.fl-bars button:first-child:hover .fl-tip, .fl-bars button:nth-child(2):hover .fl-tip { transform: translate(0, 0); }
+.fl-bars button:first-child .fl-tip::after, .fl-bars button:nth-child(2) .fl-tip::after { left: 14px; }
+.fl-bars button:last-child .fl-tip, .fl-bars button:nth-last-child(2) .fl-tip { left: auto; right: 0; transform: translate(0, 4px); }
+.fl-bars button:last-child:hover .fl-tip, .fl-bars button:nth-last-child(2):hover .fl-tip { transform: translate(0, 0); }
+.fl-bars button:last-child .fl-tip::after, .fl-bars button:nth-last-child(2) .fl-tip::after { left: auto; right: 10px; }
+.fl-chart { overflow: visible; }

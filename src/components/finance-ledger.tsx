@@ -40,6 +40,11 @@ const monday = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
   return addDays(iso, -((new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7));
 };
+/** "9 พ.ย. 2569" for a day key, "พ.ย. 2569" for a month key — the tooltip over a bar. */
+const barWhen = (key: string) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return (d ? d + " " : "") + monthsTh[m - 1] + " " + (y + 543);
+};
 const shortDate = (iso: string) => {
   const [, m, d] = iso.split("-").map(Number);
   return `${d} ${monthsTh[m - 1]}`;
@@ -270,7 +275,7 @@ export function FinanceLedger({
                     <button
                       key={b.key}
                       className={b.on ? "on" : ""}
-                      title={`${b.label}: ฿${money(b.value)}`}
+                      aria-label={`${barWhen(b.key)}: ฿${money(b.value)}`}
                       onClick={() => {
                         if (mode === "year") {
                           setMode("month");
@@ -283,6 +288,11 @@ export function FinanceLedger({
                     >
                       <i style={{ height: `${Math.max(b.value ? 4 : 0, (b.value / max) * 100)}%` }} />
                       <small>{b.label}</small>
+                      {/* Hover / focus: the date and the amount, above the bar. */}
+                      <span className="fl-tip" style={{ bottom: `calc(${Math.max(b.value ? 4 : 0, (b.value / max) * 100)}% + 26px)` }}>
+                        <em>{barWhen(b.key)}</em>
+                        <b>฿{money(b.value)}</b>
+                      </span>
                     </button>
                   ))}
                 </div>
