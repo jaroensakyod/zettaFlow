@@ -122,6 +122,7 @@ import {
   adminDelete,
   promoMediaUpload,
 } from "@/lib/engage";
+import { presence } from "@/lib/presence";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -304,7 +305,7 @@ async function handle(req: NextRequest) {
       ctx.demo &&
       !demoEnabled() &&
       method !== "GET" &&
-      !(path[0] === "assistant" || path[0] === "flow" || path[0] === "expense-scan" || (path[0] === "templates" && path[1] === "draft"))
+      !(path[0] === "presence" || path[0] === "assistant" || path[0] === "flow" || path[0] === "expense-scan" || (path[0] === "templates" && path[1] === "draft"))
     )
       throw new AppError(READ_ONLY_DEMO, 403);
     if (path[0] === "companies") {
@@ -561,6 +562,7 @@ async function handle(req: NextRequest) {
     if (path[0] === "entities" && path[2] === "next-code" && method === "GET")
       return response(await nextCode(ctx, path[1]));
     if (path[0] === "directory" && method === "GET") return response(await directory(ctx, z.string().max(40).parse(path[1])));
+    if (path[0] === "presence" && method === "POST") return response(await presence(ctx, await body(req)));
     if (path[0] === "support") {
       if (method === "GET") {
         const thread = await supportThread(ctx);

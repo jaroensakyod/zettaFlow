@@ -66,6 +66,7 @@ import { Jobs } from "./jobs";
 import { FlowAssistant } from "./flow-assistant";
 import { SubscriptionPanel, SlipChecker } from "./platform";
 import { SupportChat, AdminConsole } from "./engage";
+import { OnlineDot, usePresencePing } from "./presence";
 import { AiWorkspace } from "./ai-workspace";
 import { LinePending } from "./line-review";
 import { LineIntegrationPage } from "./line-integration";
@@ -425,6 +426,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     }, 30000);
     return () => clearInterval(timer);
   }, [data, auth, load]);
+  usePresencePing(!!data && !auth);
   const navigate = useCallback(
     (next: string) => {
       setMenu(false);
@@ -628,7 +630,9 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                 title={ctx.company.name}
                 onClick={() => setAccount(!account)}
               >
-                <span className="avatar">{ctx.user.name[0]}</span>
+                <OnlineDot on round>
+                  <span className="avatar">{ctx.user.name[0]}</span>
+                </OnlineDot>
                 <span>
                   <strong>{ctx.user.name}</strong>
                   <small>{ctx.company.name}</small>

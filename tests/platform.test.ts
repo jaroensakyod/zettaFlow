@@ -236,6 +236,13 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
     assert.equal((await db.query("select * from support_messages")).rows.length, 2);
     await db.query("select support_seen($1)", [c]);
     assert.equal((await one<{ unread_customer: number }>(db, "select unread_customer from support_threads where company_id=$1", [c])).unread_customer, 0);
+    // presence: a member's ping marks them and their company online; non-members cannot ping
+    await login(owner, "owner@test.local");
+    const pres = (await one<{ p: { companies: string[]; users: string[] } }>(db, "select presence_ping($1,array[$1]::uuid[])as p", [c])).p;
+    assert.deepEqual(pres.companies, [c]);
+    assert.deepEqual(pres.users, [owner]);
+    await login(other, "other@test.local");
+    await assert.rejects(db.query("select presence_ping($1,'{}')", [c]), /ไม่มีสิทธิ์/);
     // promos: only active, in-window rows are public; anon cannot write
     await login(null);
     await db.query("insert into promos(title,active)values('A',true),('B',false)");

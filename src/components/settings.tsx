@@ -13,6 +13,7 @@ import {
   Camera,
 } from "lucide-react";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
+import { UserOnline } from "./presence";
 import { FieldControl } from "./records";
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
 import type { Context, Member, Template } from "@/lib/types";
@@ -460,7 +461,7 @@ export function Team({
                 {members.map((m) => (
                   <tr key={m.id}>
                     <td>
-                      <strong>{m.name}</strong>
+                      <strong>{m.name}</strong> <UserOnline id={m.user_id} />
                       <small>{m.email}</small>
                     </td>
                     <td>

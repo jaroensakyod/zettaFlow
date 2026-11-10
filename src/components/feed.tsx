@@ -39,6 +39,7 @@ import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
 import { AdCard } from "./ad-card";
+import { OnlineDot, useCompanyOnline } from "./presence";
 import { IndustryPicker, industryLabel } from "./industry-picker";
 import { PostMock, SampleFeed, sampleAds, sampleLogo, samplePosts, sampleSuggest } from "./feed-samples";
 
@@ -128,12 +129,17 @@ export const profileView = (companyId: string, ctx: Context) => (companyId === c
 
 export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: string; logo: boolean | string; size?: number }) {
   const src = typeof logo === "string" ? logo : logo ? "/api/feed/logo/" + id : "";
-  return src ? (
-    <img className="net-logo" src={src} alt="" width={size} height={size} />
-  ) : (
-    <span className="net-logo" style={{ width: size, height: size, background: tint(id), fontSize: size / 2.8 }}>
-      {initials(name)}
-    </span>
+  const on = useCompanyOnline(id);
+  return (
+    <OnlineDot on={on} size={size}>
+      {src ? (
+        <img className="net-logo" src={src} alt="" width={size} height={size} />
+      ) : (
+        <span className="net-logo" style={{ width: size, height: size, background: tint(id), fontSize: size / 2.8 }}>
+          {initials(name)}
+        </span>
+      )}
+    </OnlineDot>
   );
 }
 
