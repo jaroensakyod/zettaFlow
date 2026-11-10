@@ -539,13 +539,24 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
   const showsSlip = !e && i!.kind !== "invoices";
 
   return (
-    <Modal title={(e ? "ค่าใช้จ่าย" : i!.kind === "invoices" ? "ใบแจ้งหนี้" : "รับชำระ") + " · " + docNo} onClose={onClose}>
+    // Title says what the money was for: the job (project) when there is one, else the item itself.
+    <Modal
+      title={(() => {
+        const job = (e || i)!.projectName || (e || i)!.project;
+        if (e) return job ? "ค่าใช้จ่ายของงาน " + job : "ค่าใช้จ่าย · " + row.name;
+        if (i!.kind === "invoices") return job ? "ใบแจ้งหนี้ค้างรับ · งาน " + job : "ใบแจ้งหนี้ค้างรับ · " + row.name;
+        return job ? "รายรับจากงาน " + job : "รายรับจาก " + row.name;
+      })()}
+      onClose={onClose}
+    >
       <div className={"fd fd-" + payTone[state]}>
         <header className="fd-head">
           <div>
             <small>{e ? "จ่ายสุทธิ" : i!.kind === "invoices" ? "ยอดค้างรับ" : "รับเงิน"}</small>
             <b>฿{money(amount)}</b>
-            <span>{row.name}</span>
+            <span>
+              {docNo} · {row.name}
+            </span>
           </div>
           <span className={"fl-pay " + payTone[state]}>{state}</span>
         </header>
@@ -626,8 +637,8 @@ function Detail({ row, kind, navigate, onClose }: { row: Expense | Income; kind:
                       {missing ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
                       {missing
                         ? e
-                          ? "ยังไม่ได้รับใบเสร็จจากผู้รับเงิน — ขอเอกสารแล้วแนบเก็บไว้ที่นี่"
-                          : "ยังไม่ได้รับใบเสร็จจากลูกค้า — ขอเอกสารแล้วแนบเก็บไว้ที่นี่"
+                          ? "ยังไม่ได้รับใบเสร็จ"
+                          : "ยังไม่ได้รับใบเสร็จ"
                         : "ได้รับเอกสารครบแล้ว"}
                     </p>
                   )}
