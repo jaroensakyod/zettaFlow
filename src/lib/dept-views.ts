@@ -153,17 +153,25 @@ export async function expiries(ctx: Context) {
     .slice(0, 300);
 }
 
+export type PayState = "ชำระแล้ว" | "รอชำระ" | "ยังไม่ชำระ";
 export type LedgerExpense = {
   id: string; date: string; code: string; name: string; category: string; payee: string; docType: string; docNo: string;
   base: number; vat: number; claimable: number; gross: number; wht: number; whtForm: string; net: number;
   status: string; pending: boolean; projectId: string; receiptId: string; notes: string;
-  projectName: string; payState: "ชำระแล้ว" | "รอชำระ" | "ยังไม่ชำระ"; payStatus: string;
+  /** The project's code — for a job won by quotation, the quotation's code. */
+  project: string; projectName: string; payState: PayState; payStatus: string;
 };
 export type LedgerIncome = {
-  id: string; kind: "payments" | "sales"; date: string; name: string; customer: string; method: string; reference: string;
-  invoice: string; amount: number; vat: number; base: number; notes: string;
+  id: string; kind: "payments" | "sales" | "invoices"; date: string; docNo: string; name: string; customer: string; method: string;
+  reference: string; invoice: string; amount: number; vat: number; base: number; notes: string;
+  project: string; projectName: string; payState: PayState;
+  /** invoices only: what is still owed (the row is a reminder, not money received). */
+  owed: number; dueDate: string;
 };
-/** Every expense and every income in a date range, with the tax on each row — the รายรับ / ค่าใช้จ่าย summary pages. */
+// The end of the id: unique even for the demo company, whose ids share their first part.
+const sysRef = (id: string) => "#" + id.slice(-8);
+/** Every expense and every income in a date range, with the tax on each row — the รายรับ / ค่าใช้จ่าย summary pages.
+ *  Both lists show: document no · date · item · project (approved quotation code) · net · payment status. */
 export async function ledger(ctx: Context, from: string, to: string) {
   assert(canRead(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
   const iso = /^\d{4}-\d{2}-\d{2}$/;
@@ -173,22 +181,39 @@ export async function ledger(ctx: Context, from: string, to: string) {
     return iso.test(s) && s >= from && s <= to;
   };
   const sales = canRead(ctx, "Sales");
-  const [expenses, payments, invoices, saleRows, customers] = await Promise.all([
+  type Rows = Awaited<ReturnType<typeof allEntities>>;
+  const none = Promise.resolve([] as Rows);
+  const [expenses, payments, invoices, saleRows, customers, orders, quotes, projects] = await Promise.all([
     allEntities(ctx, "expenses", 5000),
     allEntities(ctx, "payments", 5000),
     allEntities(ctx, "invoices", 5000),
-    sales ? allEntities(ctx, "sales", 5000) : Promise.resolve([]),
-    canRead(ctx, "Sales") ? allEntities(ctx, "customers", 5000) : Promise.resolve([]),
+    sales ? allEntities(ctx, "sales", 5000) : none,
+    sales ? allEntities(ctx, "customers", 5000) : none,
+    sales ? allEntities(ctx, "sales_orders", 5000) : none,
+    sales ? allEntities(ctx, "quotations", 5000) : none,
+    allEntities(ctx, "projects", 5000).catch(() => [] as Rows),
   ]);
-  const projects = await allEntities(ctx, "projects", 5000).catch(() => []);
-  const projectName = new Map(projects.map((p) => [p.id, String(p.data.name || "")]));
+  const projectOf = (id: unknown) => {
+    const p = projects.find((x) => x.id === id);
+    return p ? { project: String(p.data.code || p.data.name || ""), projectName: String(p.data.name || "") } : null;
+  };
   const customerName = new Map(customers.map((c) => [c.id, String(c.data.name || "")]));
   const invoiceById = new Map(invoices.map((i) => [i.id, i]));
+  type Row = Rows[number];
+  // invoice → its sales order (by the "#id" the conversion writes) → the quotation → its code
+  const quoteOfInvoice = (inv: Row) => {
+    const text = String(inv.data.description || "");
+    const so = orders.find((o) => text.includes("#" + o.id.slice(0, 8)));
+    const q = so && quotes.find((x) => x.id === so.data.quotationId);
+    return q ? String(q.data.code || q.data.name || "") : "";
+  };
+  const invoiceProject = (inv: Row) => projectOf(inv.data.projectId) || { project: quoteOfInvoice(inv), projectName: "" };
   const exp: LedgerExpense[] = expenses
     .filter((e) => e.data.status !== "rejected" && inRange(e.data.date))
     .map((e) => {
       const d = e.data,
-        c = expenseCalc(d);
+        c = expenseCalc(d),
+        p = projectOf(d.projectId);
       return {
         id: e.id, date: String(d.date).slice(0, 10), code: String(d.code || ""), name: String(d.name || ""),
         category: String(d.category || ""), payee: String(d.payee || ""), docType: String(d.docType || ""), docNo: String(d.docNo || ""),
@@ -196,7 +221,7 @@ export async function ledger(ctx: Context, from: string, to: string) {
         whtForm: whtForm(String(d.taxId || ""), Number(d.whtRate) || 0), net: c.net,
         status: String(d.status || ""), pending: awaitingReview(d), projectId: String(d.projectId || ""),
         receiptId: String(d.receiptId || ""), notes: String(d.notes || ""),
-        projectName: projectName.get(String(d.projectId || "")) || "",
+        project: p?.project || "", projectName: p?.projectName || "",
         payStatus: String(d.payStatus || ""),
         // Paid when marked paid or settled by transfer / petty cash; approved but unpaid waits for payment.
         payState:
@@ -208,28 +233,58 @@ export async function ledger(ctx: Context, from: string, to: string) {
       };
     });
   const inc: LedgerIncome[] = [];
+  const received = new Map<string, number>();
+  for (const p of payments)
+    if (p.data.direction === "income" && p.data.invoiceId)
+      received.set(String(p.data.invoiceId), (received.get(String(p.data.invoiceId)) || 0) + (Number(p.data.amount) || 0));
   for (const p of payments) {
     const d = p.data;
     if (d.direction !== "income" || !inRange(d.date)) continue;
     const amount = Number(d.amount) || 0,
       inv = d.invoiceId ? invoiceById.get(String(d.invoiceId)) : undefined,
       rate = inv ? Number(inv.data.vat) || 0 : 0,
-      vat = r2((amount * rate) / (100 + rate));
+      vat = r2((amount * rate) / (100 + rate)),
+      pr = inv ? invoiceProject(inv) : null;
     inc.push({
-      id: p.id, kind: "payments", date: String(d.date).slice(0, 10), name: String(d.name || ""),
+      id: p.id, kind: "payments", date: String(d.date).slice(0, 10),
+      docNo: inv ? String(inv.data.name || "") : String(d.reference || "") || sysRef(p.id), name: String(d.name || ""),
       customer: inv ? customerName.get(String(inv.data.customerId)) || "" : "", method: String(d.method || ""),
       reference: String(d.reference || ""), invoice: inv ? String(inv.data.name || "") : "",
       amount: r2(amount), vat, base: r2(amount - vat), notes: String(d.notes || ""),
+      project: pr?.project || "", projectName: pr?.projectName || "", payState: "ชำระแล้ว", owed: 0, dueDate: "",
     });
   }
   for (const s of saleRows) {
     const d = s.data;
     if (d.status !== "confirmed" || !inRange(d.date)) continue;
-    const amount = r2(Number(d.amount) || 0);
+    const amount = r2(Number(d.amount) || 0),
+      p = projectOf(d.projectId);
     inc.push({
-      id: s.id, kind: "sales", date: String(d.date).slice(0, 10), name: String(d.name || ""),
+      id: s.id, kind: "sales", date: String(d.date).slice(0, 10), docNo: String(d.code || "") || sysRef(s.id), name: String(d.name || ""),
       customer: customerName.get(String(d.customerId)) || "", method: String(d.channel || ""), reference: "", invoice: "",
       amount, vat: 0, base: amount, notes: String(d.notes || ""),
+      project: p?.project || "", projectName: p?.projectName || "", payState: "ชำระแล้ว", owed: 0, dueDate: "",
+    });
+  }
+  // Invoices dated in the period that are not fully paid: listed so the page shows what is still to come in.
+  const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+  for (const i of invoices) {
+    const d = i.data;
+    if (!inRange(d.date)) continue;
+    const sub = Number(d.subtotal) || 0,
+      vat = r2((sub * (Number(d.vat) || 0)) / 100),
+      total = r2(sub + vat),
+      owed = r2(Math.max(0, total - (received.get(i.id) || 0)));
+    if (owed <= 0) continue;
+    const pr = invoiceProject(i);
+    inc.push({
+      id: i.id, kind: "invoices", date: String(d.date).slice(0, 10), docNo: String(d.name || "") || sysRef(i.id),
+      name: String(d.description || d.name || "ใบแจ้งหนี้"), customer: customerName.get(String(d.customerId)) || "", method: "",
+      reference: "", invoice: String(d.name || ""), amount: total, vat, base: sub, notes: "",
+      project: pr.project, projectName: pr.projectName,
+      // Past its due date → not paid (orange); otherwise still waiting for the customer (grey).
+      payState: d.dueDate && String(d.dueDate) < today ? "ยังไม่ชำระ" : "รอชำระ",
+      owed, dueDate: String(d.dueDate || ""),
     });
   }
   const byDate = (a: { date: string }, b: { date: string }) => b.date.localeCompare(a.date);

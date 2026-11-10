@@ -468,3 +468,20 @@ button.fl-ov { cursor: pointer; }
 .fl-pay.waiting { background: #fef3c7; color: #b45309; }
 .fl-pay.unpaid { background: #fee2e2; color: #b91c1c; }
 .fl-ref { color: var(--muted); }
+
+/* Whole row coloured by payment status: paid green · not paid orange · waiting grey */
+.fl-table tbody tr.fl-row.paid { background: #ecfdf3; }
+.fl-table tbody tr.fl-row.unpaid { background: #fff4e6; }
+.fl-table tbody tr.fl-row.waiting { background: #f1f2f5; }
+.fl-table tbody tr.fl-row td { border-bottom: 2px solid var(--th-surface, #fff); }
+.fl-table tbody tr.fl-row td:first-child { box-shadow: inset 4px 0 0 var(--row); }
+.fl-table tbody tr.fl-row.paid { --row: #16a34a; }
+.fl-table tbody tr.fl-row.unpaid { --row: #ea580c; }
+.fl-table tbody tr.fl-row.waiting { --row: #9ca3af; }
+.fl-table tbody tr.fl-row:hover { filter: brightness(.97); background-blend-mode: multiply; }
+.fl-pay.paid { background: #16a34a; color: #fff; }
+.fl-pay.unpaid { background: #ea580c; color: #fff; }
+.fl-pay.waiting { background: #9ca3af; color: #fff; }
+.fl-pay::before { background: rgba(255, 255, 255, .9); }
+.fl-project b { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--accent); }
+.fl-project small { display: block; font-size: 11.5px; color: var(--muted); }

@@ -168,7 +168,28 @@ export async function entityOptions(ctx: Context) {
     name: String(e.data.name || e.data.sku || e.id),
   }));
 }
-export async function saveEntity(
+export async function saveEntity(ctx: Context, kind: string, input: unknown, id?: string, version?: number) {
+  const record = await saveEntityCore(ctx, kind, input, id, version);
+  // A quotation the customer accepted becomes a project named by its code, so costs and income can be filed to it.
+  if (kind === "quotations" && record?.data?.status === "ตอบรับ") await quoteProject(ctx, record).catch(() => null);
+  return record;
+}
+/** The project for an accepted quotation (code = the quotation's code), created the first time. */
+export async function quoteProject(ctx: Context, quote: Entity) {
+  const code = String(quote.data.code || quote.data.name || "").trim();
+  if (!code) return null;
+  const found = (await allEntities(ctx, "projects", 5000)).find((p) => String(p.data.code || "") === code);
+  if (found) return found;
+  return saveEntityCore(ctx, "projects", {
+    name: String(quote.data.name || code),
+    code,
+    priority: "normal",
+    status: "active",
+    startDate: new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10),
+    description: "จากใบเสนอราคา " + code + " ที่ลูกค้าตอบรับแล้ว",
+  });
+}
+async function saveEntityCore(
   ctx: Context,
   kind: string,
   input: unknown,
@@ -812,6 +833,11 @@ export async function convertEntity(ctx: Context, kind: string, id: string) {
   assert(rule.when.includes(String(src.data.status)), "ทำได้เมื่อสถานะเป็น " + rule.when.join(" / "));
   const { data, exists } = convertData(src);
   assert(!(await allEntities(ctx, rule.to, 5000)).some(exists), "สร้างไปแล้ว", 409);
+  // The sales order (and the invoice after it) carry the quotation's project.
+  if (kind === "quotations" && !data.projectId) {
+    const project = await quoteProject(ctx, src).catch(() => null);
+    if (project) data.projectId = project.id;
+  }
   const created = await saveEntity(ctx, rule.to, fitToPage(rule.to, data));
   if (rule.done) await saveEntity(ctx, kind, { ...src.data, status: rule.done }, src.id, src.version);
   return { kind: rule.to, record: created };
