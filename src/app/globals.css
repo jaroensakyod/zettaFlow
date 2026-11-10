@@ -7737,3 +7737,9 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
   .topnav-links > .topnav-link:hover { transform: none; }
   .topnav-links > .topnav-link:hover svg:first-child { animation: none; }
 }
+
+/* เครือข่ายธุรกิจ fills the screen: side columns stay put, the post column takes all the rest */
+.main:has(> .li) { max-width: none; padding-left: 28px; padding-right: 28px; }
+.li { grid-template-columns: 270px minmax(0, 1fr) 330px; justify-content: stretch; }
+@media (max-width: 1240px) { .li { grid-template-columns: 230px minmax(0, 1fr); } }
+@media (max-width: 860px) { .li { grid-template-columns: minmax(0, 1fr); } .main:has(> .li) { padding-left: 16px; padding-right: 16px; } }
