@@ -2,7 +2,7 @@
 // ลูกค้า / Supplier / พนักงาน: stat cards, searchable list on the left, details on the right.
 // Codes CUS-67-0001 / SUP-67-0001 are issued by the database when the code field is left blank.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound, Users, Building2, Sparkles, Hash, Truck, FileWarning, type LucideIcon } from "lucide-react";
+import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound, Users, Building2, Sparkles, Hash, Truck, FileWarning, Wallet, CalendarClock, Briefcase, MapPin, Landmark, Package, CreditCard, FileClock, Tag, type LucideIcon } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels, approvalRights } from "@/lib/catalog";
 import type { PartyStats } from "@/lib/directory";
@@ -172,8 +172,8 @@ export function Directory({
     <div className={"dir" + (compact ? " dir-compact" : "")}>
       <div className="section-actions">
         {compact && (
-          <div className={"dir-head " + (kind === "customers" ? "tone-violet" : "tone-teal")}>
-            <span className="dir-head-icon">
+          <div className={"dir-pagehead " + (kind === "customers" ? "tone-violet" : "tone-teal")}>
+            <span className="dir-pagehead-icon">
               <HeadIcon size={22} />
             </span>
             <div>
@@ -353,6 +353,12 @@ export function Directory({
   );
 }
 
+const factIcon: Record<string, LucideIcon> = {
+  taxId: Hash, branch: Building2, businessType: Briefcase, phone: Phone, email: Mail, line: MessageCircle, creditLimit: Wallet,
+  paymentTerms: CreditCard, company: Building2, category: Tag, docExpiry: FileClock, products: Package, bankName: Landmark,
+  bankAccount: CreditCard, bankAccountName: UserRound, address: MapPin, shippingAddress: Truck, contact: UserRound, contact2: UserRound,
+  contact2Phone: Phone,
+};
 function Facts({ kind, e, keys }: { kind: string; e: Entity; keys: string[] }) {
   const shown = keys.filter((k) => e.data[k] !== undefined && e.data[k] !== "");
   if (!shown.length) return <p className="muted">ยังไม่มีข้อมูล กด “แก้ไข” เพื่อเพิ่ม</p>;
@@ -360,7 +366,13 @@ function Facts({ kind, e, keys }: { kind: string; e: Entity; keys: string[] }) {
     <dl className="dir-facts">
       {shown.map((k) => (
         <div key={k} className={["address", "shippingAddress", "notes", "products", "about"].includes(k) ? "wide" : ""}>
-          <dt>{field(kind, k)}</dt>
+          <dt>
+            {(() => {
+              const I = factIcon[k] || Tag;
+              return <I size={14} />;
+            })()}
+            {field(kind, k)}
+          </dt>
           <dd>{["creditLimit"].includes(k) ? "฿" + money(e.data[k]) : k === "docExpiry" ? displayDate(e.data[k]) : statusLabels[String(e.data[k])] || String(e.data[k])}</dd>
         </div>
       ))}
@@ -390,6 +402,9 @@ function PartyPanel({
   const [tab, setTab] = useState("general");
   const d = e.data,
     count = (keys: string[]) => keys.filter((k) => d[k]).length;
+  // One colour per party (stable), used by the banner, figures and tabs.
+  const tones = ["violet", "teal", "pink", "blue", "orange", "green"];
+  const tone = tones[[...e.id].reduce((n, c) => n + c.charCodeAt(0), 0) % tones.length];
   const tabs: [string, string, number?][] = [
     ["general", "ข้อมูลทั่วไป"],
     ...(kind === "suppliers" ? ([["products", "สินค้า / บริการ"], ["bank", "บัญชีธนาคาร"]] as [string, string][]) : []),
@@ -398,7 +413,7 @@ function PartyPanel({
     ["files", "เอกสาร"],
   ];
   return (
-    <section className="card dir-detail">
+    <section className={"card dir-detail party pt-" + tone}>
       <header className="dir-head">
         <Avatar e={e} size={64} />
         <div>
@@ -433,27 +448,32 @@ function PartyPanel({
         </div>
       </header>
       <div className="dir-figures">
-        <div>
+        <div className="fg-violet">
+          <i><Wallet size={16} /></i>
           <small>ยอดซื้อสะสม</small>
           <b>฿{money(stats?.spend || 0)}</b>
           <small>{stats?.orders || 0} เอกสาร</small>
         </div>
-        <div>
+        <div className="fg-blue">
+          <i><CalendarClock size={16} /></i>
           <small>เครดิตเทอม</small>
           <b>{d.creditDays !== undefined && d.creditDays !== "" ? d.creditDays + " วัน" : "—"}</b>
         </div>
         {kind === "customers" ? (
-          <div>
+          <div className="fg-green">
+            <i><UserRound size={16} /></i>
             <small>ผู้ดูแลลูกค้า</small>
             <b>{String(nameOf(d.ownerId) || "—")}</b>
           </div>
         ) : (
           <>
-            <div>
+            <div className="fg-teal">
+              <i><Truck size={16} /></i>
               <small>ส่งของภายใน</small>
               <b>{String(d.leadTime || "—")}</b>
             </div>
-            <div>
+            <div className="fg-amber">
+              <i><Star size={16} /></i>
               <small>คะแนนเฉลี่ย</small>
               <b>
                 {d.rating !== undefined && d.rating !== "" ? (
