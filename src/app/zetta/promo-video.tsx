@@ -2,7 +2,7 @@
 // Promo clip on the home page. Until the real video exists it plays an animated stand-in told in four scenes:
 // staff send work in LINE → AI reads and files it → the dashboard updates live → the CEO approves from anywhere.
 // To use a real clip, set NEXT_PUBLIC_PROMO_VIDEO_URL (an https:// .mp4/.webm, or a YouTube link) and redeploy.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Bot, Check, FileText, MessageCircle, Pause, Play, ScanLine, Smartphone, TrendingUp } from "lucide-react";
 
 const VIDEO_URL = process.env.NEXT_PUBLIC_PROMO_VIDEO_URL || "";
@@ -40,7 +40,37 @@ export function PromoVideo() {
   return <StandIn />;
 }
 
-function StandIn() {
+/**
+ * Full-screen hero: the clip fills the first screen (muted, looping) with the headline and the free sign-up button
+ * on top. Until the real clip exists, the animated stand-in plays on the right half.
+ */
+export function HeroVideo({ children }: { children: ReactNode }) {
+  const yt = VIDEO_URL ? youtubeId(VIDEO_URL) : "";
+  return (
+    <section className={"hv" + (VIDEO_URL ? " has-clip" : "")} aria-label="EliteFlow">
+      <div className="hv-media">
+        {VIDEO_URL ? (
+          yt ? (
+            <iframe
+              className="hv-yt"
+              src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&mute=1&loop=1&playlist=${yt}&controls=0&rel=0&playsinline=1`}
+              title="EliteFlow promo"
+              allow="autoplay; encrypted-media"
+            />
+          ) : (
+            <video src={VIDEO_URL} autoPlay muted loop playsInline preload="auto" />
+          )
+        ) : (
+          <StandIn hero />
+        )}
+      </div>
+      <div className="hv-shade" aria-hidden />
+      <div className="hv-copy">{children}</div>
+    </section>
+  );
+}
+
+function StandIn({ hero = false }: { hero?: boolean }) {
   const [scene, setScene] = useState(0),
     [playing, setPlaying] = useState(true),
     [visible, setVisible] = useState(false);
@@ -60,7 +90,7 @@ function StandIn() {
   }, [scene, playing, visible]);
   const run = playing && visible;
   return (
-    <div className={"pv-frame pv-standin" + (run ? " run" : "")} ref={box}>
+    <div className={"pv-frame pv-standin" + (run ? " run" : "") + (hero ? " hero" : "")} ref={box}>
       <div className="pv-stage" key={scene} data-scene={scene}>
         {scene === 0 && <SceneLine />}
         {scene === 1 && <SceneAi />}

@@ -113,3 +113,42 @@
 @media (prefers-reduced-motion: reduce) {
   .pv-standin *, .pv-standin *::before, .pv-standin *::after, .pv-frame::before { animation-duration: .01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
 }
+
+/* Full-screen video hero (HeroVideo): the clip fills the first screen; headline + free CTA sit on the left. */
+.hv { position: relative; width: 100%; min-height: calc(100vh - 72px); min-height: calc(100svh - 72px); display: flex; align-items: center; overflow: hidden; isolation: isolate; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.hv-media { position: absolute; inset: 0; z-index: -2; }
+.hv-media video, .hv-media .hv-yt { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; pointer-events: none; }
+.hv.has-clip .hv-media .hv-yt { width: 177.78vh; height: 100%; min-width: 100%; min-height: 56.25vw; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.hv-shade { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(90deg, rgba(7, 7, 32, .96) 0%, rgba(7, 7, 32, .88) 34%, rgba(7, 7, 32, .25) 58%, transparent 75%), linear-gradient(0deg, rgba(7, 7, 32, .7), transparent 30%); }
+.hv.has-clip .hv-shade { background: linear-gradient(90deg, rgba(7, 7, 32, .92) 0%, rgba(7, 7, 32, .6) 45%, rgba(7, 7, 32, .1) 75%), linear-gradient(0deg, rgba(7, 7, 32, .8), transparent 40%); }
+.hv-copy { position: relative; width: 100%; max-width: 1240px; margin: 0 auto; padding: 40px 24px 120px; }
+.hv-copy .lp-hero-copy { max-width: 560px; }
+.hv-copy h1 { margin: 20px 0 18px; font-size: clamp(46px, 6.6vw, 92px); line-height: .98; font-weight: 800; color: #fff; }
+.hv-copy h1 span { display: block; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hv-copy .lp-lead { color: #c9c6e8; }
+.hv-copy .lp-hero-actions .lp-btn.primary { padding: 18px 34px; font-size: 18px; box-shadow: 0 14px 40px rgba(177, 77, 255, .5); animation: hvGlow 2.6s ease-in-out infinite; }
+@keyframes hvGlow { 50% { box-shadow: 0 14px 50px rgba(228, 67, 208, .7), 0 0 0 6px rgba(177, 77, 255, .15); } }
+/* stand-in clip, full bleed */
+.pv-standin.hero { position: absolute; inset: 0; max-width: none; aspect-ratio: auto; border-radius: 0; border: 0; box-shadow: none; }
+.pv-standin.hero::before, .pv-standin.hero .pv-tag, .pv-standin.hero .pv-caption { display: none; }
+.pv-standin.hero .pv-stage { inset: 70px 3% 96px 47%; }
+.pv-standin.hero .pv-bar { left: 47%; right: 3%; bottom: 22px; height: 64px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(10, 10, 38, .6); backdrop-filter: blur(10px); }
+.pv-standin.hero .pv-phone { width: min(340px, 80%); }
+.pv-standin.hero .pv-dash, .pv-standin.hero .pv-ai { max-width: 620px; }
+/* phones section that used to be the hero */
+.lp-mobile-show h2 { margin: 18px 0 16px; font-size: clamp(32px, 4vw, 52px); line-height: 1.15; }
+.lp-mobile-show h2 span { display: block; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lp-mobile-show { padding-top: 90px; }
+@media (max-width: 960px) {
+  .hv { flex-direction: column; align-items: stretch; min-height: 0; }
+  .hv-media { position: relative; inset: auto; order: 2; height: 480px; }
+  .hv.has-clip .hv-media { height: 56vw; min-height: 260px; }
+  .hv-shade { display: none; }
+  .hv-copy { order: 1; padding: 36px 20px 28px; }
+  .pv-standin.hero .pv-stage { inset: 10px 0 96px 0; }
+  .pv-standin.hero .pv-bar { left: 12px; right: 12px; }
+}
+/* fit the first screen together with the header and promo strip; bigger scenes on large screens */
+.hv { min-height: clamp(560px, calc(100svh - 150px), 900px); }
+@media (min-width: 1300px) { .pv-standin.hero .pv-stage > * { zoom: 1.15; } }
+@media (min-width: 1700px) { .pv-standin.hero .pv-stage > * { zoom: 1.35; } }

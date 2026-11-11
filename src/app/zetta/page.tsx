@@ -29,7 +29,7 @@ import { PricingCards, Faq, PromoStrip } from "./landing-parts";
 import { Logo, LandingHeader, LandingFooter, SIGNUP } from "./landing-shell";
 import "./landing.css";
 import "./promo-video.css";
-import { PromoVideo } from "./promo-video";
+import { HeroVideo } from "./promo-video";
 
 const thai = IBM_Plex_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "500", "600", "700"], variable: "--lp-thai" });
 const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["500", "700", "800"], variable: "--lp-display" });
@@ -183,7 +183,7 @@ export default function LandingHome() {
 
       <main>
         <PromoStrip />
-        <section className="lp-hero">
+        <HeroVideo>
           <div className="lp-hero-copy">
             <span className="lp-chip"><Sparkles size={14} /> AI-Powered Executive Dashboard</span>
             <h1>
@@ -205,6 +205,24 @@ export default function LandingHome() {
               <li><CircleCheck size={16} /> ข้อมูลแยกต่อบริษัท 100%</li>
             </ul>
           </div>
+        </HeroVideo>
+
+        <section className="lp-hero lp-mobile-show">
+          <div className="lp-hero-copy">
+            <span className="lp-chip"><Sparkles size={14} /> CEO ON MOBILE</span>
+            <h2>
+              เห็นธุรกิจทั้งหมด <span>ในมือถือเครื่องเดียว</span>
+            </h2>
+            <p className="lp-lead">
+              ยอดขาย งาน โปรเจกต์ และสต็อก อัปเดตเรียลไทม์จากทุกกลุ่ม LINE พร้อม AI สรุปสถานะธุรกิจให้ทุกเช้า
+              และกดอนุมัติเอกสารได้ทุกที่ ทุกเวลา
+            </p>
+            <div className="lp-hero-actions">
+              <Link href={SIGNUP} className="lp-btn primary">
+                ใช้งานฟรีได้เลย <ArrowRight size={18} />
+              </Link>
+            </div>
+          </div>
           <div className="lp-hero-visual">
             <div className="lp-glow" aria-hidden />
             <PhoneReport />
@@ -218,15 +236,6 @@ export default function LandingHome() {
           {[["80%", "เวลาสรุปรายงานที่ลดลง"], ["0", "ฟอร์มที่พนักงานต้องกรอกซ้ำ"], ["24/7", "AI ทำงานในทุกกลุ่ม LINE"], ["1", "หน้าจอสำหรับทุกการตัดสินใจ"]].map(([n, l]) => (
             <div key={l}><b>{n}</b><span>{l}</span></div>
           ))}
-        </section>
-
-        <section id="video" className="lp-section">
-          <header className="lp-head">
-            <span className="lp-kicker">SEE IT IN ACTION</span>
-            <h2>สั่งงานใน LINE · AI ทำที่เหลือ · CEO เห็นทุกอย่างทันที</h2>
-            <p>พนักงานทำงานแบบเดิม AI ดึงข้อมูลเข้า Dashboard อัตโนมัติอย่างแม่นยำ ผู้บริหารเห็นแบบเรียลไทม์ในหน้าจอเดียว และอนุมัติเอกสารได้ทุกที่ ทุกเวลา</p>
-          </header>
-          <PromoVideo />
         </section>
 
         <section id="how" className="lp-section">
