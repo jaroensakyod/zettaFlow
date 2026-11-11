@@ -69,8 +69,27 @@ export function Auth({
     }
   }
   return (
-    <div className="auth-layout">
+    <div className="auth-layout future">
+      {/* Futuristic backdrop: aurora, starfield, a neon grid floor and a scanning line (decoration only). */}
+      <div className="fx" aria-hidden>
+        <i className="fx-aurora a1" />
+        <i className="fx-aurora a2" />
+        <i className="fx-aurora a3" />
+        <i className="fx-stars s1" />
+        <i className="fx-stars s2" />
+        <i className="fx-grid" />
+        <i className="fx-scan" />
+      </div>
       <section className="auth-story">
+        <div className="fx-holo" aria-hidden>
+          <i className="ring r1" />
+          <i className="ring r2" />
+          <i className="ring r3" />
+          <i className="core" />
+          <i className="dot d1" />
+          <i className="dot d2" />
+          <i className="dot d3" />
+        </div>
         <div className="brand">
           {product === "zetta" ? (
             <span className="brand-mark">
@@ -114,7 +133,10 @@ export function Auth({
         </div>
       </section>
       <section className="auth-panel">
-        <form onSubmit={submit}>
+        <form onSubmit={submit} className="auth-card">
+          <div className="auth-status" aria-hidden>
+            <span className="pulse" /> SYSTEM ONLINE <b>·</b> SECURE CONNECTION
+          </div>
           <span className="eyebrow">WELCOME TO {product === "zetta" ? "ZETTAFLOW AI" : "ELITEFLOW"}</span>
           <h2>
             {mode === "register"
