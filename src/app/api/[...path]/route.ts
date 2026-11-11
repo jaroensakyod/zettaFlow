@@ -298,7 +298,9 @@ async function handle(req: NextRequest) {
         ),
       );
     }
-    const ctx = await context();
+    const fileId =
+      method === "GET" && path[0] === "files" && /^[0-9a-f-]{36}$/i.test(path[1] || "") ? path[1] : undefined;
+    const ctx = await context({ fileId });
     // AI calls in this request count against this company's trial and are logged per company.
     if (!ctx.demo) forCompany(ctx.company.id);
     // Public showcase is read-only: only reads and side-effect-free helpers.

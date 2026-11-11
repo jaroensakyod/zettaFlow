@@ -57,7 +57,7 @@ import {
 } from "lucide-react";
 import { catalog, modules } from "@/lib/catalog";
 import type { Context, Entity } from "@/lib/types";
-import { api, Empty, Loading, money, Modal } from "./shared";
+import { api, Empty, Loading, money, Modal, setTabCompany } from "./shared";
 import { Auth, Onboarding } from "./auth";
 import { Records } from "./records";
 import { HomeDashboard } from "./home-dashboard";
@@ -365,6 +365,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     try {
       const d = await api("/workspace");
       if (epoch !== requestEpoch.current) return;
+      // Pin this tab to the company it is showing, so switching in another tab does not move it.
+      if (d?.ctx?.company?.id && !d.ctx.demo) setTabCompany(d.ctx.company.id);
       setData(d);
       setAuth(false);
       setOnboarding(false);
@@ -506,6 +508,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         changed={load}
         onLogout={async () => {
           await api("/auth/logout", { method: "POST" });
+          setTabCompany(null);
           requestEpoch.current++;
           setData(null);
           setAuth(true);
@@ -698,6 +701,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               aria-label="ออกจากระบบ"
               onClick={async () => {
                 requestEpoch.current++;
+                setTabCompany(null);
                 setAuth(true);
                 setData(null);
                 try {
@@ -923,6 +927,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                         method: "POST",
                         body: { id: c.id },
                       });
+                    // Only this tab moves to the chosen company; other open tabs keep theirs.
+                    setTabCompany(c.id);
                     setCompanyModal(false);
                     navigate("feed");
                     await load();
@@ -946,6 +952,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                     method: "POST",
                     body: { name: new FormData(e.currentTarget).get("name") },
                   });
+                  setTabCompany(null); // follow the new company (now the account default)
                   setCompanyModal(false);
                   navigate("feed");
                   await load();

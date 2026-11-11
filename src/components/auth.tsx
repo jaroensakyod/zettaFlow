@@ -8,7 +8,7 @@ import {
   Package,
   Users,
 } from "lucide-react";
-import { api, PasswordInput } from "./shared";
+import { api, PasswordInput, setTabCompany } from "./shared";
 export function Auth({
   demo,
   configured,
@@ -254,6 +254,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                 method: "POST",
                 body: { name: new FormData(e.currentTarget).get("name") },
               });
+              setTabCompany(null); // follow the new company (now the account default)
               onComplete();
             } catch (err) {
               setError((err as Error).message);

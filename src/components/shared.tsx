@@ -1,6 +1,37 @@
 "use client";
 import { X, FolderOpen, LoaderCircle, Eye, EyeOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+/**
+ * Each browser tab keeps its own company, so two tabs can show two companies. Every same-site /api request from this
+ * tab carries it as x-company (the server checks membership); a tab that has not chosen follows the account default.
+ */
+const TAB_COMPANY = "ef_tab_company";
+export function tabCompany() {
+  try {
+    return sessionStorage.getItem(TAB_COMPANY) || "";
+  } catch {
+    return "";
+  }
+}
+export function setTabCompany(id: string | null) {
+  try {
+    if (id) sessionStorage.setItem(TAB_COMPANY, id);
+    else sessionStorage.removeItem(TAB_COMPANY);
+  } catch {}
+}
+if (typeof window !== "undefined" && !(window as { __efTabFetch?: boolean }).__efTabFetch) {
+  (window as { __efTabFetch?: boolean }).__efTabFetch = true;
+  const native = window.fetch.bind(window);
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const id = tabCompany();
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const own = url.startsWith("/api/") || url.startsWith(location.origin + "/api/");
+    if (!id || !own) return native(input, init);
+    const h = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+    if (!h.has("x-company")) h.set("x-company", id);
+    return native(input, { ...init, headers: h });
+  };
+}
 export async function api(
   path: string,
   options: { method?: string; body?: unknown } = {},

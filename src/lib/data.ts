@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { supabaseServer, configured } from "./supabase/server";
 import {
@@ -43,7 +43,13 @@ export function dbError(error: { message: string; code?: string } | null) {
     );
   if (error) throw new AppError(error.message, 400);
 }
-export async function context(): Promise<Context> {
+/**
+ * The signed-in user's company for this request. Each browser tab sends its own company (x-company header), so two
+ * tabs can work in two companies at once; the ef_company cookie is only the default for a tab that has not chosen.
+ * A file opened by URL (an <img>, a download link) cannot send the header, so it uses the company that owns the file.
+ * Membership is always checked: an id the user is not a member of falls back to the default.
+ */
+export async function context(opts: { fileId?: string } = {}): Promise<Context> {
   if (
     demoEnabled() ||
     (publicDemoAllowed() &&
@@ -66,8 +72,14 @@ export async function context(): Promise<Context> {
     .eq("disabled", false);
   dbError(memberError);
   assert(members?.length, "สร้างบริษัทเพื่อเริ่มใช้งาน", 428);
-  const selected = (await cookies()).get("ef_company")?.value;
-  const member = members.find((m) => m.company_id === selected) || members[0];
+  let fileCompany: string | undefined;
+  if (opts.fileId) {
+    const { data } = await sb.from("attachments").select("company_id").eq("id", opts.fileId).maybeSingle();
+    fileCompany = data?.company_id;
+  }
+  const choices = [fileCompany, (await headers()).get("x-company") || undefined, (await cookies()).get("ef_company")?.value];
+  const member =
+    choices.map((id) => id && members.find((m) => m.company_id === id)).find(Boolean) || members[0];
   const { data: company, error: companyError } = await sb
     .from("companies")
     .select("*")
