@@ -7885,3 +7885,10 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .dir-compact .dir-actions .secondary:hover { background: rgba(255, 255, 255, .26); }
 .dir-compact .dir-actions .primary { color: var(--b); background: #fff; box-shadow: 0 8px 20px rgba(0, 0, 0, .15); }
 .dir-compact .dir-actions .primary:hover { background: #f8f7ff; }
+/* v2: no framed band — the top of the page background itself carries the colour and fades into the page */
+.dir-compact > .section-actions:has(.dir-pagehead) { padding: 6px 0 4px; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.dir-compact > .section-actions:has(.dir-pagehead)::after { display: none; }
+.dept-shell:has(.dir-compact) { --pa: #7c3aed; --pb: #a78bfa; background: linear-gradient(180deg, var(--pa) 0, var(--pb) 120px, color-mix(in srgb, var(--pb) 30%, transparent) 190px, transparent 300px) no-repeat; }
+.dept-shell:has(.dir-pagehead.tone-teal) { --pa: #0f766e; --pb: #2dd4bf; }
+.dir-compact .dir-pagehead-icon { box-shadow: none; }
+.dir-compact .dir-actions .primary { box-shadow: none; }
