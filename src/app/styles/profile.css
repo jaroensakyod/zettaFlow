@@ -588,3 +588,41 @@
 .branch-hint { margin: -6px 0 4px; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; color: #3f5a4a; background: linear-gradient(90deg, #ecfdf3, #f0fdfa); border: 1px solid #c9f0d6; }
 .branch-hint b { color: #15803d; }
 .cp-about-edit .company-tabs button:nth-child(5) { --tc: #16a34a; }
+
+/* Branch cards (src/components/branches.tsx) */
+.br { display: grid; gap: 14px; }
+.br-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.br-search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 14px; height: 42px; border-radius: 12px; border: 1px solid #e7e4f0; background: #fbfaff; color: #8a84a3; }
+.br-search input { flex: 1; border: 0; margin: 0; padding: 0; height: auto; background: transparent; box-shadow: none; }
+.br-search:focus-within { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167, 139, 250, .18); background: #fff; }
+.br-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.br-card { --a: #8b5cf6; --b: #6d28d9; --s: #f5f3ff; display: flex; flex-direction: column; overflow: hidden; border-radius: 20px; background: #fff; border: 1px solid #ece9f5; box-shadow: 0 6px 18px rgba(40, 20, 90, .06); transition: transform .25s cubic-bezier(.2, .8, .3, 1), box-shadow .25s; }
+.br-card:hover { transform: translateY(-4px); box-shadow: 0 18px 36px color-mix(in srgb, var(--a) 22%, transparent); }
+.br-card.tone-blue { --a: #3b82f6; --b: #1d4ed8; --s: #eff6ff; }
+.br-card.tone-pink { --a: #f472b6; --b: #db2777; --s: #fdf2f8; }
+.br-card.tone-teal { --a: #2dd4bf; --b: #0d9488; --s: #f0fdfa; }
+.br-card.tone-orange { --a: #fb923c; --b: #ea580c; --s: #fff7ed; }
+.br-card.tone-indigo { --a: #818cf8; --b: #4338ca; --s: #eef2ff; }
+.br-cover { position: relative; height: 150px; display: grid; place-items: center; color: rgba(255, 255, 255, .85); background: radial-gradient(circle at 25% 20%, rgba(255, 255, 255, .35), transparent 45%), linear-gradient(135deg, var(--a), var(--b)); }
+.br-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
+.br-card:hover .br-cover img { transform: scale(1.05); }
+.br-cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(10, 8, 30, .35), transparent 55%); pointer-events: none; }
+.br-status, .br-head { position: absolute; z-index: 1; top: 12px; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 800; backdrop-filter: blur(6px); }
+.br-status { left: 12px; color: #fff; background: rgba(22, 163, 74, .9); }
+.br-status i { width: 7px; height: 7px; border-radius: 50%; background: #bbf7d0; box-shadow: 0 0 0 3px rgba(187, 247, 208, .35); }
+.br-status.paused { background: rgba(217, 119, 6, .92); }
+.br-status.paused i { background: #fde68a; box-shadow: 0 0 0 3px rgba(253, 230, 138, .35); }
+.br-status.closed { background: rgba(71, 85, 105, .9); }
+.br-status.closed i { background: #cbd5e1; box-shadow: none; }
+.br-head { right: 12px; color: #713f12; background: linear-gradient(90deg, #fde68a, #fbbf24); }
+.br-body { display: grid; gap: 10px; padding: 14px 16px 16px; flex: 1; }
+.br-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.br-title h3 { margin: 0; font-size: 16.5px; color: #1f1b33; }
+.br-code { flex: none; padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 800; color: var(--b); background: var(--s); border: 1px solid color-mix(in srgb, var(--a) 30%, transparent); }
+.br-body ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.br-body li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #4b4663; line-height: 1.45; }
+.br-body li svg { flex: none; margin-top: 2px; color: var(--a); }
+.br-body li a { color: inherit; }
+.br-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding-top: 6px; border-top: 1px dashed #ece9f5; }
+.br-actions .secondary { height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; color: var(--b); background: var(--s); border-color: transparent; }
+.br-form .image-field { grid-column: 1 / -1; }

@@ -872,7 +872,7 @@ modules.push(
 modules.push({
   key: "branches", label: "สาขา", description: "สาขาของบริษัท สำนักงานใหญ่และสาขาย่อย ใช้แยกข้อมูลตามสาขา",
   department: "Admin", icon: "Building2", columns: ["name", "code", "manager", "phone", "status"],
-  fields: [f("name", "ชื่อสาขา", "text", true), f("code", "รหัสสาขา (00000 = สำนักงานใหญ่)"), f("phone", "โทรศัพท์"), f("manager", "ผู้จัดการสาขา"), f("address", "ที่อยู่สาขา", "textarea"), status(["เปิดทำการ", "ปิดชั่วคราว", "ปิดแล้ว"]), notes],
+  fields: [f("photo", "รูปสาขา", "image"), f("name", "ชื่อสาขา", "text", true), f("code", "รหัสสาขา (00000 = สำนักงานใหญ่)"), f("phone", "โทรศัพท์"), f("manager", "ผู้จัดการสาขา"), f("address", "ที่อยู่สาขา", "textarea"), status(["เปิดทำการ", "ปิดชั่วคราว", "ปิดแล้ว"]), notes],
 });
 export const branchKinds = ["customers", "employees", "products", "purchases", "expenses", "invoices", "payments", "quotations", "sales_orders", "bills"];
 for (const m of modules)

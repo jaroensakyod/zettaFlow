@@ -2973,3 +2973,7 @@ update public.entity_schemas set fields=fields||'[{"key":"branchId","label":"ส
    and not fields @> '[{"key":"branchId"}]'::jsonb;
 drop policy if exists entity_read_branches on public.entities;
 create policy entity_read_branches on public.entities for select to authenticated using(kind='branches'and member_role(company_id)is not null);
+
+-- 0062: a photo for each branch (shown as the cover of its card on the company page).
+update public.entity_schemas set fields='[{"key":"photo","label":"รูปสาขา","type":"image","required":false}]'::jsonb||fields
+ where kind='branches' and not fields @> '[{"key":"photo"}]'::jsonb;

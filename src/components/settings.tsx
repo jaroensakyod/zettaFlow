@@ -18,10 +18,8 @@ import {
 } from "lucide-react";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { UserOnline } from "./presence";
-import { FieldControl, Records as BranchList0 } from "./records";
-const BranchList = ({ ctx, notify, changed }: { ctx: Context; notify: (s: string) => void; changed: () => void }) => (
-  <BranchList0 kind="branches" ctx={ctx} notify={notify} changed={changed} addLabel="เพิ่มสาขา" />
-);
+import { FieldControl } from "./records";
+import { BranchCards } from "./branches";
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
 import { alwaysPublicFields, publicSet, toggleableFields, visibilityValue } from "@/lib/company-visibility";
 import type { Context, Member, Template } from "@/lib/types";
@@ -481,7 +479,7 @@ function BranchesPanel({ ctx, notify, changed }: { ctx: Context; notify: (s: str
         เพิ่มสำนักงานใหญ่และสาขาย่อย แล้วเลือก <b>สาขา</b> ได้ในลูกค้า พนักงาน สินค้า ใบเสนอราคา คำสั่งซื้อ ใบแจ้งหนี้ ค่าใช้จ่าย จัดซื้อ และการรับ-จ่ายเงิน
         เพื่อเก็บและแยกข้อมูลตามสาขา
       </p>
-      <BranchList ctx={ctx} notify={notify} changed={changed} />
+      <BranchCards ctx={ctx} notify={notify} changed={changed} />
     </section>
   );
 }
