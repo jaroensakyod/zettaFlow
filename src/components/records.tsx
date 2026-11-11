@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { IndustryPicker } from "./industry-picker";
 import {
   Plus,
   Search,
@@ -107,6 +108,14 @@ export function FieldControl({
   department?: string;
 }) {
   if (field.hidden || field.type === "lines") return null;
+  // ประเภทธุรกิจ everywhere uses the searchable grouped picker (kept outside a <label> so its buttons work).
+  if (field.key === "businessType" || field.key === "industry")
+    return (
+      <div className="ip-field-wrap">
+        <span className="ip-field-label">{field.label}</span>
+        <IndustryPicker field value={String(value ?? "")} onChange={(v) => set(v)} />
+      </div>
+    );
   if (field.type === "image")
     return <ImageField field={field} value={value} set={set} department={department} />;
   const props = {

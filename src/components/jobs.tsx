@@ -5,7 +5,8 @@ import { industryMatches } from "@/lib/catalog";
 import { matchScore, type Match } from "@/lib/match";
 import type { Context, FeedComment, FeedKind, FeedPost, FeedProposal } from "@/lib/types";
 import { api, Empty, Loading } from "./shared";
-import { CompanyLogo, Composer, IndustryOptions, employmentLabels, headline, kindLabel, since } from "./feed";
+import { CompanyLogo, Composer, employmentLabels, headline, kindLabel, since } from "./feed";
+import { IndustryPicker } from "./industry-picker";
 import { FlowMascot } from "./mascot";
 
 const tabs = [
@@ -147,13 +148,7 @@ export function Jobs({
                 ))}
               </select>
             </label>
-            <label>
-              <span className="sr-only">ประเภทธุรกิจ</span>
-              <select value={industry} onChange={(e) => setIndustry(e.target.value)}>
-                <option value="">ประเภทธุรกิจ: ทั้งหมด</option>
-                <IndustryOptions />
-              </select>
-            </label>
+            <IndustryPicker value={industry} onChange={setIndustry} allLabel="ประเภทธุรกิจ: ทั้งหมด" />
             {tab !== "mine" && (
               <label>
                 <span className="sr-only">เรียงลำดับ</span>

@@ -7952,3 +7952,14 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .ge-modal .modal-footer { position: sticky; bottom: 0; z-index: 2; margin: 14px -22px 0; padding: 14px 22px; background: rgba(255, 255, 255, .95); backdrop-filter: blur(8px); border-top: 1px solid #ece9f5; }
 .ge-modal .modal-footer .primary { padding: 0 22px; height: 44px; border-radius: 12px; background: linear-gradient(120deg, #7c3aed, #4f46e5); box-shadow: 0 8px 20px rgba(79, 70, 229, .35); }
 @media (max-width: 760px) { .ge-modal form { padding: 0 12px; } .ge-nav { margin: 0 -12px; padding: 10px 12px; } .ge-modal .modal-footer { margin: 14px -12px 0; padding: 12px; } }
+/* Business-type picker as a form field (ประเภทธุรกิจ everywhere) */
+.ip-field-wrap { display: grid; gap: 7px; min-width: 0; }
+.ip-field-label { font-size: 12.5px; font-weight: 700; color: #3b3651; }
+.ip-field { width: 100%; }
+.ip-trigger.field { width: 100%; max-width: none; height: 44px; justify-content: flex-start; padding: 0 14px; border-radius: 12px; border: 1px solid #e7e4f0; background: #fbfaff; font-size: 14px; font-weight: 600; color: #8a84a3; }
+.ip-trigger.field.set { color: #1f1b33; border-color: color-mix(in srgb, var(--ic) 35%, transparent); background: color-mix(in srgb, var(--ic) 6%, #fff); }
+.ip-trigger.field > span { flex: 1; text-align: left; }
+.ip-trigger.field:hover { border-color: #c4b5fd; }
+.ip-field .ip-pop { left: 0; right: auto; width: min(720px, calc(100vw - 48px)); }
+.ip-custom { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px dashed #c4b5fd; background: #faf7ff; color: #6d28d9; font-weight: 700; text-align: left; cursor: pointer; }
+.ip-custom:hover { background: #f3edff; }

@@ -19,6 +19,7 @@ import {
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { UserOnline } from "./presence";
 import { FieldControl } from "./records";
+import { IndustryPicker } from "./industry-picker";
 import { BranchCards } from "./branches";
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
 import { alwaysPublicFields, publicSet, toggleableFields, visibilityValue } from "@/lib/company-visibility";
@@ -353,22 +354,10 @@ export function CompanySettings({
                 </label>
                 )}
                 {pv("industry",
-                <label>
-                  {field("industry").label}
-                  <select value={text("industry")} onChange={(e) => set("industry", e.target.value)}>
-                    <option value="">เลือกประเภทธุรกิจ</option>
-                    {text("industry") && !businessTypes.includes(text("industry")) && (
-                      <option>{text("industry")}</option>
-                    )}
-                    {businessTypeGroups.map(([group, items]) => (
-                      <optgroup key={group} label={group}>
-                        {items.map((o) => (
-                          <option key={o}>{o}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </label>
+                <div className="ip-field-wrap">
+                  <span className="ip-field-label">{field("industry").label}</span>
+                  <IndustryPicker field value={text("industry")} onChange={(v) => set("industry", v)} />
+                </div>
                 )}
                 {pv("employees",
                 <label>

@@ -49,7 +49,24 @@ function score(o: Option, q: string) {
 
 export const industryLabel = (value: string) => (!value ? "ทุกประเภทธุรกิจ" : value.startsWith("group:") ? "ทั้งหมวด" + value.slice(6) : value);
 
-export function IndustryPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/**
+ * Business-type picker. As a filter (default) it offers "all" and whole groups; with `field` it fills a form field:
+ * one exact type, "ไม่ระบุ" to clear, and the typed text itself when nothing in the list fits.
+ */
+export function IndustryPicker({
+  value,
+  onChange,
+  field = false,
+  placeholder = "เลือกประเภทธุรกิจ",
+  allLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  field?: boolean;
+  placeholder?: string;
+  /** Filter mode: text of the "everything" choice (default ทุกประเภทธุรกิจ). */
+  allLabel?: string;
+}) {
   const [open, setOpen] = useState(false),
     [q, setQ] = useState(""),
     [group, setGroup] = useState(businessGroupOf(value) || (value.startsWith("group:") ? value.slice(6) : businessTypeGroups[0][0])),
@@ -62,7 +79,7 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
       query
         ? allOptions
             .map((o) => ({ o, s: score(o, query) }))
-            .filter((r) => r.s > 0)
+            .filter((r) => r.s > 0 && !(field && r.o.whole))
             .sort((a, b) => b.s - a.s || a.o.label.length - b.o.label.length)
             .slice(0, 40)
             .map((r) => r.o)
@@ -71,6 +88,8 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
   );
   useEffect(() => {
     if (!open) return;
+    const g = value.startsWith("group:") ? value.slice(6) : businessGroupOf(value);
+    if (g) setGroup(g);
     input.current?.focus();
     const away = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
     document.addEventListener("pointerdown", away);
@@ -82,7 +101,13 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
     setQ("");
   };
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") setOpen(false);
+    if (e.key === "Escape") {
+      // Inside a modal: close only the picker, not the dialog.
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+    }
+    if (field && e.key === "Enter" && !results.length && q.trim()) (e.preventDefault(), pick(q.trim()));
     if (!results.length) return;
     if (e.key === "ArrowDown") (e.preventDefault(), setCursor((c) => Math.min(results.length - 1, c + 1)));
     if (e.key === "ArrowUp") (e.preventDefault(), setCursor((c) => Math.max(0, c - 1)));
@@ -91,10 +116,10 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
   const [Icon, color] = value ? look(value.startsWith("group:") ? value.slice(6) : businessGroupOf(value)) : [Building2, "#6d28d9"];
   const items = businessTypeGroups.find(([g]) => g === group)?.[1] || [];
   return (
-    <div className="ip" ref={box}>
-      <button type="button" className={"ip-trigger" + (value ? " set" : "")} style={{ "--ic": color } as CSSProperties} aria-expanded={open} onClick={() => setOpen(!open)}>
+    <div className={"ip" + (field ? " ip-field" : "")} ref={box}>
+      <button type="button" className={"ip-trigger" + (value ? " set" : "") + (field ? " field" : "")} style={{ "--ic": color } as CSSProperties} aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon size={15} />
-        <span>{industryLabel(value)}</span>
+        <span>{field ? value || placeholder : !value && allLabel ? allLabel : industryLabel(value)}</span>
         <ChevronDown size={14} className={open ? "flip" : ""} />
       </button>
       {open && (
@@ -142,6 +167,10 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
                     </button>
                   );
                 })
+              ) : field ? (
+                <button type="button" className="ip-custom" onClick={() => pick(q.trim())}>
+                  <Check size={15} /> ใช้ “{q.trim()}” เป็นประเภทธุรกิจ
+                </button>
               ) : (
                 <p className="ip-empty">ไม่พบประเภทที่ตรงกับ “{q}”</p>
               )}
@@ -150,7 +179,7 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
             <div className="ip-body">
               <div className="ip-groups">
                 <button type="button" className={"ip-group" + (!value ? " picked" : "")} style={{ "--ic": "#6d28d9" } as CSSProperties} onClick={() => pick("")}>
-                  <Sparkles size={15} /> ทุกประเภทธุรกิจ
+                  <Sparkles size={15} /> {field ? "ไม่ระบุ" : allLabel || "ทุกประเภทธุรกิจ"}
                 </button>
                 {businessTypeGroups.map(([g]) => {
                   const [GI, gc] = look(g);
@@ -177,9 +206,11 @@ export function IndustryPicker({ value, onChange }: { value: string; onChange: (
                   })()}
                   {group}
                 </h4>
-                <button type="button" className={"ip-chip whole" + (value === "group:" + group ? " picked" : "")} onClick={() => pick("group:" + group)}>
-                  ดูทั้งหมวด
-                </button>
+                {!field && (
+                  <button type="button" className={"ip-chip whole" + (value === "group:" + group ? " picked" : "")} onClick={() => pick("group:" + group)}>
+                    ดูทั้งหมวด
+                  </button>
+                )}
                 <div className="ip-chips">
                   {items.map((t) => (
                     <button type="button" key={t} className={"ip-chip" + (t === value ? " picked" : "")} onClick={() => pick(t)}>

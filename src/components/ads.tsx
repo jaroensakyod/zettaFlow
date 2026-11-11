@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Coins, Eye, Megaphone, MousePointerClick, Pause, Play, Plus } from "lucide-react";
 import { api, Empty, Loading } from "./shared";
 import { AdCard } from "./ad-card";
-import { businessTypeGroups } from "@/lib/catalog";
+import { IndustryPicker } from "./industry-picker";
 import type { AdPackage, AdTone, FeedAd, MyAd } from "@/lib/ads";
 import type { Context } from "@/lib/types";
 
@@ -130,21 +130,10 @@ export function AdStudio({ ctx, notify, navigate }: { ctx: Context; notify: (s: 
           )}
 
           <h3>2. กลุ่มเป้าหมาย</h3>
-          <label>
-            ให้บริษัทประเภทนี้เห็นก่อน (ไม่บังคับ)
-            <select value={draft.target_industry} onChange={(e) => set("target_industry", e.target.value)}>
-              <option value="">ทุกประเภทธุรกิจ</option>
-              {businessTypeGroups.map(([group, items]) => (
-                <optgroup key={group} label={group}>
-                  {items.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+          <div className="ip-field-wrap">
+            <span className="ip-field-label">ให้บริษัทประเภทนี้เห็นก่อน (ไม่บังคับ)</span>
+            <IndustryPicker field placeholder="ทุกประเภทธุรกิจ" value={draft.target_industry} onChange={(v) => set("target_industry", v)} />
+          </div>
 
           <h3>3. ระยะเวลา</h3>
           <div className="ads-packages" role="radiogroup" aria-label="แพ็กเกจโฆษณา">
