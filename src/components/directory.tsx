@@ -7,7 +7,7 @@ import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels, approvalRights } from "@/lib/catalog";
 import type { PartyStats } from "@/lib/directory";
 import { api, money, displayDate, Empty, Loading } from "./shared";
-import { EntityEditor } from "./records";
+import { EntityEditor, photoUrl } from "./records";
 import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory } from "./employee-profile";
 import { EntityFiles } from "./entity-files";
@@ -359,6 +359,86 @@ const factIcon: Record<string, LucideIcon> = {
   bankAccount: CreditCard, bankAccountName: UserRound, address: MapPin, shippingAddress: Truck, contact: UserRound, contact2: UserRound,
   contact2Phone: Phone,
 };
+/** ที่อยู่ tab: the main and the delivery address, always both (an empty one invites filling it in). */
+function Addresses({ e, writable, onEdit }: { e: Entity; writable: boolean; onEdit: () => void }) {
+  const d = e.data;
+  const box = (label: string, value: unknown, Icon: LucideIcon, tone: string, same?: boolean) => (
+    <div className={"addr-card tone-" + tone}>
+      <span className="addr-icon">
+        <Icon size={17} />
+      </span>
+      <div>
+        <small>{label}</small>
+        {value ? <p>{String(value)}</p> : same ? <p className="muted">ใช้ที่อยู่เดียวกับที่อยู่บริษัท</p> : <p className="muted">ยังไม่ระบุ</p>}
+      </div>
+    </div>
+  );
+  return (
+    <div className="addr-grid">
+      {box("ที่อยู่บริษัท / ออกเอกสาร", d.address, MapPin, "violet")}
+      {box("ที่อยู่สำหรับจัดส่ง", d.shippingAddress, Truck, "orange", !!d.address && !d.shippingAddress)}
+      {writable && !d.shippingAddress && (
+        <button type="button" className="text-button addr-add" onClick={onEdit}>
+          <Plus size={14} /> เพิ่มที่อยู่สำหรับจัดส่ง
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** ผู้ติดต่อ tab: one card per contact person, with photo, position and how to reach them. */
+function ContactCards({ e, writable, onEdit }: { e: Entity; writable: boolean; onEdit: () => void }) {
+  const d = e.data;
+  const people = [
+    { label: "ผู้ติดต่อหลัก", name: d.contact, position: d.contactPosition, photo: d.contactPhoto, phone: d.phone, email: d.email, line: d.line, tone: "violet" },
+    { label: "ผู้ติดต่อคนที่ 2", name: d.contact2, position: d.contact2Position, photo: d.contact2Photo, phone: d.contact2Phone, email: d.contact2Email, line: "", tone: "teal" },
+  ].filter((p) => p.name || p.phone || p.email);
+  if (!people.length)
+    return (
+      <p className="muted">
+        ยังไม่มีผู้ติดต่อ {writable && <button type="button" className="text-button" onClick={onEdit}>เพิ่มผู้ติดต่อ</button>}
+      </p>
+    );
+  return (
+    <div className="pc-grid">
+      {people.map((p) => (
+        <article key={p.label} className={"pc-card tone-" + p.tone}>
+          <span className="pc-photo">
+            {p.photo ? <img src={photoUrl(p.photo)} alt="" /> : <span>{String(p.name || "?").replace(/^(คุณ|นางสาว|นาง|นาย)\s*/, "").slice(0, 1)}</span>}
+          </span>
+          <div className="pc-body">
+            <small className="pc-label">{p.label}</small>
+            <b>{String(p.name || "—")}</b>
+            {p.position ? <span className="pc-pos">{String(p.position)}</span> : writable && <button type="button" className="text-button pc-add" onClick={onEdit}>+ ใส่ตำแหน่ง</button>}
+            <div className="pc-ways">
+              {!!p.phone && (
+                <a href={"tel:" + String(p.phone)}>
+                  <Phone size={13} /> {String(p.phone)}
+                </a>
+              )}
+              {!!p.email && (
+                <a href={"mailto:" + String(p.email)}>
+                  <Mail size={13} /> {String(p.email)}
+                </a>
+              )}
+              {!!p.line && (
+                <span>
+                  <MessageCircle size={13} /> {String(p.line)}
+                </span>
+              )}
+            </div>
+          </div>
+        </article>
+      ))}
+      {writable && people.length < 2 && (
+        <button type="button" className="pc-new" onClick={onEdit}>
+          <Plus size={18} /> เพิ่มผู้ติดต่อคนที่ 2
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Facts({ kind, e, keys }: { kind: string; e: Entity; keys: string[] }) {
   const shown = keys.filter((k) => e.data[k] !== undefined && e.data[k] !== "");
   if (!shown.length) return <p className="muted">ยังไม่มีข้อมูล กด “แก้ไข” เพื่อเพิ่ม</p>;
@@ -505,8 +585,8 @@ function PartyPanel({
         )}
         {tab === "products" && <Facts kind={kind} e={e} keys={["products", "category"]} />}
         {tab === "bank" && <Facts kind={kind} e={e} keys={["bankName", "bankAccount", "bankAccountName", "paymentTerms"]} />}
-        {tab === "address" && <Facts kind={kind} e={e} keys={["address", "shippingAddress"]} />}
-        {tab === "contacts" && <Facts kind={kind} e={e} keys={["contact", "phone", "email", "line", "contact2", "contact2Phone"]} />}
+        {tab === "address" && <Addresses e={e} writable={writable} onEdit={onEdit} />}
+        {tab === "contacts" && <ContactCards e={e} writable={writable} onEdit={onEdit} />}
         {tab === "files" && <EntityFiles entity={e.id} department={catalog[kind].department} writable={writable} />}
       </div>
       {approver && (

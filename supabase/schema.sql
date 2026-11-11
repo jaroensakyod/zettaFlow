@@ -2977,3 +2977,7 @@ create policy entity_read_branches on public.entities for select to authenticate
 -- 0062: a photo for each branch (shown as the cover of its card on the company page).
 update public.entity_schemas set fields='[{"key":"photo","label":"รูปสาขา","type":"image","required":false}]'::jsonb||fields
  where kind='branches' and not fields @> '[{"key":"photo"}]'::jsonb;
+
+-- 0063: contact people on customers and suppliers get a position (ตำแหน่ง) and a photo; the second contact also an e-mail.
+update public.entity_schemas set fields=fields||'[{"key":"contactPosition","label":"ตำแหน่งผู้ติดต่อ","type":"text","required":false},{"key":"contactPhoto","label":"รูปผู้ติดต่อ","type":"image","required":false},{"key":"contact2Position","label":"ตำแหน่งผู้ติดต่อคนที่ 2","type":"text","required":false},{"key":"contact2Email","label":"อีเมลผู้ติดต่อคนที่ 2","type":"email","required":false},{"key":"contact2Photo","label":"รูปผู้ติดต่อคนที่ 2","type":"image","required":false}]'::jsonb
+ where kind in('customers','suppliers') and not fields @> '[{"key":"contactPosition"}]'::jsonb;

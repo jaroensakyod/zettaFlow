@@ -95,6 +95,11 @@ const secondary = [
   f("shippingAddress", "ที่อยู่จัดส่ง", "textarea"),
   f("contact2", "ผู้ติดต่อคนที่ 2"),
   f("contact2Phone", "โทรศัพท์ผู้ติดต่อคนที่ 2", "tel"),
+  f("contactPosition", "ตำแหน่งผู้ติดต่อ"),
+  f("contactPhoto", "รูปผู้ติดต่อ", "image"),
+  f("contact2Position", "ตำแหน่งผู้ติดต่อคนที่ 2"),
+  f("contact2Email", "อีเมลผู้ติดต่อคนที่ 2", "email"),
+  f("contact2Photo", "รูปผู้ติดต่อคนที่ 2", "image"),
 ];
 const project = f("projectId", "โครงการ", "relation", false, {
   resource: "projects",
