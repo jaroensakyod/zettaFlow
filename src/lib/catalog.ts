@@ -868,6 +868,16 @@ modules.push(
     fields: [f("name", "เรื่อง", "text", true), f("category", "ประเภท", "select", true, { options: ["ซ่อมอาคาร", "แม่บ้าน/ทำความสะอาด", "จองห้องประชุม", "รับ-ส่งเอกสาร", "อุปกรณ์สำนักงาน", "อื่นๆ"] }), f("requester", "ผู้แจ้ง", "text", true), f("location", "สถานที่"), f("date", "วันที่ต้องการ", "date"), owner, status(["แจ้งแล้ว", "กำลังดำเนินการ", "เสร็จแล้ว", "ยกเลิก"]), notes],
   },
 );
+// สาขา (0061_branches.sql): the company's branches, and an optional "สาขา" on records so data can be kept per branch.
+modules.push({
+  key: "branches", label: "สาขา", description: "สาขาของบริษัท สำนักงานใหญ่และสาขาย่อย ใช้แยกข้อมูลตามสาขา",
+  department: "Admin", icon: "Building2", columns: ["name", "code", "manager", "phone", "status"],
+  fields: [f("name", "ชื่อสาขา", "text", true), f("code", "รหัสสาขา (00000 = สำนักงานใหญ่)"), f("phone", "โทรศัพท์"), f("manager", "ผู้จัดการสาขา"), f("address", "ที่อยู่สาขา", "textarea"), status(["เปิดทำการ", "ปิดชั่วคราว", "ปิดแล้ว"]), notes],
+});
+export const branchKinds = ["customers", "employees", "products", "purchases", "expenses", "invoices", "payments", "quotations", "sales_orders", "bills"];
+for (const m of modules)
+  if (branchKinds.includes(m.key) && !m.fields.some((x) => x.key === "branchId"))
+    m.fields.push(f("branchId", "สาขา", "relation", false, { resource: "branches" }));
 export const catalog = Object.fromEntries(modules.map((m) => [m.key, m]));
 export const departmentNames = [
   "Operations",

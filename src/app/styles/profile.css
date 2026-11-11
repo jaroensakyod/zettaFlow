@@ -562,3 +562,29 @@
 .main:has(> .cp) { max-width: none; padding-left: 28px; padding-right: 28px; }
 @media (min-width: 901px) { .cp-body { grid-template-columns: 340px minmax(0, 1fr); } }
 @media (max-width: 860px) { .main:has(> .cp) { padding-left: 16px; padding-right: 16px; } }
+
+/* Company info v3: calmer fields (no box per field), colour carried by group headers and section heads */
+.cp-about-edit .vis-field { padding: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
+.cp-about-edit .vis-field > label { gap: 7px; font-size: 13px; color: #3b3651; }
+.cp-about-edit .vis-field > label > :is(input, select, textarea) { border: 1px solid #e7e4f0; border-radius: 12px; background: #fbfaff; transition: border-color .2s, box-shadow .2s, background .2s; }
+.cp-about-edit .vis-field > label > :is(input, select, textarea):hover { border-color: #d6cff0; }
+.cp-about-edit .vis-field > label > :is(input, select, textarea):focus { background: #fff; border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167, 139, 250, .18); outline: none; }
+.cp-about-edit .vis-toggle { top: -2px; right: 0; height: 21px; padding: 0 8px; font-size: 10.5px; border-style: solid; }
+.cp-about-edit .vis-toggle.fixed { border-style: dashed; opacity: .85; }
+.cp-about-edit .company-grid { gap: 18px 20px; }
+.cs-group { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 6px 0 -4px; padding: 8px 12px; border-radius: 12px; font-size: 13.5px; font-weight: 800; color: var(--g); background: linear-gradient(90deg, var(--gs), transparent 70%); }
+.cs-group:first-child { margin-top: 0; }
+.cs-group svg { flex: none; padding: 5px; width: 26px; height: 26px; border-radius: 8px; color: #fff; background: var(--g); }
+.cs-group.g-violet { --g: #7c3aed; --gs: #f3eeff; }
+.cs-group.g-blue { --g: #2563eb; --gs: #eaf2ff; }
+.cs-group.g-pink { --g: #db2777; --gs: #fdeef6; }
+.cp-about-edit .company-section > h2.cs-head::before { background: linear-gradient(180deg, var(--h1, #8b5cf6), var(--h2, #ec4899)); }
+.cs-head.tone-address { --h1: #ec4899; --h2: #f97316; }
+.cs-head.tone-social { --h1: #2563eb; --h2: #22d3ee; }
+.cs-head.tone-docs { --h1: #f59e0b; --h2: #ef4444; }
+.cs-head.tone-branches { --h1: #16a34a; --h2: #22d3ee; }
+/* branches */
+.branch-panel { display: grid; gap: 12px; }
+.branch-hint { margin: -6px 0 4px; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; color: #3f5a4a; background: linear-gradient(90deg, #ecfdf3, #f0fdfa); border: 1px solid #c9f0d6; }
+.branch-hint b { color: #15803d; }
+.cp-about-edit .company-tabs button:nth-child(5) { --tc: #16a34a; }

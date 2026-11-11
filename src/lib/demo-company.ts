@@ -392,6 +392,9 @@ export function seedCompany(add: Add, now = Date.now()) {
   [["อีเมลฟิชชิงแอบอ้างธนาคาร", "เหตุการณ์", "กลาง", -4, "แก้แล้ว"], ["สำรองข้อมูลบัญชีประจำเดือน", "สำรองข้อมูล", "ต่ำ", -1, "ปิด"], ["Router สำนักงานเฟิร์มแวร์เก่า", "ช่องโหว่", "สูง", -2, "กำลังแก้"]].forEach(([name, category, severity, d, status]) =>
     add("security", { name, category, severity, date: day(d as number), owner: person(11), status }),
   );
+  [["สำนักงานใหญ่ (สาทร)", "00000", "02-555-0100", 0, "เปิดทำการ"], ["สาขาเซ็นทรัลเวิลด์", "00001", "02-555-0111", 6, "เปิดทำการ"], ["สาขาเชียงใหม่ นิมมาน", "00002", "053-555-022", 9, "ปิดชั่วคราว"]].forEach(([name, code, phone, who, status]) =>
+    add("branches", { name, code, phone, manager: person(who as number), status }),
+  );
   [["Toyota Hilux Revo", "2ขก 4581", 8, 84210, 12, 45, 6, "ใช้งานอยู่"], ["Isuzu 6 ล้อ", "71-2245", 9, 156300, 70, 120, -3, "ซ่อมบำรุง"], ["Honda City (ฝ่ายขาย)", "8กท 902", 1, 41250, 200, 230, 40, "พร้อมใช้"]].forEach(([name, plate, who, mileage, tax, ins, service, status]) =>
     add("vehicles", { name, plate, driver: person(who as number), mileage, taxExpiry: day(tax as number), insuranceExpiry: day(ins as number), nextService: day(service as number), status }),
   );

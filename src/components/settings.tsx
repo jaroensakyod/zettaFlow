@@ -12,11 +12,16 @@ import {
   Building2,
   Camera,
   Globe,
+  Briefcase,
+  BookOpen,
   Lock,
 } from "lucide-react";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { UserOnline } from "./presence";
-import { FieldControl } from "./records";
+import { FieldControl, Records as BranchList0 } from "./records";
+const BranchList = ({ ctx, notify, changed }: { ctx: Context; notify: (s: string) => void; changed: () => void }) => (
+  <BranchList0 kind="branches" ctx={ctx} notify={notify} changed={changed} addLabel="เพิ่มสาขา" />
+);
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
 import { alwaysPublicFields, publicSet, toggleableFields, visibilityValue } from "@/lib/company-visibility";
 import type { Context, Member, Template } from "@/lib/types";
@@ -110,7 +115,7 @@ export function CompanySettings({
     [brand, setBrand] = useState(
       String(ctx.company.settings.brand || "EliteFlow"),
     ),
-    [tab, setTab] = useState<(typeof companyTabs)[number][0]>("main"),
+    [tab, setTab] = useState<(typeof companyTabs)[number][0] | "branches">("main"),
     [uploading, setUploading] = useState<"" | "logo" | "cover">(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -190,6 +195,7 @@ export function CompanySettings({
       );
     };
   return (
+    <>
     <form
       className="company-profile"
       onSubmit={async (e) => {
@@ -268,7 +274,7 @@ export function CompanySettings({
       </section>
       )}
       <div className="company-tabs" role="tablist">
-        {companyTabs.map(([key, label]) => (
+        {[...companyTabs, ...(embedded ? ([["branches", "สาขา"]] as const) : [])].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -284,19 +290,21 @@ export function CompanySettings({
           {owner ? "จัดการโดย Owner" : "อ่านอย่างเดียว"}
         </span>
       </div>
-      {embedded && (
+      {embedded && tab !== "branches" && (
         <p className="vis-legend">
           <span className="vis-chip pub"><Globe size={13} /> สาธารณะ</span> บริษัทอื่นในเครือข่ายเห็น
           <span className="vis-chip"><Lock size={13} /> ส่วนตัว</span> เห็นเฉพาะทีมของคุณ
           <em>กดไอคอนที่หัวข้อแต่ละช่องเพื่อสลับ แล้วกดบันทึกข้อมูล</em>
         </p>
       )}
+      {tab === "branches" ? null : (
       <fieldset disabled={!owner || busy}>
         {tab === "main" ? (
           <>
             <section className="card company-section">
-              <h2>ข้อมูลบริษัท</h2>
+              <h2 className="cs-head tone-main">ข้อมูลบริษัท</h2>
               <div className="form-grid company-grid">
+                <h3 className="cs-group g-violet"><Building2 size={15} /> ชื่อและแบรนด์</h3>
                 {pv("name",
                 <label>
                   {field("name").label}
@@ -331,6 +339,7 @@ export function CompanySettings({
                   <small className="field-hint">แสดงใต้ชื่อบริษัทในหน้าโปรไฟล์ · {text("bio").length}/160</small>
                 </label>
                 , true)}
+                <h3 className="cs-group g-blue"><Briefcase size={15} /> ข้อมูลธุรกิจ</h3>
                 {pv("taxId",
                 <label>
                   {field("taxId").label}
@@ -384,6 +393,7 @@ export function CompanySettings({
                   />
                 </label>
                 )}
+                <h3 className="cs-group g-pink"><BookOpen size={15} /> เกี่ยวกับบริษัท</h3>
                 {pv("description",
                 <label className="wide">
                   {field("description").label}
@@ -403,7 +413,7 @@ export function CompanySettings({
           </>
         ) : (
           <section className="card company-section">
-            <h2>{companyTabs.find(([k]) => k === tab)![1]}</h2>
+            <h2 className={"cs-head tone-" + tab}>{companyTabs.find(([k]) => k === tab)![1]}</h2>
             <div className="form-grid company-grid">
               {tabFields[tab].map((k) => pv(k, input(k), field(k).type === "textarea"))}
             </div>
@@ -432,10 +442,11 @@ export function CompanySettings({
           </section>
         )}
       </fieldset>
+      )}
       <p className="form-error" role="alert">
         {error}
       </p>
-      {owner && (
+      {owner && tab !== "branches" && (
         <div className="company-actions">
           <button
             type="button"
@@ -457,6 +468,21 @@ export function CompanySettings({
         </div>
       )}
     </form>
+    {tab === "branches" && <BranchesPanel ctx={ctx} notify={notify} changed={changed} />}
+    </>
+  );
+}
+/** สาขา: the company's branches (head office and others). Records can then be tagged with a branch. */
+function BranchesPanel({ ctx, notify, changed }: { ctx: Context; notify: (s: string) => void; changed: () => void }) {
+  return (
+    <section className="card company-section branch-panel">
+      <h2 className="cs-head tone-branches">สาขาของบริษัท</h2>
+      <p className="branch-hint">
+        เพิ่มสำนักงานใหญ่และสาขาย่อย แล้วเลือก <b>สาขา</b> ได้ในลูกค้า พนักงาน สินค้า ใบเสนอราคา คำสั่งซื้อ ใบแจ้งหนี้ ค่าใช้จ่าย จัดซื้อ และการรับ-จ่ายเงิน
+        เพื่อเก็บและแยกข้อมูลตามสาขา
+      </p>
+      <BranchList ctx={ctx} notify={notify} changed={changed} />
+    </section>
   );
 }
 /** Saves only the public/private switches on top of the saved company profile (owner only). */
