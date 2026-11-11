@@ -236,12 +236,6 @@ export default function LandingHome() {
           </div>
         </section>
 
-        <section className="lp-stats" aria-label="ประโยชน์หลัก">
-          {[["80%", "เวลาสรุปรายงานที่ลดลง"], ["0", "ฟอร์มที่พนักงานต้องกรอกซ้ำ"], ["24/7", "AI ทำงานในทุกกลุ่ม LINE"], ["1", "หน้าจอสำหรับทุกการตัดสินใจ"]].map(([n, l]) => (
-            <div key={l}><b>{n}</b><span>{l}</span></div>
-          ))}
-        </section>
-
         <section id="how" className="lp-section">
           <header className="lp-head">
             <span className="lp-kicker">HOW IT WORKS</span>
