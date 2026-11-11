@@ -7874,3 +7874,14 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .party .dir-facts dt svg { color: var(--b); flex: none; }
 .party .dir-facts dd { font-weight: 700; color: #1f1b33; overflow-wrap: anywhere; }
 .party .dir-archive { margin: 6px 18px 16px; }
+/* ลูกค้า / Supplier: the page header is a full colour band (violet = ลูกค้า, teal = Supplier) so the page is recognisable at a glance */
+.dir-compact > .section-actions:has(.dir-pagehead) { --a: #8b5cf6; --b: #6d28d9; position: relative; overflow: hidden; padding: 18px 22px; border-radius: 22px; background: radial-gradient(circle at 88% -30%, rgba(255, 255, 255, .35), transparent 45%), linear-gradient(120deg, var(--a), var(--b)); box-shadow: 0 16px 36px color-mix(in srgb, var(--a) 32%, transparent); }
+.dir-compact > .section-actions:has(.dir-pagehead.tone-teal) { --a: #14b8a6; --b: #0f766e; }
+.dir-compact > .section-actions:has(.dir-pagehead)::after { content: ""; position: absolute; left: 34%; bottom: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 70%); pointer-events: none; }
+.dir-compact .dir-pagehead h1 { color: #fff; }
+.dir-compact .dir-pagehead p { color: rgba(255, 255, 255, .85); }
+.dir-compact .dir-pagehead-icon { color: var(--b); background: #fff; box-shadow: 0 8px 20px rgba(0, 0, 0, .15); }
+.dir-compact .dir-actions .secondary { color: #fff; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .35); backdrop-filter: blur(4px); }
+.dir-compact .dir-actions .secondary:hover { background: rgba(255, 255, 255, .26); }
+.dir-compact .dir-actions .primary { color: var(--b); background: #fff; box-shadow: 0 8px 20px rgba(0, 0, 0, .15); }
+.dir-compact .dir-actions .primary:hover { background: #f8f7ff; }
