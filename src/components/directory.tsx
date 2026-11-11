@@ -7,7 +7,7 @@ import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels, approvalRights } from "@/lib/catalog";
 import type { PartyStats } from "@/lib/directory";
 import { api, money, displayDate, Empty, Loading } from "./shared";
-import { EntityEditor, photoUrl } from "./records";
+import { EntityEditor, photoUrl, type EditorGroup } from "./records";
 import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory } from "./employee-profile";
 import { EntityFiles } from "./entity-files";
@@ -340,6 +340,7 @@ export function Directory({
       </div>
       {editing && (
         <EntityEditor
+          groups={kind === "customers" || kind === "suppliers" ? partyGroups(kind) : undefined}
           kind={kind}
           row={editing === "new" ? undefined : editing}
           initial={editing === "new" && kind !== "employees" ? { code: "" } : undefined}
@@ -359,6 +360,33 @@ const factIcon: Record<string, LucideIcon> = {
   bankAccount: CreditCard, bankAccountName: UserRound, address: MapPin, shippingAddress: Truck, contact: UserRound, contact2: UserRound,
   contact2Phone: Phone,
 };
+/** Add / edit form layout for ลูกค้า and Supplier: coloured sections in a sensible order. */
+function partyGroups(kind: "customers" | "suppliers"): EditorGroup[] {
+  const sameAddress = (values: Record<string, unknown>, set: (k: string, v: unknown) => void) =>
+    values.address ? (
+      <button type="button" className="ge-copy" onClick={() => set("shippingAddress", values.address)}>
+        ใช้ที่อยู่เดียวกับที่อยู่บริษัท
+      </button>
+    ) : null;
+  return kind === "customers"
+    ? [
+        { title: "ข้อมูลลูกค้า", hint: "ชื่อ รหัส และประเภทลูกค้า", tone: "violet", icon: Users, keys: ["name", "code", "type", "company", "segment", "status", "businessType", "branchId"] },
+        { title: "ภาษีและการเงิน", hint: "ใช้ออกใบกำกับภาษีและติดตามเครดิต", tone: "blue", icon: Wallet, keys: ["taxId", "branch", "creditDays", "creditLimit", "ownerId"] },
+        { title: "ผู้ติดต่อหลัก", tone: "pink", icon: UserRound, keys: ["contactPhoto", "contact", "contactPosition", "phone", "email", "line"] },
+        { title: "ผู้ติดต่อคนที่ 2", hint: "ไม่บังคับ", tone: "teal", icon: Users, keys: ["contact2Photo", "contact2", "contact2Position", "contact2Phone", "contact2Email"] },
+        { title: "ที่อยู่", tone: "orange", icon: MapPin, keys: ["address", "shippingAddress"], extra: sameAddress },
+        { title: "หมายเหตุ", tone: "slate", icon: Pencil, keys: ["notes"] },
+      ]
+    : [
+        { title: "ข้อมูลซัพพลายเออร์", hint: "ชื่อ รหัส ประเภท และระดับ", tone: "teal", icon: Truck, keys: ["name", "code", "type", "category", "tier", "status", "businessType", "rating", "branchId"] },
+        { title: "ภาษี เงื่อนไข และบัญชีธนาคาร", hint: "ใช้ทำจ่ายและออกเอกสาร", tone: "blue", icon: Landmark, keys: ["taxId", "branch", "creditDays", "paymentTerms", "leadTime", "bankName", "bankAccount", "bankAccountName"] },
+        { title: "ผู้ติดต่อหลัก", tone: "pink", icon: UserRound, keys: ["contactPhoto", "contact", "contactPosition", "phone", "email", "line"] },
+        { title: "ผู้ติดต่อคนที่ 2", hint: "ไม่บังคับ", tone: "violet", icon: Users, keys: ["contact2Photo", "contact2", "contact2Position", "contact2Phone", "contact2Email"] },
+        { title: "สินค้า เอกสาร และที่อยู่", tone: "orange", icon: Package, keys: ["products", "docExpiry", "address", "shippingAddress"], extra: sameAddress },
+        { title: "หมายเหตุ", tone: "slate", icon: Pencil, keys: ["notes"] },
+      ];
+}
+
 /** ที่อยู่ tab: the main and the delivery address, always both (an empty one invites filling it in). */
 function Addresses({ e, writable, onEdit }: { e: Entity; writable: boolean; onEdit: () => void }) {
   const d = e.data;

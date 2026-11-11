@@ -200,6 +200,8 @@ function initialValues(kind: string, row?: Entity) {
   );
 }
 /** Add / edit dialog for plain catalog records (directory pages); Records keeps its own for kinds with extra rules. */
+/** A titled, coloured block of fields in a grouped editor; fields not in any group land in "ข้อมูลเพิ่มเติม". */
+export type EditorGroup = { title: string; hint?: string; tone: string; icon: React.ComponentType<{ size?: number }>; keys: string[]; extra?: (values: Record<string, unknown>, set: (k: string, v: unknown) => void) => React.ReactNode };
 export function EntityEditor({
   kind,
   row,
@@ -208,6 +210,7 @@ export function EntityEditor({
   writable,
   onClose,
   onSaved,
+  groups,
 }: {
   kind: string;
   row?: Entity;
@@ -216,6 +219,8 @@ export function EntityEditor({
   writable: boolean;
   onClose: () => void;
   onSaved: (row: Entity) => void;
+  /** Lay the form out in coloured sections (customers / suppliers). */
+  groups?: EditorGroup[];
 }) {
   const module = catalog[kind];
   const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...initialValues(kind, row), ...initial })),
@@ -238,7 +243,7 @@ export function EntityEditor({
     }
   }
   return (
-    <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose}>
+    <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose} className={groups ? "ge-modal" : undefined}>
       {row?.data.sourceVia === "LINE" && (
         <p className="source-banner">
           ที่มา: <SourceLine data={row.data} />
@@ -246,6 +251,46 @@ export function EntityEditor({
       )}
       <form onSubmit={save}>
         <fieldset disabled={!writable || busy}>
+          {groups ? (
+            <>
+              <nav className="ge-nav" aria-label="ส่วนของฟอร์ม">
+                {groups.map((g, i) => (
+                  <a key={g.title} href={"#ge-" + i} className={"tone-" + g.tone} onClick={(e) => { e.preventDefault(); document.getElementById("ge-" + i)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+                    <g.icon size={14} /> {g.title}
+                  </a>
+                ))}
+              </nav>
+              {[...groups, { title: "ข้อมูลเพิ่มเติม", tone: "slate", icon: Plus, keys: module.fields.map((f) => f.key).filter((k) => !groups.some((g) => g.keys.includes(k))) } as EditorGroup]
+                .filter((g) => g.keys.some((k) => module.fields.some((f) => f.key === k)))
+                .map((g, i) => (
+                  <section key={g.title} id={"ge-" + i} className={"ge-section tone-" + g.tone}>
+                    <header>
+                      <span className="ge-icon"><g.icon size={17} /></span>
+                      <div>
+                        <h3>{g.title}</h3>
+                        {g.hint && <small>{g.hint}</small>}
+                      </div>
+                      {g.extra?.(values, (k, v) => setValues((s) => ({ ...s, [k]: v })))}
+                    </header>
+                    <div className="form-grid">
+                      {g.keys
+                        .map((k) => module.fields.find((f) => f.key === k))
+                        .filter((f): f is (typeof module.fields)[number] => !!f)
+                        .map((f) => (
+                          <FieldControl
+                            key={f.key}
+                            field={f}
+                            value={values[f.key]}
+                            set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
+                            options={options}
+                            department={module.department}
+                          />
+                        ))}
+                    </div>
+                  </section>
+                ))}
+            </>
+          ) : (
           <div className="form-grid">
             {module.fields.map((f) => (
               <FieldControl
@@ -258,6 +303,7 @@ export function EntityEditor({
               />
             ))}
           </div>
+          )}
         </fieldset>
         <p role="alert" className="form-error">
           {error}

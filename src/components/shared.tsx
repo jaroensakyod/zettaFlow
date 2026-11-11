@@ -30,10 +30,13 @@ export function Modal({
   title,
   children,
   onClose,
+  className,
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  /** Extra class on the dialog, e.g. a wider, styled editor. */
+  className?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -45,7 +48,7 @@ export function Modal({
     };
   }, []);
   return (
-    <dialog ref={dialog} onCancel={onClose} className="modal">
+    <dialog ref={dialog} onCancel={onClose} className={"modal" + (className ? " " + className : "")}>
       <div className="modal-heading">
         <h2>{title}</h2>
         <button
