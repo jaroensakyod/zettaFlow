@@ -626,3 +626,9 @@
 .br-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding-top: 6px; border-top: 1px dashed #ece9f5; }
 .br-actions .secondary { height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; color: var(--b); background: var(--s); border-color: transparent; }
 .br-form .image-field { grid-column: 1 / -1; }
+/* Cover runs edge to edge under the top bar (no side gap, no rounded corners), taller */
+.cp-hero { margin: 0 -28px; border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; border-top: 0 !important; }
+.cp-hero .cp-cover { height: 300px; border-radius: 0; }
+.cp-hero .cp-head, .cp-hero .cp-tabs { padding-left: max(28px, calc((100% - 1600px) / 2)); padding-right: max(28px, calc((100% - 1600px) / 2)); }
+@media (max-width: 860px) { .cp-hero { margin: 0 -16px; } .cp-hero .cp-cover { height: 190px; } .cp-hero .cp-head, .cp-hero .cp-tabs { padding-left: 16px; padding-right: 16px; } }
+.cp > .cp-hero:first-child { margin-top: -32px; }
