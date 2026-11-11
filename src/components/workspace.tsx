@@ -366,7 +366,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       const d = await api("/workspace");
       if (epoch !== requestEpoch.current) return;
       // Pin this tab to the company it is showing, so switching in another tab does not move it.
-      if (d?.ctx?.company?.id && !d.ctx.demo) setTabCompany(d.ctx.company.id);
+      if (d?.context?.company?.id && !d.context.demo) setTabCompany(d.context.company.id);
       setData(d);
       setAuth(false);
       setOnboarding(false);
