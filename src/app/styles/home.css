@@ -1323,3 +1323,34 @@
 .hd-is-sample .hd-check input:disabled + span {
   cursor: default;
 }
+
+/* "Complete your company" card at the top of ภาพรวม (company-setup-card.tsx) */
+.csc { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px 26px; align-items: center; margin: 0 0 18px; padding: 24px 52px 24px 26px; border-radius: 24px; color: #fff; background: linear-gradient(125deg, #6d28d9 0%, #4f46e5 45%, #0ea5e9 100%); box-shadow: 0 18px 40px rgba(79, 70, 229, .28); }
+.csc-glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 8% 0%, rgba(255, 255, 255, .28), transparent 40%), radial-gradient(circle at 96% 110%, rgba(236, 72, 153, .55), transparent 45%); }
+.csc > :not(.csc-glow, .csc-close) { position: relative; }
+.csc-close { position: absolute; top: 12px; right: 12px; z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .16); cursor: pointer; }
+.csc-close:hover { background: rgba(255, 255, 255, .3); }
+.csc-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 99px; font-size: 12px; font-weight: 800; background: rgba(255, 255, 255, .2); }
+.csc h2 { margin: 10px 0 6px; font-size: 23px; color: #fff; }
+.csc p { margin: 0; font-size: 13.5px; line-height: 1.6; color: rgba(255, 255, 255, .88); }
+.csc-progress { height: 8px; margin: 16px 0 6px; border-radius: 99px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.csc-progress span { display: block; width: var(--p); min-width: 8px; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #fde68a, #f472b6); transition: width .4s; }
+.csc-count { font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, .9); }
+.csc-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.csc-item button { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; width: 100%; height: 100%; padding: 12px; border: 0; border-radius: 16px; text-align: left; color: #1f1a3d; background: #fff; box-shadow: 0 8px 18px rgba(20, 10, 60, .16); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.csc-item button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(20, 10, 60, .22); }
+.csc-icon { grid-row: 1 / 3; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; color: #fff; background: var(--c); }
+.csc-item { --c: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+.csc-item.k-taxId { --c: linear-gradient(135deg, #f472b6, #db2777); }
+.csc-item.k-address { --c: linear-gradient(135deg, #fb923c, #ea580c); }
+.csc-item.k-phone { --c: linear-gradient(135deg, #2dd4bf, #0d9488); }
+.csc-item.ok { --c: linear-gradient(135deg, #4ade80, #16a34a); }
+.csc-label { font-size: 13px; font-weight: 800; line-height: 1.35; }
+.csc-state { font-size: 11.5px; font-weight: 700; color: #e11d48; }
+.csc-item.ok .csc-state { color: #16a34a; }
+.csc-item.ok .csc-label { color: #6b6585; }
+.csc-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+.csc-go { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 22px; border: 0; border-radius: 14px; font-size: 14.5px; font-weight: 800; color: #4f46e5; background: #fff; box-shadow: 0 10px 22px rgba(20, 10, 60, .25); cursor: pointer; transition: transform .15s; }
+.csc-go:hover { transform: translateY(-2px); }
+@media (max-width: 860px) { .csc { grid-template-columns: 1fr; padding: 22px 18px; } .csc-actions { justify-content: stretch; } .csc-go { width: 100%; justify-content: center; } }
+@media (max-width: 480px) { .csc-list { grid-template-columns: 1fr; } }

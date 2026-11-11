@@ -984,7 +984,7 @@ export const companyFields: Field[] = [
   f("cover", "รูปปก"),
   f("name", "ชื่อบริษัท (ภาษาไทย)", "text", true),
   f("nameEn", "ชื่อบริษัท (ภาษาอังกฤษ)"),
-  f("taxId", "เลขประจำตัวผู้เสียภาษี"),
+  f("taxId", "เลขผู้เสียภาษี / เลขบัตรประชาชน"),
   f("registration", "เลขทะเบียนบริษัท"),
   f("legal", "ประเภทนิติบุคคล"),
   f("industry", "ประเภทธุรกิจ", "select", false, { options: businessTypes }),

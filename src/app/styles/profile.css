@@ -632,3 +632,11 @@
 .cp-hero .cp-head, .cp-hero .cp-tabs { padding-left: max(28px, calc((100% - 1600px) / 2)); padding-right: max(28px, calc((100% - 1600px) / 2)); }
 @media (max-width: 860px) { .cp-hero { margin: 0 -16px; } .cp-hero .cp-cover { height: 190px; } .cp-hero .cp-head, .cp-hero .cp-tabs { padding-left: 16px; padding-right: 16px; } }
 .cp > .cp-hero:first-child { margin-top: -32px; }
+
+/* Company form: required details still missing (name, ID / registration no., address, phone) */
+.req-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 14px; padding: 12px 16px; border-radius: 16px; color: #9f1239; background: linear-gradient(90deg, #fff1f2, #fdf2f8); border: 1px solid #fecdd3; }
+.req-strip b { font-size: 13.5px; }
+.req-strip > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.req-chip { padding: 5px 12px; border-radius: 99px; font-size: 12.5px; font-weight: 700; color: #be123c; background: #fff; border: 1px solid #fda4af; cursor: pointer; }
+.req-chip:hover, .req-chip.here { color: #fff; background: linear-gradient(120deg, #f43f5e, #ec4899); border-color: transparent; }
+.company-profile { scroll-margin-top: 84px; }

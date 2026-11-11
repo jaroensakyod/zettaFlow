@@ -22,6 +22,7 @@ import { FieldControl } from "./records";
 import { IndustryPicker } from "./industry-picker";
 import { BranchCards } from "./branches";
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
+import { companyMissing, requiredFieldKeys } from "@/lib/company-required";
 import { alwaysPublicFields, publicSet, toggleableFields, visibilityValue } from "@/lib/company-visibility";
 import type { Context, Member, Template } from "@/lib/types";
 const imageLimits = {
@@ -63,7 +64,7 @@ const tabFields: Record<string, string[]> = {
   address: ["address", "province", "zip", "shipAddress"],
   social: ["phone", "email", "website", "line", "facebook"],
   docs: [
-    "registration", "legal", "branch", "bank", "bankAccount", "bankAccountName", "bankAccountType", "promptPay",
+    "legal", "branch", "bank", "bankAccount", "bankAccountName", "bankAccountType", "promptPay",
     "signerName", "signerPosition", "approverName", "approverPosition",
     "docConditions", "quotationNotes", "invoiceNotes", "receiptNotes",
   ],
@@ -114,14 +115,28 @@ export function CompanySettings({
     [brand, setBrand] = useState(
       String(ctx.company.settings.brand || "EliteFlow"),
     ),
-    [tab, setTab] = useState<(typeof companyTabs)[number][0] | "branches">("main"),
+    // ?section=address etc. opens that part of the form (the "complete your company" card links straight to it).
+    [tab, setTab] = useState<(typeof companyTabs)[number][0] | "branches">(() => {
+      const s = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("section");
+      return companyTabs.find(([k]) => k === s)?.[0] || "main";
+    }),
     [uploading, setUploading] = useState<"" | "logo" | "cover">(""),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [showMissing, setShowMissing] = useState(false);
+  // Opened from the "complete your company" card: bring the form into view.
+  useEffect(() => {
+    if (!embedded || !new URLSearchParams(window.location.search).get("section")) return;
+    const t = setTimeout(() => document.querySelector(".company-profile")?.scrollIntoView({ behavior: "smooth", block: "start" }), 600);
+    return () => clearTimeout(t);
+  }, [embedded]);
   const owner = ctx.member.role === "owner",
     text = (k: string) => String(values[k] ?? ""),
     set = (k: string, v: unknown) => setValues((s) => ({ ...s, [k]: v })),
-    field = (k: string) => companyFields.find((f) => f.key === k)!,
+    field = (k: string) => {
+      const f = companyFields.find((x) => x.key === k)!;
+      return requiredFieldKeys.includes(k) ? { ...f, label: f.label + " *" } : f;
+    },
     filled = completenessKeys.filter((k) => text(k).trim()).length,
     // Like Facebook: a picked cover or logo is saved right away, on top of the saved profile
     // (not the unsaved form edits).
@@ -199,6 +214,16 @@ export function CompanySettings({
       className="company-profile"
       onSubmit={async (e) => {
         e.preventDefault();
+        // Required: name, ID card / tax ID or company registration no., address and phone. The rest is optional.
+        const missing = companyMissing(values);
+        if (missing.length) {
+          setError("กรุณากรอกให้ครบ: " + missing.map((m) => m.label).join(" · "));
+          setShowMissing(true);
+          setTab(missing[0].tab);
+          e.currentTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+        setShowMissing(false);
         setBusy(true);
         try {
           const profile = Object.fromEntries(
@@ -296,6 +321,18 @@ export function CompanySettings({
           <em>กดไอคอนที่หัวข้อแต่ละช่องเพื่อสลับ แล้วกดบันทึกข้อมูล</em>
         </p>
       )}
+      {tab !== "branches" && showMissing && companyMissing(values).length > 0 && (
+        <div className="req-strip" role="alert">
+          <b>กรอกข้อมูลที่จำเป็นให้ครบก่อนบันทึก</b>
+          <div>
+            {companyMissing(values).map((m) => (
+              <button type="button" key={m.key} className={"req-chip" + (tab === m.tab ? " here" : "")} onClick={() => setTab(m.tab)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {tab === "branches" ? null : (
       <fieldset disabled={!owner || busy}>
         {tab === "main" ? (
@@ -351,8 +388,10 @@ export function CompanySettings({
                     value={text("taxId")}
                     onChange={(e) => set("taxId", e.target.value.replace(/\D/g, ""))}
                   />
+                  <small className="field-hint">กรอกช่องนี้ หรือ เลขทะเบียนบริษัท อย่างใดอย่างหนึ่ง</small>
                 </label>
                 )}
+                {pv("registration", input("registration"))}
                 {pv("industry",
                 <div className="ip-field-wrap">
                   <span className="ip-field-label">{field("industry").label}</span>
