@@ -7963,3 +7963,11 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .ip-field .ip-pop { left: 0; right: auto; width: min(720px, calc(100vw - 48px)); }
 .ip-custom { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px dashed #c4b5fd; background: #faf7ff; color: #6d28d9; font-weight: 700; text-align: left; cursor: pointer; }
 .ip-custom:hover { background: #f3edff; }
+/* employee form: blue header (the พนักงาน colour) and a green section tone */
+.ge-employees .modal-heading { background: radial-gradient(circle at 92% -40%, rgba(255, 255, 255, .35), transparent 50%), linear-gradient(120deg, #1d4ed8, #3b82f6 55%, #06b6d4); }
+.ge-employees .modal-footer .primary { background: linear-gradient(120deg, #1d4ed8, #3b82f6); box-shadow: 0 8px 20px rgba(37, 99, 235, .35); }
+.ge-customers .modal-heading { background: radial-gradient(circle at 92% -40%, rgba(255, 255, 255, .35), transparent 50%), linear-gradient(120deg, #6d28d9, #8b5cf6 60%, #c084fc); }
+.ge-suppliers .modal-heading { background: radial-gradient(circle at 92% -40%, rgba(255, 255, 255, .35), transparent 50%), linear-gradient(120deg, #0f766e, #14b8a6 60%, #5eead4); }
+.ge-suppliers .modal-footer .primary { background: linear-gradient(120deg, #0f766e, #14b8a6); box-shadow: 0 8px 20px rgba(20, 184, 166, .35); }
+.tone-green.ge-section, .ge-nav a.tone-green { --a: #22c55e; --b: #15803d; --s: #ecfdf3; }
+.ge-section .image-field-preview { width: 84px; height: 84px; }

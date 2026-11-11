@@ -16,11 +16,21 @@ import {
   percentOf, ratingLabel, pageList, qrMatrix, bangkokToday, attendanceKind, kpiLine,
 } from "@/lib/employees-stats";
 import { api, displayDate, Empty, Loading } from "./shared";
-import { EntityEditor, photoUrl } from "./records";
+import { EntityEditor, photoUrl, type EditorGroup } from "./records";
 import { EntityFiles } from "./entity-files";
 import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory, type HistoryItem } from "./employee-profile";
 import { employeesSample, isSampleId, sampleCompany } from "@/lib/mock/employees";
+
+/** Add / edit พนักงาน: coloured sections in the order HR fills them in; anything else lands in ข้อมูลเพิ่มเติม. */
+const employeeGroups: EditorGroup[] = [
+  { title: "ข้อมูลส่วนตัว", hint: "รูป ชื่อ และข้อมูลประจำตัว", tone: "blue", icon: UserRound, keys: ["photo", "name", "nickname", "code", "birthDate", "idCard"] },
+  { title: "งานและตำแหน่ง", hint: "แผนก ตำแหน่ง หัวหน้างาน และวันเริ่มงาน", tone: "violet", icon: Users, keys: ["department", "position", "level", "employmentType", "startDate", "managerId", "branch", "branchId", "workHours", "status"] },
+  { title: "ช่องทางติดต่อ", tone: "pink", icon: Phone, keys: ["phone", "email", "line", "lineUserId", "address", "emergency", "contact"] },
+  { title: "เงินเดือนและสิทธิ์ลา", hint: "เห็นเฉพาะผู้มีสิทธิ์ฝ่ายบุคคล", tone: "green", icon: Gem, keys: ["salary", "bank", "bankAccount", "leaveQuota"] },
+  { title: "ทักษะและผลงาน", tone: "orange", icon: Sparkles, keys: ["about", "skills", "strengths", "score"] },
+  { title: "เอกสาร สิทธิ์ และประวัติ", tone: "teal", icon: Files, keys: ["checklist", "approvals", "history", "cover", "notes"] },
+];
 
 type Option = { id: string; kind: string; name: string };
 type Related = { attendance: Entity[]; leaves: Entity[]; kpi: Entity[] };
@@ -456,6 +466,7 @@ export function EmployeesPage({
       )}
       {editing && (
         <EntityEditor
+          groups={employeeGroups}
           kind="employees"
           row={editing === "new" ? undefined : editing}
           options={options}

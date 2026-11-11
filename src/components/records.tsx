@@ -252,7 +252,7 @@ export function EntityEditor({
     }
   }
   return (
-    <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose} className={groups ? "ge-modal" : undefined}>
+    <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose} className={groups ? "ge-modal ge-" + kind : undefined}>
       {row?.data.sourceVia === "LINE" && (
         <p className="source-banner">
           ที่มา: <SourceLine data={row.data} />

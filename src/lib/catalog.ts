@@ -220,7 +220,7 @@ export const modules: Module[] = [
       f("emergency", "ผู้ติดต่อฉุกเฉิน"),
       f("level", "ระดับ", "select", false, { options: ["พนักงาน", "หัวหน้างาน", "ผู้จัดการ", "ผู้บริหาร"] }),
       f("managerId", "หัวหน้างาน", "relation", false, { resource: "employees" }),
-      f("branch", "สาขา"),
+      f("branch", "สถานที่ทำงาน"),
       f("workHours", "เวลาทำงาน"),
       f("about", "เกี่ยวกับ", "textarea"),
       f("skills", "ทักษะ (คั่นด้วย ,)"),
