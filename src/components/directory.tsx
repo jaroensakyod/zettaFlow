@@ -2,7 +2,7 @@
 // ลูกค้า / Supplier / พนักงาน: stat cards, searchable list on the left, details on the right.
 // Codes CUS-67-0001 / SUP-67-0001 are issued by the database when the code field is left blank.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound } from "lucide-react";
+import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound, Users, Building2, Sparkles, Hash, Truck, FileWarning, type LucideIcon } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels, approvalRights } from "@/lib/catalog";
 import type { PartyStats } from "@/lib/directory";
@@ -161,9 +161,27 @@ export function Directory({
       />
     );
   if (!data) return error ? <p className="form-error">{error}</p> : <Loading />;
+  // ลูกค้า / Supplier: one compact header (title + actions) and colourful stat tiles, instead of the tall page heading.
+  const compact = kind === "customers" || kind === "suppliers";
+  const statLook: [LucideIcon, string][] =
+    kind === "customers"
+      ? [[Users, "violet"], [Building2, "blue"], [Sparkles, "green"], [Hash, "pink"]]
+      : [[Truck, "teal"], [Star, "amber"], [FileWarning, "orange"], [Hash, "pink"]];
+  const HeadIcon = kind === "customers" ? Users : Truck;
   return (
-    <div className="dir">
+    <div className={"dir" + (compact ? " dir-compact" : "")}>
       <div className="section-actions">
+        {compact && (
+          <div className={"dir-head " + (kind === "customers" ? "tone-violet" : "tone-teal")}>
+            <span className="dir-head-icon">
+              <HeadIcon size={22} />
+            </span>
+            <div>
+              <h1>{kind === "customers" ? "ลูกค้า" : "ซัพพลายเออร์"}</h1>
+              <p>{module.description}</p>
+            </div>
+          </div>
+        )}
         <div className="dir-actions">
           {writable && (
             <button className="secondary" disabled={importing} onClick={() => importRef.current?.click()}>
@@ -191,13 +209,26 @@ export function Directory({
           )}
         </div>
       </div>
-      <div className="expense-cards">
-        {cards.map(([label, value, tone]) => (
-          <div className={"card expense-card dir-stat " + (tone || "")} key={label}>
-            <small>{label}</small>
-            <b>{value || "—"}</b>
-          </div>
-        ))}
+      <div className={"expense-cards" + (compact ? " dir-tiles" : "")}>
+        {cards.map(([label, value, tone], i) => {
+          const [Icon, color] = statLook[i] || [Hash, "violet"];
+          return compact ? (
+            <div className={"dir-tile tone-" + color + " " + (tone || "")} key={label}>
+              <span className="dir-tile-icon">
+                <Icon size={18} />
+              </span>
+              <span>
+                <small>{label}</small>
+                <b>{value || "—"}</b>
+              </span>
+            </div>
+          ) : (
+            <div className={"card expense-card dir-stat " + (tone || "")} key={label}>
+              <small>{label}</small>
+              <b>{value || "—"}</b>
+            </div>
+          );
+        })}
       </div>
       <div className="dir-grid">
         <section className="card dir-list">
