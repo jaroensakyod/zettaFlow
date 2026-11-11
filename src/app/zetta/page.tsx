@@ -22,6 +22,8 @@ import {
   Wallet,
   Workflow,
   Download,
+  Megaphone,
+  Store,
   FolderKanban,
   MoreHorizontal,
 } from "lucide-react";
@@ -169,12 +171,14 @@ const features = [
   { icon: Link2, title: "Share Dashboard", body: "แชร์ให้พาร์ทเนอร์ด้วยลิงก์ที่มีรหัสผ่านและวันหมดอายุ" },
 ];
 
+// What a paid package unlocks on top of the free บัญชีและการเงิน (see dept-menu.tsx), then App Shop for the rest.
 const departments = [
-  { icon: PackageCheck, name: "จัดซื้อ / คลังสินค้า", note: "ถ่ายใบส่งของ → อัปเดตสต็อก", stat: "128 รายการ", tone: "violet" },
-  { icon: Wallet, name: "การเงิน", note: "ส่งสลิป → ตรวจ QR → ลงบัญชี", stat: "฿2.4M", tone: "blue" },
-  { icon: ChartNoAxesCombined, name: "ฝ่ายขาย / PC", note: "รายงานยอดรายวัน เทียบเป้า", stat: "63.7% ของเป้า", tone: "pink" },
-  { icon: FileScan, name: "BD / สัญญาเช่า", note: "PDF สัญญา → คลังเอกสาร", stat: "18 พื้นที่", tone: "amber" },
+  { icon: ChartNoAxesCombined, name: "ระบบขาย (Sales)", note: "ใบเสนอราคา คำสั่งซื้อ ลูกค้า เป้ายอดขาย และแพ็กเกจสินค้า", tone: "pink" },
+  { icon: Megaphone, name: "ระบบการตลาด", note: "แคมเปญ คอนเทนต์ โปรโมชัน และผลลัพธ์ทุกช่องทาง", tone: "amber" },
+  { icon: PackageCheck, name: "ระบบคลังสินค้า & จัดซื้อ", note: "สต็อกเข้า-ออก ใบสั่งซื้อ ผู้ขาย แจ้งเตือนของใกล้หมด", tone: "violet" },
+  { icon: Users, name: "ระบบ HR", note: "พนักงาน ลางาน เวลาทำงาน และเอกสารบุคคล", tone: "blue" },
 ];
+const shopExamples = ["คอนโด / ปล่อยเช่า", "คลินิกความงาม", "ร้านอาหาร & คาเฟ่", "คลินิกการแพทย์", "อสังหาริมทรัพย์", "ธีม & ผู้ช่วย AI"];
 
 export default function LandingHome() {
   return (
@@ -285,20 +289,43 @@ export default function LandingHome() {
 
         <section id="solutions" className="lp-section">
           <header className="lp-head">
-            <span className="lp-kicker">MULTI-BUSINESS FRAMEWORK</span>
-            <h2>1 สมองกล หลายห้องแชท</h2>
-            <p>แต่ละแผนกมีกลุ่ม LINE และฟอร์มของตัวเอง ข้อมูลไม่ปนกัน</p>
+            <span className="lp-kicker">ALL-IN-ONE BUSINESS SYSTEM</span>
+            <h2>ซื้อแพ็กเกจเดียว ได้ใช้ทุกระบบหลัก</h2>
+            <p>เริ่มฟรีด้วยระบบบัญชีและการเงิน เมื่ออัปเกรดตั้งแต่ Starter ขึ้นไป ปลดล็อกระบบหลักของธุรกิจได้ทันที</p>
           </header>
+          <div className="lp-sys-free">
+            <span className="lp-ficon"><Wallet size={20} /></span>
+            <div>
+              <b>ระบบบัญชีและการเงิน</b>
+              <small>รายรับ ค่าใช้จ่าย ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ภาษี · ใช้ได้ทุกบริษัท</small>
+            </div>
+            <em>ฟรีตลอด</em>
+          </div>
           <div className="lp-depts">
             {departments.map((d) => (
-              <Link key={d.name} href={SIGNUP} className={"lp-dept " + d.tone}>
+              <a key={d.name} href="#pricing" className={"lp-dept " + d.tone}>
+                <span className="lp-unlock"><Lock size={12} /> ปลดล็อกเมื่อซื้อแพ็กเกจ</span>
                 <span className="lp-ficon"><d.icon size={20} /></span>
                 <h3>{d.name}</h3>
                 <p>{d.note}</p>
-                <b>{d.stat}</b>
-                <span className="lp-more">เริ่มใช้งาน <ArrowRight size={14} /></span>
-              </Link>
+                <span className="lp-more">ดูแพ็กเกจ <ArrowRight size={14} /></span>
+              </a>
             ))}
+          </div>
+          <div className="lp-shop">
+            <span className="lp-shop-icon"><Store size={26} /></span>
+            <div>
+              <h3>ระบบอื่นๆ ให้เหมาะกับธุรกิจของคุณ ใน App Shop</h3>
+              <p>เลือกเพิ่มระบบเฉพาะธุรกิจ ธีม และผู้ช่วย AI ได้ตามต้องการ</p>
+              <div className="lp-shop-tags">
+                {shopExamples.map((t) => (
+                  <span key={t}>{t}</span>
+                ))}
+              </div>
+            </div>
+            <Link href={SIGNUP} className="lp-btn primary">
+              ใช้งานฟรี แล้วเลือกใน App Shop <ArrowRight size={16} />
+            </Link>
           </div>
           <div className="lp-security">
             <ShieldCheck size={22} />

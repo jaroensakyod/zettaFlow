@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
-import { addons, freePlan, plans as billingPlans } from "@/lib/billing";
+import { freePlan, plans as billingPlans } from "@/lib/billing";
 
 // The packages from billing.ts, written as the poster lists them.
 const forWho: Record<string, string> = { starter: "ร้านค้า / ทีมเล็ก", growth: "SME ที่กำลังโต", business: "บริษัทหลายแผนก", enterprise: "องค์กร / หลายบริษัท" };
@@ -77,27 +77,6 @@ export function PricingCards() {
         ))}
       </div>
       <p className="lp-fine">ราคายังไม่รวม VAT 7% · ไม่ต้องใช้บัตรเครดิต · ยกเลิกได้ทุกเมื่อ · Setup &amp; Onboarding ครั้งเดียว ฿3,000–10,000</p>
-      <h3 className="lp-addon-title">Premium Add-ons</h3>
-      <div className="lp-addons">
-        {addons.map((a) => (
-          <article key={a.id}>
-            <div>
-              <h4>{a.name}</h4>
-              <p>{a.detail}</p>
-            </div>
-            <strong>
-              ฿{(yearly && a.id !== "extra_user" ? a.price * 10 : a.price).toLocaleString("th-TH")}
-              <span>/{yearly && a.id !== "extra_user" ? "ปี" : a.unit}</span>
-            </strong>
-          </article>
-        ))}
-      </div>
-      <div className="lp-overage">
-        <b>ใช้เกินโควตา ระบบไม่หยุด — คิดรอบถัดไป</b>
-        <span>เอกสารเพิ่ม ฿1/รายการ</span>
-        <span>AI อ่านรูป (OCR) ฿1.50/รูป</span>
-        <span>AI วิเคราะห์ PDF ฿2/ไฟล์ (สูงสุด 10 หน้า)</span>
-      </div>
       <p className="lp-fine">แพ็กเกจฟรีใช้ได้ตลอด ไม่ต้องใช้บัตรเครดิต · อัปเกรดเมื่อพร้อม ข้อมูลเดิมอยู่ครบ</p>
     </>
   );
