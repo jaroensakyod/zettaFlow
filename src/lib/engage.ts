@@ -50,7 +50,7 @@ type DemoEngage = {
 };
 const now = () => new Date().toISOString();
 const samplePromos = (): Promo[] => [
-  { id: "p1", title: "ทดลองฟรี 14 วัน พร้อม AI Add-on ครบทุกตัว", body: "เชื่อม LINE กลุ่มแรกได้ภายใน 5 นาที ไม่ต้องใช้บัตรเครดิต", cta_label: "เริ่มเลย", cta_url: "/feed", tone: "violet", active: true, starts_at: now(), ends_at: null, ordinal: 0 },
+  { id: "p1", title: "ใช้งานฟรีได้เลย LINE 1 กลุ่ม + ระบบบัญชีและการเงิน", body: "เชื่อม LINE กลุ่มแรกได้ภายใน 5 นาที ไม่ต้องใช้บัตรเครดิต", cta_label: "เริ่มเลย", cta_url: "/feed", tone: "violet", active: true, starts_at: now(), ends_at: null, ordinal: 0 },
   { id: "p2", title: "จ่ายรายปี ฟรี 2 เดือน", body: "รวม Add-on ที่เลือกด้วย", cta_label: "ดูราคา", cta_url: "/zetta#pricing", tone: "pink", active: true, starts_at: now(), ends_at: null, ordinal: 1 },
 ];
 const sampleAnnouncements = (): Announcement[] => [

@@ -2,12 +2,27 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
-import { addons, plans as billingPlans } from "@/lib/billing";
+import { addons, freePlan, plans as billingPlans } from "@/lib/billing";
 
 // The packages from billing.ts, written as the poster lists them.
 const forWho: Record<string, string> = { starter: "ร้านค้า / ทีมเล็ก", growth: "SME ที่กำลังโต", business: "บริษัทหลายแผนก", enterprise: "องค์กร / หลายบริษัท" };
 const num = (v: number | null, unit: string, none: string) => (v === null ? none : v.toLocaleString("th-TH") + unit);
-const plans = billingPlans.map((p) => ({
+const free = {
+  name: "Free",
+  for: "เริ่มต้นใช้งานได้เลย",
+  monthly: 0,
+  yearly: 0,
+  popular: false,
+  free: true,
+  rows: [
+    "LINE 1 กลุ่ม",
+    "ระบบบัญชีและการเงิน ครบทุกเมนู",
+    "AI ประมวลผล " + num(freePlan.documents, " รายการ/เดือน", "ไม่จำกัด"),
+    "ผู้ใช้ " + num(freePlan.users, " คน", "ไม่จำกัด"),
+    "ใช้ได้ตลอด ไม่มีวันหมดอายุ",
+  ],
+};
+const paid = billingPlans.map((p) => ({
   name: p.name,
   for: forWho[p.id] || "",
   monthly: p.monthly,
@@ -22,7 +37,9 @@ const plans = billingPlans.map((p) => ({
     "ปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลัง · HR",
     ...(p.id === "enterprise" ? ["บริการตั้งค่า + ซัพพอร์ต Exclusive"] : []),
   ],
+  free: false,
 }));
+const plans = [free, ...paid];
 
 export function PricingCards() {
   const [yearly, setYearly] = useState(false);
@@ -38,13 +55,13 @@ export function PricingCards() {
       </div>
       <div className="lp-plans">
         {plans.map((p) => (
-          <article key={p.name} className={p.popular ? "popular" : ""}>
+          <article key={p.name} className={p.popular ? "popular" : p.free ? "free" : ""}>
             {p.popular && <span className="lp-badge">ยอดนิยม</span>}
             <h3>{p.name}</h3>
             <p className="lp-muted">{p.for}</p>
             <div className="lp-price">
-              <strong>฿{(yearly ? p.yearly : p.monthly).toLocaleString("th-TH")}</strong>
-              <span>/{yearly ? "ปี" : "เดือน"}</span>
+              <strong>{p.free ? "ฟรี" : "฿" + (yearly ? p.yearly : p.monthly).toLocaleString("th-TH")}</strong>
+              <span>{p.free ? "ตลอดไป" : "/" + (yearly ? "ปี" : "เดือน")}</span>
             </div>
             <ul>
               {p.rows.map((r) => (
@@ -54,7 +71,7 @@ export function PricingCards() {
               ))}
             </ul>
             <Link href="/feed?signup=1" className={p.popular ? "lp-btn primary" : "lp-btn ghost"}>
-              ทดลองฟรี 14 วัน <ArrowRight size={16} />
+              {p.free ? "เริ่มใช้ฟรีเลย" : "เริ่มใช้งาน"} <ArrowRight size={16} />
             </Link>
           </article>
         ))}
@@ -81,7 +98,7 @@ export function PricingCards() {
         <span>AI อ่านรูป (OCR) ฿1.50/รูป</span>
         <span>AI วิเคราะห์ PDF ฿2/ไฟล์ (สูงสุด 10 หน้า)</span>
       </div>
-      <p className="lp-fine">ช่วงทดลอง 14 วันเปิด Add-on ด้าน AI ให้ลองครบ</p>
+      <p className="lp-fine">แพ็กเกจฟรีใช้ได้ตลอด ไม่ต้องใช้บัตรเครดิต · อัปเกรดเมื่อพร้อม ข้อมูลเดิมอยู่ครบ</p>
     </>
   );
 }

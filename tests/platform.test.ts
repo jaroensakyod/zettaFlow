@@ -48,8 +48,12 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
         [c],
       )
     ).u;
-    assert.equal(usage.subscription.status, "trial");
-    assert.equal(usage.subscription.plan, "growth");
+    // New companies start on Free (0060); this test then runs on a Growth trial as before.
+    assert.equal(usage.subscription.status, "active");
+    assert.equal(usage.subscription.plan, "free");
+    await login(null);
+    await db.query("update subscriptions set plan='growth',status='trial',trial_ends_at=now()+interval '14 days' where company_id=$1", [c]);
+    await login(owner, "owner@test.local");
     // choice fields need options
     await assert.rejects(
       db.query("select save_template($1,'X','Sales',$2,'[]')", [
@@ -95,16 +99,20 @@ test("subscriptions, quotas, choice widgets, share links, slips and LINE keyword
       ]),
       /โควตา|ช่วงทดลองใช้ได้สูงสุด 5/,
     );
-    // expired trial blocks new documents
+    // an expired trial falls back to Free: still works (Free allows 3 forms, these 5 stay)
     await login(null);
     await db.query(
       "update subscriptions set trial_ends_at=now()-interval '1 day' where company_id=$1",
       [c],
     );
     await login(owner, "owner@test.local");
+    await db.query("select submit_ingestion($1,$2,'ประเภทรถ: กระบะ')", [c, t]);
     await assert.rejects(
-      db.query("select submit_ingestion($1,$2,'ประเภทรถ: กระบะ')", [c, t]),
-      /หมดอายุ/,
+      db.query("select save_template($1,'T10','Sales',$2,'[]')", [
+        c,
+        JSON.stringify([{ key: "a", label: "A", type: "text", required: false }]),
+      ]),
+      /แพ็กเกจฟรีใช้ได้ 3 ฟอร์ม/,
     );
     await login(null);
     await db.query(

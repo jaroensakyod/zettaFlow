@@ -195,12 +195,12 @@ export default function LandingHome() {
             </p>
             <div className="lp-hero-actions">
               <Link href={SIGNUP} className="lp-btn primary">
-                เริ่มทดลองฟรี 14 วัน <ArrowRight size={18} />
+                ใช้งานฟรีได้เลย <ArrowRight size={18} />
               </Link>
               <a href="/demo" className="lp-btn ghost">ดูระบบตัวอย่าง</a>
             </div>
             <ul className="lp-proof">
-              <li><CircleCheck size={16} /> ไม่ต้องใช้บัตรเครดิต</li>
+              <li><CircleCheck size={16} /> ฟรีตลอด · LINE 1 กลุ่ม + บัญชีและการเงิน</li>
               <li><CircleCheck size={16} /> เชื่อม LINE ใน 5 นาที</li>
               <li><CircleCheck size={16} /> ข้อมูลแยกต่อบริษัท 100%</li>
             </ul>
@@ -302,7 +302,7 @@ export default function LandingHome() {
           <header className="lp-head">
             <span className="lp-kicker">PRICING</span>
             <h2>แพ็กเกจที่โตไปพร้อมธุรกิจ</h2>
-            <p>เริ่มฟรี 14 วัน อัปเกรดเมื่อพร้อม</p>
+            <p>ใช้งานฟรีได้เลย LINE 1 กลุ่ม + ระบบบัญชีและการเงิน · อัปเกรดเมื่อพร้อม</p>
           </header>
           <PricingCards />
           <p className="lp-fine">
@@ -317,9 +317,9 @@ export default function LandingHome() {
 
         <section className="lp-cta">
           <h2>พร้อมให้ AI ช่วยบริหารธุรกิจแล้วหรือยัง?</h2>
-          <p>ตั้งค่าเสร็จภายในวันเดียว ทีมเราช่วยออกแบบ Workflow ให้ฟรีในช่วงทดลอง</p>
+          <p>เริ่มใช้ฟรีวันนี้ LINE 1 กลุ่ม + ระบบบัญชีและการเงิน ไม่ต้องใช้บัตรเครดิต</p>
           <div className="lp-hero-actions center">
-            <Link href={SIGNUP} className="lp-btn primary">เริ่มทดลองฟรี <ArrowRight size={18} /></Link>
+            <Link href={SIGNUP} className="lp-btn primary">ใช้งานฟรีได้เลย <ArrowRight size={18} /></Link>
             <a href="tel:0960041231" className="lp-btn ghost">โทร 096-004-1231</a>
           </div>
         </section>

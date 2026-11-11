@@ -26,14 +26,17 @@ export const aiCost = (u: AiUsage) => {
   return Math.round((((u.input - cached) * p[0] + cached * p[0] * 0.1 + u.output * p[1]) / 1e6) * 1e6) / 1e6;
 };
 type TrialMeter = { used: number; limit: number | null };
-/** Free trial: stop before the call when the company has used its AI allowance. Paid plans are not limited here. */
+/** Trial or Free plan: stop before the call when the company has used its AI allowance. Paid plans are not limited here. */
 async function checkTrial(company: string, feature: string, hasFile: boolean) {
   const { data } = await supabaseAdmin().rpc("trial_usage", { c: company });
-  const t = data as Record<string, TrialMeter> | null;
+  const t = data as (Record<string, TrialMeter> & { kind?: string }) | null;
   if (!t) return;
   const over = (m?: TrialMeter) => !!m && m.limit !== null && m.used >= m.limit;
   if (over(t.ai_calls) || (hasFile && over(t.ai_files)) || (feature === "chat" && over(t.ai_chat)))
-    throw new AppError("ช่วงทดลองใช้ AI ครบโควตาแล้ว กรุณาเลือกแพ็กเกจเพื่อใช้งานต่อ", 402);
+    throw new AppError(
+      t.kind === "free" ? "AI ของแพ็กเกจฟรีเดือนนี้ครบโควตาแล้ว อัปเกรดแพ็กเกจเพื่อใช้งานต่อ" : "ช่วงทดลองใช้ AI ครบโควตาแล้ว กรุณาเลือกแพ็กเกจเพื่อใช้งานต่อ",
+      402,
+    );
 }
 function logUsage(company: string, feature: string, hasFile: boolean, u: AiUsage) {
   void supabaseAdmin()

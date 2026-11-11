@@ -33,6 +33,7 @@ test("financial center: budgets, targets and year-end closing are Finance-manage
     await login(owner);
     const c = await val<string>("select create_company('Finance Co')");
     await db.exec("reset role;");
+    await db.query("update subscriptions set plan='growth',status='active' where company_id=$1", [c]);
     for (const [id, role, depts] of [
       [manager, "manager", "{Finance}"],
       [staff, "staff", "{Finance}"],

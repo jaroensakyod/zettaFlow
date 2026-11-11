@@ -1,7 +1,9 @@
 // EliteFlow AI packages (poster, Nov 2026). Prices exclude VAT 7%; yearly = 10 months (2 months free).
 // Every company gets accounting and the free features; any paid package also unlocks marketing, sales, procurement,
 // warehouse and HR (see dept-menu.tsx). Mirrored in the plans table (0054_poster_plans.sql).
-export type PlanId = "starter" | "growth" | "business" | "enterprise";
+// Free (0060_free_plan.sql): every company, forever — 1 LINE group and บัญชีและการเงิน; a finished trial or a lapsed
+// paid plan falls back to it. It is not sold, so it is not in `plans` (the paid packages).
+export type PlanId = "free" | "starter" | "growth" | "business" | "enterprise";
 export type Plan = {
   id: PlanId;
   name: string;
@@ -25,6 +27,7 @@ export const plans: Plan[] = [
   // documents: fair use; overage billed beyond this
   { id: "enterprise", name: "Enterprise", monthly: 9990, yearly: 99900, workflows: null, documents: 25000, line_groups: null, users: null, voice_minutes: 900, storage_gb: 100, support: "บริการตั้งค่า + ซัพพอร์ต Exclusive", api: "Yes" },
 ];
+export const freePlan: Plan = { id: "free", name: "Free", monthly: 0, yearly: 0, workflows: 3, documents: 300, line_groups: 1, users: 3, voice_minutes: 0, storage_gb: 1, support: "อีเมล", api: "—" };
 export type AddonId = "ocr_plus" | "exec_dashboard" | "extra_user" | "erp" | "custom_workflow" | "custom_form";
 export const addons: { id: AddonId; name: string; price: number; unit: string; detail: string }[] = [
   { id: "ocr_plus", name: "AI OCR Plus", price: 599, unit: "เดือน", detail: "AI รุ่นแม่นยำสูงสำหรับใบกำกับภาษี ใบเสร็จ สัญญา และเอกสารค่าใช้จ่าย" },
@@ -38,6 +41,7 @@ export const addons: { id: AddonId; name: string; price: number; unit: string; d
 export function hasAddon(s: Pick<Subscription, "status" | "plan" | "addons"> | null | undefined, id: AddonId) {
   if (!s) return false;
   if (s.status === "trial") return true;
+  if (s.plan === "free") return false;
   if (s.plan === "enterprise" && (id === "ocr_plus" || id === "exec_dashboard")) return true;
   return s.addons.includes(id);
 }
@@ -70,6 +74,7 @@ export type Subscription = {
   extra_users: number;
 };
 export function planById(id: string) {
+  if (id === "free") return freePlan;
   return plans.find((p) => p.id === id) || plans[1];
 }
 /** Price of a plan for a billing cycle, including VAT, rounded to satang. */

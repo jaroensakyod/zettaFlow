@@ -38,7 +38,7 @@ export function LandingHeader({ home = true }: { home?: boolean }) {
           เข้าสู่ระบบ
         </Link>
         <Link href={SIGNUP} className="lp-btn primary sm">
-          ทดลองฟรี
+          ใช้ฟรี
         </Link>
       </div>
     </header>

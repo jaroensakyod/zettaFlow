@@ -301,6 +301,10 @@ test("a free trial stops at its ceilings; a paid plan does not", async () => {
   try {
     await login(owner, "owner@test.local");
     const c = (await one<{ id: string }>(db, "select create_company('Trial Co')as id")).id;
+    // New companies start on Free; this one is put on a Growth trial still running (as before 0060).
+    await db.exec("reset role;");
+    await db.query("update subscriptions set plan='growth',status='trial',trial_ends_at=now()+interval '14 days' where company_id=$1", [c]);
+    await login(owner, "owner@test.local");
     const fields = [{ key: "name", label: "ชื่อ", type: "text", required: true }];
     const t = (await one<{ id: string }>(db, "select (save_template($1,'งาน','Operations',$2,'[]')).id", [c, JSON.stringify(fields)])).id;
     await db.exec("reset role;");
@@ -320,6 +324,41 @@ test("a free trial stops at its ceilings; a paid plan does not", async () => {
     await login(owner, "owner@test.local");
     await db.query("select submit_ingestion($1,$2,'c')", [c, t]);
     assert.equal((await one<{ x: unknown }>(db, "select trial_usage($1)as x", [c])).x, null);
+  } finally {
+    await db.close();
+  }
+});
+
+test("Free plan: new companies start free forever; 1 LINE group, monthly items; an ended trial falls back to Free", async () => {
+  const { db, login } = await setup();
+  try {
+    await login(owner, "owner@test.local");
+    const c = (await one<{ id: string }>(db, "select create_company('Free Co')as id")).id;
+    const sum = (await one<{ u: { subscription: { plan: string; status: string }; plan: { id: string }; limits: { line_groups: number } } }>(db, "select usage_summary($1)as u", [c])).u;
+    assert.deepEqual([sum.subscription.plan, sum.subscription.status, sum.plan.id, sum.limits.line_groups], ["free", "active", "free", 1]);
+    const fields = [{ key: "name", label: "ชื่อ", type: "text", required: true }];
+    const t = (await one<{ id: string }>(db, "select (save_template($1,'งาน','Operations',$2,'[]')).id", [c, JSON.stringify(fields)])).id;
+    await db.exec("reset role;");
+    await db.query("insert into line_groups(group_id,company_id)values('Gf1',$1)", [c]);
+    await assert.rejects(db.query("insert into line_groups(group_id,company_id)values('Gf2',$1)", [c]), /แพ็กเกจฟรีใช้ได้ 1 กลุ่ม LINE/);
+    await db.query("update plans set documents=2 where id='free'");
+    await login(owner, "owner@test.local");
+    await db.query("select submit_ingestion($1,$2,'a')", [c, t]);
+    await db.query("select submit_ingestion($1,$2,'b')", [c, t]);
+    await assert.rejects(db.query("select submit_ingestion($1,$2,'c')", [c, t]), /แพ็กเกจฟรีใช้ได้ 2 รายการต่อเดือน/);
+    const meters = (await one<{ x: { kind: string; ai_calls: { limit: number } } }>(db, "select trial_usage($1)as x", [c])).x;
+    assert.equal(meters.kind, "free");
+    assert.equal(meters.ai_calls.limit, 300);
+    assert.equal((await one<{ h: boolean }>(db, "select has_addon($1,'exec_dashboard')as h", [c])).h, false);
+    // An ended Growth trial keeps working, on Free limits.
+    const d = (await one<{ id: string }>(db, "select create_company('Ended Co')as id")).id;
+    await db.exec("reset role;");
+    await db.query("update subscriptions set plan='growth',status='trial',trial_ends_at=now()-interval '1 day' where company_id=$1", [d]);
+    await login(owner, "owner@test.local");
+    const ended = (await one<{ u: { subscription: { plan: string; status: string; lapsed_plan: string }; active: boolean; limits: { line_groups: number } } }>(db, "select usage_summary($1)as u", [d])).u;
+    assert.deepEqual([ended.subscription.plan, ended.subscription.status, ended.subscription.lapsed_plan, ended.active, ended.limits.line_groups], ["free", "active", "growth", true, 1]);
+    const t2 = (await one<{ id: string }>(db, "select (save_template($1,'งาน','Operations',$2,'[]')).id", [d, JSON.stringify(fields)])).id;
+    await db.query("select submit_ingestion($1,$2,'still works')", [d, t2]);
   } finally {
     await db.close();
   }

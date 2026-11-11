@@ -1300,3 +1300,8 @@
   font-size: 12px;
   font-weight: 700;
 }
+/* Free plan card */
+.lp-plans article.free { background: linear-gradient(180deg, rgba(34, 197, 94, 0.14), rgba(34, 197, 94, 0.03)); border-color: rgba(74, 222, 128, 0.5); }
+.lp-plans article.free .lp-price strong { background: linear-gradient(100deg, #4ade80, #22d3ee); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* five packages (Free + 4) on one row on desktop */
+@media (min-width: 1100px) { .lp-plans { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; } .lp-plans article { padding: 24px 20px; } }

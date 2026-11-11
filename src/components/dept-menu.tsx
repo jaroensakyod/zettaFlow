@@ -77,7 +77,7 @@ export function DepartmentMegaMenu({
   const [paid, setPaid] = useState(false);
   useEffect(() => {
     api("/billing")
-      .then((b: { subscription?: Subscription }) => setPaid(!!b.subscription && b.subscription.status === "active" && subscriptionActive(b.subscription)))
+      .then((b: { subscription?: Subscription }) => setPaid(!!b.subscription && b.subscription.status === "active" && b.subscription.plan !== "free" && subscriptionActive(b.subscription)))
       .catch(() => setPaid(false));
   }, []);
   const locked = (id: string) => departmentLocked(id, paid);
