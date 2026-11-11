@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   Gem,
+  Gift,
   FileText,
   Filter,
   GitBranch,
@@ -82,7 +83,9 @@ const deptIcons: Record<string, typeof Users> = {
 };
 /** Name with role; a sample approver already carries its title in parentheses. */
 const approverText = (a: Approver) => (/\)$/.test(a.name) ? a.name : `${a.name} (${a.role === "owner" ? "เจ้าของ" : "ผู้จัดการ"})`);
-const tierIcons: Record<string, typeof Users> = { starter: Leaf, growth: Rocket, standard: Rocket, pro: Gem, enterprise: Building2 };
+const tierIcons: Record<string, typeof Users> = { free: Gift, starter: Leaf, growth: Rocket, business: Building2, enterprise: Gem };
+/** Same colours as the package cards on แพ็กเกจบริการ. */
+const tierTone: Record<string, string> = { free: "green", starter: "blue", growth: "violet", business: "orange", enterprise: "pink" };
 const roleLabel = (a: Approver) => (a.role === "owner" ? "เจ้าของ" : "ผู้จัดการ" + (a.departments.length ? " " + a.departments.map((d) => deptThai[d] || d).join(", ") : ""));
 
 /** "วันนี้ 14:32" / "เมื่อวาน 17:20" / "3 พ.ย. 09:10" in Bangkok time. */
@@ -278,7 +281,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
     <div className="lp-page">
       <div className="lp-top">
         <Hero action={sampleToggle} />
-        <section className="lp-pkg-card">
+        <section className={"lp-pkg-card tone-" + (tierTone[pkg?.planId || ""] || "violet")}>
           <h3>แพ็กเกจเชื่อมต่อ LINE</h3>
           {!pkg ? (
             <p className="lp-muted">กำลังโหลด…</p>
@@ -558,7 +561,7 @@ export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s:
                 {pkg.tiers.map((t, i) => {
                   const Icon = tierIcons[t.id] || [Leaf, Rocket, Gem, Building2][i] || Building2;
                   return (
-                    <li key={t.id} className={t.current ? "current" : ""}>
+                    <li key={t.id} className={"tone-" + (tierTone[t.id] || "violet") + (t.current ? " current" : "")}>
                       <i>
                         <Icon size={17} />
                       </i>

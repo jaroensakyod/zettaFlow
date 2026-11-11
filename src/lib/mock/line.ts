@@ -69,9 +69,10 @@ export const lineSeeds: Seed[] = [
 ];
 
 export const sampleTiers: PackageTier[] = [
-  { id: "starter", name: "Starter", range: "1 – 5 กลุ่ม", note: "สำหรับธุรกิจขนาดเล็ก", limit: 5, current: false },
-  { id: "standard", name: "Standard", range: "5 – 10 กลุ่ม", note: "สำหรับทีมที่มีหลายแผนก", limit: 10, current: true },
-  { id: "pro", name: "Pro", range: "10 – 20 กลุ่ม", note: "สำหรับองค์กรขนาดกลาง", limit: 20, current: false },
+  { id: "free", name: "Free", range: "1 กลุ่ม", note: "ใช้ฟรีตลอด · บัญชีและการเงิน", limit: 1, current: false },
+  { id: "starter", name: "Starter", range: "2 – 3 กลุ่ม", note: "สำหรับธุรกิจขนาดเล็ก", limit: 3, current: false },
+  { id: "growth", name: "Growth", range: "4 – 5 กลุ่ม", note: "สำหรับทีมที่มีหลายแผนก", limit: 5, current: false },
+  { id: "business", name: "Business", range: "6 – 10 กลุ่ม", note: "สำหรับบริษัทหลายแผนก หลายสาขา", limit: 10, current: true },
   { id: "enterprise", name: "Enterprise", range: "ไม่จำกัดกลุ่ม", note: "สำหรับองค์กรขนาดใหญ่ / เครือบริษัท", limit: null, current: false },
 ];
 
@@ -133,7 +134,7 @@ export function lineSample(now = Date.now()): LinePageData {
     stats: lineStats(groups, 0),
     linked: approvers,
     activity,
-    package: { planId: "standard", planName: "Standard", trial: false, limit: 10, used: groups.length, tiers: sampleTiers },
+    package: { planId: "business", planName: "Business", trial: false, limit: 10, used: groups.length, tiers: sampleTiers },
   };
 }
 

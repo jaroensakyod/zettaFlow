@@ -6,7 +6,7 @@
 import { assert } from "./domain";
 import { catalog } from "./catalog";
 import { deptThai } from "./line-message";
-import { plans as allPlans, type Plan } from "./billing";
+import { freePlan, plans as allPlans, type Plan } from "./billing";
 import type { Context } from "./types";
 
 export type GroupStatus = "connected" | "warn" | "problem" | "test";
@@ -203,8 +203,10 @@ export function buildActivity(groups: { group_id: string; title: string; created
 }
 
 const tierNotes: Record<string, string> = {
+  free: "ใช้ฟรีตลอด · บัญชีและการเงิน",
   starter: "สำหรับธุรกิจขนาดเล็ก",
   growth: "สำหรับทีมที่มีหลายแผนก",
+  business: "สำหรับบริษัทหลายแผนก หลายสาขา",
   enterprise: "สำหรับองค์กรขนาดใหญ่ / เครือบริษัท",
 };
 /** The billing plans as LINE packages: each plan's group range follows from the previous plan's ceiling. */
@@ -260,7 +262,7 @@ async function linePackage(ctx: Context): Promise<LinePackage> {
     // plan_limit(): a trial uses the trial ceiling, a paid plan its own (null = unlimited).
     limit: b?.limits && "line_groups" in b.limits ? (b.limits.line_groups ?? null) : (plan?.line_groups ?? null),
     used: Number(b?.usage?.line_groups || 0),
-    tiers: packageTiers(list, plan?.id || null),
+    tiers: packageTiers([freePlan, ...list.filter((p) => p.id !== "free")], plan?.id || null),
   };
 }
 

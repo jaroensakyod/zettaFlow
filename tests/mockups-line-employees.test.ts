@@ -51,17 +51,17 @@ test("LINE mockup: rows match the design", () => {
   assert.equal(lineSeeds.length, 7);
 });
 
-test("LINE mockup: Standard package 7 / 10, four tiers, four recent activities", () => {
+test("LINE mockup: Business package 7 / 10, the five real packages, four recent activities", () => {
   const d = lineSample(NOW);
   assert.equal(d.package.used, d.groups.length);
   assert.equal(d.package.limit, 10);
   assert.deepEqual(
     sampleTiers.map((t) => t.name),
-    ["Starter", "Standard", "Pro", "Enterprise"],
+    ["Free", "Starter", "Growth", "Business", "Enterprise"],
   );
   assert.deepEqual(
     d.package.tiers.filter((t) => t.current).map((t) => t.name),
-    ["Standard"],
+    ["Business"],
   );
   assert.ok(d.activity.length > 4); // so "ดูทั้งหมด" shows
   assert.deepEqual(
