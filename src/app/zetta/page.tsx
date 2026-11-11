@@ -28,6 +28,8 @@ import {
 import { PricingCards, Faq, PromoStrip } from "./landing-parts";
 import { Logo, LandingHeader, LandingFooter, SIGNUP } from "./landing-shell";
 import "./landing.css";
+import "./promo-video.css";
+import { PromoVideo } from "./promo-video";
 
 const thai = IBM_Plex_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "500", "600", "700"], variable: "--lp-thai" });
 const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["500", "700", "800"], variable: "--lp-display" });
@@ -216,6 +218,15 @@ export default function LandingHome() {
           {[["80%", "เวลาสรุปรายงานที่ลดลง"], ["0", "ฟอร์มที่พนักงานต้องกรอกซ้ำ"], ["24/7", "AI ทำงานในทุกกลุ่ม LINE"], ["1", "หน้าจอสำหรับทุกการตัดสินใจ"]].map(([n, l]) => (
             <div key={l}><b>{n}</b><span>{l}</span></div>
           ))}
+        </section>
+
+        <section id="video" className="lp-section">
+          <header className="lp-head">
+            <span className="lp-kicker">SEE IT IN ACTION</span>
+            <h2>สั่งงานใน LINE · AI ทำที่เหลือ · CEO เห็นทุกอย่างทันที</h2>
+            <p>พนักงานทำงานแบบเดิม AI ดึงข้อมูลเข้า Dashboard อัตโนมัติอย่างแม่นยำ ผู้บริหารเห็นแบบเรียลไทม์ในหน้าจอเดียว และอนุมัติเอกสารได้ทุกที่ ทุกเวลา</p>
+          </header>
+          <PromoVideo />
         </section>
 
         <section id="how" className="lp-section">

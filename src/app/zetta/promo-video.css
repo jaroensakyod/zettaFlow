@@ -1,0 +1,115 @@
+/* Promo clip section on the home page (src/app/zetta/promo-video.tsx): a 16:9 frame that holds the real clip, or
+   until then an animated four-scene stand-in. Scenes restart their animations each time they mount (key={scene}). */
+.pv-frame { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 1040px; margin: 0 auto; border-radius: 28px; overflow: hidden; background: #0a0a26; border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 40px 100px rgba(0, 0, 0, .5), 0 0 80px rgba(124, 92, 255, .25); }
+.pv-frame::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1.5px; background: linear-gradient(120deg, #7c5cff, #22d3ee, #e443d0, #7c5cff); background-size: 300% 100%; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: pvEdge 8s linear infinite; pointer-events: none; z-index: 3; }
+@keyframes pvEdge { to { background-position: 300% 0; } }
+.pv-frame iframe, .pv-frame video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; }
+.pv-standin { background: radial-gradient(ellipse at 30% 20%, rgba(124, 92, 255, .35), transparent 60%), radial-gradient(ellipse at 80% 90%, rgba(34, 211, 238, .2), transparent 55%), #0a0a26; }
+.pv-tag { position: absolute; top: 16px; left: 16px; z-index: 2; padding: 5px 12px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: #e9e6ff; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14); backdrop-filter: blur(6px); }
+.pv-stage { position: absolute; inset: 0 0 74px 42%; display: grid; place-items: center; padding: 30px; }
+.pv-caption { position: absolute; left: 0; top: 0; bottom: 74px; width: 42%; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 0 28px 0 48px; animation: pvRise .6s ease both; }
+.pv-step { align-self: flex-start; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 800; color: #67e8f9; background: rgba(34, 211, 238, .12); border: 1px solid rgba(34, 211, 238, .35); }
+.pv-caption h3 { margin: 0; font-size: clamp(22px, 2.6vw, 34px); line-height: 1.25; background: linear-gradient(100deg, #fff, #d8ccff 50%, #a5f3fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.pv-caption p { margin: 0; color: #b9b6dc; font-size: 15px; line-height: 1.7; }
+@keyframes pvRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* controls */
+.pv-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 74px; z-index: 2; display: flex; align-items: center; gap: 14px; padding: 0 20px; background: linear-gradient(0deg, rgba(5, 5, 20, .85), rgba(5, 5, 20, .4)); border-top: 1px solid rgba(255, 255, 255, .06); }
+.pv-play { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 0; color: #fff; background: linear-gradient(135deg, #7c5cff, #e443d0); box-shadow: 0 6px 18px rgba(124, 92, 255, .5); cursor: pointer; }
+.pv-chapters { flex: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pv-chapter { display: grid; gap: 7px; padding: 0; border: 0; background: none; color: #8f8bb8; text-align: left; cursor: pointer; font: inherit; }
+.pv-chapter > i { display: block; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, .14); position: relative; overflow: hidden; }
+.pv-chapter > i::after { content: ""; position: absolute; inset: 0; width: 0; background: linear-gradient(90deg, #7c5cff, #22d3ee); border-radius: inherit; }
+.pv-chapter.done > i::after { width: 100%; }
+.pv-chapter.on > i::after { width: 100%; }
+.pv-standin.run .pv-chapter.on > i::after { width: 0; animation: pvFill linear forwards; animation-duration: inherit; }
+.pv-chapter.on > i { animation-duration: inherit; }
+@keyframes pvFill { to { width: 100%; } }
+.pv-chapter span { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pv-chapter.on span { color: #fff; }
+.pv-chapter:hover span { color: #d8ccff; }
+
+/* shared phone */
+.pv-phone { width: min(300px, 80%); border-radius: 30px; padding: 14px; background: #f6f5fb; color: #1f1b33; box-shadow: 0 30px 60px rgba(0, 0, 0, .45), 0 0 0 8px #15132e; animation: pvRise .5s ease both; position: relative; }
+/* scene 1: LINE */
+.pv-line { background: #e7f6ec; }
+.pv-line-top { display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin: -2px -2px 12px; border-radius: 18px 18px 8px 8px; background: #06c755; color: #fff; font-size: 12px; font-weight: 700; }
+.pv-msg { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 10px; opacity: 0; animation: pvPop .45s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+.pv-msg.m1 { animation-delay: .4s; }
+.pv-msg.m2 { animation-delay: 1.3s; }
+.pv-msg.m3 { animation-delay: 2.4s; }
+.pv-msg > i { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-style: normal; font-size: 11px; font-weight: 800; color: #fff; background: #f472b6; }
+.pv-msg.bot > i { background: #7c5cff; }
+.pv-msg p { margin: 0; padding: 9px 12px; border-radius: 4px 14px 14px 14px; background: #fff; font-size: 12.5px; line-height: 1.5; box-shadow: 0 2px 6px rgba(0, 0, 0, .06); }
+.pv-msg.bot p { background: #ede9fe; color: #4c1d95; }
+.pv-receipt { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #dc2626; }
+@keyframes pvPop { from { opacity: 0; transform: translateY(10px) scale(.92); } to { opacity: 1; transform: none; } }
+/* scene 2: AI */
+.pv-ai { position: relative; display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 22px; width: 100%; max-width: 560px; }
+.pv-doc { position: relative; overflow: hidden; display: grid; gap: 7px; align-content: start; width: 110px; height: 140px; padding: 14px; border-radius: 12px; background: #fff; color: #dc2626; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); animation: pvRise .5s ease both; }
+.pv-doc span { height: 6px; border-radius: 4px; background: #e5e7eb; }
+.pv-doc span.short { width: 60%; }
+.pv-scan { position: absolute; left: 0; right: 0; height: 30px; top: -30px; background: linear-gradient(180deg, transparent, rgba(34, 211, 238, .55), transparent); animation: pvScan 1.4s ease-in-out infinite; }
+@keyframes pvScan { to { top: 100%; } }
+.pv-ai-core { display: grid; place-items: center; gap: 4px; width: 84px; height: 84px; border-radius: 50%; color: #fff; background: radial-gradient(circle at 35% 30%, #a78bfa, #6d28d9 70%); box-shadow: 0 0 40px rgba(139, 92, 246, .8); animation: pvCore 1.6s ease-in-out infinite; }
+.pv-ai-core small { font-size: 9.5px; font-weight: 700; margin-top: -10px; }
+@keyframes pvCore { 50% { transform: scale(1.08); box-shadow: 0 0 70px rgba(34, 211, 238, .8); } }
+.pv-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pv-fields li { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(167, 139, 250, .3); opacity: 0; animation: pvSlide .45s ease forwards; }
+.pv-fields small { color: #a5a2cf; font-size: 11.5px; }
+.pv-fields b { color: #fff; font-size: 13.5px; }
+.pv-fields svg { color: #4ade80; }
+@keyframes pvSlide { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+.pv-accuracy { position: absolute; right: 0; bottom: -40px; padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 800; color: #86efac; background: rgba(34, 197, 94, .12); border: 1px solid rgba(34, 197, 94, .4); opacity: 0; animation: pvRise .5s ease 2.6s forwards; }
+/* scene 3: dashboard */
+.pv-dash { width: 100%; max-width: 540px; padding: 18px; border-radius: 20px; background: #fbfaff; color: #1f1b33; box-shadow: 0 30px 60px rgba(0, 0, 0, .45); animation: pvRise .5s ease both; }
+.pv-dash-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.pv-live { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 800; color: #dc2626; background: #fee2e2; }
+.pv-live i { width: 7px; height: 7px; border-radius: 50%; background: #dc2626; animation: pvBlink 1s ease-in-out infinite; }
+@keyframes pvBlink { 50% { opacity: .2; } }
+.pv-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pv-kpis div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #f1edff; }
+.pv-kpis div.hot { background: #fff1f2; animation: pvHot 1.2s ease 1.8s 2; }
+.pv-kpis small { font-size: 11px; color: #6b6585; }
+.pv-kpis b { font-size: 20px; color: #4c1d95; }
+.pv-kpis div.hot b { color: #e11d48; }
+.pv-kpis em { font-style: normal; font-size: 11px; font-weight: 700; color: #16a34a; }
+.pv-kpis div.hot em { color: #e11d48; }
+@keyframes pvHot { 50% { box-shadow: 0 0 0 4px rgba(225, 29, 72, .25); } }
+.pv-chart { display: flex; align-items: flex-end; gap: 8px; height: 110px; margin: 14px 0 12px; padding: 8px; border-radius: 12px; background: linear-gradient(180deg, #f8f6ff, #fff); }
+.pv-chart i { flex: 1; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #8b5cf6, #22d3ee); transform-origin: bottom; transform: scaleY(0); animation: pvGrow .6s cubic-bezier(.2, 1.2, .4, 1) forwards; }
+@keyframes pvGrow { to { transform: scaleY(1); } }
+.pv-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; background: #ecfdf3; border: 1px solid #bbf7d0; opacity: 0; animation: pvSlide .5s ease 1.8s forwards; }
+.pv-row b { margin-left: auto; color: #15803d; }
+.pv-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, .2); }
+/* scene 4: approve */
+.pv-approve { display: grid; gap: 12px; }
+.pv-where { font-size: 11.5px; color: #6b6585; }
+.pv-card { display: grid; gap: 4px; padding: 14px; border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgba(0, 0, 0, .08); }
+.pv-card small { font-size: 11px; color: #7c3aed; font-weight: 700; }
+.pv-card b { font-size: 15px; }
+.pv-card > span { font-size: 12.5px; color: #6b6585; }
+.pv-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 8px; }
+.pv-actions span { display: flex; align-items: center; justify-content: center; gap: 4px; height: 38px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+.pv-reject { color: #6b6585; background: #f1f0f5; }
+.pv-ok { color: #fff; background: linear-gradient(135deg, #16a34a, #22c55e); animation: pvPress .3s ease 1.6s; }
+@keyframes pvPress { 50% { transform: scale(.92); } }
+.pv-done { display: grid; justify-items: center; gap: 2px; padding: 14px; border-radius: 16px; color: #15803d; background: #dcfce7; opacity: 0; transform: scale(.8); animation: pvDone .5s cubic-bezier(.2, 1.5, .4, 1) 1.9s forwards; }
+.pv-done svg { padding: 4px; width: 32px; height: 32px; border-radius: 50%; color: #fff; background: #16a34a; }
+.pv-done small { color: #166534; font-size: 11.5px; }
+@keyframes pvDone { to { opacity: 1; transform: none; } }
+.pv-tap { position: absolute; right: 58px; top: 150px; width: 34px; height: 34px; border-radius: 50%; background: rgba(124, 92, 255, .35); border: 2px solid rgba(255, 255, 255, .8); opacity: 0; animation: pvTap 1s ease 1.1s forwards; }
+@keyframes pvTap { 0% { opacity: 0; transform: translate(30px, 40px) scale(1); } 60% { opacity: 1; transform: none; } 80% { transform: scale(.75); } 100% { opacity: 0; transform: scale(1.4); } }
+
+@media (max-width: 860px) {
+  .pv-frame { aspect-ratio: auto; height: 640px; border-radius: 22px; }
+  .pv-caption { position: absolute; width: auto; left: 0; right: 0; top: 58px; bottom: auto; padding: 0 22px; gap: 6px; }
+  .pv-caption p { font-size: 13.5px; }
+  .pv-stage { inset: 222px 0 74px 0; padding: 16px; }
+  .pv-ai { grid-template-columns: auto 1fr; }
+  .pv-ai-core { display: none; }
+  .pv-chapter span { display: none; }
+  .pv-kpis b { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-standin *, .pv-standin *::before, .pv-standin *::after, .pv-frame::before { animation-duration: .01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
+}
