@@ -217,10 +217,14 @@ export function EmployeesPage({
   return (
     <div className="ep">
       <div className="ep-head">
-        <div>
-          <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
-          <h1>พนักงาน</h1>
-          <p>จัดการข้อมูลพนักงาน ประเมินผลงาน และติดตามประสิทธิภาพทีม</p>
+        <div className="ep-title">
+          <span className="ep-title-icon">
+            <Users size={22} />
+          </span>
+          <div>
+            <h1>พนักงาน</h1>
+            <p>จัดการข้อมูลพนักงาน ประเมินผลงาน และติดตามประสิทธิภาพทีม</p>
+          </div>
         </div>
         <div className="ep-actions">
           <span className="date-chip">

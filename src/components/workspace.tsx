@@ -444,8 +444,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       setPreferredDept(sessionStorage.getItem(DEPT_KEY));
     } catch {}
   }, [fullView]);
-  // Pages opened from the top bar as a whole: the company profile, ลูกค้า and Supplier — no department sidebar.
-  const sideDept = ["company", "profile", "customers", "suppliers"].includes(view) ? undefined : departmentOf(fullView, preferredDept);
+  // Pages opened from the top bar as a whole: the company profile, ลูกค้า, Supplier and พนักงาน — no department sidebar.
+  const sideDept = ["company", "profile", "customers", "suppliers", "employees"].includes(view) ? undefined : departmentOf(fullView, preferredDept);
   const navKey = view === "profile" ? "feed" : view;
   // Menu links like "content?channel=social" or "leaves?status=pending" narrow a record list.
   const listFilter = (() => {
