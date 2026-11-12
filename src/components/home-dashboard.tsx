@@ -14,7 +14,6 @@ import {
   ClipboardCheck,
   Clock,
   Coins,
-  TrendingUp,
   Droplet,
   Ellipsis,
   FileText,
@@ -1234,8 +1233,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
       max: niceMax(Math.max(0, ...groups.flatMap((g) => [g.sales, g.cost, g.future ? Math.max(g.fSales, g.fCost) : 0]))),
     };
   }, [home, period, project, mode, today]);
-  const signed = (n: number) => (n < 0 ? "-฿" : "+฿") + money(Math.abs(Math.round(n))),
-    periodWord = { day: "14 วันนี้", week: "สัปดาห์นี้", month: "เดือนนี้", year: "ปีนี้" }[period];
+  const signed = (n: number) => (n < 0 ? "-฿" : "+฿") + money(Math.abs(Math.round(n)));
   return (
     <section className="hd-card hd-sales">
       <div className="hd-head">
@@ -1285,27 +1283,6 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
           ))}
         </div>
       </div>
-      <div className="hd-sum">
-        {(
-          [
-            ["sales", "ยอดขาย", view.total.sales, view.forecast?.sales],
-            ["cost", "ต้นทุน + ค่าใช้จ่าย", view.total.cost, view.forecast?.cost],
-            [view.total.profit < 0 ? "loss" : "profit", view.total.profit < 0 ? "ขาดทุน" : "กำไร", view.total.profit, view.forecast?.profit],
-          ] as [string, string, number, number | undefined][]
-        ).map(([key, label, value, fc]) => (
-          <div key={key} className={"hd-sum-tile " + key}>
-            <span>
-              {label} <small>{periodWord}</small>
-            </span>
-            <b>{key === "sales" || key === "cost" ? "฿" + money(Math.round(value)) : signed(value)}</b>
-            {fc !== undefined && (
-              <small className={"hd-sum-fc" + (key !== "sales" && key !== "cost" && fc < 0 ? " neg" : "")}>
-                <TrendingUp size={12} /> คาดการณ์ {key === "sales" || key === "cost" ? "฿" + money(Math.round(fc)) : signed(fc)}
-              </small>
-            )}
-          </div>
-        ))}
-      </div>
       <div className={"hd-chart" + (view.empty ? " empty" : "")}>
         {view.empty && <p className="hd-chart-empty">ยังไม่มียอดขายหรือค่าใช้จ่ายที่ยืนยันในช่วงนี้</p>}
         <div className="hd-axis">
@@ -1314,7 +1291,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
           <span>0</span>
         </div>
         <div className="hd-bars">
-          {view.groups.map((g) => {
+          {view.groups.map((g, n) => {
             // One bar per period: expenses (orange) topped by profit (green) up to the sales line, or by the loss (red) above it.
             const fc = g.future,
               sales = fc ? g.fSales : g.sales,
@@ -1322,9 +1299,30 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
               top = Math.max(sales, cost),
               pct = (n: number) => (n / view.max) * 100 + "%",
               profit = sales - cost,
-              tip = `${g.label}${fc ? " (คาดการณ์)" : ""}\nยอดขาย ฿${money(Math.round(sales))}\nต้นทุน + ค่าใช้จ่าย ฿${money(Math.round(cost))}\n${profit < 0 ? "ขาดทุน" : "กำไร"} ${signed(profit)}`;
+              edge = n >= view.groups.length / 2 ? " right" : " left";
             return (
-              <div className={"hd-group" + (fc ? " forecast" : "")} key={g.from} title={tip}>
+              <div className={"hd-group" + (fc ? " forecast" : "")} key={g.from} tabIndex={0}>
+                {(sales > 0 || cost > 0) && (
+                  <div className={"hd-tip" + edge} role="tooltip">
+                    <b className="hd-tip-head">
+                      {g.from === g.to ? thai(g.from, { day: "numeric", month: "short", year: "numeric" }) : g.label}
+                      {fc && <em>คาดการณ์</em>}
+                    </b>
+                    <span className="sales">
+                      <i />
+                      ยอดขาย<b>฿{money(Math.round(sales))}</b>
+                    </span>
+                    <span className="cost">
+                      <i />
+                      ต้นทุน + ค่าใช้จ่าย<b>฿{money(Math.round(cost))}</b>
+                    </span>
+                    <span className={profit < 0 ? "loss" : "profit"}>
+                      <i />
+                      {profit < 0 ? "ขาดทุน" : "กำไร"}
+                      <b>{signed(profit)}</b>
+                    </span>
+                  </div>
+                )}
                 <div className="hd-stack-wrap">
                   {top > 0 && (
                     <span className={"hd-stack-val " + (profit < 0 ? "neg" : "pos")} style={{ bottom: pct(top) }}>

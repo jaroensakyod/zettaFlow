@@ -1519,3 +1519,25 @@
 .hd-legend .loss { background: #f43f5e; }
 .hd-legend .fc { background: repeating-linear-gradient(135deg, #c7c2e6 0 3px, #fff 3px 5px); outline: 1px dashed #8b85c9; }
 @media (max-width: 600px) { .hd-sum { grid-template-columns: 1fr; } }
+
+/* bar hover card (sales overview) */
+.hd-group { position: relative; outline: none; }
+.hd-tip { position: absolute; bottom: calc(100% - 30px); left: 50%; z-index: 5; width: max-content; min-width: 190px; display: grid; gap: 4px; padding: 10px 12px; border-radius: 14px; background: var(--th-surface, #fff); border: 1px solid var(--th-line, #ece9f5); box-shadow: 0 14px 34px rgba(40, 25, 110, .2); opacity: 0; visibility: hidden; transform: translate(-50%, 6px); transition: opacity .15s, transform .15s, visibility .15s; pointer-events: none; }
+.hd-tip.left { left: 0; transform: translate(0, 6px); }
+.hd-tip.right { left: auto; right: 0; transform: translate(0, 6px); }
+.hd-group:hover .hd-tip, .hd-group:focus-visible .hd-tip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.hd-group:hover .hd-tip.left, .hd-group:focus-visible .hd-tip.left, .hd-group:hover .hd-tip.right, .hd-group:focus-visible .hd-tip.right { transform: translate(0, 0); }
+.hd-tip-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 12.5px; font-weight: 800; color: var(--th-ink-2, #2c2550); }
+.hd-tip-head em { padding: 1px 7px; border-radius: 99px; font-size: 10.5px; font-style: normal; font-weight: 700; color: #4f46e5; background: #eef2ff; }
+.hd-tip span { --c: #3b82f6; display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 9px; font-size: 12px; font-weight: 700; color: var(--th-ink-2, #4b4868); background: color-mix(in srgb, var(--c) 9%, transparent); }
+.hd-tip span i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.hd-tip span b { font-size: 13px; font-weight: 800; color: color-mix(in srgb, var(--c) 82%, #111); font-variant-numeric: tabular-nums; }
+.hd-tip .cost { --c: #f97316; }
+.hd-tip .profit { --c: #16a34a; }
+.hd-tip .loss { --c: #e11d48; }
+.hd-group:hover .hd-stack { filter: brightness(1.08); }
+/* hover card sits beside the bar, inside the chart (never over the controls) */
+.hd-tip, .hd-tip.left, .hd-tip.right { bottom: auto; top: 0; transform: translate(0, 4px); }
+.hd-tip.left { left: calc(50% + 16px); right: auto; }
+.hd-tip.right { right: calc(50% + 16px); left: auto; }
+.hd-group:hover .hd-tip, .hd-group:focus-visible .hd-tip, .hd-group:hover .hd-tip.left, .hd-group:focus-visible .hd-tip.left, .hd-group:hover .hd-tip.right, .hd-group:focus-visible .hd-tip.right { transform: translate(0, 0); }
