@@ -14,7 +14,9 @@ export type Field = {
     | "url"
     | "relation"
     | "image"
-    | "lines";
+    | "lines"
+    /** People taking part: [{kind: employees|customers|suppliers, id, name}]. */
+    | "people";
   required?: boolean;
   options?: string[];
   resource?: string;
@@ -337,6 +339,11 @@ export const modules: Module[] = [
       f("owner", "ผู้รับผิดชอบ"),
       status(["planning", "confirmed", "running", "completed", "cancelled"]),
       f("notes", "รายละเอียด", "textarea"),
+      // Set by the เพิ่มกิจกรรม pop-up on ภาพรวม (event-modal.tsx).
+      f("category", "ประเภทกิจกรรม", "select", false, { options: ["ประชุม", "นัดลูกค้า", "อีเวนต์", "งานนอกสถานที่", "อื่นๆ"], hidden: true }),
+      f("startTime", "เวลาเริ่ม", "text", false, { hidden: true }),
+      f("endTime", "เวลาสิ้นสุด", "text", false, { hidden: true }),
+      f("participants", "ผู้เข้าร่วม", "people", false, { hidden: true }),
     ],
   },
   {

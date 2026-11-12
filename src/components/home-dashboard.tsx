@@ -53,6 +53,7 @@ import type { HomeExtra, NoteItem, UserNote, WorkItem, Activity } from "@/lib/ho
 import { api, money, Loading, Modal } from "./shared";
 import { WidgetBoard } from "./platform";
 import { HelloAd } from "./hello-ad";
+import { EventModal } from "./event-modal";
 import { homeSample, homeIsEmpty } from "@/lib/mock/home";
 import { isCostCategory } from "@/lib/expense-categories";
 
@@ -825,83 +826,6 @@ function CalendarCard({
     </section>
   );
 }
-function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: string; onClose: () => void; onSaved: () => void }) {
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  async function save(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget),
-      get = (k: string) => String(form.get(k) || "").trim(),
-      start = get("startDate"),
-      end = get("endDate");
-    setBusy(true);
-    setError("");
-    try {
-      await api("/entities/events", {
-        method: "POST",
-        body: {
-          data: {
-            name: get("name"),
-            startDate: start,
-            endDate: end && end >= start ? end : start,
-            location: get("location") || undefined,
-            notes: get("notes") || undefined,
-            owner: ctx.user.name,
-            status: "planning",
-          },
-        },
-      });
-      onSaved();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal title="เพิ่มกิจกรรม" onClose={onClose}>
-      <form onSubmit={save}>
-        <fieldset disabled={busy}>
-          <div className="form-grid">
-            <label className="wide">
-              ชื่อกิจกรรม
-              <input name="name" required maxLength={200} autoFocus placeholder="เช่น ประชุมทีมการตลาด" />
-            </label>
-            <label>
-              วันเริ่ม
-              <input name="startDate" type="date" required defaultValue={day} />
-            </label>
-            <label>
-              วันสิ้นสุด
-              <input name="endDate" type="date" defaultValue={day} />
-            </label>
-            <label className="wide">
-              สถานที่
-              <input name="location" maxLength={200} />
-            </label>
-            <label className="wide">
-              รายละเอียด
-              <textarea name="notes" rows={3} maxLength={2000} />
-            </label>
-          </div>
-        </fieldset>
-        <p role="alert" className="form-error">
-          {error}
-        </p>
-        <div className="modal-footer">
-          <button type="button" className="secondary" onClick={onClose}>
-            ยกเลิก
-          </button>
-          <button className="primary" disabled={busy}>
-            <Check size={15} />
-            {busy ? "กำลังบันทึก…" : "บันทึกกิจกรรม"}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
 /* ---------- diary ---------- */
 function Notebook() {
   return (

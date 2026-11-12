@@ -1547,3 +1547,80 @@
 .hd-chart.dense .hd-stack { width: min(16px, 72%); border-radius: 4px 4px 1px 1px; }
 .hd-chart.dense .hd-stack-val { display: none; }
 .hd-chart.dense .hd-group small { font-size: 9.5px; letter-spacing: -.02em; }
+
+/* ---- เพิ่มกิจกรรม pop-up (event-modal.tsx) ---- */
+.modal.ev-modal { width: min(680px, calc(100vw - 24px)); padding: 0; overflow: hidden; border-radius: 22px; }
+.ev-modal .modal-heading { margin: 0; padding: 18px 22px; color: #fff; background: linear-gradient(125deg, #7c3aed, #4f46e5 55%, #0ea5e9); }
+.ev-modal .modal-heading h2 { color: #fff; font-size: 19px; }
+.ev-modal .modal-heading .icon-button { color: #fff; background: rgba(255, 255, 255, .18); border-radius: 50%; }
+.ev-modal form { display: flex; flex-direction: column; max-height: calc(100dvh - 140px); }
+.ev-body { display: grid; gap: 14px; margin: 0; padding: 18px 22px 6px; border: 0; min-width: 0; overflow-y: auto; }
+.ev-name { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #e7e4f0; font: inherit; font-size: 17px; font-weight: 700; background: #faf9ff; }
+.ev-name:focus { outline: none; border-color: var(--ev); background: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ev) 15%, transparent); }
+.ev-types { display: flex; flex-wrap: wrap; gap: 7px; }
+.ev-type { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px; border-radius: 99px; border: 1.5px solid color-mix(in srgb, var(--c) 30%, transparent); font-size: 13px; font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 8%, #fff); cursor: pointer; transition: all .15s; }
+.ev-type:hover { background: color-mix(in srgb, var(--c) 15%, #fff); }
+.ev-type.on { color: #fff; border-color: transparent; background: var(--c); box-shadow: 0 6px 14px color-mix(in srgb, var(--c) 35%, transparent); }
+.ev-sec { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: #f8f7fd; border: 1px solid #eeebf7; min-width: 0; }
+.ev-sec h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13.5px; font-weight: 800; color: #2c2550; }
+.ev-sec h3 > svg { color: var(--ev); }
+.ev-sec h3 small { font-weight: 600; color: var(--muted); font-size: 11.5px; }
+.ev-switch { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #4b4868; cursor: pointer; }
+.ev-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.ev-switch span { position: relative; width: 34px; height: 20px; border-radius: 99px; background: #d6d2e6; transition: background .15s; }
+.ev-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); transition: transform .15s; }
+.ev-switch input:checked + span { background: var(--ev); }
+.ev-switch input:checked + span::after { transform: translateX(14px); }
+.ev-switch input:focus-visible + span { outline: 2px solid var(--ev); outline-offset: 2px; }
+.ev-when { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.ev-when label { display: grid; gap: 3px; min-width: 0; }
+.ev-when small { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.ev-modal input[type="date"], .ev-modal input[type="time"], .ev-field input, .ev-field textarea, .ev-search input { width: 100%; min-width: 0; padding: 9px 11px; border-radius: 11px; border: 1px solid #e3dff0; background: #fff; font: inherit; font-size: 13.5px; }
+.ev-modal input:focus, .ev-modal textarea:focus { outline: none; border-color: var(--ev); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev) 15%, transparent); }
+.ev-combo { position: relative; }
+.ev-search { position: relative; display: block; }
+.ev-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.ev-search input { padding-left: 34px; }
+.ev-drop { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; display: grid; max-height: 200px; overflow-y: auto; padding: 5px; border-radius: 12px; background: #fff; border: 1px solid #e7e4f0; box-shadow: 0 14px 30px rgba(40, 25, 110, .16); }
+.ev-drop button { display: flex; align-items: center; gap: 8px; justify-content: flex-start; padding: 8px 10px; border: 0; border-radius: 8px; background: none; font-size: 13px; font-weight: 600; color: #2c2550; text-align: left; cursor: pointer; }
+.ev-drop button:hover { background: #f3effd; }
+.ev-drop button svg { color: #7c3aed; flex: none; }
+.ev-project { display: inline-flex; align-items: center; gap: 7px; width: fit-content; max-width: 100%; padding: 6px 8px 6px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; color: #5b21b6; background: #ede9fe; }
+.ev-project button, .ev-chip button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; color: inherit; background: rgba(255, 255, 255, .7); cursor: pointer; }
+.ev-count { min-width: 20px; height: 20px; padding: 0 6px; display: inline-grid; place-items: center; border-radius: 99px; font-size: 11px; color: #fff; background: var(--ev); }
+.ev-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ev-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px 4px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 700; color: color-mix(in srgb, var(--c) 85%, #111); background: color-mix(in srgb, var(--c) 13%, #fff); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); }
+.ev-people { display: grid; gap: 7px; }
+.ev-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
+.ev-tabs button { height: 28px; padding: 0 11px; border-radius: 99px; border: 0; font-size: 12px; font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 10%, #fff); cursor: pointer; }
+.ev-tabs button.on { color: #fff; background: var(--c); }
+.ev-list { display: grid; gap: 4px; max-height: 190px; overflow-y: auto; padding: 2px; }
+.ev-person { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 11px; border: 1px solid transparent; background: #fff; text-align: left; cursor: pointer; transition: background .12s, border-color .12s; }
+.ev-person:hover { border-color: color-mix(in srgb, var(--c) 30%, transparent); }
+.ev-person i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-style: normal; font-size: 13px; font-weight: 800; color: #fff; background: var(--c); }
+.ev-person span { display: grid; min-width: 0; }
+.ev-person b { font-size: 13px; color: #2c2550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-person small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-person em { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-style: normal; font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
+.ev-person.on { background: color-mix(in srgb, var(--c) 10%, #fff); border-color: color-mix(in srgb, var(--c) 40%, transparent); }
+.ev-hint { display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 10px; font-size: 12.5px; color: var(--muted); }
+.ev-two { grid-template-columns: 1fr 1fr; }
+.ev-field { display: grid; gap: 4px; min-width: 0; }
+.ev-field span { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 800; color: #2c2550; }
+.ev-field span svg { color: var(--ev); }
+.ev-field textarea { resize: vertical; min-height: 40px; }
+.ev-modal .form-error { margin: 6px 22px 0; }
+.ev-foot { margin: 0; padding: 12px 22px; border-top: 1px solid #eeebf7; background: #fff; }
+.ev-summary { margin-right: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--ev); }
+.ev-save { background: linear-gradient(120deg, var(--ev), #4f46e5) !important; border: 0 !important; box-shadow: 0 8px 18px color-mix(in srgb, var(--ev) 30%, transparent); }
+@media (max-width: 600px) { .ev-two { grid-template-columns: 1fr; } .ev-body { padding: 14px; } .ev-foot { padding: 10px 14px; } }
+/* the pop-up itself never scrolls: header and buttons stay, the middle scrolls */
+.modal.ev-modal[open] { display: flex; flex-direction: column; max-height: min(92vh, 900px); overflow: hidden; }
+.ev-modal .modal-heading { flex: none; }
+.ev-modal form { flex: 1 1 auto; min-height: 0; max-height: none; }
+.ev-body { flex: 1 1 auto; min-height: 0; }
+.ev-foot { flex: none; }
+.ev-modal form { overflow: hidden; }
+.ev-fs { flex: 1 1 auto; min-height: 0; min-inline-size: 0; display: flex; flex-direction: column; margin: 0; padding: 0; border: 0; }
+.ev-body { overflow-y: auto; overscroll-behavior: contain; }
+.ev-fs { display: contents; }

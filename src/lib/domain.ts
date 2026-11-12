@@ -49,6 +49,16 @@ function fieldSchema(f: Field) {
   if (f.type === "relation") return z.uuid();
   // An uploaded image is stored as its attachment id.
   if (f.type === "image") return z.uuid();
+  if (f.type === "people")
+    return z
+      .array(
+        z.object({
+          kind: z.enum(["employees", "customers", "suppliers"]),
+          id: z.uuid(),
+          name: z.string().trim().min(1).max(200),
+        }),
+      )
+      .max(100);
   if (f.type === "lines")
     return z
       .array(
@@ -92,6 +102,8 @@ export function validateEntity(kind: string, input: unknown) {
         .join(" · "),
     );
   const data = result.data as Record<string, unknown>;
+  for (const k of ["startTime", "endTime"])
+    if (kind === "events" && data[k]) assert(/^([01]\d|2[0-3]):[0-5]\d$/.test(String(data[k])), "เวลาไม่ถูกต้อง (ชั่วโมง:นาที)");
   if (data.startDate && data.endDate)
     assert(
       String(data.endDate) >= String(data.startDate),
