@@ -52,6 +52,7 @@ import type { Context, Entity, HomeData } from "@/lib/types";
 import type { HomeExtra, NoteItem, UserNote, WorkItem, Activity } from "@/lib/home-extra";
 import { api, money, Loading, Modal } from "./shared";
 import { WidgetBoard } from "./platform";
+import { HelloAd } from "./hello-ad";
 import { homeSample, homeIsEmpty } from "@/lib/mock/home";
 import { isCostCategory } from "@/lib/expense-categories";
 
@@ -244,6 +245,7 @@ export function HomeDashboard({
           name={firstName}
           today={today}
           avatar={sample ? null : extra?.avatar || null}
+          ad={<HelloAd demo={!!ctx.demo} />}
           action={
             ctx.demo && <button className={"hd-sample-toggle" + (sample ? " on" : "")} aria-pressed={sample} onClick={() => setSampleMode(sample ? "off" : "on")}>
               {sample ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -319,7 +321,7 @@ export function HomeDashboard({
 }
 
 /* ---------- greeting ---------- */
-function Hello({ name, today, avatar, action }: { name: string; today: string; avatar: string | null; action?: React.ReactNode }) {
+function Hello({ name, today, avatar, action, ad }: { name: string; today: string; avatar: string | null; action?: React.ReactNode; ad?: React.ReactNode }) {
   const quote = quotes[Math.floor(Date.parse(today) / 864e5) % quotes.length];
   return (
     <section className="hd-card hd-hello">
@@ -357,6 +359,7 @@ function Hello({ name, today, avatar, action }: { name: string; today: string; a
         <p className="hd-hello-quote">“{quote}”</p>
         {action && <div className="hd-hello-actions">{action}<SampleBadge /></div>}
       </div>
+      {ad}
     </section>
   );
 }

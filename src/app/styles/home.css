@@ -1399,3 +1399,35 @@
 .hd-agenda-title { flex: 1; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.45; }
 .hd-add { min-width: 0; }
 .hd-period button { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* sponsored card popping up over the greeting (hello-ad.tsx); closing hides it for 15 minutes */
+.hd-hello { position: relative; overflow: hidden; }
+.hd-hello-ad { --a: #7c3aed; --b: #4f46e5; --c: #ec4899; position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; color: #fff; border-radius: inherit; background: linear-gradient(135deg, var(--a), var(--b) 60%, var(--c)); animation: hd-ad-in .45s cubic-bezier(.2, .9, .3, 1.15); overflow: hidden; }
+.hd-hello-ad.pink { --a: #db2777; --b: #c026d3; --c: #f97316; }
+.hd-hello-ad.blue { --a: #2563eb; --b: #0891b2; --c: #6366f1; }
+.hd-hello-ad.green { --a: #059669; --b: #0d9488; --c: #84cc16; }
+.hd-hello-ad > :not(.hd-hello-ad-glow) { position: relative; }
+.hd-hello-ad-glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 100% 0, rgba(255, 255, 255, .28), transparent 45%), radial-gradient(circle at 0 110%, rgba(255, 255, 255, .18), transparent 45%); }
+.hd-hello-ad-x { position: absolute !important; top: 10px; right: 10px; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .22); cursor: pointer; transition: background .15s, transform .15s; }
+.hd-hello-ad-x:hover { background: rgba(255, 255, 255, .38); transform: rotate(90deg); }
+.hd-hello-ad-tag { display: inline-flex; align-items: center; gap: 5px; width: fit-content; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, .2); }
+.hd-hello-ad-who { display: flex; align-items: center; gap: 8px; margin-top: 2px; padding-right: 34px; }
+.hd-hello-ad-who img, .hd-hello-ad-who i { flex: none; width: 30px; height: 30px; border-radius: 9px; object-fit: cover; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 800; color: var(--a); background: #fff; }
+.hd-hello-ad-who span { display: grid; min-width: 0; }
+.hd-hello-ad-who b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hd-hello-ad-who small { font-size: 11px; opacity: .85; }
+.hd-hello-ad strong { font-size: 16px; line-height: 1.35; padding-right: 34px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hd-hello-ad p { margin: 0; font-size: 12.5px; line-height: 1.5; opacity: .92; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hd-hello-ad-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hd-hello-ad-cta { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 16px; border-radius: 99px; font-size: 13px; font-weight: 800; color: var(--a); background: #fff; text-decoration: none; box-shadow: 0 6px 16px rgba(0, 0, 0, .15); transition: transform .15s; }
+.hd-hello-ad-cta:hover { transform: translateY(-1px); }
+.hd-hello-ad-dots { display: flex; gap: 5px; margin-left: auto; }
+.hd-hello-ad-dots i { width: 6px; height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .45); transition: width .2s; }
+.hd-hello-ad-dots i.on { width: 16px; background: #fff; }
+@keyframes hd-ad-in { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+.hd-hello-ad-head { flex: none; display: flex; align-items: center; gap: 8px; min-width: 0; padding-right: 36px; }
+.hd-hello-ad-head .hd-hello-ad-who { flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; }
+.hd-hello-ad-head .hd-hello-ad-tag { flex: none; }
+.hd-hello-ad strong { flex: none; }
+.hd-hello-ad p { flex: 0 1 auto; min-height: 0; }
+.hd-hello-ad-foot { flex: none; }
