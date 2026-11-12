@@ -17,6 +17,8 @@ export type HomeData = {
     date: string;
     amount: number;
     projectId: string | null;
+    /** Expense category (หมวดหมู่); decides ต้นทุน vs ค่าใช้จ่าย on the overview cards. */
+    category?: string;
   }[];
   projects: { id: string; name: string }[];
   tasks: Entity[];

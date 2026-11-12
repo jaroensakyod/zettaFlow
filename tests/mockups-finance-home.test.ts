@@ -66,9 +66,9 @@ test("home sample: KPIs, chart, work counts and goal match the design for any da
   for (const today of ["2026-11-07", "2026-11-03", "2026-11-01", "2026-10-01", "2026-03-31", "2027-01-02"]) {
     const s = homeSample(today),
       month = today.slice(0, 7),
-      mtd = (kind: string) => sum(s.home.finance.filter((r) => r.kind === kind && r.date.startsWith(month) && r.date <= today).map((r) => r.amount));
+      mtd = (kind: string) => sum(s.home.finance.filter((r) => (kind === "cost" ? r.category === "ซื้อสินค้าไว้ขาย" : r.kind === kind) && r.date.startsWith(month) && r.date <= today).map((r) => r.amount));
     assert.equal(mtd("sales"), sampleKpi.sales, today);
-    assert.equal(mtd("expenses"), sampleKpi.cost, today);
+    assert.equal(mtd("cost"), sampleKpi.cost, today);
     assert.ok(s.home.finance.every((r) => r.amount > 0), today);
     // ยอดขาย ▲12.5%, ต้นทุน ▲3.2% against the same period last month.
     assert.equal(((sampleKpi.sales - samplePrevMonth.sales) / samplePrevMonth.sales * 100).toFixed(1), "12.5");
@@ -100,7 +100,8 @@ test("home sample: KPIs, chart, work counts and goal match the design for any da
   assert.equal(sum(sampleWeekSales), sampleKpi.sales);
   assert.equal(sum(sampleWeekCost), sampleKpi.cost);
   const nov7 = homeSample("2026-11-07").home.finance.filter((r) => r.date.startsWith("2026-11"));
-  assert.equal(nov7.length, 14);
+  // 7 days × sales, cost (ต้นทุน) and running costs (ค่าใช้จ่าย)
+  assert.equal(nov7.length, 21);
 });
 
 test("home sample: shown automatically only when the company has nothing on the page", () => {

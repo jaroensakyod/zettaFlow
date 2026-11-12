@@ -18,6 +18,7 @@ import {
   purchaseAction,
   summary,
   home,
+  homeFinance,
   templates,
   saveTemplate,
   setTemplateTarget,
@@ -365,6 +366,11 @@ async function handle(req: NextRequest) {
       if (path[1] === "notes" && method === "PUT") return response(await saveNote(ctx, await body(req)));
       if (path[1] === "notes" && method === "DELETE") return response(await deleteNote(ctx, z.string().max(10).parse(path[2])));
       if (path[1] === "goal" && method === "PUT") return response(await setGoal(ctx, await body(req)));
+      if (path[1] === "finance" && method === "GET") {
+        const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          q = new URL(req.url).searchParams;
+        return response(await homeFinance(ctx, day.parse(q.get("from")), day.parse(q.get("to"))));
+      }
       return response(await home(ctx));
     }
     if (path[0] === "feed") {

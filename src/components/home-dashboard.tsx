@@ -52,7 +52,8 @@ import type { Context, Entity, HomeData } from "@/lib/types";
 import type { HomeExtra, NoteItem, UserNote, WorkItem, Activity } from "@/lib/home-extra";
 import { api, money, Loading, Modal } from "./shared";
 import { WidgetBoard } from "./platform";
-import { homeSample, homeIsEmpty, type KpiChange } from "@/lib/mock/home";
+import { homeSample, homeIsEmpty } from "@/lib/mock/home";
+import { isCostCategory } from "@/lib/expense-categories";
 
 /** True while the dashboard shows the sample ("ตัวอย่าง") dataset: cards get a badge and every write is disabled. */
 const SampleCtx = createContext(false);
@@ -176,6 +177,9 @@ export function HomeDashboard({
     [error, setError] = useState(""),
     [workFilter, setWorkFilter] = useState<"all" | "approve" | "review" | "follow">("all"),
     [calKey, setCalKey] = useState(0),
+    // The calendar's day and period (วัน / สัปดาห์ / เดือน / ปี): every overview card totals that period.
+    [period, setPeriod] = useState<Period>("month"),
+    [picked, setPicked] = useState(todayIso),
     // "auto" = show the sample only while the company has nothing of its own here; "on" / "off" = the user's choice.
     [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto");
   const today = todayIso(),
@@ -248,7 +252,15 @@ export function HomeDashboard({
           }
         />
         {vHome ? (
-          <Kpis home={vHome} today={today} navigate={navigate} changes={sample ? demo.kpiChange : undefined} />
+          <Kpis
+            home={vHome}
+            today={today}
+            period={period}
+            day={picked}
+            navigate={navigate}
+            sampleRows={sample ? demo.home.finance : undefined}
+            refreshKey={refreshKey}
+          />
         ) : (
           <section className="hd-card hd-kpis-loading">
             <Loading />
@@ -264,6 +276,10 @@ export function HomeDashboard({
           onAdded={() => setCalKey((k) => k + 1)}
           refreshKey={refreshKey + calKey}
           sampleEntries={sample ? demo.calendar : undefined}
+          period={period}
+          setPeriod={setPeriod}
+          selected={picked}
+          setSelected={setPicked}
         />
         <Diary today={today} extra={vExtra} notify={notify} reload={loadExtra} />
         {vHome ? (
@@ -378,46 +394,90 @@ type Kpi = {
   spark?: number[];
   view: string;
 };
-function financeKpis(home: HomeData, today: string) {
-  const month = today.slice(0, 7),
-    day = Number(today.slice(8)),
-    prev = shiftMonth(month, -1),
-    prevTo = `${prev}-${String(Math.min(day, monthDays(prev))).padStart(2, "0")}`,
-    sum = (kind: string, from: string, to: string) =>
-      home.finance.filter((r) => r.kind === kind && r.date >= from && r.date <= to).reduce((s, r) => s + r.amount, 0),
-    cur = { sales: sum("sales", month + "-01", today), cost: sum("expenses", month + "-01", today) },
-    old = { sales: sum("sales", prev + "-01", prevTo), cost: sum("expenses", prev + "-01", prevTo) },
-    margin = (x: { sales: number; cost: number }) => (x.sales ? ((x.sales - x.cost) / x.sales) * 100 : 0);
-  // Cumulative month-to-date series for the sparklines.
-  const series = { sales: [] as number[], cost: [] as number[], profit: [] as number[], margin: [] as number[] };
-  let s = 0,
-    c = 0;
-  for (let d = 1; d <= day; d++) {
-    const iso = `${month}-${String(d).padStart(2, "0")}`;
-    s += sum("sales", iso, iso);
-    c += sum("expenses", iso, iso);
-    series.sales.push(s);
-    series.cost.push(c);
-    series.profit.push(s - c);
-    series.margin.push(s ? ((s - c) / s) * 100 : 0);
+const periodNames: Record<Period, string> = { day: "วัน", week: "สัปดาห์", month: "เดือน", year: "ปี" };
+/** The day, week (Sunday to Saturday), month or year that `day` falls in. */
+function periodRange(period: Period, day: string) {
+  if (period === "day") return { from: day, to: day };
+  if (period === "week") {
+    const from = addDays(day, -new Date(day + "T00:00:00Z").getUTCDay());
+    return { from, to: addDays(from, 6) };
   }
-  const pct = (a: number, b: number, upIsGood = true) => {
-    if (!b) return null;
-    const p = ((a - b) / Math.abs(b)) * 100;
+  if (period === "month") return { from: day.slice(0, 8) + "01", to: day.slice(0, 8) + monthDays(day.slice(0, 7)) };
+  return { from: day.slice(0, 4) + "-01-01", to: day.slice(0, 4) + "-12-31" };
+}
+/** A day in the period before. */
+const periodBefore = (period: Period, from: string) =>
+  period === "day" ? addDays(from, -1) : period === "week" ? addDays(from, -7) : period === "month" ? shiftMonth(from.slice(0, 7), -1) + "-01" : Number(from.slice(0, 4)) - 1 + "-01-01";
+/** "9–15 พ.ย. 2569", "พฤศจิกายน 2569", "ปี 2569"… */
+function periodText(period: Period, from: string, to: string) {
+  if (period === "day") return thai(from, { day: "numeric", month: "short", year: "numeric" });
+  if (period === "week")
+    return from.slice(0, 7) === to.slice(0, 7)
+      ? `${Number(from.slice(8))}–${thai(to, { day: "numeric", month: "short", year: "numeric" })}`
+      : `${thai(from, { day: "numeric", month: "short" })} – ${thai(to, { day: "numeric", month: "short", year: "numeric" })}`;
+  if (period === "month") return thai(from, { month: "long", year: "numeric" });
+  return "ปี " + (Number(from.slice(0, 4)) + 543);
+}
+/** What the cards compare with: a period still running is compared up to the same point of the one before. */
+function periodWindow(period: Period, day: string, today: string) {
+  const { from, to } = periodRange(period, day),
+    running = from <= today && today <= to,
+    end = running ? today : to,
+    prev = periodRange(period, periodBefore(period, from)),
+    prevTo = running ? [addDays(prev.from, dayDiff(end, from)), prev.to].sort()[0] : prev.to;
+  return { from, to, end, prevFrom: prev.from, prevTo, running };
+}
+function financeKpis(rows: HomeData["finance"], period: Period, w: ReturnType<typeof periodWindow>) {
+  const part = (r: HomeData["finance"][number]) => (r.kind === "sales" ? "sales" : isCostCategory(r.category) ? "cost" : "expense"),
+    total = (a: string, b: string) => {
+      const t = { sales: 0, cost: 0, expense: 0 };
+      for (const r of rows) if (r.date >= a && r.date <= b) t[part(r)] += r.amount;
+      return t;
+    },
+    profitOf = (t: { sales: number; cost: number; expense: number }) => t.sales - t.cost - t.expense,
+    marginOf = (t: { sales: number; cost: number; expense: number }) => (t.sales ? (profitOf(t) / t.sales) * 100 : 0);
+  // Whole period for the figures; the same stretch of the period before for the change.
+  const cur = total(w.from, w.to),
+    now = total(w.from, w.end),
+    old = total(w.prevFrom, w.prevTo);
+  // Running totals for the sparklines: by day, or by month for a year.
+  const series = { sales: [] as number[], cost: [] as number[], expense: [] as number[], profit: [] as number[], margin: [] as number[] };
+  const steps: [string, string][] = [];
+  if (period === "year")
+    for (let m = 1; m <= 12; m++) {
+      const mm = w.from.slice(0, 5) + String(m).padStart(2, "0");
+      if (mm + "-01" > w.end) break;
+      steps.push([mm + "-01", mm + "-" + monthDays(mm)]);
+    }
+  else if (period !== "day") for (let d = w.from; d <= w.end; d = addDays(d, 1)) steps.push([d, d]);
+  const run = { sales: 0, cost: 0, expense: 0 };
+  for (const [a, b] of steps) {
+    const t = total(a, b);
+    run.sales += t.sales;
+    run.cost += t.cost;
+    run.expense += t.expense;
+    series.sales.push(run.sales);
+    series.cost.push(run.cost);
+    series.expense.push(run.expense);
+    series.profit.push(profitOf(run));
+    series.margin.push(marginOf(run));
+  }
+  const pct = (x: number, y: number, upIsGood = true) => {
+    if (!y) return null;
+    const p = ((x - y) / Math.abs(y)) * 100;
     return { text: Math.abs(p).toFixed(1) + "%", up: p >= 0, good: p >= 0 === upIsGood };
   };
-  const mNow = margin(cur),
-    mOld = margin(old),
-    mDiff = mNow - mOld;
+  const mDiff = marginOf(now) - marginOf(old);
   return {
     cur,
-    profit: cur.sales - cur.cost,
-    margin: mNow,
-    series,
+    profit: profitOf(cur),
+    margin: marginOf(cur),
+    series: steps.length > 1 ? series : null,
     change: {
-      cost: pct(cur.cost, old.cost, false),
-      sales: pct(cur.sales, old.sales),
-      profit: pct(cur.sales - cur.cost, old.sales - old.cost),
+      cost: pct(now.cost, old.cost, false),
+      expense: pct(now.expense, old.expense, false),
+      sales: pct(now.sales, old.sales),
+      profit: pct(profitOf(now), profitOf(old)),
       margin: old.sales ? { text: Math.abs(mDiff).toFixed(1) + " จุด", up: mDiff >= 0, good: mDiff >= 0 } : null,
     },
   };
@@ -425,48 +485,76 @@ function financeKpis(home: HomeData, today: string) {
 function Kpis({
   home,
   today,
+  period,
+  day,
   navigate,
-  changes,
+  sampleRows,
+  refreshKey,
 }: {
   home: HomeData;
   today: string;
+  period: Period;
+  /** Any day of the period to show (the day picked on the calendar). */
+  day: string;
   navigate: Navigate;
-  /** Sample mode: the design's month-over-month changes instead of the computed ones. */
-  changes?: { cost: KpiChange; sales: KpiChange; profit: KpiChange; margin: KpiChange };
+  /** Sample mode: these rows instead of GET /home/finance. */
+  sampleRows?: HomeData["finance"];
+  refreshKey: number;
 }) {
-  const computed = useMemo(() => financeKpis(home, today), [home, today]),
-    f = changes ? { ...computed, change: changes } : computed,
-    sample = useSample();
-  const open = home.tasks.filter((t) => t.data.status !== "done"),
+  const sample = useSample(),
+    w = useMemo(() => periodWindow(period, day, today), [period, day, today]),
+    [fetched, setFetched] = useState<{ key: string; rows: HomeData["finance"] } | null>(null),
+    key = w.prevFrom + "|" + w.to;
+  useEffect(() => {
+    if (sampleRows) return;
+    let live = true;
+    api(`/home/finance?from=${w.prevFrom}&to=${w.to}`)
+      .then((rows: HomeData["finance"]) => live && setFetched({ key, rows }))
+      .catch(() => live && setFetched({ key, rows: [] }));
+    return () => {
+      live = false;
+    };
+  }, [key, w.prevFrom, w.to, sampleRows, refreshKey]);
+  const rows = sampleRows || fetched?.rows || [],
+    loading = !sampleRows && fetched?.key !== key,
+    f = useMemo(() => financeKpis(rows, period, w), [rows, period, w]);
+  // Tasks due in the period (or created in it when they have no due date).
+  const due = (t: Entity) => String(t.data.dueDate || t.created_at.slice(0, 10)),
+    inPeriod = home.tasks.filter((t) => due(t) >= w.from && due(t) <= w.to),
+    open = inPeriod.filter((t) => t.data.status !== "done"),
     late = open.filter((t) => t.data.dueDate && String(t.data.dueDate) < today).length,
-    done = home.tasks.length - open.length;
+    done = inPeriod.length - open.length,
+    name = periodNames[period],
+    thisName = w.running ? (period === "day" ? "วันนี้" : name + "นี้") : name + "ที่เลือก",
+    noPrev = `ไม่มียอด${name}ก่อนหน้าให้เทียบ`,
+    spark = (k: "sales" | "cost" | "expense" | "profit" | "margin") => f.series?.[k];
+  const baht = (n: number) => (n < 0 ? "-฿" : "฿") + money(Math.abs(Math.round(n)));
   const cards: Kpi[] = [
-    { key: "cost", label: "ต้นทุน", value: "฿" + money(Math.round(f.cur.cost)), icon: Coins, color: "#f08a3c", change: f.change.cost, spark: f.series.cost, view: "expenses" },
-    { key: "sales", label: "ยอดขาย", value: "฿" + money(Math.round(f.cur.sales)), icon: ChartColumn, color: "#3b82f6", change: f.change.sales, spark: f.series.sales, view: "sales" },
+    { key: "sales", label: "ยอดขาย", value: baht(f.cur.sales), icon: ChartColumn, color: "#3b82f6", change: f.change.sales, note: noPrev, spark: spark("sales"), view: "sales" },
+    { key: "cost", label: "ต้นทุน", value: baht(f.cur.cost), icon: Coins, color: "#f08a3c", change: f.change.cost, note: noPrev, spark: spark("cost"), view: "expenses" },
+    { key: "expense", label: "ค่าใช้จ่าย", value: baht(f.cur.expense), icon: Receipt, color: "#ef4f6b", change: f.change.expense, note: noPrev, spark: spark("expense"), view: "expenses" },
     {
       key: "profit",
       label: f.profit < 0 ? "ขาดทุน" : "กำไร / ขาดทุน",
-      value: (f.profit < 0 ? "-฿" : "฿") + money(Math.abs(Math.round(f.profit))),
+      value: baht(f.profit),
       icon: Target,
       color: "#22a55e",
       change: f.change.profit,
-      spark: f.series.profit,
+      note: noPrev,
+      spark: spark("profit"),
       view: "reports",
     },
-    { key: "margin", label: "อัตรากำไร", value: f.margin.toFixed(1) + "%", icon: Percent, color: "#a855f7", change: f.change.margin, spark: f.series.margin, view: "reports" },
-    { key: "tasks", label: "งานทั้งหมด", value: home.tasks.length + " งาน", icon: ListChecks, color: "#3b9bf0", note: `เสร็จแล้ว ${done} งาน`, view: "tasks" },
+    { key: "margin", label: "อัตรากำไร", value: f.margin.toFixed(1) + "%", icon: Percent, color: "#a855f7", change: f.change.margin, note: noPrev, spark: spark("margin"), view: "reports" },
+    { key: "tasks", label: "งานทั้งหมด", value: inPeriod.length + " งาน", icon: ListChecks, color: "#3b9bf0", note: `เสร็จแล้ว ${done} งาน`, view: "tasks" },
     { key: "open", label: "งานคงค้าง", value: open.length + " งาน", icon: Hourglass, color: "#e85d9b", note: late ? `เลยกำหนด ${late} งาน` : "ไม่มีงานเลยกำหนด", view: "tasks" },
   ];
+  const compare = w.running ? `เทียบช่วงเดียวกันของ${name}ก่อน` : `เทียบกับ${name}ก่อนหน้า`,
+    range = periodText(period, w.from, w.to);
   return (
-    <div className={"hd-kpis" + (sample ? " sample" : "")}>
+    <div className={"hd-kpis" + (sample ? " sample" : "") + (loading ? " loading" : "")} aria-busy={loading}>
       {sample && <span className="sample-badge hd-sample-badge hd-kpis-badge">ตัวอย่าง</span>}
       {cards.map((k) => (
-        <button
-          key={k.key}
-          className={"hd-card hd-kpi hd-kpi-" + k.key}
-          onClick={() => navigate(k.view)}
-          title="เดือนนี้ถึงวันนี้ เทียบช่วงเดียวกันของเดือนก่อน"
-        >
+        <button key={k.key} className={"hd-card hd-kpi hd-kpi-" + k.key} onClick={() => navigate(k.view)} title={`${range} · ${compare}`}>
           <span className="hd-kpi-icon" style={{ color: k.color, background: k.color + "1f" }}>
             <k.icon size={20} />
           </span>
@@ -478,12 +566,22 @@ function Kpis({
                 {k.change.up ? "▲" : "▼"} {(k.change.up ? "+" : "-") + k.change.text}
               </span>
             ) : (
-              <span className="hd-kpi-change muted">{k.note || "ยังไม่มีข้อมูลเดือนก่อน"}</span>
+              <span className="hd-kpi-change muted">{k.note}</span>
             )}
           </span>
           {k.spark && <Spark values={k.spark} color={k.color} />}
         </button>
       ))}
+      <div className="hd-card hd-kpi hd-kpi-period" role="status">
+        <span className="hd-kpi-icon">
+          <CalendarDays size={20} />
+        </span>
+        <span className="hd-kpi-body">
+          <span className="hd-kpi-label">ยอด{thisName}</span>
+          <strong className="hd-kpi-value">{range}</strong>
+          <span className="hd-kpi-change muted">{compare} · เปลี่ยนได้ที่ปฏิทิน</span>
+        </span>
+      </div>
     </div>
   );
 }
@@ -498,6 +596,10 @@ function CalendarCard({
   onAdded,
   refreshKey,
   sampleEntries,
+  period,
+  setPeriod,
+  selected,
+  setSelected,
 }: {
   ctx: Context;
   today: string;
@@ -507,9 +609,13 @@ function CalendarCard({
   refreshKey: number;
   /** Sample mode: show these instead of GET /calendar. */
   sampleEntries?: Entity[];
+  /** Period the overview cards total, around the selected day. */
+  period: Period;
+  setPeriod: (p: Period) => void;
+  selected: string;
+  setSelected: (d: string) => void;
 }) {
-  const [month, setMonth] = useState(today.slice(0, 7)),
-    [selected, setSelected] = useState(today),
+  const [month, setMonth] = useState(selected.slice(0, 7)),
     [realEntries, setEntries] = useState<Entity[]>([]),
     [adding, setAdding] = useState(false),
     entries = sampleEntries || realEntries;
@@ -531,7 +637,14 @@ function CalendarCard({
         const [start, end] = entrySpan(e);
         return start && start <= day && day <= end;
       }),
-    agenda = on(selected).sort((a, b) => (entryTime(a) || "99").localeCompare(entryTime(b) || "99"));
+    agenda = on(selected).sort((a, b) => (entryTime(a) || "99").localeCompare(entryTime(b) || "99")),
+    range = periodRange(period, selected),
+    // Moving the month moves a month / year view with it (to today in the current month, else the 1st).
+    goMonth = (n: number) => {
+      const next = shiftMonth(month, n);
+      setMonth(next);
+      if (period === "month" || period === "year") setSelected(next === today.slice(0, 7) ? today : next + "-01");
+    };
   return (
     <section className="hd-card hd-cal">
       <div className="hd-cal-head">
@@ -540,14 +653,24 @@ function CalendarCard({
           <SampleBadge />
         </strong>
         <div>
-          <button className="hd-round" aria-label="เดือนก่อนหน้า" onClick={() => setMonth(shiftMonth(month, -1))}>
+          <button className="hd-round" aria-label="เดือนก่อนหน้า" onClick={() => goMonth(-1)}>
             <ChevronLeft size={16} />
           </button>
-          <button className="hd-round" aria-label="เดือนถัดไป" onClick={() => setMonth(shiftMonth(month, 1))}>
+          <button className="hd-round" aria-label="เดือนถัดไป" onClick={() => goMonth(1)}>
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
+      <div className="hd-period" role="group" aria-label="ดูยอดการ์ดภาพรวมแบบ">
+        {(Object.keys(periodNames) as Period[]).map((p) => (
+          <button key={p} className={period === p ? "on" : ""} aria-pressed={period === p} onClick={() => setPeriod(p)}>
+            ราย{periodNames[p]}
+          </button>
+        ))}
+      </div>
+      <p className="hd-period-range">
+        ยอดในการ์ด: <b>{periodText(period, range.from, range.to)}</b>
+      </p>
       <div className="hd-cal-grid">
         {weekdays.map((d) => (
           <span className="hd-cal-dow" key={d}>
@@ -563,7 +686,12 @@ function CalendarCard({
           return (
             <button
               key={day}
-              className={"hd-cal-day" + (day === today ? " today" : "") + (day === selected ? " selected" : "")}
+              className={
+                "hd-cal-day" +
+                (day === today ? " today" : "") +
+                (day === selected ? " selected" : "") +
+                ((period === "week" || period === "day") && day >= range.from && day <= range.to ? " in-range" : "")
+              }
               onClick={() => setSelected(day)}
               aria-label={thai(day, { day: "numeric", month: "long" }) + (busy ? ` มี ${on(day).length} รายการ` : "")}
             >
@@ -1085,7 +1213,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
                 {(
                   [
                     ["sales", g.sales, "ยอดขาย"],
-                    ["cost", g.cost, "ต้นทุน"],
+                    ["cost", g.cost, "ต้นทุน + ค่าใช้จ่าย"],
                     ["profit", Math.max(0, g.profit), "กำไร"],
                   ] as [string, number, string][]
                 ).map(([key, value, label]) => (
@@ -1104,7 +1232,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
         </span>
         <span>
           <i className="cost" />
-          ต้นทุน
+          ต้นทุน + ค่าใช้จ่าย
         </span>
         <span>
           <i className="profit" />

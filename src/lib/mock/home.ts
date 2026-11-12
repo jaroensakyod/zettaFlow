@@ -23,6 +23,8 @@ export const sampleKpi = { cost: 126340, sales: 530740, tasks: 42, open: 7, goal
 /** Sales / cost per weekday อา.–ส. of this week (the design's chart); each adds up to the KPI month-to-date. */
 export const sampleWeekSales = [108500, 91200, 56300, 32400, 158640, 38900, 44800];
 export const sampleWeekCost = [26800, 22400, 14100, 8900, 30540, 11200, 12400];
+/** Running costs (ค่าใช้จ่าย: advertising, rent…) per weekday of this week. */
+export const sampleWeekExpense = [8200, 3400, 2900, 1800, 12600, 2500, 2100];
 /** Same period of last month, giving ยอดขาย ▲12.5% and ต้นทุน ▲3.2%. */
 export const samplePrevMonth = { sales: 471770, cost: 122420 };
 export const sampleProject = { id: "sample-prj-001", name: "PRJ-001 โครงการคอนโด Blue Sky" };
@@ -56,7 +58,8 @@ function financeRows(today: string): HomeData["finance"] {
   sampleWeekSales.forEach((sales, i) => {
     const date = addDays(sunday, i);
     rows.push({ kind: "sales", date, amount: sales, projectId: i % 2 ? sampleProject.id : null });
-    rows.push({ kind: "expenses", date, amount: sampleWeekCost[i], projectId: i % 2 ? sampleProject.id : null });
+    rows.push({ kind: "expenses", date, amount: sampleWeekCost[i], projectId: i % 2 ? sampleProject.id : null, category: "ซื้อสินค้าไว้ขาย" });
+    rows.push({ kind: "expenses", date, amount: sampleWeekExpense[i], projectId: null, category: i % 2 ? "ส่งเสริมการขาย" : "ค่าเช่า" });
   });
   // Top the month-to-date up to the design totals when part of this week is in the future or in last month
   // (on a Saturday the week alone already adds up exactly).
@@ -64,12 +67,13 @@ function financeRows(today: string): HomeData["finance"] {
     sum = (kind: string) => rows.filter((r) => r.kind === kind && inMtd(r.date)).reduce((s, r) => s + r.amount, 0),
     restDay = [...Array(Number(today.slice(8)))].map((_, i) => `${month}-${String(i + 1).padStart(2, "0")}`).find((d) => d < sunday) || today;
   const salesGap = sampleKpi.sales - sum("sales"),
-    costGap = sampleKpi.cost - sum("expenses");
+    costGap = sampleKpi.cost - rows.filter((r) => r.category === "ซื้อสินค้าไว้ขาย" && inMtd(r.date)).reduce((n, r) => n + r.amount, 0);
   if (salesGap) rows.push({ kind: "sales", date: restDay, amount: salesGap, projectId: null });
-  if (costGap) rows.push({ kind: "expenses", date: restDay, amount: costGap, projectId: null });
+  if (costGap) rows.push({ kind: "expenses", date: restDay, amount: costGap, projectId: null, category: "ซื้อสินค้าไว้ขาย" });
   const prev = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)) - 2, 1)).toISOString().slice(0, 10);
   rows.push({ kind: "sales", date: prev, amount: samplePrevMonth.sales, projectId: null });
-  rows.push({ kind: "expenses", date: prev, amount: samplePrevMonth.cost, projectId: null });
+  rows.push({ kind: "expenses", date: prev, amount: samplePrevMonth.cost, projectId: null, category: "ซื้อสินค้าไว้ขาย" });
+  rows.push({ kind: "expenses", date: prev, amount: 31800, projectId: null, category: "ค่าเช่า" });
   return rows;
 }
 

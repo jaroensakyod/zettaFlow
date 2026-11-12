@@ -646,6 +646,7 @@ export async function home(ctx: Context): Promise<HomeData> {
           date: String(e.data.date),
           amount: Number(e.data.amount || 0),
           projectId: e.data.projectId ? String(e.data.projectId) : null,
+          category: e.data.category ? String(e.data.category) : undefined,
         })),
       projects: rows
         .filter((e) => e.kind === "projects")
@@ -658,7 +659,7 @@ export async function home(ctx: Context): Promise<HomeData> {
     sb
       .from("entities")
       .select(
-        "kind,date:data->>date,amount:data->>amount,status:data->>status,projectId:data->>projectId",
+        "kind,date:data->>date,amount:data->>amount,status:data->>status,projectId:data->>projectId,category:data->>category",
       )
       .eq("company_id", ctx.company.id)
       .is("archived_at", null)
@@ -693,6 +694,7 @@ export async function home(ctx: Context): Promise<HomeData> {
         amount: string;
         status: string;
         projectId: string | null;
+        category: string | null;
       }[]
     )
       .filter((r) => counted(r.kind, r.status))
@@ -701,10 +703,41 @@ export async function home(ctx: Context): Promise<HomeData> {
         date: r.date,
         amount: Number(r.amount || 0),
         projectId: r.projectId || null,
+        category: r.category || undefined,
       })),
     projects: ((projects.data || []) as unknown as { id: string; name: string }[]),
     tasks: (tasks.data || []) as Entity[],
   };
+}
+/**
+ * Confirmed sales and approved / paid expenses dated from `from` to `to` (YYYY-MM-DD, inclusive): the overview
+ * cards' totals for the period picked on the calendar (day, week, month or year) and the one before it.
+ */
+export async function homeFinance(ctx: Context, from: string, to: string): Promise<HomeData["finance"]> {
+  if (ctx.demo)
+    return (await home(ctx)).finance.filter((r) => r.date >= from && r.date <= to);
+  const sb = await supabaseServer();
+  type Row = { kind: "sales" | "expenses"; date: string; amount: string; status: string; projectId: string | null; category: string | null };
+  const rows: Row[] = [];
+  // Page through so a busy year is never cut off.
+  for (let page = 0; page < 40; page++) {
+    const { data, error } = await sb
+      .from("entities")
+      .select("kind,date:data->>date,amount:data->>amount,status:data->>status,projectId:data->>projectId,category:data->>category")
+      .eq("company_id", ctx.company.id)
+      .is("archived_at", null)
+      .in("kind", ["sales", "expenses"])
+      .gte("data->>date", from)
+      .lte("data->>date", to)
+      .order("id")
+      .range(page * 1000, page * 1000 + 999);
+    dbError(error);
+    rows.push(...((data || []) as unknown as Row[]));
+    if (!data || data.length < 1000) break;
+  }
+  return rows
+    .filter((r) => counted(r.kind, r.status))
+    .map((r) => ({ kind: r.kind, date: r.date, amount: Number(r.amount || 0), projectId: r.projectId || null, category: r.category || undefined }));
 }
 export async function templates(ctx: Context) {
   if (ctx.demo)

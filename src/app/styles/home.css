@@ -140,7 +140,7 @@
 }
 .hd-kpis {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 .hd-kpis-loading {
@@ -1157,7 +1157,7 @@
 }
 @media (max-width: 1100px) {
   .hd-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .hd-bottom {
     grid-template-columns: 1fr 1fr;
@@ -1362,3 +1362,20 @@
 @keyframes csg-fade { from { opacity: 0; } }
 @keyframes csg-pop { from { transform: translateY(18px) scale(.96); } }
 @media (max-width: 560px) { .csg-pair { grid-template-columns: 1fr; } .csg-or { justify-self: center; } .csg-head { padding: 20px 18px 16px; } .csg-body { padding: 14px; } .csg-foot { padding: 12px 14px; } .csg-save { flex: 1; justify-content: center; } }
+
+/* overview cards follow the period picked on the calendar */
+.hd-kpi-expense { background: linear-gradient(160deg, var(--th-rose-soft, #fff1f3), var(--th-surface, #fff) 70%); }
+.hd-kpi-period { cursor: default; color: #fff; background: linear-gradient(135deg, #7c3aed, #4f46e5 55%, #0ea5e9); border: 0; }
+.hd-kpi-period:hover { transform: none; }
+.hd-kpi-period .hd-kpi-icon { color: #fff; background: rgba(255, 255, 255, .2); }
+.hd-kpi-period .hd-kpi-label, .hd-kpi-period .hd-kpi-change.muted { color: rgba(255, 255, 255, .88); }
+.hd-kpi-period .hd-kpi-value { white-space: normal; font-size: clamp(14px, 1.05vw, 17px); }
+.hd-kpis.loading .hd-kpi:not(.hd-kpi-period) .hd-kpi-value { opacity: .45; }
+.hd-period { display: flex; gap: 2px; margin: 10px 0 6px; padding: 4px; border-radius: 12px; background: var(--th-tint, #f3effd); }
+.hd-period button { flex: 1 1 auto; white-space: nowrap; height: 30px; padding: 0 6px; border: 0; border-radius: 9px; font-size: 12.5px; font-weight: 700; color: var(--th-ink-2, #4b4868); background: transparent; justify-content: center; }
+.hd-period button:hover { background: rgba(255, 255, 255, .7); }
+.hd-period button.on { color: #fff; background: linear-gradient(120deg, var(--th-accent-2, #9a6bff), var(--th-accent, #6c3ff0)); box-shadow: 0 4px 10px rgba(124, 77, 255, .3); }
+.hd-period-range { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.hd-period-range b { color: var(--th-ink-2, #2c2550); }
+.hd-cal-day.in-range:not(.today) { background: var(--th-tint, #efe9ff); color: var(--th-accent, #6c3ff0); }
+@media (max-width: 820px) { .hd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -104,3 +104,9 @@ export const categoryEmoji = (name: string) => all.find((x) => x.name === name)?
 /** "⛽ ค่าน้ำมัน/แก๊ส/รถยนต์" — what pickers and lists show; the stored value stays the plain name. */
 export const categoryLabel = (name: string) => (name ? `${categoryEmoji(name)} ${name}` : "");
 export const categoryAccount = (name: string) => all.find((x) => x.name === name)?.account;
+/**
+ * ต้นทุน (cost of sales): categories booked to the 50xx cost accounts (goods / materials bought to sell or to
+ * deliver a service, samples) and the old "จัดซื้อ" category. Every other expense is ค่าใช้จ่าย (operating expense).
+ */
+export const isCostCategory = (name: string | null | undefined) =>
+  !!name && ((categoryAccount(name) || "").startsWith("50") || name === "จัดซื้อ");
