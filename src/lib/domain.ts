@@ -102,6 +102,7 @@ export function validateEntity(kind: string, input: unknown) {
         .join(" · "),
     );
   const data = result.data as Record<string, unknown>;
+  if (data.color) assert(/^#[0-9a-f]{6}$/i.test(String(data.color)), "สีไม่ถูกต้อง");
   for (const k of ["startTime", "endTime"])
     if (kind === "events" && data[k]) assert(/^([01]\d|2[0-3]):[0-5]\d$/.test(String(data[k])), "เวลาไม่ถูกต้อง (ชั่วโมง:นาที)");
   if (data.startDate && data.endDate)

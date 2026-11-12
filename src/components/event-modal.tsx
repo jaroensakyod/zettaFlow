@@ -78,6 +78,8 @@ export function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: 
     [project, setProject] = useState<{ id: string; name: string } | null>(null),
     [who, setWho] = useState<Participant[]>([]),
     [busy, setBusy] = useState(false),
+    // A colour the user picked; empty = the activity type's colour.
+    [pick, setPick] = useState(""),
     [error, setError] = useState("");
 
   // project picker
@@ -116,7 +118,7 @@ export function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: 
   const toggle = (kind: PersonKind, e: Entity) =>
     setWho((list) => (picked.has(e.id) ? list.filter((p) => p.id !== e.id) : [...list, { kind, id: e.id, name: nameOf(e) }]));
 
-  const color = types.find((t) => t.key === type)?.color || "#7c3aed";
+  const color = pick || types.find((t) => t.key === type)?.color || "#7c3aed";
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError("ใส่ชื่อกิจกรรม");
@@ -138,6 +140,7 @@ export function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: 
             participants: who.length ? who : undefined,
             location: location.trim() || undefined,
             notes: notes.trim() || undefined,
+            color: pick || undefined,
             owner: ctx.user.name,
             status: "planning",
           },
@@ -172,6 +175,8 @@ export function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: 
               </button>
             ))}
           </div>
+
+          <ColorPicker value={pick} auto={types.find((t) => t.key === type)?.color || "#7c3aed"} onChange={setPick} />
 
           <section className="ev-sec">
             <h3>
@@ -365,5 +370,28 @@ export function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: 
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** Colours to choose from for an item on the calendar (bright, readable on white). */
+export const palette = ["#7c3aed", "#6366f1", "#3b82f6", "#0ea5e9", "#06b6d4", "#14b8a6", "#10b981", "#84cc16", "#eab308", "#f59e0b", "#f97316", "#ef4444", "#e11d48", "#ec4899", "#d946ef", "#a16207", "#64748b"];
+/** Swatches + "auto" (the type's colour) + any colour from the system picker. */
+export function ColorPicker({ value, auto, onChange, compact }: { value: string; auto?: string; onChange: (c: string) => void; compact?: boolean }) {
+  const custom = !!value && !palette.includes(value);
+  return (
+    <div className={"cp-row" + (compact ? " compact" : "")} role="radiogroup" aria-label="สีของกิจกรรม">
+      {!compact && <span className="cp-label">สี</span>}
+      {auto !== undefined && (
+        <button type="button" role="radio" aria-checked={!value} className={"cp-sw auto" + (!value ? " on" : "")} style={{ "--c": auto } as React.CSSProperties} onClick={() => onChange("")} title="สีตามประเภท">
+          A
+        </button>
+      )}
+      {palette.map((c) => (
+        <button type="button" key={c} role="radio" aria-checked={value === c} className={"cp-sw" + (value === c ? " on" : "")} style={{ "--c": c } as React.CSSProperties} onClick={() => onChange(c)} aria-label={"สี " + c} />
+      ))}
+      <label className={"cp-sw custom" + (custom ? " on" : "")} style={custom ? ({ "--c": value } as React.CSSProperties) : undefined} title="เลือกสีเอง">
+        <input type="color" value={custom ? value : auto || "#7c3aed"} onChange={(e) => onChange(e.target.value.toLowerCase())} aria-label="เลือกสีเอง" />
+      </label>
+    </div>
   );
 }

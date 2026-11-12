@@ -17,7 +17,9 @@ const long = ([a, b]: [string, string]) => Date.parse(b + "T00:00:00Z") - Date.p
 /** Bar colour: an event's own type, otherwise the kind of item. */
 const typeColors: Record<string, string> = { ประชุม: "#7c3aed", นัดลูกค้า: "#f97316", อีเวนต์: "#ec4899", งานนอกสถานที่: "#0d9488", อื่นๆ: "#6366f1" };
 const kindColors: Record<string, string> = { events: "#8b5cf6", tasks: "#e11d48", deals: "#f59e0b", projects: "#0ea5e9" };
-export const barColor = (e: Entity) => typeColors[String(e.data.category || "")] || kindColors[e.kind] || "#7c3aed";
+/** Bar colour: the colour the user picked, else the event type, else the kind of item. */
+export const barColor = (e: Entity) =>
+  (/^#[0-9a-f]{6}$/i.test(String(e.data.color || "")) ? String(e.data.color) : "") || typeColors[String(e.data.category || "")] || kindColors[e.kind] || "#7c3aed";
 
 export function PlanMonth({
   month,

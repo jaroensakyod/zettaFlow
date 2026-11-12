@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, CloudRain, Flag, Handshake, Layers, ListTodo, Plus, Snowflake, Sparkles, Sun, X, CalendarDays, type LucideIcon } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { api } from "./shared";
-import { EventModal } from "./event-modal";
+import { ColorPicker, EventModal } from "./event-modal";
 import { PlanMonth, PlanYearBars, barColor } from "./plan-month";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -92,6 +92,8 @@ export function PlanYear({
     [rows, setRows] = useState<Entity[] | null>(null),
     [adding, setAdding] = useState(false),
     [reload, setReload] = useState(0),
+    // The item whose colour is being changed in the side panel.
+    [recolor, setRecolor] = useState(""),
     // ทั้งปี (12 small months) or รายเดือน (one big month with task bars)
     // รายปี (task bars along every month), 12 เดือน (small calendars) or รายเดือน (one big month)
     [view, setView] = useState<"bars" | "year" | "month">("month"),
@@ -113,6 +115,22 @@ export function PlanYear({
     yearDays = (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 864e5,
     passed = year < ty ? yearDays : year > ty ? 0 : Math.round((Date.parse(today + "T00:00:00Z") - Date.UTC(year, 0, 1)) / 864e5) + 1,
     pct = Math.round((passed / yearDays) * 100);
+  // Recolour an item from the side panel (saved on the record; the sample data is read-only).
+  const canColor = !sampleEntries && ctx.member.role !== "viewer",
+    autoColor = (e: Entity) => barColor({ ...e, data: { ...e.data, color: "" } }),
+    [colorError, setColorError] = useState("");
+  async function saveColor(e: Entity, color: string) {
+    setColorError("");
+    const before = rows;
+    setRows((rs) => (rs || []).map((x) => (x.id === e.id ? { ...x, data: { ...x.data, color } } : x)));
+    try {
+      const saved: Entity = await api(`/entities/${e.kind}/${e.id}`, { method: "PATCH", body: { data: { ...e.data, color: color || "" }, version: e.version } });
+      setRows((rs) => (rs || []).map((x) => (x.id === e.id ? saved : x)));
+    } catch (err) {
+      setRows(before);
+      setColorError((err as Error).message);
+    }
+  }
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !adding && onClose();
     window.addEventListener("keydown", esc);
@@ -286,7 +304,7 @@ export function PlanYear({
                       items = byDay.get(day) || [],
                       h = holidays.get(day),
                       dow = (first + k) % 7,
-                      kinds = [...new Set(items.map((e) => e.kind))].slice(0, 3),
+                      kinds = [...new Set(items.map((e) => barColor(e)))].slice(0, 3),
                       tip = [...(h || []), ...items.map((e) => (kindInfo[e.kind]?.label || "") + ": " + String(e.data.name))].join("\n");
                     return (
                       <button
@@ -306,7 +324,7 @@ export function PlanYear({
                         {kinds.length > 0 && (
                           <span className="py-dots">
                             {kinds.map((kk) => (
-                              <i key={kk} style={{ background: kindInfo[kk]?.color || "#7c3aed" }} />
+                              <i key={kk} style={{ background: kk }} />
                             ))}
                           </span>
                         )}
@@ -334,19 +352,26 @@ export function PlanYear({
                 const k = kindInfo[e.kind] || kindInfo.events;
                 return (
                   <li key={e.id} style={{ "--c": barColor(e) } as React.CSSProperties}>
-                    <k.icon size={15} />
-                    <span>
-                      <b>{String(e.data.name)}</b>
-                      <small>
-                        {k.label}
-                        {timeOf(e) && " · " + timeOf(e) + (e.data.endTime ? "–" + String(e.data.endTime).slice(0, 5) : "")}
-                        {e.data.location ? " · " + String(e.data.location) : ""}
-                      </small>
-                    </span>
+                    <div className="py-item">
+                      <k.icon size={15} />
+                      <span>
+                        <b>{String(e.data.name)}</b>
+                        <small>
+                          {k.label}
+                          {timeOf(e) && " · " + timeOf(e) + (e.data.endTime ? "–" + String(e.data.endTime).slice(0, 5) : "")}
+                          {e.data.location ? " · " + String(e.data.location) : ""}
+                        </small>
+                      </span>
+                      {canColor && (
+                        <button className="py-recolor" onClick={() => setRecolor(recolor === e.id ? "" : e.id)} aria-label="เปลี่ยนสี" title="เปลี่ยนสี" aria-expanded={recolor === e.id} />
+                      )}
+                    </div>
+                    {recolor === e.id && <ColorPicker compact value={String(e.data.color || "")} auto={autoColor(e)} onChange={(c) => saveColor(e, c)} />}
                   </li>
                 );
               })}
             </ul>
+            {colorError && <p className="py-err">{colorError}</p>}
             {!dayItems.length && !dayHolidays.length && <p className="py-empty">ยังไม่มีแผนในวันนี้</p>}
             <button className="py-add" onClick={() => setAdding(true)} disabled={ctx.member.role === "viewer" || !!sampleEntries}>
               <Plus size={16} /> เพิ่มกิจกรรมวันนี้

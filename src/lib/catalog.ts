@@ -296,6 +296,8 @@ export const modules: Module[] = [
       f("cover", "รูปปกโครงการ", "image", false, { hidden: true }),
       f("team", "ทีมงาน", "textarea", false, { hidden: true }),
       status(["planning", "active", "review", "paused", "completed", "cancelled"]),
+      // Colour the user picked for this item on the calendar / PlanYear (#rrggbb).
+      f("color", "สีที่เลือกเอง", "text", false, { hidden: true }),
     ],
   },
   {
@@ -320,6 +322,8 @@ export const modules: Module[] = [
       f("condition", "เงื่อนไขค่าเช่า", "textarea"),
       status(["negotiating", "pending", "approved", "rejected", "cancelled"]),
       f("notes", "หมายเหตุ", "textarea"),
+      // Colour the user picked for this item on the calendar / PlanYear (#rrggbb).
+      f("color", "สีที่เลือกเอง", "text", false, { hidden: true }),
     ],
   },
   {
@@ -344,6 +348,8 @@ export const modules: Module[] = [
       f("startTime", "เวลาเริ่ม", "text", false, { hidden: true }),
       f("endTime", "เวลาสิ้นสุด", "text", false, { hidden: true }),
       f("participants", "ผู้เข้าร่วม", "people", false, { hidden: true }),
+      // Colour the user picked for this item on the calendar / PlanYear (#rrggbb).
+      f("color", "สีที่เลือกเอง", "text", false, { hidden: true }),
     ],
   },
   {
@@ -364,6 +370,8 @@ export const modules: Module[] = [
       }),
       status(["pending", "progress", "review", "done"]),
       f("notes", "รายละเอียด", "textarea"),
+      // Colour the user picked for this item on the calendar / PlanYear (#rrggbb).
+      f("color", "สีที่เลือกเอง", "text", false, { hidden: true }),
     ],
   },
   {

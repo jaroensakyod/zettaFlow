@@ -32,3 +32,11 @@ test("events reject a bad time, an unknown participant group and an unknown type
   // an old event with none of the new fields still saves
   assert.equal(validateEntity("events", base).name, "ประชุมทีม");
 });
+
+test("a picked colour is kept on events, tasks, deals and projects; anything but #rrggbb is refused", () => {
+  assert.equal(validateEntity("events", { ...base, color: "#0EA5E9" }).color, "#0EA5E9");
+  assert.equal(validateEntity("tasks", { name: "ส่งแบบ", department: "Operations", status: "pending", priority: "normal", dueDate: "2026-11-20", color: "#e11d48" }).color, "#e11d48");
+  assert.throws(() => validateEntity("events", { ...base, color: "red" }));
+  assert.throws(() => validateEntity("events", { ...base, color: "#12345" }));
+  assert.throws(() => validateEntity("events", { ...base, color: "url(javascript:1)" }));
+});
