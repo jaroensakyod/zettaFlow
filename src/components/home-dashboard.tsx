@@ -51,7 +51,7 @@ import {
 import type { Context, Entity, HomeData } from "@/lib/types";
 import type { HomeExtra, NoteItem, UserNote, WorkItem, Activity } from "@/lib/home-extra";
 import { api, money, Loading, Modal } from "./shared";
-import { WidgetBoard } from "./platform";
+import { HowToStart } from "./how-to-start";
 import { HelloAd } from "./hello-ad";
 import { EventModal } from "./event-modal";
 import { PlanYear } from "./plan-year";
@@ -311,12 +311,8 @@ export function HomeDashboard({
         <ActivityCard activity={vExtra?.activity || null} today={today} navigate={navigate} />
         <GoalCard today={today} home={vHome} extra={vExtra} notify={notify} reload={loadExtra} />
       </div>
-      {/* Owners reorder, hide and set per-role visibility here, and share the board by link (real data only). */}
-      {!sample && (
-        <div className="elite-zone">
-          <WidgetBoard ctx={ctx} notify={notify} />
-        </div>
-      )}
+      {/* How to start: company details → connect LINE → type in the LINE chat. (The widget board lives on the executive dashboard.) */}
+      <HowToStart ctx={ctx} navigate={navigate} />
     </div>
     </SampleCtx.Provider>
   );
