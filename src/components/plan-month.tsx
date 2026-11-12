@@ -10,9 +10,11 @@ const addDays = (s: string, n: number) => {
   return d.toISOString().slice(0, 10);
 };
 const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
-const LANES = 4;
+const LANES = 3;
 /** Spans more than a week (projects): placed after the shorter items. */
 const long = ([a, b]: [string, string]) => Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z") > 6 * 864e5;
+/** Two weeks or more: shown in the month's "ต่อเนื่อง" strip, not as bars. */
+const veryLong = ([a, b]: [string, string]) => !!a && Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z") >= 13 * 864e5;
 
 /** Bar colour: an event's own type, otherwise the kind of item. */
 const typeColors: Record<string, string> = { ประชุม: "#7c3aed", นัดลูกค้า: "#f97316", อีเวนต์: "#ec4899", งานนอกสถานที่: "#0d9488", อื่นๆ: "#6366f1" };
@@ -44,9 +46,32 @@ export function PlanMonth({
     firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(),
     days = new Date(Date.UTC(y, m, 0)).getUTCDate(),
     weeks = Math.ceil((firstDow + days) / 7),
-    gridStart = addDays(first, -firstDow);
+    gridStart = addDays(first, -firstDow),
+    last = `${month}-${pad(days)}`;
+  // Items running two weeks or more (projects, long campaigns) sit in one strip above the month instead of a bar
+  // in every week; the calendar keeps the day-to-day items.
+  const ongoing = rows
+    .map((e) => ({ e, span: spanOf(e) }))
+    .filter(({ span: [a, b] }) => a && a <= last && b >= first && veryLong([a, b]))
+    .sort((p, q) => p.span[0].localeCompare(q.span[0]));
+  const dayRows = rows.filter((e) => !veryLong(spanOf(e)));
+  const short = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("th-TH", { day: "numeric", month: "short", timeZone: "UTC" });
   return (
     <div className="pm">
+      {ongoing.length > 0 && (
+        <div className="pm-ongoing">
+          <span className="pm-ongoing-label">ต่อเนื่องทั้งเดือน</span>
+          {ongoing.map(({ e, span: [a, b] }) => (
+            <button key={e.id} className="pm-long" style={{ "--c": barColor(e) } as React.CSSProperties} onClick={() => setPicked(a < first ? first : a)} title={String(e.data.name)}>
+              <i />
+              <b>{String(e.data.name)}</b>
+              <small>
+                {short(a)} – {short(b)}
+              </small>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="pm-dows">
         {weekdays.map((w, i) => (
           <span key={w} className={i === 0 || i === 6 ? "we" : ""}>
@@ -59,7 +84,7 @@ export function PlanMonth({
           we = addDays(ws, 6),
           col = (d: string) => Math.round((Date.parse(d + "T00:00:00Z") - Date.parse(ws + "T00:00:00Z")) / 864e5);
         // Items in this week, laid out in lanes: earlier first, longer first.
-        const items = rows
+        const items = dayRows
           .map((e) => ({ e, span: spanOf(e) }))
           .filter(({ span: [a, b] }) => a && a <= we && b >= ws)
           // Day-to-day items first so they stay visible; long ones (a project over weeks) fill the lanes left.
