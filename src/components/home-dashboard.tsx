@@ -54,6 +54,7 @@ import { api, money, Loading, Modal } from "./shared";
 import { WidgetBoard } from "./platform";
 import { HelloAd } from "./hello-ad";
 import { EventModal } from "./event-modal";
+import { PlanYear } from "./plan-year";
 import { homeSample, homeIsEmpty } from "@/lib/mock/home";
 import { isCostCategory } from "@/lib/expense-categories";
 
@@ -685,6 +686,7 @@ function CalendarCard({
   const [month, setMonth] = useState(selected.slice(0, 7)),
     [realEntries, setEntries] = useState<Entity[]>([]),
     [adding, setAdding] = useState(false),
+    [planYear, setPlanYear] = useState(false),
     entries = sampleEntries || realEntries;
   useEffect(() => {
     let live = true;
@@ -778,6 +780,9 @@ function CalendarCard({
           วันนี้
         </span>
       </div>
+      <button className="hd-planyear" onClick={() => setPlanYear(true)} title="ดูและวางแผนทั้ง 12 เดือน">
+        <CalendarDays size={16} /> PlanYear <small>วางแผนทั้งปี</small>
+      </button>
       <div className="hd-agenda">
         <div className="hd-agenda-head">
           <strong>
@@ -811,6 +816,9 @@ function CalendarCard({
           เพิ่มกิจกรรม
         </button>
       </div>
+      {planYear && (
+        <PlanYear ctx={ctx} today={today} sampleEntries={sampleEntries} onClose={() => setPlanYear(false)} onAdded={onAdded} />
+      )}
       {adding && !sampleEntries && (
         <EventModal
           ctx={ctx}

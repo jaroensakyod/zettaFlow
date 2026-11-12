@@ -1635,3 +1635,83 @@
 .ev-durations button:hover { background: color-mix(in srgb, var(--ev) 8%, #fff); }
 .ev-durations button.on { color: #fff; border-color: transparent; background: var(--ev); }
 @media (max-width: 480px) { .ev-when { grid-template-columns: 1fr 1fr; } }
+
+/* ---- PlanYear (plan-year.tsx): the whole year, full screen ---- */
+.hd-planyear { display: flex; width: 100%; justify-content: center; margin: 2px 0 12px; align-items: center; gap: 6px; height: 38px; padding: 0 12px; border: 0; border-radius: 12px; font-size: 13.5px; font-weight: 800; color: #fff; background: linear-gradient(120deg, #f97316, #ec4899 45%, #7c3aed); box-shadow: 0 6px 14px rgba(236, 72, 153, .3); cursor: pointer; transition: transform .15s; }
+.hd-planyear:hover { transform: translateY(-1px); }
+.hd-planyear small { font-size: 11.5px; font-weight: 600; opacity: .9; }
+.py { --cool: #3b82f6; --cool-2: #6366f1; --hot: #f97316; --hot-2: #f43f5e; --rainy: #10b981; --rainy-2: #0891b2; position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; color: #1e1b3a; background: radial-gradient(circle at 0 0, #fde7f3 0, transparent 35%), radial-gradient(circle at 100% 0, #e0f2fe 0, transparent 40%), radial-gradient(circle at 50% 100%, #ecfdf5 0, transparent 45%), #f7f6fd; animation: py-in .3s ease-out; }
+.py-head { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 24px; background: rgba(255, 255, 255, .75); backdrop-filter: blur(10px); border-bottom: 1px solid #ece9f5; }
+.py-title { display: flex; align-items: center; gap: 12px; }
+.py-logo { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; color: #fff; background: linear-gradient(135deg, #f97316, #ec4899 50%, #7c3aed); box-shadow: 0 8px 18px rgba(236, 72, 153, .35); }
+.py-title h2 { margin: 0; font-size: 22px; font-weight: 800; }
+.py-title h2 b { background: linear-gradient(90deg, #7c3aed, #ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.py-title small { color: #6b6585; font-size: 12px; }
+.py-year { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 99px; background: #fff; border: 1px solid #ece9f5; }
+.py-year button { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: #f3effd; color: #5b21b6; cursor: pointer; }
+.py-year span { min-width: 54px; text-align: center; font-weight: 800; font-size: 16px; }
+.py-legend { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.py-leg { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: #4b4868; background: #fff; border: 1px solid #ece9f5; }
+.py-leg i { width: 9px; height: 9px; border-radius: 50%; }
+.py-leg i.holiday { background: #e11d48; }
+.py-leg.season.cool { color: #fff; border: 0; background: linear-gradient(120deg, var(--cool), var(--cool-2)); }
+.py-leg.season.hot { color: #fff; border: 0; background: linear-gradient(120deg, var(--hot), var(--hot-2)); }
+.py-leg.season.rainy { color: #fff; border: 0; background: linear-gradient(120deg, var(--rainy), var(--rainy-2)); }
+.py-close { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; color: #4b4868; background: #fff; box-shadow: 0 4px 12px rgba(30, 20, 80, .12); cursor: pointer; transition: transform .2s; }
+.py-close:hover { transform: rotate(90deg); }
+.py-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; padding: 18px 24px 24px; overflow: auto; }
+.py-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-content: start; }
+.py-month { --a: var(--cool); --b: var(--cool-2); position: relative; padding: 12px 12px 10px; border-radius: 20px; background: linear-gradient(165deg, color-mix(in srgb, var(--a) 16%, #fff), #fff 55%); border: 1px solid color-mix(in srgb, var(--a) 22%, transparent); box-shadow: 0 8px 22px color-mix(in srgb, var(--a) 10%, transparent); overflow: hidden; }
+.py-month.hot { --a: var(--hot); --b: var(--hot-2); }
+.py-month.rainy { --a: var(--rainy); --b: var(--rainy-2); }
+.py-month::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: linear-gradient(90deg, var(--a), var(--b)); }
+.py-month.now { box-shadow: 0 0 0 2px var(--a), 0 12px 28px color-mix(in srgb, var(--a) 25%, transparent); }
+.py-month header { display: flex; align-items: center; justify-content: space-between; }
+.py-month header strong { font-size: 15px; font-weight: 800; color: color-mix(in srgb, var(--a) 70%, #1e1b3a); }
+.py-season { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 9px; color: #fff; background: linear-gradient(135deg, var(--a), var(--b)); }
+.py-stats { display: flex; gap: 5px; min-height: 18px; margin: 3px 0 4px; }
+.py-stats span { padding: 1px 7px; border-radius: 99px; font-size: 10.5px; font-weight: 700; color: color-mix(in srgb, var(--a) 75%, #111); background: color-mix(in srgb, var(--a) 12%, #fff); }
+.py-stats span.h { color: #be123c; background: #ffe4e6; }
+.py-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.py-dow { text-align: center; font-size: 10px; font-weight: 700; color: #8b85a3; padding: 2px 0; }
+.py-dow.we { color: #e11d48; }
+.py-day { position: relative; display: grid; place-items: center; height: 28px; padding: 0 0 4px; border: 0; border-radius: 9px; font-size: 11.5px; font-weight: 700; color: #2c2550; background: transparent; cursor: pointer; transition: background .12s, transform .12s; }
+.py-day.we { color: #8b85a3; }
+.py-day:hover { background: color-mix(in srgb, var(--a) 14%, #fff); transform: scale(1.08); }
+.py-day.holiday { color: #fff; background: linear-gradient(135deg, #fb7185, #e11d48); }
+.py-day.today { box-shadow: inset 0 0 0 2px var(--a); }
+.py-day.today.holiday { box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px #e11d48; }
+.py-day.picked { color: #fff; background: linear-gradient(135deg, var(--a), var(--b)); box-shadow: 0 4px 10px color-mix(in srgb, var(--a) 40%, transparent); }
+.py-dots { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+.py-dots i { width: 4px; height: 4px; border-radius: 50%; }
+.py-day.holiday .py-dots i, .py-day.picked .py-dots i { box-shadow: 0 0 0 1px #fff; }
+.py-side { display: grid; gap: 14px; align-content: start; position: sticky; top: 0; }
+.py-dayc { --a: var(--cool); --b: var(--cool-2); display: grid; gap: 8px; padding: 16px; border-radius: 20px; color: #fff; background: linear-gradient(140deg, var(--a), var(--b)); box-shadow: 0 14px 30px color-mix(in srgb, var(--a) 30%, transparent); }
+.py-dayc.hot { --a: var(--hot); --b: var(--hot-2); }
+.py-dayc.rainy { --a: var(--rainy); --b: var(--rainy-2); }
+.py-dayc > small { opacity: .85; font-weight: 600; }
+.py-dayc > strong { font-size: 20px; font-weight: 800; margin-top: -6px; }
+.py-hol { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 4px 10px; border-radius: 99px; font-size: 12.5px; font-weight: 800; color: #be123c; background: #fff; }
+.py-dayc ul, .py-month-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.py-dayc li { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 12px; color: #2c2550; background: rgba(255, 255, 255, .92); }
+.py-dayc li > svg { flex: none; margin-top: 2px; color: var(--c); }
+.py-dayc li span { display: grid; min-width: 0; }
+.py-dayc li b { font-size: 13px; }
+.py-dayc li small { font-size: 11.5px; color: #6b6585; }
+.py-empty { margin: 0; font-size: 12.5px; opacity: .85; }
+.py-month-list .py-empty { color: #8b85a3; }
+.py-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 0; border-radius: 12px; font-weight: 800; color: var(--a); background: #fff; cursor: pointer; }
+.py-add:disabled { opacity: .6; cursor: not-allowed; }
+.py-month-list { padding: 14px; border-radius: 20px; background: #fff; border: 1px solid #ece9f5; }
+.py-month-list h3 { margin: 0 0 10px; font-size: 14px; font-weight: 800; }
+.py-month-list button { display: grid; grid-template-columns: 26px 8px 1fr; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 10px; background: #faf9ff; text-align: left; cursor: pointer; }
+.py-month-list button:hover { background: #f3effd; }
+.py-month-list em { font-style: normal; font-weight: 800; font-size: 13px; color: #5b21b6; text-align: center; }
+.py-month-list li.holiday em { color: #e11d48; }
+.py-month-list i { width: 8px; height: 8px; border-radius: 50%; }
+.py-month-list span { font-size: 12.5px; font-weight: 600; color: #2c2550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes py-in { from { opacity: 0; transform: scale(.98); } }
+@media (max-width: 1400px) { .py-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { .py-main { grid-template-columns: 1fr; } .py-side { position: static; } }
+@media (max-width: 700px) { .py-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .py-head { padding: 12px 14px; } .py-main { padding: 12px 14px 18px; } .py-legend { order: 5; flex-basis: 100%; } }
+@media (max-width: 440px) { .py-grid { grid-template-columns: 1fr; } }
