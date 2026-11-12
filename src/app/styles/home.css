@@ -1823,3 +1823,25 @@
 .pm-bar { height: 20px; border-left-width: 2px; font-weight: 600; background: color-mix(in srgb, var(--c) 10%, #fff); color: color-mix(in srgb, var(--c) 70%, #1e1b3a); }
 .pm-more { height: 16px; padding: 0 6px; font-size: 10px; font-weight: 700; color: #8b85a3; background: transparent; }
 .pm-more:hover { color: #5b21b6; background: #f3effd; }
+/* PlanYear 12 เดือน: fits the window — 3 rows of months share the height, days stretch to fill */
+.py-main.fit { overflow: hidden; padding-top: 14px; padding-bottom: 14px; }
+.py-main.fit .py-grid { height: 100%; min-height: 0; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.py-main.fit .py-month { display: flex; flex-direction: column; min-height: 0; padding: 9px 11px 7px; }
+.py-main.fit .py-month header { flex: none; }
+.py-main.fit .py-stats { flex: none; min-height: 16px; margin: 1px 0 2px; }
+.py-main.fit .py-days { flex: 1; min-height: 0; grid-template-rows: auto repeat(6, minmax(0, 1fr)); }
+.py-main.fit .py-day { height: auto; min-height: 0; padding: 0 0 3px; font-size: clamp(10px, 1.4vh, 12.5px); }
+.py-main.fit .py-dow { padding: 0; font-size: clamp(9px, 1.15vh, 10.5px); }
+.py-main.fit .py-side { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 1400px) { .py-main.fit .py-grid { grid-template-rows: repeat(4, minmax(0, 1fr)); } }
+/* phones and narrow windows: back to a scrolling page */
+@media (max-width: 1000px), (max-height: 560px) { .py-main.fit { overflow: auto; } .py-main.fit .py-grid { height: auto; grid-template-rows: none; } .py-main.fit .py-day { height: 28px; } .py-main.fit .py-side { max-height: none; } }
+/* fit: keep 4 × 3 months on laptop screens; the side panel gives up width instead */
+@media (max-width: 1400px) {
+  .py-main.fit { grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; padding-left: 16px; padding-right: 16px; }
+  .py-main.fit .py-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .py-main.fit .py-month { padding: 7px 8px 5px; border-radius: 16px; }
+  .py-main.fit .py-month header strong, .py-main.fit .py-mname { font-size: 13.5px; }
+  .py-main.fit .py-season { width: 22px; height: 22px; }
+}
+@media (max-width: 1100px) { .py-main.fit .py-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); } }

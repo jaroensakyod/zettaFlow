@@ -240,7 +240,8 @@ export function PlanYear({
         </button>
       </header>
 
-      <div className="py-main">
+      {/* 12 เดือน fits the screen (no page scroll); the other views scroll. */}
+      <div className={"py-main" + (view === "year" ? " fit" : "")}>
         {view === "bars" ? (
           <section aria-busy={rows === null}>
             <PlanYearBars year={year} today={today} picked={picked} setPicked={setPicked} rows={rows || []} holidays={holidays} spanOf={spanOf} seasonOf={seasonOf} openMonth={openMonth} />
