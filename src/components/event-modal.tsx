@@ -45,6 +45,20 @@ const nameOf = (e: Entity) => String(e.data.name || e.data.nickname || "").trim(
 const letterOf = (e: Entity) => nameOf(e).replace(/^(บริษัท|บจก\.?|หจก\.?|ห้างหุ้นส่วน(จำกัด)?)\s*/, "").trim().slice(0, 1) || "?";
 const subOf = (e: Entity) => String(e.data.position || e.data.company || e.data.category || e.data.phone || "").trim();
 
+/** "09:30" + 90 → "11:00" (stops at 23:59). */
+const addMinutes = (hm: string, n: number) => {
+  const [h, m] = hm.split(":").map(Number),
+    t = Math.min(23 * 60 + 59, (h || 0) * 60 + (m || 0) + n);
+  return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+};
+/** Quick lengths: set the end time from the start time. */
+const durations: [string, number][] = [
+  ["30 นาที", 30],
+  ["1 ชม.", 60],
+  ["1.5 ชม.", 90],
+  ["2 ชม.", 120],
+  ["ครึ่งวัน", 240],
+];
 /** Rows of one list whose name matches `q` (the newest 25 when q is empty); [] if the list is not readable. */
 const search = (kind: string, q: string) =>
   api(`/entities/${kind}?q=${encodeURIComponent(q)}`)
@@ -56,7 +70,7 @@ export function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: 
     [type, setType] = useState(types[0].key),
     [start, setStart] = useState(day),
     [end, setEnd] = useState(day),
-    [allDay, setAllDay] = useState(true),
+    [allDay, setAllDay] = useState(false),
     [t1, setT1] = useState("09:00"),
     [t2, setT2] = useState("10:00"),
     [location, setLocation] = useState(""),
@@ -167,28 +181,38 @@ export function EventModal({ ctx, day, onClose, onSaved }: { ctx: Context; day: 
                 <span /> ทั้งวัน
               </label>
             </h3>
-            <div className="ev-when">
+            {/* Date and time side by side; ทั้งวัน greys the times out. */}
+            <div className={"ev-when" + (allDay ? " all-day" : "")}>
               <label>
                 <small>วันเริ่ม</small>
                 <input type="date" required value={start} onChange={(e) => (setStart(e.target.value), end < e.target.value && setEnd(e.target.value))} />
               </label>
-              {!allDay && (
-                <label>
-                  <small>เวลาเริ่ม</small>
-                  <input type="time" value={t1} onChange={(e) => setT1(e.target.value)} />
-                </label>
-              )}
+              <label className="ev-time">
+                <small>
+                  <Clock size={12} /> เวลาเริ่ม
+                </small>
+                <input type="time" value={t1} disabled={allDay} onChange={(e) => (setT1(e.target.value), t2 <= e.target.value && setT2(addMinutes(e.target.value, 60)))} />
+              </label>
               <label>
                 <small>วันสิ้นสุด</small>
                 <input type="date" min={start} value={end} onChange={(e) => setEnd(e.target.value)} />
               </label>
-              {!allDay && (
-                <label>
-                  <small>เวลาสิ้นสุด</small>
-                  <input type="time" value={t2} onChange={(e) => setT2(e.target.value)} />
-                </label>
-              )}
+              <label className="ev-time">
+                <small>
+                  <Clock size={12} /> เวลาสิ้นสุด
+                </small>
+                <input type="time" value={t2} disabled={allDay} onChange={(e) => setT2(e.target.value)} />
+              </label>
             </div>
+            {!allDay && (
+              <div className="ev-durations" aria-label="ระยะเวลา">
+                {durations.map(([label, min]) => (
+                  <button type="button" key={label} className={t2 === addMinutes(t1, min) ? "on" : ""} onClick={() => setT2(addMinutes(t1, min))}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="ev-sec">

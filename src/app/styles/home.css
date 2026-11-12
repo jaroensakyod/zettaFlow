@@ -1624,3 +1624,14 @@
 .ev-fs { flex: 1 1 auto; min-height: 0; min-inline-size: 0; display: flex; flex-direction: column; margin: 0; padding: 0; border: 0; }
 .ev-body { overflow-y: auto; overscroll-behavior: contain; }
 .ev-fs { display: contents; }
+/* date + time side by side, quick lengths */
+.ev-when { grid-template-columns: 1.3fr 1fr; }
+.ev-when small { display: inline-flex; align-items: center; gap: 4px; }
+.ev-when .ev-time small { color: var(--ev); }
+.ev-when .ev-time input { font-weight: 700; color: #2c2550; border-color: color-mix(in srgb, var(--ev) 30%, #e3dff0); background: color-mix(in srgb, var(--ev) 5%, #fff); }
+.ev-when.all-day .ev-time { opacity: .4; }
+.ev-durations { display: flex; flex-wrap: wrap; gap: 6px; }
+.ev-durations button { height: 28px; padding: 0 11px; border-radius: 99px; border: 1px solid color-mix(in srgb, var(--ev) 30%, transparent); font-size: 12px; font-weight: 700; color: var(--ev); background: #fff; cursor: pointer; }
+.ev-durations button:hover { background: color-mix(in srgb, var(--ev) 8%, #fff); }
+.ev-durations button.on { color: #fff; border-color: transparent; background: var(--ev); }
+@media (max-width: 480px) { .ev-when { grid-template-columns: 1fr 1fr; } }
