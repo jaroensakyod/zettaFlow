@@ -26,7 +26,8 @@ const cache = new Map<string, number>();
 export async function thbRate(currency: string, date?: string) {
   if (!isForeign(currency)) return 1;
   const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= new Date().toISOString().slice(0, 10) ? date : "latest";
-  const key = currency + "@" + day;
+  // "latest" is cached for the day only (the reference rates change every business day).
+  const key = currency + "@" + (day === "latest" ? "latest:" + new Date().toISOString().slice(0, 10) : day);
   const hit = cache.get(key);
   if (hit) return hit;
   const res = await fetch(`https://api.frankfurter.dev/v1/${day}?from=${currency}&to=THB`, { signal: AbortSignal.timeout(8000) });

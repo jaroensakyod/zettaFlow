@@ -393,11 +393,11 @@ type Kpi = {
   icon: LucideIcon;
   color: string;
   change?: { text: string; up: boolean; good: boolean } | null;
-  note?: string;
+  note?: React.ReactNode;
   spark?: number[];
+  /** Shown beside the value in place of the sparkline (the profit card's margin). */
+  side?: React.ReactNode;
   view: string;
-  /** Second figure under the main one (the profit card shows the margin here). */
-  extra?: React.ReactNode;
 };
 const periodNames: Record<Period, string> = { day: "วัน", week: "สัปดาห์", month: "เดือน", year: "ปี" };
 /** The day, week (Sunday to Saturday), month or year that `day` falls in. */
@@ -534,33 +534,22 @@ function Kpis({
     noPrev = `ไม่มียอด${name}ก่อนหน้าให้เทียบ`,
     spark = (k: "sales" | "cost" | "expense" | "profit" | "margin") => f.series?.[k];
   const baht = (n: number) => (n < 0 ? "-฿" : "฿") + money(Math.abs(Math.round(n)));
+  const marginPill = (
+    <span className="hd-kpi-margin-line">
+      <Percent size={12} /> อัตรากำไร <b>{f.margin.toFixed(1)}%</b>
+      {f.change.margin && (
+        <span className={f.change.margin.good ? "good" : "bad"}>({(f.change.margin.up ? "+" : "-") + f.change.margin.text})</span>
+      )}
+    </span>
+  );
+  // ต้นทุน first, then sales, running costs and profit (with its margin); tasks below.
   const cards: Kpi[] = [
-    { key: "sales", label: "ยอดขาย", value: baht(f.cur.sales), icon: ChartColumn, color: "#3b82f6", change: f.change.sales, note: noPrev, spark: spark("sales"), view: "sales" },
-    { key: "cost", label: "ต้นทุน", value: baht(f.cur.cost), icon: Coins, color: "#f08a3c", change: f.change.cost, note: noPrev, spark: spark("cost"), view: "expenses" },
-    { key: "expense", label: "ค่าใช้จ่าย", value: baht(f.cur.expense), icon: Receipt, color: "#ef4f6b", change: f.change.expense, note: noPrev, spark: spark("expense"), view: "expenses" },
-    {
-      key: "profit",
-      label: f.profit < 0 ? "ขาดทุน" : "กำไร / ขาดทุน",
-      value: baht(f.profit),
-      icon: Target,
-      color: "#22a55e",
-      change: f.change.profit,
-      note: noPrev,
-      spark: spark("profit"),
-      view: "reports",
-      extra: (
-        <span className="hd-kpi-margin-line">
-          <Percent size={12} /> อัตรากำไร <b>{f.margin.toFixed(1)}%</b>
-          {f.change.margin && (
-            <span className={f.change.margin.good ? "good" : "bad"}>
-              ({(f.change.margin.up ? "+" : "-") + f.change.margin.text})
-            </span>
-          )}
-        </span>
-      ),
-    },
-    { key: "tasks", label: "งานทั้งหมด", value: inPeriod.length + " งาน", icon: ListChecks, color: "#3b9bf0", note: `เสร็จแล้ว ${done} งาน`, view: "tasks" },
-    { key: "open", label: "งานคงค้าง", value: open.length + " งาน", icon: Hourglass, color: "#e85d9b", note: late ? `เลยกำหนด ${late} งาน` : "ไม่มีงานเลยกำหนด", view: "tasks" },
+    { key: "cost", label: "ต้นทุน", value: baht(f.cur.cost), icon: Coins, color: "#f97316", change: f.change.cost, note: f.change.cost ? undefined : noPrev, spark: spark("cost"), view: "expenses" },
+    { key: "sales", label: "ยอดขาย", value: baht(f.cur.sales), icon: ChartColumn, color: "#3b82f6", change: f.change.sales, note: f.change.sales ? undefined : noPrev, spark: spark("sales"), view: "sales" },
+    { key: "expense", label: "ค่าใช้จ่าย", value: baht(f.cur.expense), icon: Receipt, color: "#e11d48", change: f.change.expense, note: f.change.expense ? undefined : noPrev, spark: spark("expense"), view: "expenses" },
+    { key: "profit", label: f.profit < 0 ? "ขาดทุน" : "กำไร / ขาดทุน", value: baht(f.profit), icon: Target, color: "#16a34a", change: f.change.profit, side: marginPill, view: "reports" },
+    { key: "tasks", label: "งานทั้งหมด", value: inPeriod.length + " งาน", icon: ListChecks, color: "#0ea5e9", note: `เสร็จแล้ว ${done} งาน`, view: "tasks" },
+    { key: "open", label: "งานคงค้าง", value: open.length + " งาน", icon: Hourglass, color: "#db2777", note: late ? <span className="bad">เลยกำหนด {late} งาน</span> : "ไม่มีงานเลยกำหนด", view: "tasks" },
   ];
   const compare = w.running ? `เทียบช่วงเดียวกันของ${name}ก่อน` : `เทียบกับ${name}ก่อนหน้า`,
     range = periodText(period, w.from, w.to);
@@ -568,34 +557,96 @@ function Kpis({
     <div className={"hd-kpis" + (sample ? " sample" : "") + (loading ? " loading" : "")} aria-busy={loading}>
       {sample && <span className="sample-badge hd-sample-badge hd-kpis-badge">ตัวอย่าง</span>}
       {cards.map((k) => (
-        <button key={k.key} className={"hd-card hd-kpi hd-kpi-" + k.key} onClick={() => navigate(k.view)} title={`${range} · ${compare}`}>
-          <span className="hd-kpi-icon" style={{ color: k.color, background: k.color + "1f" }}>
-            <k.icon size={20} />
-          </span>
-          <span className="hd-kpi-body">
-            <span className="hd-kpi-label">{k.label}</span>
-            <strong className="hd-kpi-value">{k.value}</strong>
-            {k.change ? (
-              <span className={"hd-kpi-change " + (k.change.good ? "good" : "bad")}>
-                {k.change.up ? "▲" : "▼"} {(k.change.up ? "+" : "-") + k.change.text}
+        <button
+          key={k.key}
+          className={"hd-card hd-kc hd-kc-" + k.key}
+          style={{ "--c": k.color } as React.CSSProperties}
+          onClick={() => navigate(k.view)}
+          title={`${range} · ${compare}`}
+        >
+          <span className="hd-kc-top">
+            <span className="hd-kc-ic">
+              <k.icon size={16} />
+            </span>
+            <span className="hd-kc-label">{k.label}</span>
+            {k.change && (
+              <span className={"hd-kc-chg " + (k.change.good ? "good" : "bad")}>
+                {k.change.up ? "▲" : "▼"} {k.change.text}
               </span>
-            ) : (
-              <span className="hd-kpi-change muted">{k.note}</span>
             )}
-            {k.extra}
           </span>
-          {k.spark && <Spark values={k.spark} color={k.color} />}
+          <span className="hd-kc-mid">
+            <strong className="hd-kc-value">{k.value}</strong>
+            {k.side || (k.spark && <Spark values={k.spark} color={k.color} />)}
+          </span>
+          {k.note && <span className="hd-kc-note">{k.note}</span>}
         </button>
       ))}
-      <div className="hd-card hd-kpi hd-kpi-period" role="status">
-        <span className="hd-kpi-icon">
-          <CalendarDays size={20} />
+      <ClockCard label={"ยอด" + thisName} range={range} compare={compare} />
+    </div>
+  );
+}
+
+/** Big Bangkok clock, the period the cards show, and baht rates for USD / EUR / CNY. */
+const fxList = [
+  { code: "USD", sign: "$", name: "ดอลลาร์สหรัฐ" },
+  { code: "EUR", sign: "€", name: "ยูโร" },
+  { code: "CNY", sign: "¥", name: "หยวนจีน" },
+] as const;
+function ClockCard({ label, range, compare }: { label: string; range: string; compare: string }) {
+  const [now, setNow] = useState<Date | null>(null),
+    [rates, setRates] = useState<Record<string, number | null>>({});
+  useEffect(() => {
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    let live = true;
+    const load = () =>
+      Promise.all(
+        fxList.map((c) =>
+          api("/fx?currency=" + c.code)
+            .then((r: { rate: number }) => [c.code, r.rate] as const)
+            .catch(() => [c.code, null] as const),
+        ),
+      ).then((list) => live && setRates(Object.fromEntries(list)));
+    load();
+    const t = setInterval(load, 30 * 60 * 1000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, []);
+  const part = (o: Intl.DateTimeFormatOptions) => (now ? now.toLocaleString("en-GB", { ...o, timeZone: BKK }) : "--");
+  return (
+    <div className="hd-card hd-clockcard" role="group" aria-label="เวลาและอัตราแลกเปลี่ยน">
+      <i className="hd-clockcard-glow" aria-hidden />
+      <div className="hd-clock">
+        <span className="hd-clock-time" suppressHydrationWarning>
+          {part({ hour: "2-digit", hour12: false })}
+          <i>:</i>
+          {part({ minute: "2-digit" }).padStart(2, "0")}
+          <small>{part({ second: "2-digit" }).padStart(2, "0")}</small>
         </span>
-        <span className="hd-kpi-body">
-          <span className="hd-kpi-label">ยอด{thisName}</span>
-          <strong className="hd-kpi-value">{range}</strong>
-          <span className="hd-kpi-change muted">{compare} · เปลี่ยนได้ที่ปฏิทิน</span>
+        <span className="hd-clock-sub">
+          <span className="hd-clock-date">
+            {now ? now.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: BKK }) : ""}
+          </span>
+          <span className="hd-clock-period" title={compare + " · เปลี่ยนได้ที่ปฏิทิน"}>
+            <CalendarDays size={12} /> {label}: <b>{range}</b>
+          </span>
         </span>
+      </div>
+      <div className="hd-fx">
+        <span className="hd-fx-head">อัตราแลกเปลี่ยน (บาท)</span>
+        {fxList.map((c) => (
+          <span key={c.code} className="hd-fx-row" title={c.name}>
+            <i>{c.sign}</i>
+            <b>{c.code}</b>
+            <span>{rates[c.code] == null ? (c.code in rates ? "—" : "…") : "฿" + rates[c.code]!.toFixed(2)}</span>
+          </span>
+        ))}
       </div>
     </div>
   );
