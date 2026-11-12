@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   Clock,
   Coins,
+  TrendingUp,
   Droplet,
   Ellipsis,
   FileText,
@@ -1204,18 +1205,37 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
   const view = useMemo(() => {
     const rows = home.finance.filter((r) => mode === "branch" || project === "all" || r.projectId === project),
       sum = (from: string, to: string, kind: string) =>
-        rows.filter((r) => r.kind === kind && r.date >= from && r.date <= to).reduce((s, r) => s + r.amount, 0),
-      groups = buckets(period, today).map((b) => {
-        const sales = sum(b.from, b.to, "sales"),
-          cost = sum(b.from, b.to, "expenses");
-        return { ...b, sales, cost, profit: sales - cost };
-      });
+        rows.filter((r) => r.kind === kind && r.date >= from && r.date <= to).reduce((n, r) => n + r.amount, 0),
+      bs = buckets(period, today),
+      start = bs[0].from,
+      end = bs[bs.length - 1].to,
+      // Days of the range that have happened (to today) and the run rate per day so far.
+      upto = end < today ? end : today,
+      elapsed = upto < start ? 0 : dayDiff(upto, start) + 1,
+      soFar = { sales: sum(start, upto, "sales"), cost: sum(start, upto, "expenses") },
+      perDay = { sales: elapsed ? soFar.sales / elapsed : 0, cost: elapsed ? soFar.cost / elapsed : 0 };
+    const groups = bs.map((b) => {
+      const sales = sum(b.from, b.to, "sales"),
+        cost = sum(b.from, b.to, "expenses"),
+        // A bucket entirely after today is forecast at the run rate; one running today gets the rest of its days.
+        aheadDays = b.to <= today ? 0 : dayDiff(b.to, b.from < today ? today : addDays(b.from, -1)),
+        fSales = sales + perDay.sales * aheadDays,
+        fCost = cost + perDay.cost * aheadDays;
+      return { ...b, sales, cost, profit: sales - cost, future: b.from > today, fSales, fCost, fProfit: fSales - fCost };
+    });
+    const total = { sales: sum(start, end, "sales"), cost: sum(start, end, "expenses") },
+      ahead = end > today && elapsed > 0,
+      forecast = ahead ? { sales: groups.reduce((n, g) => n + g.fSales, 0), cost: groups.reduce((n, g) => n + g.fCost, 0) } : null;
     return {
       groups,
+      total: { ...total, profit: total.sales - total.cost },
+      forecast: forecast && { ...forecast, profit: forecast.sales - forecast.cost },
       empty: groups.every((g) => !g.sales && !g.cost),
-      max: niceMax(Math.max(0, ...groups.flatMap((g) => [g.sales, g.cost, g.profit]))),
+      max: niceMax(Math.max(0, ...groups.flatMap((g) => [g.sales, g.cost, g.future ? Math.max(g.fSales, g.fCost) : 0]))),
     };
   }, [home, period, project, mode, today]);
+  const signed = (n: number) => (n < 0 ? "-฿" : "+฿") + money(Math.abs(Math.round(n))),
+    periodWord = { day: "14 วันนี้", week: "สัปดาห์นี้", month: "เดือนนี้", year: "ปีนี้" }[period];
   return (
     <section className="hd-card hd-sales">
       <div className="hd-head">
@@ -1265,6 +1285,27 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
           ))}
         </div>
       </div>
+      <div className="hd-sum">
+        {(
+          [
+            ["sales", "ยอดขาย", view.total.sales, view.forecast?.sales],
+            ["cost", "ต้นทุน + ค่าใช้จ่าย", view.total.cost, view.forecast?.cost],
+            [view.total.profit < 0 ? "loss" : "profit", view.total.profit < 0 ? "ขาดทุน" : "กำไร", view.total.profit, view.forecast?.profit],
+          ] as [string, string, number, number | undefined][]
+        ).map(([key, label, value, fc]) => (
+          <div key={key} className={"hd-sum-tile " + key}>
+            <span>
+              {label} <small>{periodWord}</small>
+            </span>
+            <b>{key === "sales" || key === "cost" ? "฿" + money(Math.round(value)) : signed(value)}</b>
+            {fc !== undefined && (
+              <small className={"hd-sum-fc" + (key !== "sales" && key !== "cost" && fc < 0 ? " neg" : "")}>
+                <TrendingUp size={12} /> คาดการณ์ {key === "sales" || key === "cost" ? "฿" + money(Math.round(fc)) : signed(fc)}
+              </small>
+            )}
+          </div>
+        ))}
+      </div>
       <div className={"hd-chart" + (view.empty ? " empty" : "")}>
         {view.empty && <p className="hd-chart-empty">ยังไม่มียอดขายหรือค่าใช้จ่ายที่ยืนยันในช่วงนี้</p>}
         <div className="hd-axis">
@@ -1273,29 +1314,36 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
           <span>0</span>
         </div>
         <div className="hd-bars">
-          {view.groups.map((g) => (
-            <div className="hd-group" key={g.from}>
-              <div className="hd-trio">
-                {(
-                  [
-                    ["sales", g.sales, "ยอดขาย"],
-                    ["cost", g.cost, "ต้นทุน + ค่าใช้จ่าย"],
-                    ["profit", Math.max(0, g.profit), "กำไร"],
-                  ] as [string, number, string][]
-                ).map(([key, value, label]) => (
-                  <i key={key} className={key} style={{ height: (value / view.max) * 100 + "%" }} title={`${label} ฿${money(value)}`} />
-                ))}
+          {view.groups.map((g) => {
+            // One bar per period: expenses (orange) topped by profit (green) up to the sales line, or by the loss (red) above it.
+            const fc = g.future,
+              sales = fc ? g.fSales : g.sales,
+              cost = fc ? g.fCost : g.cost,
+              top = Math.max(sales, cost),
+              pct = (n: number) => (n / view.max) * 100 + "%",
+              profit = sales - cost,
+              tip = `${g.label}${fc ? " (คาดการณ์)" : ""}\nยอดขาย ฿${money(Math.round(sales))}\nต้นทุน + ค่าใช้จ่าย ฿${money(Math.round(cost))}\n${profit < 0 ? "ขาดทุน" : "กำไร"} ${signed(profit)}`;
+            return (
+              <div className={"hd-group" + (fc ? " forecast" : "")} key={g.from} title={tip}>
+                <div className="hd-stack-wrap">
+                  {top > 0 && (
+                    <span className={"hd-stack-val " + (profit < 0 ? "neg" : "pos")} style={{ bottom: pct(top) }}>
+                      {(profit < 0 ? "-" : "+") + compact(Math.abs(profit))}
+                    </span>
+                  )}
+                  <div className="hd-stack" style={{ height: pct(top) }}>
+                    {profit < 0 && <i className="loss" style={{ flexGrow: -profit }} />}
+                    {profit > 0 && <i className="profit" style={{ flexGrow: profit }} />}
+                    {Math.min(sales, cost) > 0 && <i className="cost" style={{ flexGrow: Math.min(sales, cost) }} />}
+                  </div>
+                </div>
+                <small>{g.label}</small>
               </div>
-              <small>{g.label}</small>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       <div className="hd-legend">
-        <span>
-          <i className="sales" />
-          ยอดขาย
-        </span>
         <span>
           <i className="cost" />
           ต้นทุน + ค่าใช้จ่าย
@@ -1304,6 +1352,16 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
           <i className="profit" />
           กำไร
         </span>
+        <span>
+          <i className="loss" />
+          ขาดทุน
+        </span>
+        {view.forecast && (
+          <span>
+            <i className="fc" />
+            คาดการณ์
+          </span>
+        )}
       </div>
     </section>
   );
