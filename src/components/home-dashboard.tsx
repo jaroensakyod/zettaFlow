@@ -1220,7 +1220,8 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
         aheadDays = b.to <= today ? 0 : dayDiff(b.to, b.from < today ? today : addDays(b.from, -1)),
         fSales = sales + perDay.sales * aheadDays,
         fCost = cost + perDay.cost * aheadDays;
-      return { ...b, sales, cost, profit: sales - cost, future: b.from > today, fSales, fCost, fProfit: fSales - fCost };
+      const expected = b.from > today || b.to >= today ? fSales : perDay.sales * (dayDiff(b.to, b.from) + 1);
+      return { ...b, sales, cost, profit: sales - cost, future: b.from > today, fSales, fCost, fProfit: fSales - fCost, expected };
     });
     const total = { sales: sum(start, end, "sales"), cost: sum(start, end, "expenses") },
       ahead = end > today && elapsed > 0,
@@ -1231,6 +1232,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
       forecast: forecast && { ...forecast, profit: forecast.sales - forecast.cost },
       empty: groups.every((g) => !g.sales && !g.cost),
       max: niceMax(Math.max(0, ...groups.flatMap((g) => [g.sales, g.cost, g.future ? Math.max(g.fSales, g.fCost) : 0]))),
+      hasRate: elapsed > 0,
     };
   }, [home, period, project, mode, today]);
   const signed = (n: number) => (n < 0 ? "-฿" : "+฿") + money(Math.abs(Math.round(n)));
@@ -1292,6 +1294,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
         </div>
         <div className="hd-bars">
           {view.groups.map((g, n) => {
+            const elapsedAny = view.hasRate;
             // One bar per period: expenses (orange) topped by profit (green) up to the sales line, or by the loss (red) above it.
             const fc = g.future,
               sales = fc ? g.fSales : g.sales,
@@ -1308,13 +1311,19 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
                       {g.from === g.to ? thai(g.from, { day: "numeric", month: "short", year: "numeric" }) : g.label}
                       {fc && <em>คาดการณ์</em>}
                     </b>
+                    {elapsedAny && (
+                      <span className="fc" title="ยอดขายเฉลี่ยต่อวันของช่วงนี้ × จำนวนวันของแท่งนี้">
+                        <i />
+                        Forecast ยอดขาย<b>฿{money(Math.round(g.expected))}</b>
+                      </span>
+                    )}
                     <span className="sales">
                       <i />
-                      ยอดขาย<b>฿{money(Math.round(sales))}</b>
+                      ยอดขาย<b>฿{money(Math.round(g.sales))}</b>
                     </span>
                     <span className="cost">
                       <i />
-                      ต้นทุน + ค่าใช้จ่าย<b>฿{money(Math.round(cost))}</b>
+                      ค่าใช้จ่าย<b>฿{money(Math.round(cost))}</b>
                     </span>
                     <span className={profit < 0 ? "loss" : "profit"}>
                       <i />
@@ -1344,7 +1353,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
       <div className="hd-legend">
         <span>
           <i className="cost" />
-          ต้นทุน + ค่าใช้จ่าย
+          ค่าใช้จ่าย
         </span>
         <span>
           <i className="profit" />

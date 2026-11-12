@@ -1541,3 +1541,4 @@
 .hd-tip.left { left: calc(50% + 16px); right: auto; }
 .hd-tip.right { right: calc(50% + 16px); left: auto; }
 .hd-group:hover .hd-tip, .hd-group:focus-visible .hd-tip, .hd-group:hover .hd-tip.left, .hd-group:focus-visible .hd-tip.left, .hd-group:hover .hd-tip.right, .hd-group:focus-visible .hd-tip.right { transform: translate(0, 0); }
+.hd-tip .fc { --c: #7c3aed; }
