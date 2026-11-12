@@ -738,7 +738,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
         <main className="main" key={ctx.company.id}>
-          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat"].includes(view) && (
           // Accounting pages carry their own period picker and tabs: a one-line heading keeps the numbers near the top.
           <div className={"page-heading" + (sideDept?.id === "accounting" ? " compact" : "")}>
             <div>

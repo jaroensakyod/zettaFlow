@@ -28,14 +28,23 @@ export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: s
   }, []);
   return (
     <div className="chat-hub">
-      <div className="chat-tabs" role="tablist">
-        <button role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>
-          <Users size={16} /> แชทในทีม
-        </button>
-        <button role="tab" aria-selected={tab === "b2b"} className={tab === "b2b" ? "active" : ""} onClick={() => setTab("b2b")}>
-          <Building2 size={16} /> คุยกับบริษัทอื่น
-          {unread > 0 && <b className="li-alert-count">{unread}</b>}
-        </button>
+      <div className={"chat-bar t-" + tab}>
+        <span className="chat-bar-icon">
+          <MessagesSquare size={20} />
+        </span>
+        <div className="chat-bar-title">
+          <h1>แชท</h1>
+          <small>{tab === "team" ? "คุยกันในทีม แยกตามแผนก" : "ติดต่อ สอบถาม และต่อรองกับบริษัทในเครือข่าย"}</small>
+        </div>
+        <div className="chat-tabs" role="tablist">
+          <button role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>
+            <Users size={16} /> แชทในทีม
+          </button>
+          <button role="tab" aria-selected={tab === "b2b"} className={tab === "b2b" ? "active" : ""} onClick={() => setTab("b2b")}>
+            <Building2 size={16} /> คุยกับบริษัทอื่น
+            {unread > 0 && <b className="li-alert-count">{unread}</b>}
+          </button>
+        </div>
       </div>
       {tab === "team" ? <Chat ctx={ctx} notify={notify} /> : <B2bChat ctx={ctx} notify={notify} navigate={navigate} onRead={setUnread} />}
     </div>
@@ -257,15 +266,14 @@ function B2bChat({
   return (
     <section className={"card b2b" + (active && thread ? " open" : "")}>
       <aside className="b2b-list" aria-label="บริษัทที่คุยด้วย">
-        <h3>
-          <MessagesSquare size={16} /> คุยกับบริษัทอื่น
-          {sampleMode && <span className="sample-badge">ตัวอย่าง</span>}
-        </h3>
-        {sampleMode && (
-          <p className="b2b-sample-note">
-            <Sparkles size={13} /> {SAMPLE_NOTE}
-          </p>
-        )}
+        <div className="b2b-list-head">
+          <b>บริษัทที่คุยด้วย</b>
+          {sampleMode && (
+            <span className="sample-badge" title={SAMPLE_NOTE}>
+              <Sparkles size={11} /> ตัวอย่าง
+            </span>
+          )}
+        </div>
         {!list ? (
           <Loading />
         ) : (
@@ -396,7 +404,7 @@ function B2bChat({
                   aria-label={"ข้อความถึง " + thread.company.name}
                   placeholder={viewer ? "ผู้ชมอ่านได้อย่างเดียว" : topic ? "ถามเกี่ยวกับโพสต์นี้…" : `พิมพ์ข้อความในนาม ${ctx.company.name}…`}
                   value={text}
-                  rows={2}
+                  rows={1}
                   maxLength={4000}
                   disabled={viewer || busy}
                   onChange={(e) => setText(e.target.value)}
