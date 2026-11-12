@@ -234,11 +234,6 @@ export function PlanYear({
           <span className="py-leg">
             <i className="holiday" /> วันหยุด
           </span>
-          {Object.entries(kindInfo).map(([k, v]) => (
-            <span key={k} className="py-leg">
-              <i style={{ background: v.color }} /> {v.label}
-            </span>
-          ))}
         </div>
         <button className="py-close" onClick={onClose} aria-label="ปิด PlanYear">
           <X size={20} />
