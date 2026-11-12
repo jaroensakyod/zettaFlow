@@ -1542,3 +1542,8 @@
 .hd-tip.right { right: calc(50% + 16px); left: auto; }
 .hd-group:hover .hd-tip, .hd-group:focus-visible .hd-tip, .hd-group:hover .hd-tip.left, .hd-group:focus-visible .hd-tip.left, .hd-group:hover .hd-tip.right, .hd-group:focus-visible .hd-tip.right { transform: translate(0, 0); }
 .hd-tip .fc { --c: #7c3aed; }
+/* month view: a bar for every day */
+.hd-chart.dense .hd-bars { gap: 2px; }
+.hd-chart.dense .hd-stack { width: min(16px, 72%); border-radius: 4px 4px 1px 1px; }
+.hd-chart.dense .hd-stack-val { display: none; }
+.hd-chart.dense .hd-group small { font-size: 9.5px; letter-spacing: -.02em; }

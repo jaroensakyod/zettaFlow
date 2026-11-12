@@ -1178,14 +1178,12 @@ function buckets(period: Period, today: string) {
     });
   }
   if (period === "month") {
-    const start = today.slice(0, 8) + "01",
-      last = monthDays(today.slice(0, 7)),
-      out = [];
-    for (let d = 1; d <= last; d += 7) {
-      const end = Math.min(last, d + 6);
-      out.push({ label: `${d}–${end}`, from: addDays(start, d - 1), to: addDays(start, end - 1) });
-    }
-    return out;
+    // Every day of this month.
+    const start = today.slice(0, 8) + "01";
+    return Array.from({ length: monthDays(today.slice(0, 7)) }, (_, i) => {
+      const d = addDays(start, i);
+      return { label: String(i + 1), from: d, to: d };
+    });
   }
   const year = today.slice(0, 4);
   return Array.from({ length: 12 }, (_, i) => {
@@ -1198,7 +1196,7 @@ function buckets(period: Period, today: string) {
   });
 }
 function SalesCard({ today, home }: { today: string; home: HomeData }) {
-  const [period, setPeriod] = useState<Period>("week"),
+  const [period, setPeriod] = useState<Period>("month"),
     [mode, setMode] = useState<"branch" | "project">("branch"),
     [project, setProject] = useState("all");
   const view = useMemo(() => {
@@ -1274,7 +1272,6 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
           {(
             [
               ["day", "รายวัน"],
-              ["week", "รายสัปดาห์"],
               ["month", "รายเดือน"],
               ["year", "รายปี"],
             ] as [Period, string][]
@@ -1285,7 +1282,7 @@ function SalesCard({ today, home }: { today: string; home: HomeData }) {
           ))}
         </div>
       </div>
-      <div className={"hd-chart" + (view.empty ? " empty" : "")}>
+      <div className={"hd-chart" + (view.empty ? " empty" : "") + (view.groups.length > 16 ? " dense" : "")}>
         {view.empty && <p className="hd-chart-empty">ยังไม่มียอดขายหรือค่าใช้จ่ายที่ยืนยันในช่วงนี้</p>}
         <div className="hd-axis">
           <span>{compact(view.max)}</span>
