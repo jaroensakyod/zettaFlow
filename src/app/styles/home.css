@@ -1431,3 +1431,11 @@
 .hd-hello-ad strong { flex: none; }
 .hd-hello-ad p { flex: 0 1 auto; min-height: 0; }
 .hd-hello-ad-foot { flex: none; }
+/* ads crossfade: each ad is a layer; the shown one fades in while the last fades out */
+.hd-hello-ads { position: absolute; inset: 0; z-index: 2; border-radius: inherit; overflow: hidden; animation: hd-ad-in .45s cubic-bezier(.2, .9, .3, 1.15); }
+.hd-hello-ads .hd-hello-ad { animation: none; transition: opacity 1s ease, visibility 1s; }
+.hd-hello-ads .hd-hello-ad > :not(.hd-hello-ad-glow) { transition: transform 1s cubic-bezier(.2, .8, .2, 1), opacity 1s ease; }
+.hd-hello-ads .hd-hello-ad.off { opacity: 0; visibility: hidden; pointer-events: none; }
+.hd-hello-ads .hd-hello-ad.off > :not(.hd-hello-ad-glow) { transform: translateY(8px); opacity: 0; }
+.hd-hello-ads .hd-hello-ad-x { z-index: 3; }
+.hd-hello-ads .hd-hello-ad-dots { position: absolute; right: 18px; bottom: 16px; z-index: 3; height: 34px; align-items: center; }

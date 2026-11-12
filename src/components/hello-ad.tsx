@@ -72,51 +72,60 @@ export function HelloAd({ demo }: { demo: boolean }) {
     setOpen(false);
     setI((n) => (n + 1) % ads.length); // next time, the next ad
   };
-  const external = ad.cta_url.startsWith("http"),
-    click = () => {
-      if (ad.company_id && !demo) api(`/ads/${ad.id}/track`, { method: "POST", body: { kind: "click" } }).catch(() => {});
-    };
+  const click = (x: FeedAd) => () => {
+    if (x.company_id && !demo) api(`/ads/${x.id}/track`, { method: "POST", body: { kind: "click" } }).catch(() => {});
+  };
+  const cur = i % ads.length;
+  // Every ad is its own layer; changing ads fades one out while the next fades in (colour included).
   return (
-    <div className={"hd-hello-ad " + ad.tone} role="complementary" aria-label="ผู้สนับสนุน" key={ad.id}>
-      <i className="hd-hello-ad-glow" aria-hidden />
+    <div className="hd-hello-ads" role="complementary" aria-label="ผู้สนับสนุน">
+      {ads.map((x, n) => {
+        const on = n === cur,
+          external = x.cta_url.startsWith("http");
+        return (
+          <div key={x.id} className={"hd-hello-ad " + x.tone + (on ? "" : " off")} aria-hidden={!on}>
+            <i className="hd-hello-ad-glow" aria-hidden />
+            <div className="hd-hello-ad-head">
+              {x.company && (
+                <span className="hd-hello-ad-who">
+                  {x.has_logo && x.company_id ? <img src={"/api/feed/logo/" + x.company_id} alt="" width={30} height={30} /> : <i>{initials(x.company)}</i>}
+                  <span>
+                    <b>{x.company}</b>
+                    {x.industry && <small>{x.industry}</small>}
+                  </span>
+                </span>
+              )}
+              <span className="hd-hello-ad-tag">
+                <Megaphone size={12} /> ผู้สนับสนุน{x.company ? "" : " · EliteFlow"}
+              </span>
+            </div>
+            <strong>{x.title}</strong>
+            {x.body && <p>{x.body}</p>}
+            <div className="hd-hello-ad-foot">
+              {x.cta_label &&
+                (x.cta_url ? (
+                  <a className="hd-hello-ad-cta" href={x.cta_url} target={external ? "_blank" : undefined} rel="noreferrer sponsored" onClick={click(x)} tabIndex={on ? 0 : -1}>
+                    {x.cta_label} <ArrowRight size={14} />
+                  </a>
+                ) : (
+                  <span className="hd-hello-ad-cta">
+                    {x.cta_label} <ArrowRight size={14} />
+                  </span>
+                ))}
+            </div>
+          </div>
+        );
+      })}
       <button className="hd-hello-ad-x" onClick={close} aria-label="ปิดโฆษณา (แสดงอีกครั้งใน 15 นาที)" title="ปิด · แสดงอีกครั้งใน 15 นาที">
         <X size={16} />
       </button>
-      <div className="hd-hello-ad-head">
-        {ad.company && (
-          <span className="hd-hello-ad-who">
-            {ad.has_logo && ad.company_id ? <img src={"/api/feed/logo/" + ad.company_id} alt="" width={30} height={30} /> : <i>{initials(ad.company)}</i>}
-            <span>
-              <b>{ad.company}</b>
-              {ad.industry && <small>{ad.industry}</small>}
-            </span>
-          </span>
-        )}
-        <span className="hd-hello-ad-tag">
-          <Megaphone size={12} /> ผู้สนับสนุน{ad.company ? "" : " · EliteFlow"}
-        </span>
-      </div>
-      <strong>{ad.title}</strong>
-      {ad.body && <p>{ad.body}</p>}
-      <div className="hd-hello-ad-foot">
-        {ad.cta_label &&
-          (ad.cta_url ? (
-            <a className="hd-hello-ad-cta" href={ad.cta_url} target={external ? "_blank" : undefined} rel="noreferrer sponsored" onClick={click}>
-              {ad.cta_label} <ArrowRight size={14} />
-            </a>
-          ) : (
-            <span className="hd-hello-ad-cta">
-              {ad.cta_label} <ArrowRight size={14} />
-            </span>
+      {ads.length > 1 && (
+        <span className="hd-hello-ad-dots" aria-hidden>
+          {ads.map((x, n) => (
+            <i key={x.id} className={n === cur ? "on" : ""} />
           ))}
-        {ads.length > 1 && (
-          <span className="hd-hello-ad-dots" aria-hidden>
-            {ads.map((a, n) => (
-              <i key={a.id} className={n === i % ads.length ? "on" : ""} />
-            ))}
-          </span>
-        )}
-      </div>
+        </span>
+      )}
     </div>
   );
 }
