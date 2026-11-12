@@ -93,6 +93,7 @@ import { QuotesPage } from "./quotes-page";
 import { FinanceLedger } from "./finance-ledger";
 import { ReceiptsPage } from "./receipts-page";
 import { CompanyProfilePage } from "./company-profile";
+import { CompanySetupGate, companyNeedsSetup } from "./company-setup-card";
 import { ProjectsPage } from "./projects";
 import {
   Calendar,
@@ -974,6 +975,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         </Modal>
       )}
       <FlowAssistant ctx={ctx} navigate={navigate} notify={notify} />
+      {/* The owner fills in the required company details before using the workspace. */}
+      {companyNeedsSetup(ctx) && <CompanySetupGate key={ctx.company.id} ctx={ctx} changed={load} />}
       {/* Stacked above the Flow mascot so the two launchers never overlap. */}
       <div className="elite-support">
         <SupportChat ctx={ctx} />

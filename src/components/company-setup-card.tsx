@@ -1,78 +1,141 @@
 "use client";
-import { useState } from "react";
-import { Building2, Check, ChevronRight, IdCard, MapPin, Phone, Sparkles, X } from "lucide-react";
-import { companyRequired } from "@/lib/company-required";
+import { useState, type FormEvent } from "react";
+import { Building2, Check, IdCard, LoaderCircle, LogOut, MapPin, Phone, Sparkles } from "lucide-react";
+import { companyMissing, companyRequired } from "@/lib/company-required";
+import { companyFields } from "@/lib/catalog";
 import type { Context } from "@/lib/types";
+import { api, setTabCompany } from "./shared";
 
 const icons = { name: Building2, taxId: IdCard, address: MapPin, phone: Phone } as const;
-const HIDE = "ef_company_setup_later";
+
+/** The saved profile with the company name filled in, as the company form keeps it. */
+const savedProfile = (ctx: Context) => {
+  const p = { ...ctx.company.profile } as Record<string, unknown>;
+  if (!String(p.name ?? "").trim()) p.name = ctx.company.name;
+  return p;
+};
+export const companyNeedsSetup = (ctx: Context) =>
+  !ctx.demo && ctx.member.role === "owner" && companyMissing(savedProfile(ctx)).length > 0;
 
 /**
- * After sign-in: asks the owner to finish the company details (name, ID card / tax ID or registration no., address,
- * phone). Hides once they are filled in; "ไว้ทีหลัง" hides it until the next sign-in (this browser session).
+ * Pop-up in the middle of the screen after sign-in: the owner fills in the four required company details
+ * (name, ID card / tax ID or registration no., address, phone) before using the workspace. It cannot be closed;
+ * saving reloads the workspace and it goes away. Everything else on the company page stays optional.
  */
-export function CompanySetupCard({ ctx, navigate }: { ctx: Context; navigate: (v: string) => void }) {
-  const [later, setLater] = useState(() => {
-    try {
-      return sessionStorage.getItem(HIDE) === ctx.company.id;
-    } catch {
-      return false;
-    }
+export function CompanySetupGate({ ctx, changed }: { ctx: Context; changed: () => void }) {
+  const saved = savedProfile(ctx);
+  const [v, setV] = useState({
+    name: String(saved.name ?? ""),
+    taxId: String(saved.taxId ?? "").replace(/\D/g, ""),
+    registration: String(saved.registration ?? ""),
+    address: String(saved.address ?? ""),
+    phone: String(saved.phone ?? ""),
   });
-  const profile = { name: ctx.company.name, ...ctx.company.profile };
-  const items = companyRequired.map((r) => ({ ...r, ok: r.done(profile) }));
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const set = (k: keyof typeof v, value: string) => setV((s) => ({ ...s, [k]: value }));
+  const items = companyRequired.map((r) => ({ ...r, ok: r.done(v) }));
   const done = items.filter((i) => i.ok).length;
-  if (ctx.demo || ctx.member.role !== "owner" || later || done === items.length) return null;
-  const next = items.find((i) => !i.ok)!;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const missing = companyMissing(v);
+    if (missing.length) return setError("กรุณากรอก: " + missing.map((m) => m.label).join(" · "));
+    if (v.taxId && !/^\d{13}$/.test(v.taxId)) return setError("เลขบัตรประชาชน / เลขผู้เสียภาษี ต้องเป็นตัวเลข 13 หลัก");
+    setBusy(true);
+    try {
+      // save_company replaces the whole profile, so every other saved field goes back unchanged.
+      const profile = Object.fromEntries(
+        Object.entries({ ...saved, ...v })
+          .filter(([k]) => companyFields.some((f) => f.key === k))
+          .map(([k, val]) => [k, String(val ?? "").trim()]),
+      );
+      await api("/company", { method: "PATCH", body: { profile } });
+      setError("");
+      changed();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
   return (
-    <section className="csc" aria-label="ตั้งค่าข้อมูลบริษัท">
-      <div className="csc-glow" aria-hidden />
-      <button
-        className="csc-close"
-        aria-label="ไว้ทีหลัง"
-        onClick={() => {
-          try {
-            sessionStorage.setItem(HIDE, ctx.company.id);
-          } catch {}
-          setLater(true);
-        }}
-      >
-        <X size={16} />
-      </button>
-      <div className="csc-main">
-        <span className="csc-badge">
-          <Sparkles size={14} /> ขั้นตอนแรก
-        </span>
-        <h2>บันทึกข้อมูลบริษัทให้เรียบร้อย</h2>
-        <p>
-          ใช้ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และแสดงในหน้าบริษัทของคุณ ข้อมูลอื่นไม่ต้องกรอกครบก็ได้ กรอกเพิ่มทีหลังได้ตลอด
-        </p>
-        <div className="csc-progress" style={{ ["--p" as string]: (done / items.length) * 100 + "%" }}>
-          <span />
+    <div className="csg-backdrop" role="dialog" aria-modal="true" aria-labelledby="csg-title">
+      <form className="csg" onSubmit={submit}>
+        <header className="csg-head">
+          <div className="csg-glow" aria-hidden />
+          <span className="csg-badge">
+            <Sparkles size={14} /> ก่อนเริ่มใช้งาน
+          </span>
+          <h2 id="csg-title">บันทึกข้อมูลบริษัทให้เรียบร้อย</h2>
+          <p>กรอก 4 ข้อนี้เพื่อเริ่มใช้งาน ใช้ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และแสดงในหน้าบริษัท ข้อมูลอื่นกรอกเพิ่มทีหลังได้ที่หน้าบริษัท</p>
+          <div className="csg-steps">
+            {items.map((i) => {
+              const Icon = icons[i.key as keyof typeof icons];
+              return (
+                <span key={i.key} className={"csg-step k-" + i.key + (i.ok ? " ok" : "")} title={i.label}>
+                  {i.ok ? <Check size={15} /> : <Icon size={15} />}
+                </span>
+              );
+            })}
+            <small>
+              กรอกแล้ว {done}/{items.length} ข้อ
+            </small>
+          </div>
+        </header>
+        <div className="csg-body">
+          <label className={"csg-field k-name" + (items[0].ok ? " ok" : "")}>
+            <span className="csg-ic"><Building2 size={16} /></span>
+            <span className="csg-lbl">ชื่อบริษัท / ชื่อกิจการ *</span>
+            <input maxLength={200} placeholder="เช่น บริษัท ตัวอย่าง จำกัด" value={v.name} onChange={(e) => set("name", e.target.value)} />
+          </label>
+          <div className={"csg-field k-taxId" + (items[1].ok ? " ok" : "")}>
+            <span className="csg-ic"><IdCard size={16} /></span>
+            <span className="csg-lbl">เลขบัตรประชาชน / เลขผู้เสียภาษี หรือ เลขทะเบียนบริษัท *</span>
+            <div className="csg-pair">
+              <input
+                inputMode="numeric"
+                maxLength={13}
+                aria-label="เลขบัตรประชาชน / เลขผู้เสียภาษี"
+                placeholder="เลขบัตรประชาชน / ผู้เสียภาษี 13 หลัก"
+                value={v.taxId}
+                onChange={(e) => set("taxId", e.target.value.replace(/\D/g, ""))}
+              />
+              <span className="csg-or">หรือ</span>
+              <input aria-label="เลขทะเบียนบริษัท" placeholder="เลขทะเบียนบริษัท" value={v.registration} onChange={(e) => set("registration", e.target.value)} />
+            </div>
+          </div>
+          <label className={"csg-field k-address" + (items[2].ok ? " ok" : "")}>
+            <span className="csg-ic"><MapPin size={16} /></span>
+            <span className="csg-lbl">ที่อยู่ *</span>
+            <textarea rows={2} maxLength={3000} placeholder="เลขที่ ถนน แขวง/ตำบล เขต/อำเภอ จังหวัด รหัสไปรษณีย์" value={v.address} onChange={(e) => set("address", e.target.value)} />
+          </label>
+          <label className={"csg-field k-phone" + (items[3].ok ? " ok" : "")}>
+            <span className="csg-ic"><Phone size={16} /></span>
+            <span className="csg-lbl">เบอร์ติดต่อ *</span>
+            <input type="tel" maxLength={40} placeholder="เช่น 02-123-4567 หรือ 081-234-5678" value={v.phone} onChange={(e) => set("phone", e.target.value)} />
+          </label>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
         </div>
-        <small className="csc-count">
-          กรอกแล้ว {done} จาก {items.length} ข้อที่จำเป็น
-        </small>
-      </div>
-      <ul className="csc-list">
-        {items.map((i) => {
-          const Icon = icons[i.key as keyof typeof icons];
-          return (
-            <li key={i.key} className={"csc-item k-" + i.key + (i.ok ? " ok" : "")}>
-              <button onClick={() => navigate("company?tab=about&section=" + i.tab)}>
-                <span className="csc-icon">{i.ok ? <Check size={16} /> : <Icon size={16} />}</span>
-                <span className="csc-label">{i.label}</span>
-                <span className="csc-state">{i.ok ? "เรียบร้อย" : "ยังไม่กรอก"}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="csc-actions">
-        <button className="csc-go" onClick={() => navigate("company?tab=about&section=" + next.tab)}>
-          ไปกรอกข้อมูลบริษัท <ChevronRight size={17} />
-        </button>
-      </div>
-    </section>
+        <footer className="csg-foot">
+          <button
+            type="button"
+            className="csg-out"
+            onClick={async () => {
+              await api("/auth/logout", { method: "POST" }).catch(() => {});
+              setTabCompany(null);
+              window.location.href = "/";
+            }}
+          >
+            <LogOut size={15} /> ออกจากระบบ
+          </button>
+          <button className="csg-save" disabled={busy}>
+            {busy ? <LoaderCircle className="spin" size={17} /> : <Check size={17} />} บันทึกและเริ่มใช้งาน
+          </button>
+        </footer>
+      </form>
+    </div>
   );
 }

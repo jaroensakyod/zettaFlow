@@ -52,7 +52,6 @@ import type { Context, Entity, HomeData } from "@/lib/types";
 import type { HomeExtra, NoteItem, UserNote, WorkItem, Activity } from "@/lib/home-extra";
 import { api, money, Loading, Modal } from "./shared";
 import { WidgetBoard } from "./platform";
-import { CompanySetupCard } from "./company-setup-card";
 import { homeSample, homeIsEmpty, type KpiChange } from "@/lib/mock/home";
 
 /** True while the dashboard shows the sample ("ตัวอย่าง") dataset: cards get a badge and every write is disabled. */
@@ -220,7 +219,6 @@ export function HomeDashboard({
   return (
     <SampleCtx.Provider value={sample}>
     <div className={"hd" + (sample ? " hd-is-sample" : "")}>
-      <CompanySetupCard ctx={ctx} navigate={navigate} />
       {sample && (
         <div className="hd-sample-banner" role="status">
           <Sparkles size={18} />
