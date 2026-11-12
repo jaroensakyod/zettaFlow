@@ -231,9 +231,6 @@ export function PlanYear({
               </span>
             );
           })}
-          <span className="py-leg">
-            <i className="holiday" /> วันหยุด
-          </span>
         </div>
         <button className="py-close" onClick={onClose} aria-label="ปิด PlanYear">
           <X size={20} />
