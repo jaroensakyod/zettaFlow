@@ -1761,3 +1761,26 @@
 .pm-day { justify-content: flex-start; }
 .pm-bar { justify-content: flex-start; }
 .pm-week { grid-template-rows: 28px repeat(4, 21px) 18px; }
+/* PlanYear รายปี: month rows × days 1–31 with task bars */
+.pyb { --cool: #3b82f6; --cool-2: #6366f1; --hot: #f97316; --hot-2: #f43f5e; --rainy: #10b981; --rainy-2: #0891b2; display: grid; gap: 5px; padding: 14px; border-radius: 22px; background: #fff; border: 1px solid #ece9f5; box-shadow: 0 12px 30px rgba(60, 40, 140, .08); overflow-x: auto; }
+.pyb-row { --a: var(--cool); --b: var(--cool-2); display: grid; grid-template-columns: 62px repeat(31, minmax(26px, 1fr)); grid-template-rows: repeat(3, 18px); column-gap: 2px; row-gap: 2px; min-width: 900px; }
+.pyb-row.hot { --a: var(--hot); --b: var(--hot-2); }
+.pyb-row.rainy { --a: var(--rainy); --b: var(--rainy-2); }
+.pyb-headrow { grid-template-rows: 18px; position: sticky; top: 0; z-index: 2; background: #fff; }
+.pyb-dnum { text-align: center; font-size: 10.5px; font-weight: 800; color: #8b85a3; }
+.pyb-month { grid-row: 1 / -1; grid-column: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; padding: 0 8px; border: 0; border-radius: 10px; color: #fff; background: linear-gradient(135deg, var(--a), var(--b)); cursor: pointer; text-align: left; }
+.pyb-month b { font-size: 13px; font-weight: 800; }
+.pyb-month small { font-size: 10px; font-weight: 700; opacity: .9; }
+.pyb-row.now .pyb-month { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--a); }
+.pyb-cell { grid-row: 1 / -1; position: relative; padding: 0; border: 0; border-radius: 6px; background: color-mix(in srgb, var(--a) 6%, #fff); cursor: pointer; }
+.pyb-cell:hover { background: color-mix(in srgb, var(--a) 16%, #fff); }
+.pyb-cell.we { background: color-mix(in srgb, var(--a) 11%, #f6f5fb); }
+.pyb-cell.hol { background: #ffe4e6; }
+.pyb-cell.hol i { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; border-radius: 50%; background: #f43f5e; }
+.pyb-cell.today { box-shadow: inset 0 0 0 2px var(--a); }
+.pyb-cell.picked { box-shadow: inset 0 0 0 2px #7c3aed; background: #ede9fe; }
+.pyb-none { grid-row: 1 / -1; border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 4px, #f1eff7 4px 6px); }
+.pyb-bar { position: relative; z-index: 1; display: flex; align-items: center; justify-content: flex-start; min-width: 0; height: 18px; padding: 0 5px; border: 0; border-left: 3px solid var(--c); border-radius: 5px; font-size: 10.5px; font-weight: 700; color: color-mix(in srgb, var(--c) 78%, #111); background: color-mix(in srgb, var(--c) 20%, #fff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.pyb-bar:hover { filter: saturate(1.3) brightness(.97); }
+.pyb-bar.cont { border-left: 0; border-radius: 0 5px 5px 0; }
+.pyb-bar.more { border-top-right-radius: 0; border-bottom-right-radius: 0; }

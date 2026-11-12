@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, CloudRain, Flag, Handshake, Layers, ListTodo
 import type { Context, Entity } from "@/lib/types";
 import { api } from "./shared";
 import { EventModal } from "./event-modal";
-import { PlanMonth, barColor } from "./plan-month";
+import { PlanMonth, PlanYearBars, barColor } from "./plan-month";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
@@ -93,7 +93,8 @@ export function PlanYear({
     [adding, setAdding] = useState(false),
     [reload, setReload] = useState(0),
     // ทั้งปี (12 small months) or รายเดือน (one big month with task bars)
-    [view, setView] = useState<"year" | "month">("month"),
+    // รายปี (task bars along every month), 12 เดือน (small calendars) or รายเดือน (one big month)
+    [view, setView] = useState<"bars" | "year" | "month">("month"),
     [vm, setVm] = useState(Number(today.slice(5, 7)));
   const openMonth = (m: number) => {
     setVm(m);
@@ -175,8 +176,11 @@ export function PlanYear({
           </div>
         </div>
         <div className="py-views" role="tablist" aria-label="มุมมอง">
+          <button role="tab" aria-selected={view === "bars"} className={view === "bars" ? "on" : ""} onClick={() => setView("bars")}>
+            รายปี
+          </button>
           <button role="tab" aria-selected={view === "year"} className={view === "year" ? "on" : ""} onClick={() => setView("year")}>
-            ทั้งปี
+            12 เดือน
           </button>
           <button role="tab" aria-selected={view === "month"} className={view === "month" ? "on" : ""} onClick={() => setView("month")}>
             รายเดือน
@@ -224,7 +228,11 @@ export function PlanYear({
       </header>
 
       <div className="py-main">
-        {view === "month" ? (
+        {view === "bars" ? (
+          <section aria-busy={rows === null}>
+            <PlanYearBars year={year} today={today} picked={picked} setPicked={setPicked} rows={rows || []} holidays={holidays} spanOf={spanOf} seasonOf={seasonOf} openMonth={openMonth} />
+          </section>
+        ) : view === "month" ? (
           <section className={"py-big " + seasonOf(vm)} aria-busy={rows === null}>
             <header>
               <strong>{thai(`${year}-${pad(vm)}-01`, { month: "long", year: "numeric" })}</strong>

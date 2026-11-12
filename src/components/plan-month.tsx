@@ -123,3 +123,102 @@ export function PlanMonth({
   );
 }
 export const monthKey = (y: number, m: number) => `${y}-${pad(m)}`;
+
+/** Year planner: one row per month, days 1–31 across, every item a bar along its month (holidays shaded). */
+const YLANES = 3;
+export function PlanYearBars({
+  year,
+  today,
+  picked,
+  setPicked,
+  rows,
+  holidays,
+  spanOf,
+  seasonOf,
+  openMonth,
+}: {
+  year: number;
+  today: string;
+  picked: string;
+  setPicked: (d: string) => void;
+  rows: Entity[];
+  holidays: Map<string, string[]>;
+  spanOf: (e: Entity) => [string, string];
+  seasonOf: (m: number) => string;
+  openMonth: (m: number) => void;
+}) {
+  const monthName = (m: number) => new Date(Date.UTC(year, m - 1, 1)).toLocaleDateString("th-TH", { month: "short", timeZone: "UTC" });
+  return (
+    <div className="pyb">
+      <div className="pyb-row pyb-headrow">
+        <span />
+        {Array.from({ length: 31 }, (_, i) => (
+          <span key={i} className="pyb-dnum">
+            {i + 1}
+          </span>
+        ))}
+      </div>
+      {Array.from({ length: 12 }, (_, i) => {
+        const m = i + 1,
+          key = `${year}-${pad(m)}`,
+          first = `${key}-01`,
+          n = new Date(Date.UTC(year, m, 0)).getUTCDate(),
+          last = `${key}-${pad(n)}`,
+          firstDow = new Date(Date.UTC(year, i, 1)).getUTCDay();
+        const items = rows
+          .map((e) => ({ e, span: spanOf(e) }))
+          .filter(({ span: [a, b] }) => a && a <= last && b >= first)
+          .sort((p, q) => Number(long(p.span)) - Number(long(q.span)) || p.span[0].localeCompare(q.span[0]) || q.span[1].localeCompare(p.span[1]));
+        const laneEnd: string[] = [],
+          placed: { e: Entity; s: number; t: number; lane: number; cont: boolean; more: boolean }[] = [];
+        let hidden = 0;
+        for (const { e, span } of items) {
+          const s = span[0] < first ? first : span[0],
+            t = span[1] > last ? last : span[1];
+          let lane = laneEnd.findIndex((end) => end < s);
+          if (lane < 0) lane = laneEnd.push(t) - 1;
+          else laneEnd[lane] = t;
+          if (lane < YLANES) placed.push({ e, s: Number(s.slice(8)), t: Number(t.slice(8)), lane, cont: span[0] < first, more: span[1] > last });
+          else hidden++;
+        }
+        return (
+          <div key={m} className={"pyb-row " + seasonOf(m) + (today.startsWith(key) ? " now" : "")}>
+            <button className="pyb-month" onClick={() => openMonth(m)} title="ดูเดือนนี้แบบรายเดือน">
+              <b>{monthName(m)}</b>
+              {hidden > 0 && <small>+{hidden}</small>}
+            </button>
+            {Array.from({ length: 31 }, (_, d) => {
+              const day = `${key}-${pad(d + 1)}`,
+                h = holidays.get(day),
+                dow = (firstDow + d) % 7;
+              return d < n ? (
+                <button
+                  key={d}
+                  className={"pyb-cell" + (dow === 0 || dow === 6 ? " we" : "") + (h ? " hol" : "") + (day === today ? " today" : "") + (day === picked ? " picked" : "")}
+                  style={{ gridColumn: d + 2 }}
+                  onClick={() => setPicked(day)}
+                  title={new Date(day + "T00:00:00Z").toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }) + (h ? "\n" + h.join(" · ") : "")}
+                >
+                  {h && <i />}
+                </button>
+              ) : (
+                <span key={d} className="pyb-none" style={{ gridColumn: d + 2 }} />
+              );
+            })}
+            {placed.map(({ e, s, t, lane, cont, more }) => (
+              <button
+                key={e.id}
+                className={"pyb-bar" + (cont ? " cont" : "") + (more ? " more" : "")}
+                style={{ gridColumn: `${s + 1} / ${t + 2}`, gridRow: lane + 1, "--c": barColor(e) } as React.CSSProperties}
+                onClick={() => setPicked(`${key}-${pad(s)}`)}
+                title={String(e.data.name)}
+              >
+                {String(e.data.name)}
+              </button>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
