@@ -117,6 +117,42 @@ export async function supportSend(ctx: Context, input: unknown) {
   return data as SupportMessage;
 }
 
+/**
+ * แจ้งปัญหา / ข้อเสนอแนะ sent from น้องโฟลว์: goes into the company's thread with the EliteFlow team (the operator
+ * inbox), from any member — unlike the support chat itself, which owners and managers use. The server has already
+ * checked the member, so it is written with the service key.
+ */
+export async function sendFeedback(ctx: Context, input: unknown) {
+  const { kind, text } = z
+    .object({ kind: z.enum(["bug", "idea"]), text: z.string().trim().min(3, "เล่ารายละเอียดอีกนิดนะคะ").max(2000) })
+    .parse(input);
+  const roles: Record<string, string> = { owner: "เจ้าของ", manager: "ผู้จัดการ", staff: "พนักงาน", viewer: "ผู้ชม" };
+  const body =
+    (kind === "bug" ? "[แจ้งปัญหา]" : "[ข้อเสนอแนะ]") +
+    " ผ่านน้องโฟลว์\n" +
+    text +
+    "\n— " +
+    ctx.user.name +
+    " (" +
+    (roles[ctx.member.role] || ctx.member.role) +
+    ")";
+  if (ctx.demo)
+    return demoMutate((s: DemoState & DemoEngage) => {
+      const m: SupportMessage = { id: randomUUID(), company_id: s.company.id, sender: "customer", name: ctx.user.name, body, created_at: now() };
+      (s.support ??= []).push(m);
+      return { ok: true };
+    });
+  const sb = supabaseAdmin();
+  const { error } = await sb.from("support_messages").insert({ company_id: ctx.company.id, sender: "customer", user_id: ctx.user.id, name: ctx.user.name, body });
+  dbError(error);
+  const { data: thread } = await sb.from("support_threads").select("unread_admin").eq("company_id", ctx.company.id).maybeSingle();
+  const { error: e2 } = await sb
+    .from("support_threads")
+    .upsert({ company_id: ctx.company.id, unread_admin: Number(thread?.unread_admin || 0) + 1, status: "open", updated_at: now() }, { onConflict: "company_id" });
+  dbError(e2);
+  return { ok: true };
+}
+
 // ---------- Operator console (PLATFORM_ADMIN_EMAILS) ----------
 const requireAdmin = (ctx: Context) => assert(platformAdmin(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);
 export async function adminInbox(ctx: Context) {

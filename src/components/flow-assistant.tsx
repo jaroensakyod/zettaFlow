@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Paperclip, Send, X, Check, FileText, ArrowRight, Mic, Square, Volume2, VolumeX, Trash2 } from "lucide-react";
+import { Paperclip, Send, X, Check, FileText, ArrowRight, Mic, Square, Volume2, VolumeX, Trash2, MessageSquareHeart } from "lucide-react";
 import { departmentNames } from "@/lib/catalog";
 import type { FlowAction, FlowCard } from "@/lib/flow";
 import type { TaskDraft } from "@/lib/flow-intent";
@@ -37,7 +37,7 @@ type Msg =
   | { id: number; from: "bot"; text: string; actions: FlowAction[]; cards: FlowCard[]; done?: string[] };
 type NewMsg = Msg extends infer M ? (M extends Msg ? Omit<M, "id"> : never) : never;
 const STORE = "eliteflow-flow-chat";
-const prompts = ["ใบแจ้งหนี้ไหนค้างจ่ายบ้าง", "งานที่ใกล้ครบกำหนด", "สินค้าไหนใกล้หมด", "สรุปยอดขายสัปดาห์นี้", "เปิดหน้าหางาน"];
+const prompts = ["ใบแจ้งหนี้ไหนค้างจ่ายบ้าง", "งานที่ใกล้ครบกำหนด", "สินค้าไหนใกล้หมด", "สรุปยอดขายสัปดาห์นี้", "แจ้งปัญหา / เสนอแนะ"];
 const load = (): Msg[] => {
   if (typeof window === "undefined") return [];
   try {
@@ -75,6 +75,26 @@ export function FlowAssistant({
     inputRef = useRef<HTMLInputElement>(null),
     // Attached files stay in memory only (chat history in sessionStorage keeps just the names).
     filesRef = useRef(new Map<number, File>());
+  const sendFeedback = async (msgId: number, a: Extract<FlowAction, { type: "feedback" }>) => {
+    setBusy(true);
+    try {
+      await api("/flow/feedback", { method: "POST", body: { kind: a.kind, text: a.text } });
+      markDone(msgId, "feedback");
+      push({
+        from: "bot",
+        text:
+          (a.kind === "bug" ? "ส่งเรื่องถึงทีม EliteFlow แล้วค่ะ ทีมจะรีบตรวจสอบและแก้ไขให้นะคะ" : "ส่งไอเดียถึงทีม EliteFlow แล้วค่ะ ขอบคุณที่ช่วยให้ EliteFlow ดีขึ้นทุกวันนะคะ") +
+          " ถ้าทีมตอบกลับ เจ้าของบัญชีและผู้จัดการจะเห็นในกล่อง **คุยกับทีมงาน** ค่ะ",
+        actions: [],
+        cards: [],
+      });
+      notify("ส่งให้ทีม EliteFlow แล้ว");
+    } catch (e) {
+      push({ from: "bot", text: "ส่งไม่สำเร็จ: " + (e as Error).message + " ลองใหม่อีกครั้งได้เลยค่ะ", actions: [], cards: [] });
+    } finally {
+      setBusy(false);
+    }
+  };
   const sendReceipt = async (msgId: number) => {
     const file = filesRef.current.get(msgId);
     if (!file) {
@@ -366,6 +386,9 @@ export function FlowAssistant({
                 <FlowMascot size={120} animated mood={mood === "idle" ? "happy" : mood} />
                 <strong>วันนี้ให้น้องโฟลว์ช่วยอะไรดีคะ?</strong>
                 <span>พิมพ์หรือกดไมค์คุยได้เลย ถามงานค้าง ใบแจ้งหนี้ สต็อก ยอดขาย สั่งสร้างงาน หรือแนบเอกสารให้สรุปก็ได้</span>
+                <span className="flow-empty-fb">
+                  <MessageSquareHeart size={15} /> เจอปัญหา หรืออยากให้ EliteFlow มีอะไรเพิ่ม บอกน้องโฟลว์ได้เลยนะคะ น้องจะส่งต่อให้ทีมพัฒนาค่ะ
+                </span>
               </div>
             )}
             {messages.map((m) =>
@@ -419,6 +442,22 @@ export function FlowAssistant({
                           {a.label}
                           <ArrowRight size={14} />
                         </button>
+                      )
+                    ) : a.type === "feedback" ? (
+                      m.done?.includes("feedback") ? (
+                        <span key={i} className="flow-done">
+                          <Check size={14} />
+                          ส่งให้ทีม EliteFlow แล้ว
+                        </span>
+                      ) : (
+                        <div key={i} className={"flow-fb " + a.kind}>
+                          <small>{a.kind === "bug" ? "แจ้งปัญหา" : "ข้อเสนอแนะ"} ที่จะส่งให้ทีม EliteFlow</small>
+                          <p>{a.text.split("\n\nข้อความเดิม:")[0]}</p>
+                          <button className="primary flow-action" disabled={busy} onClick={() => sendFeedback(m.id, a)}>
+                            <Send size={14} />
+                            {a.label}
+                          </button>
+                        </div>
                       )
                     ) : a.type === "delete_task" ? (
                       <DeleteTaskConfirm

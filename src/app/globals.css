@@ -7983,3 +7983,16 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 
 /* less empty space between the top bar and the page content (all workspace pages) */
 .main, .dept-shell.with-side > .main { padding-top: 14px; }
+
+/* น้องโฟลว์: แจ้งปัญหา / ข้อเสนอแนะ */
+.flow-empty-fb { display: inline-flex; align-items: flex-start; gap: 6px; margin-top: 6px; padding: 8px 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.5; text-align: left; color: #5b21b6; background: #f3effd; }
+.flow-empty-fb svg { flex: none; margin-top: 2px; }
+.flow-fb { display: grid; gap: 6px; margin-top: 4px; padding: 10px 12px; border-radius: 14px; background: #fff7ed; border: 1px solid #fed7aa; }
+.flow-fb.idea { background: #f5f3ff; border-color: #ddd6fe; }
+.flow-fb small { font-size: 11.5px; font-weight: 800; color: #c2410c; }
+.flow-fb.idea small { color: #6d28d9; }
+.flow-fb p { margin: 0; font-size: 13px; line-height: 1.55; color: #2c2550; white-space: pre-wrap; }
+.flow-fb .flow-action { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.flow-fb .flow-action { color: #fff; background: linear-gradient(120deg, #7c3aed, #ec4899); border: 0; box-shadow: 0 6px 14px rgba(124, 58, 237, .28); }
+.flow-fb.bug .flow-action { background: linear-gradient(120deg, #f97316, #e11d48); box-shadow: 0 6px 14px rgba(225, 29, 72, .25); }
+.flow-fb .flow-action:disabled { opacity: .6; }

@@ -82,6 +82,22 @@ export function pageFor(text: string) {
   return pageWords.find(([re]) => re.test(t))?.[1] || "";
 }
 
+/**
+ * A problem report ("bug") or a suggestion / feature wish ("idea") for the EliteFlow team, or null.
+ * "งานค้าง" and "ค้างจ่าย" are questions about the company's data, not app problems.
+ */
+export function feedbackKind(message: string): "bug" | "idea" | null {
+  const t = message.trim();
+  if (/แจ้งปัญหา|เจอปัญหา|มีปัญหา|บั๊ก|บัค|\bbug\b|error|เออเร่อ|เอเร่อ|ใช้งานไม่ได้|ใช้ไม่ได้|กดไม่ได้|กดไม่ติด|ไม่ทำงาน|ไม่ตอบสนอง|หน้าค้าง|จอค้าง|เว็บค้าง|ระบบค้าง|โหลดไม่ขึ้น|ไม่ขึ้นข้อมูล|ข้อมูลหาย|ผิดพลาด|พัง/i.test(t))
+    return "bug";
+  if (/ข้อเสนอแนะ|เสนอแนะ|ฟีดแบ็?ค|feedback|อยากให้(?:มี|เพิ่ม|ทำ|ระบบ|แอป|เว็บ|eliteflow|น้องโฟลว์)|ช่วยเพิ่ม(?:ฟีเจอร์|ฟังก์ชัน|ฟังก์ชั่น)|ขอ(?:ฟีเจอร์|ฟังก์ชัน|ฟังก์ชั่น)|ฟีเจอร์ใหม่|ควรมี|น่าจะมี|ปรับปรุง(?:ระบบ|หน้า|แอป|เว็บ)?|พัฒนา(?:ให้|เพิ่ม)|ทำได้ไหม|รองรับไหม|มีไหม.*(?:ฟังก์ชัน|ฟังก์ชั่น|ฟีเจอร์)/i.test(t))
+    return "idea";
+  return null;
+}
+/** Only the words "แจ้งปัญหา / เสนอแนะ" with nothing about what happened. */
+export const feedbackIsEmpty = (message: string) =>
+  message.replace(/แจ้งปัญหา|ข้อเสนอแนะ|เสนอแนะ|ฟีดแบ็?ค|feedback|อยาก|ให้|ค่ะ|คะ|ครับ|หน่อย|[\s/,.!?]/gi, "").length < 4;
+
 export function routeIntent(message: string, today: string): Intent {
   const text = message.trim();
   const create = /^(?:ช่วย)?(?:สร้าง|เพิ่ม|มอบหมาย)งาน(?:ใหม่)?\s*(.*)$/s.exec(text);

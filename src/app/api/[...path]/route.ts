@@ -110,7 +110,7 @@ import {
   draftTemplate,
   entitled,
 } from "@/lib/platform";
-import {
+import { sendFeedback,
   publicContent,
   supportThread,
   supportSeen,
@@ -643,6 +643,7 @@ async function handle(req: NextRequest) {
       const prompt = z.string().trim().min(1).max(1500).parse(input.prompt);
       return response(await businessAnswer(ctx, prompt));
     }
+    if (path[0] === "flow" && path[1] === "feedback" && method === "POST") return response(await sendFeedback(ctx, await body(req)), 201);
     if (path[0] === "flow") {
       if ((req.headers.get("content-type") || "").startsWith("multipart/form-data")) {
         assert(Number(req.headers.get("content-length") || 0) <= 4500000, "ไฟล์สูงสุด 4 MB", 413);

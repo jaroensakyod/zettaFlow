@@ -6,7 +6,7 @@ import { assert, canWrite, validDate } from "./domain";
 import { home, listEntities, summary } from "./data";
 import { entitled } from "./platform";
 import { MAX_PDF_PAGES, pdfPages } from "./billing";
-import { routeIntent, type TaskDraft } from "./flow-intent";
+import { feedbackIsEmpty, feedbackKind, routeIntent, type TaskDraft } from "./flow-intent";
 import { aiEnabled, aiGenerate } from "./llm";
 import { businessSnapshot } from "./flow-context";
 import type { Context, Entity } from "./types";
@@ -17,7 +17,9 @@ export type FlowAction =
   /** Archives (soft-deletes) one task, only after the user clicks; it can be restored from the task page. */
   | { type: "delete_task"; id: string; name: string; label: string }
   /** Sends the attached receipt to the accounting page as an expense waiting review (only after the user clicks). */
-  | { type: "receipt"; label: string };
+  | { type: "receipt"; label: string }
+  /** แจ้งปัญหา / ข้อเสนอแนะ for the EliteFlow team, sent only when the user presses the button. */
+  | { type: "feedback"; kind: "bug" | "idea"; text: string; label: string };
 export type FlowCard = { title: string; sub: string; tone?: "danger" | "warn" | "ok"; view?: string };
 export type FlowReply = { reply: string; actions: FlowAction[]; cards: FlowCard[]; engine: string };
 
@@ -53,6 +55,24 @@ const persona =
 const format =
   "Format for a narrow chat panel: start with one short sentence that answers. Then, when there is more than one item, a '- ' bullet per item (at most 8), each one line. Put key names, amounts and dates in **bold**. A group may get its own line like '**หัวข้อ**'. No tables, no '#' headings, no emoji, no code blocks. Write dates in Thai short form (29 ต.ค., 2–5 พ.ย.), never YYYY-MM-DD.";
 
+// What EliteFlow can do today, so น้องโฟลว์ can explain a feature or say honestly that it is not there yet.
+const productGuide = () =>
+  "EliteFlow today: ภาพรวม (KPI ยอดขาย ต้นทุน ค่าใช้จ่าย กำไร เลือกดูรายวัน/สัปดาห์/เดือน/ปี, ปฏิทินและเพิ่มกิจกรรมพร้อมโปรเจกต์และผู้เข้าร่วม, PlanYear วางแผนทั้งปี, ไดอารี่, กราฟยอดขายพร้อม forecast, งานรออนุมัติ, เป้าหมายเดือน), " +
+  "เครือข่ายธุรกิจ (โพสต์ข่าว ประกาศงาน หาพาร์ทเนอร์ ติดตามบริษัท ลงโฆษณาด้วยเหรียญ), แชท (แชทในทีมตามแผนก และคุยกับบริษัทอื่น), " +
+  "LINE (เชื่อมกลุ่ม LINE ให้ AI อ่านข้อความและรูปใบเสร็จแล้วบันทึกเป็นข้อมูล), ลูกค้า, Supplier, พนักงาน (ประเมินผล การลา), โปรเจกต์ (ขั้นตอนงาน แกลเลอรี), " +
+  "บริษัท (โปรไฟล์ สาขา หน้าบริษัทสาธารณะ), แผนกของฉัน และระบบบัญชี (ค่าใช้จ่าย ใบเสร็จ ใบเสนอราคา ใบแจ้งหนี้ คำสั่งซื้อ รับชำระ รายงานภาษี), App Shop (Add-on), แพ็กเกจและเหรียญ. " +
+  "Record types: " +
+  Object.values(catalog)
+    .map((m) => m.label)
+    .join(", ") +
+  ". ";
+const feedbackRules =
+  "When the user reports a problem, says something is broken, suggests an improvement or asks whether EliteFlow can do something: " +
+  "if EliteFlow already does it (see the product guide), explain in 1-3 short steps how to use it and add an open action to that page, and set feedback to null. " +
+  "If it is a problem or bug, apologise briefly, say น้องโฟลว์ will pass it to the EliteFlow team, ask what page and what they pressed if that is missing, and set feedback {kind: 'bug', summary}. " +
+  "If EliteFlow does not support it yet, say so honestly in a warm way, e.g. 'ตอนนี้ EliteFlow ยังไม่รองรับ…นะคะ แต่เป็นไอเดียที่ดีมาก น้องโฟลว์รับเรื่องไว้ให้ทีมพัฒนาแล้ว กดส่งด้านล่างได้เลยค่ะ', and set feedback {kind: 'idea', summary}. " +
+  "summary is one clear Thai sentence of what the user wants or what went wrong, written for the developers. Never promise a date. Otherwise feedback is null. ";
+
 export type ChatTurn = { from: "me" | "bot"; text: string };
 const chatHistory = z
   .array(z.object({ from: z.enum(["me", "bot"]), text: z.string().max(4000) }))
@@ -63,9 +83,18 @@ const chatHistory = z
 const agentSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "actions"],
+  required: ["reply", "actions", "feedback"],
   properties: {
     reply: { type: "string" },
+    feedback: {
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: ["kind", "summary"],
+      properties: {
+        kind: { type: "string", enum: ["bug", "idea"] },
+        summary: { type: "string", description: "one Thai sentence for the EliteFlow developers" },
+      },
+    },
     actions: {
       type: "array",
       maxItems: 3,
@@ -103,7 +132,7 @@ async function agent(ctx: Context, message: string, history: ChatTurn[]) {
   const transcript = history.map((t) => `${t.from === "me" ? "ผู้ใช้" : "น้องโฟลว์"}: ${t.text.slice(0, 1500)}`).join("\n");
   const raw = await aiGenerate({
     feature: "chat",
-    instructions: persona + format + " " + agentRules(today, canEdit),
+    instructions: persona + format + " " + agentRules(today, canEdit) + " " + productGuide() + feedbackRules,
     parts: [
       {
         text: `Company snapshot:\n${snapshot.text}\n\n${transcript ? `Conversation so far:\n${transcript}\n\n` : ""}User (${ctx.member.name}): ${message}`,
@@ -112,13 +141,16 @@ async function agent(ctx: Context, message: string, history: ChatTurn[]) {
     maxTokens: 1400,
     schema: { name: "flow_reply", schema: agentSchema },
   });
-  let parsed: { reply?: string; actions?: Record<string, string | null>[] } = {};
+  let parsed: { reply?: string; actions?: Record<string, string | null>[]; feedback?: { kind?: string; summary?: string } | null } = {};
   try {
     parsed = JSON.parse(raw);
   } catch {
     parsed = { reply: raw, actions: [] };
   }
   const actions: FlowAction[] = [];
+  const fb = parsed.feedback;
+  if (fb && (fb.kind === "bug" || fb.kind === "idea"))
+    actions.push({ type: "feedback", kind: fb.kind, text: (fb.summary || "").trim().slice(0, 600) + "\n\nข้อความเดิม: " + message.slice(0, 1200), label: "ส่งให้ทีม EliteFlow" });
   for (const a of (parsed.actions || []).slice(0, 3)) {
     if (a.type === "open" && a.view && labelOf(a.view) !== a.view) actions.push(open(a.view));
     if (!canEdit) continue;
@@ -195,8 +227,39 @@ export async function flowReply(ctx: Context, input: unknown, file?: File | null
   const { message, history } = z
     .object({ message: z.string().trim().min(1).max(1500), history: chatHistory })
     .parse(input);
-  const today = bangkokToday(),
-    intent = routeIntent(message, today);
+  const today = bangkokToday();
+  // แจ้งปัญหา / ข้อเสนอแนะ: with AI, explain the feature if it exists or say it is not supported yet; always offer to
+  // pass it to the EliteFlow team (sent only when the user presses the button).
+  const fb = feedbackKind(message);
+  if (fb) {
+    if (feedbackIsEmpty(message))
+      return {
+        reply:
+          fb === "bug"
+            ? "ได้เลยค่ะ เล่าให้น้องโฟลว์ฟังหน่อยนะคะ ว่าเกิดที่หน้าไหน กดอะไรแล้วเป็นอย่างไร น้องจะสรุปส่งให้ทีม EliteFlow ตรวจสอบให้ค่ะ"
+            : "ยินดีรับฟังเลยค่ะ อยากให้ EliteFlow มีอะไรเพิ่ม หรือปรับตรงไหนให้ใช้ง่ายขึ้น เล่าให้น้องโฟลว์ฟังได้เลยนะคะ",
+        actions: [],
+        cards: [],
+        engine: "rules",
+      };
+    if (aiEnabled() && (await entitled(ctx, "exec_dashboard"))) {
+      const { reply, actions } = await agent(ctx, message, history);
+      // A problem report always gets the send button, even if the model only explained.
+      if (fb === "bug" && !actions.some((a) => a.type === "feedback"))
+        actions.push({ type: "feedback", kind: "bug", text: message, label: "ส่งให้ทีม EliteFlow" });
+      return { reply, actions, cards: [], engine: "ai" };
+    }
+    return {
+      reply:
+        fb === "bug"
+          ? "ขอโทษที่ทำให้ใช้งานไม่สะดวกนะคะ น้องโฟลว์จดเรื่องนี้ไว้แล้ว กด **ส่งให้ทีม EliteFlow** ด้านล่าง ทีมพัฒนาจะรีบตรวจสอบและแก้ไขให้เร็วที่สุดค่ะ ถ้าบอกเพิ่มได้ว่าเกิดที่หน้าไหน ตอนกดอะไร จะช่วยให้แก้ได้ไวขึ้นมากเลยค่ะ"
+          : "ขอบคุณสำหรับไอเดียดี ๆ นะคะ ถ้าตอนนี้ EliteFlow ยังไม่รองรับเรื่องนี้ น้องโฟลว์จะส่งต่อให้ทีมพัฒนานำไปปรับปรุงต่อค่ะ กด **ส่งให้ทีม EliteFlow** ด้านล่างได้เลยนะคะ",
+      actions: [{ type: "feedback", kind: fb, text: message, label: "ส่งให้ทีม EliteFlow" }],
+      cards: [],
+      engine: "rules",
+    };
+  }
+  const intent = routeIntent(message, today);
   if (intent.kind === "open")
     return { reply: `เปิดหน้า${labelOf(intent.view)}ให้แล้วค่ะ`, actions: [open(intent.view, true)], cards: [], engine: "rules" };
   // With AI on, task requests go to the model too: it also picks up the person, time and place.

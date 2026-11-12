@@ -33,3 +33,20 @@ test("flow intent: create task, queries, open page, chat", () => {
   assert.deepEqual(routeIntent("สรุปยอดขายเดือนนี้เทียบเดือนก่อน แยกช่องทาง", today), { kind: "chat" });
   assert.deepEqual(routeIntent("ทีมไหนต้องเร่งยอดขาย", today), { kind: "chat" });
 });
+
+test("แจ้งปัญหา / ข้อเสนอแนะ are told apart from questions about the company's data", async () => {
+  const { feedbackKind, feedbackIsEmpty } = await import("../src/lib/flow-intent");
+  assert.equal(feedbackKind("กดบันทึกค่าใช้จ่ายแล้วขึ้น error"), "bug");
+  assert.equal(feedbackKind("หน้าโปรเจกต์ใช้งานไม่ได้เลย"), "bug");
+  assert.equal(feedbackKind("แจ้งปัญหา"), "bug");
+  assert.equal(feedbackKind("อยากให้มีระบบเงินเดือนในตัว"), "idea");
+  assert.equal(feedbackKind("ขอฟีเจอร์ส่งใบแจ้งหนี้ทางอีเมล"), "idea");
+  assert.equal(feedbackKind("แจ้งปัญหา / เสนอแนะ"), "bug");
+  // normal questions stay questions
+  for (const q of ["ใบแจ้งหนี้ไหนค้างจ่ายบ้าง", "งานค้างมีอะไรบ้าง", "สรุปยอดขายสัปดาห์นี้", "สินค้าไหนใกล้หมด", "สร้างงานประชุมพรุ่งนี้"])
+    assert.equal(feedbackKind(q), null, q);
+  // only the words, nothing about what happened → ask for details first
+  assert.equal(feedbackIsEmpty("แจ้งปัญหา / เสนอแนะ"), true);
+  assert.equal(feedbackIsEmpty("อยากเสนอแนะค่ะ"), true);
+  assert.equal(feedbackIsEmpty("แจ้งปัญหา กดบันทึกลูกค้าแล้วหน้าค้าง"), false);
+});
