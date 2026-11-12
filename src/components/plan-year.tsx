@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, CloudRain, Flag, Handshake, Layers, ListTodo
 import type { Context, Entity } from "@/lib/types";
 import { api } from "./shared";
 import { EventModal } from "./event-modal";
+import { PlanMonth, barColor } from "./plan-month";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
@@ -90,7 +91,27 @@ export function PlanYear({
     [picked, setPicked] = useState(today),
     [rows, setRows] = useState<Entity[] | null>(null),
     [adding, setAdding] = useState(false),
-    [reload, setReload] = useState(0);
+    [reload, setReload] = useState(0),
+    // ทั้งปี (12 small months) or รายเดือน (one big month with task bars)
+    [view, setView] = useState<"year" | "month">("month"),
+    [vm, setVm] = useState(Number(today.slice(5, 7)));
+  const openMonth = (m: number) => {
+    setVm(m);
+    setView("month");
+  };
+  const goMonth = (n: number) => {
+    let m = vm + n,
+      yy = year;
+    if (m < 1) (m = 12), (yy -= 1);
+    if (m > 12) (m = 1), (yy += 1);
+    setVm(m);
+    if (yy !== year) setYear(yy);
+  };
+  // How much of the shown year has passed.
+  const ty = Number(today.slice(0, 4)),
+    yearDays = (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 864e5,
+    passed = year < ty ? yearDays : year > ty ? 0 : Math.round((Date.parse(today + "T00:00:00Z") - Date.UTC(year, 0, 1)) / 864e5) + 1,
+    pct = Math.round((passed / yearDays) * 100);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !adding && onClose();
     window.addEventListener("keydown", esc);
@@ -153,14 +174,31 @@ export function PlanYear({
             <small>วางแผนทั้งปี · วันหยุด กิจกรรม งาน และโครงการของบริษัท</small>
           </div>
         </div>
+        <div className="py-views" role="tablist" aria-label="มุมมอง">
+          <button role="tab" aria-selected={view === "year"} className={view === "year" ? "on" : ""} onClick={() => setView("year")}>
+            ทั้งปี
+          </button>
+          <button role="tab" aria-selected={view === "month"} className={view === "month" ? "on" : ""} onClick={() => setView("month")}>
+            รายเดือน
+          </button>
+        </div>
         <div className="py-year">
-          <button aria-label="ปีก่อน" onClick={() => setYear(year - 1)}>
+          <button aria-label={view === "month" ? "เดือนก่อน" : "ปีก่อน"} onClick={() => (view === "month" ? goMonth(-1) : setYear(year - 1))}>
             <ChevronLeft size={18} />
           </button>
-          <span>{year + 543}</span>
-          <button aria-label="ปีถัดไป" onClick={() => setYear(year + 1)}>
+          <span>{view === "month" ? thai(`${year}-${pad(vm)}-01`, { month: "short", year: "numeric" }) : year + 543}</span>
+          <button aria-label={view === "month" ? "เดือนถัดไป" : "ปีถัดไป"} onClick={() => (view === "month" ? goMonth(1) : setYear(year + 1))}>
             <ChevronRight size={18} />
           </button>
+        </div>
+        <div className="py-progress" title={`ผ่านไปแล้ว ${passed} วัน จาก ${yearDays} วัน`}>
+          <span>
+            ปี {year + 543} ผ่านไป <b>{pct}%</b>
+            <small>{year === ty ? `เหลืออีก ${yearDays - passed} วัน` : year < ty ? "จบปีแล้ว" : "ยังไม่ถึง"}</small>
+          </span>
+          <i>
+            <em style={{ width: pct + "%" }} />
+          </i>
         </div>
         <div className="py-legend">
           {(Object.keys(seasons) as Season[]).map((s) => {
@@ -186,6 +224,22 @@ export function PlanYear({
       </header>
 
       <div className="py-main">
+        {view === "month" ? (
+          <section className={"py-big " + seasonOf(vm)} aria-busy={rows === null}>
+            <header>
+              <strong>{thai(`${year}-${pad(vm)}-01`, { month: "long", year: "numeric" })}</strong>
+              {(() => {
+                const S = seasons[seasonOf(vm)];
+                return (
+                  <span className="py-season-pill">
+                    <S.icon size={14} /> {S.label}
+                  </span>
+                );
+              })()}
+            </header>
+            <PlanMonth month={`${year}-${pad(vm)}`} today={today} picked={picked} setPicked={setPicked} rows={rows || []} holidays={holidays} spanOf={spanOf} />
+          </section>
+        ) : (
         <div className="py-grid" aria-busy={rows === null}>
           {Array.from({ length: 12 }, (_, i) => {
             const m = i + 1,
@@ -199,7 +253,9 @@ export function PlanYear({
             return (
               <section key={m} className={"py-month " + s + (today.startsWith(prefix) ? " now" : "")}>
                 <header>
-                  <strong>{thai(prefix + "-01", { month: "long" })}</strong>
+                  <button className="py-mname" onClick={() => openMonth(m)} title="ดูแบบรายเดือน">
+                    {thai(prefix + "-01", { month: "long" })}
+                  </button>
                   <span className="py-season" title={S.label}>
                     <S.icon size={14} />
                   </span>
@@ -254,6 +310,7 @@ export function PlanYear({
             );
           })}
         </div>
+        )}
 
         <aside className="py-side">
           <section className={"py-dayc " + seasonOf(Number(picked.slice(5, 7)))}>
@@ -268,7 +325,7 @@ export function PlanYear({
               {dayItems.map((e) => {
                 const k = kindInfo[e.kind] || kindInfo.events;
                 return (
-                  <li key={e.id} style={{ "--c": k.color } as React.CSSProperties}>
+                  <li key={e.id} style={{ "--c": barColor(e) } as React.CSSProperties}>
                     <k.icon size={15} />
                     <span>
                       <b>{String(e.data.name)}</b>
