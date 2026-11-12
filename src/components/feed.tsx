@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   Image as ImageIcon,
   BriefcaseBusiness,
@@ -31,6 +31,10 @@ import {
   CircleCheck,
   Info,
   Building2,
+  LayoutGrid,
+  Rss,
+  Users,
+  type LucideIcon,
 } from "lucide-react";
 import { businessGroupOf, businessTypeGroups, industryMatches } from "@/lib/catalog";
 import { FEED_MAX_IMAGES } from "@/lib/types";
@@ -145,14 +149,29 @@ export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: s
 
 type AlertGroup = "all" | FeedAlert["kind"] | "system";
 type AlertItem = { group: AlertGroup; key: string; at: string; who: string; title: string; status?: string; url?: string; thread?: string };
-const alertGroups: [AlertGroup, string, typeof ImageIcon][] = [
-  ["all", "ทั้งหมด", Inbox],
-  ["interest", "ผู้สนใจติดต่อ", Handshake],
-  ["reply", "การตอบรับงาน", CircleCheck],
-  ["message", "ข้อความใหม่", MessageCircle],
-  ["network", "คำขอเข้าร่วมเครือข่าย", UserPlus],
-  ["system", "ระบบและประกาศ", Info],
+const alertGroups: [AlertGroup, string, typeof ImageIcon, string][] = [
+  ["all", "ทั้งหมด", Inbox, "#7c3aed"],
+  ["interest", "ผู้สนใจติดต่อ", Handshake, "#f97316"],
+  ["reply", "การตอบรับงาน", CircleCheck, "#16a34a"],
+  ["message", "ข้อความใหม่", MessageCircle, "#0ea5e9"],
+  ["network", "คำขอเข้าร่วมเครือข่าย", UserPlus, "#ec4899"],
+  ["system", "ระบบและประกาศ", Info, "#6366f1"],
 ];
+/** Small rounded tile with a coloured icon (left menus of the network page). */
+const Tile = ({ icon: Icon, c }: { icon: LucideIcon; c: string }) => (
+  <i className="li-ic" style={{ "--c": c } as CSSProperties} aria-hidden>
+    <Icon size={15} />
+  </i>
+);
+const tabIcons: Record<string, [LucideIcon, string]> = {
+  all: [LayoutGrid, "#7c3aed"],
+  post: [Newspaper, "#0ea5e9"],
+  job: [BriefcaseBusiness, "#f97316"],
+  partner: [Handshake, "#16a34a"],
+  following: [Rss, "#ec4899"],
+  mine: [Building2, "#6366f1"],
+  saved: [Bookmark, "#eab308"],
+};
 const alertLine = (a: AlertItem) =>
   a.group === "interest"
     ? a.who + " สนใจติดต่อประกาศของคุณ"
@@ -329,9 +348,9 @@ export function Feed({
             การแจ้งเตือน
             {unseen("all") > 0 && <b className="li-alert-count">{unseen("all")}</b>}
           </h2>
-          {alertGroups.map(([key, label, Ico]) => (
+          {alertGroups.map(([key, label, Ico, c]) => (
             <button key={key} className={alertsOpen === key ? "active" : ""} onClick={() => openAlerts(key)}>
-              <Ico size={16} />
+              <Tile icon={Ico} c={c} />
               <span>{label}</span>
               {unseen(key) > 0 && <b className="li-alert-count">{unseen(key)}</b>}
             </button>
@@ -340,22 +359,27 @@ export function Feed({
         <section className="card li-profile">
           <div className="li-profile-links">
             <button onClick={() => navigate("profile")}>
-              หน้าโปรไฟล์บริษัทเรา
+              <Tile icon={Building2} c="#7c3aed" />
+              <span>หน้าโปรไฟล์บริษัทเรา</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => setTab("mine")}>
-              อัปเดตของบริษัทเรา
+              <Tile icon={Megaphone} c="#f97316" />
+              <span>อัปเดตของบริษัทเรา</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => setTab("following")}>
-              บริษัทที่ติดตาม
+              <Tile icon={Users} c="#ec4899" />
+              <span>บริษัทที่ติดตาม</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => navigate("jobs")}>
-              งาน &amp; ข้อเสนอ
+              <Tile icon={BriefcaseBusiness} c="#16a34a" />
+              <span>งาน &amp; ข้อเสนอ</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => navigate("chat?b2b=")}>
+              <Tile icon={MessageSquare} c="#0ea5e9" />
               <span>ข้อความกับบริษัทอื่น</span>
               {chatUnread > 0 ? <b className="li-alert-count">{chatUnread}</b> : <ChevronRight size={15} />}
             </button>
@@ -368,6 +392,7 @@ export function Feed({
           <span>หมวดอัปเดต</span>
           {tabs.map(([key, label]) => (
             <button key={key} className={tab === key ? "active" : ""} aria-current={tab === key} onClick={() => setTab(key)}>
+              <Tile icon={tabIcons[key][0]} c={tabIcons[key][1]} />
               {label}
             </button>
           ))}
