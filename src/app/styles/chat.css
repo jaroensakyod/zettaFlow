@@ -354,3 +354,16 @@
 .b2b-compose > div:last-child > button:disabled { background: #d9d4ea; box-shadow: none; }
 .b2b-sample-compose { font-size: 11.5px; }
 @media (max-width: 760px) { .chat-bar-title small { display: none; } .chat-bar .chat-tabs { width: 100%; } .chat-bar .chat-tabs button { flex: 1; justify-content: center; } .b2b { height: calc(100dvh - 210px); } .b2b-compose { padding-right: 16px; padding-bottom: 76px; } }
+/* Header like พนักงาน / ลูกค้า: the top of the page background is coloured, title and tabs sit on it (no frame) */
+.dept-shell:has(.chat-hub) { background: linear-gradient(180deg, #6d28d9 0, #a78bfa 120px, rgba(167, 139, 250, .3) 190px, transparent 300px) no-repeat; }
+.dept-shell:has(.chat-bar.t-b2b) { background: linear-gradient(180deg, #4f46e5 0, #818cf8 120px, rgba(129, 140, 248, .3) 190px, transparent 300px) no-repeat; }
+.chat-bar, .chat-bar.t-b2b { padding: 4px 0 6px; border-radius: 0; background: none; box-shadow: none; }
+.chat-bar-icon { width: 48px; height: 48px; border-radius: 15px; color: #6d28d9; background: #fff; }
+.chat-bar.t-b2b .chat-bar-icon { color: #4f46e5; }
+.chat-bar-title h1 { font-size: 26px; line-height: 1.15; }
+.chat-bar-title small { font-size: 13px; color: rgba(255, 255, 255, .88); opacity: 1; }
+.chat-bar .chat-tabs { background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .35); backdrop-filter: blur(4px); }
+/* not as wide: the chat sits in a comfortable column */
+.chat-hub { width: 100%; max-width: 1180px; margin: 0 auto; }
+.b2b { grid-template-columns: 290px minmax(0, 1fr); box-shadow: 0 14px 34px rgba(60, 40, 140, .1); }
+.b2b-msg { max-width: 72%; }
