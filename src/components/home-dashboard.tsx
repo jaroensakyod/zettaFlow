@@ -393,6 +393,8 @@ type Kpi = {
   note?: string;
   spark?: number[];
   view: string;
+  /** Second figure under the main one (the profit card shows the margin here). */
+  extra?: React.ReactNode;
 };
 const periodNames: Record<Period, string> = { day: "วัน", week: "สัปดาห์", month: "เดือน", year: "ปี" };
 /** The day, week (Sunday to Saturday), month or year that `day` falls in. */
@@ -543,8 +545,17 @@ function Kpis({
       note: noPrev,
       spark: spark("profit"),
       view: "reports",
+      extra: (
+        <span className="hd-kpi-margin-line">
+          <Percent size={12} /> อัตรากำไร <b>{f.margin.toFixed(1)}%</b>
+          {f.change.margin && (
+            <span className={f.change.margin.good ? "good" : "bad"}>
+              ({(f.change.margin.up ? "+" : "-") + f.change.margin.text})
+            </span>
+          )}
+        </span>
+      ),
     },
-    { key: "margin", label: "อัตรากำไร", value: f.margin.toFixed(1) + "%", icon: Percent, color: "#a855f7", change: f.change.margin, note: noPrev, spark: spark("margin"), view: "reports" },
     { key: "tasks", label: "งานทั้งหมด", value: inPeriod.length + " งาน", icon: ListChecks, color: "#3b9bf0", note: `เสร็จแล้ว ${done} งาน`, view: "tasks" },
     { key: "open", label: "งานคงค้าง", value: open.length + " งาน", icon: Hourglass, color: "#e85d9b", note: late ? `เลยกำหนด ${late} งาน` : "ไม่มีงานเลยกำหนด", view: "tasks" },
   ];
@@ -568,6 +579,7 @@ function Kpis({
             ) : (
               <span className="hd-kpi-change muted">{k.note}</span>
             )}
+            {k.extra}
           </span>
           {k.spark && <Spark values={k.spark} color={k.color} />}
         </button>
