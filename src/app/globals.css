@@ -7972,12 +7972,11 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .tone-green.ge-section, .ge-nav a.tone-green { --a: #22c55e; --b: #15803d; --s: #ecfdf3; }
 .ge-section .image-field-preview { width: 84px; height: 84px; }
 
-/* network page left menus: colourful icon tiles (feed.tsx Tile) */
-.li-ic { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; font-style: normal; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); transition: color .15s, background .15s, transform .15s; }
-.li-alerts button .li-ic svg, .li-alerts button.active .li-ic svg, .li-alerts button:first-of-type .li-ic svg, .li-profile-links .li-ic svg { color: inherit; }
-.li-alerts button, .li-nav button { gap: 10px; }
+/* network page left menus: full-colour icons (color-icons.tsx) */
+.color-ic { flex: none; display: block; transition: transform .15s; }
+.li-alerts button, .li-nav button { gap: 12px; }
 .li-nav button { display: flex; align-items: center; }
-.li-profile-links button { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.li-profile-links button { display: flex; align-items: center; gap: 12px; font-size: 13px; }
 .li-profile-links button > span { flex: 1; text-align: left; }
-:is(.li-alerts, .li-nav, .li-profile-links) button:hover .li-ic { transform: scale(1.08); }
-:is(.li-alerts, .li-nav) button.active .li-ic { color: #fff; background: var(--c); box-shadow: 0 4px 10px color-mix(in srgb, var(--c) 35%, transparent); }
+:is(.li-alerts, .li-nav, .li-profile-links) button:hover .color-ic { transform: scale(1.1); }
+:is(.li-alerts, .li-nav) button.active .color-ic { transform: scale(1.08); filter: drop-shadow(0 3px 5px rgba(91, 33, 182, .25)); }

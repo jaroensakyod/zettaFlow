@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   Image as ImageIcon,
   BriefcaseBusiness,
@@ -31,10 +31,6 @@ import {
   CircleCheck,
   Info,
   Building2,
-  LayoutGrid,
-  Rss,
-  Users,
-  type LucideIcon,
 } from "lucide-react";
 import { businessGroupOf, businessTypeGroups, industryMatches } from "@/lib/catalog";
 import { FEED_MAX_IMAGES } from "@/lib/types";
@@ -43,6 +39,7 @@ import { api, Empty, Loading, Modal } from "./shared";
 import type { Promo } from "@/lib/engage";
 import type { FeedAd } from "@/lib/ads";
 import { AdCard } from "./ad-card";
+import { ColorIcon, type ColorIconName } from "./color-icons";
 import { OnlineDot, useCompanyOnline } from "./presence";
 import { IndustryPicker, industryLabel } from "./industry-picker";
 import { PostMock, SampleFeed, sampleAds, sampleLogo, samplePosts, sampleSuggest } from "./feed-samples";
@@ -157,20 +154,22 @@ const alertGroups: [AlertGroup, string, typeof ImageIcon, string][] = [
   ["network", "คำขอเข้าร่วมเครือข่าย", UserPlus, "#ec4899"],
   ["system", "ระบบและประกาศ", Info, "#6366f1"],
 ];
-/** Small rounded tile with a coloured icon (left menus of the network page). */
-const Tile = ({ icon: Icon, c }: { icon: LucideIcon; c: string }) => (
-  <i className="li-ic" style={{ "--c": c } as CSSProperties} aria-hidden>
-    <Icon size={15} />
-  </i>
-);
-const tabIcons: Record<string, [LucideIcon, string]> = {
-  all: [LayoutGrid, "#7c3aed"],
-  post: [Newspaper, "#0ea5e9"],
-  job: [BriefcaseBusiness, "#f97316"],
-  partner: [Handshake, "#16a34a"],
-  following: [Rss, "#ec4899"],
-  mine: [Building2, "#6366f1"],
-  saved: [Bookmark, "#eab308"],
+const alertArt: Record<AlertGroup, ColorIconName> = {
+  all: "inbox",
+  interest: "heart",
+  reply: "check",
+  message: "message",
+  network: "friendAdd",
+  system: "info",
+};
+const tabArt: Record<string, ColorIconName> = {
+  all: "grid",
+  post: "news",
+  job: "briefcase",
+  partner: "partner",
+  following: "people",
+  mine: "building",
+  saved: "bookmark",
 };
 const alertLine = (a: AlertItem) =>
   a.group === "interest"
@@ -348,9 +347,9 @@ export function Feed({
             การแจ้งเตือน
             {unseen("all") > 0 && <b className="li-alert-count">{unseen("all")}</b>}
           </h2>
-          {alertGroups.map(([key, label, Ico, c]) => (
+          {alertGroups.map(([key, label]) => (
             <button key={key} className={alertsOpen === key ? "active" : ""} onClick={() => openAlerts(key)}>
-              <Tile icon={Ico} c={c} />
+              <ColorIcon name={alertArt[key]} />
               <span>{label}</span>
               {unseen(key) > 0 && <b className="li-alert-count">{unseen(key)}</b>}
             </button>
@@ -359,27 +358,27 @@ export function Feed({
         <section className="card li-profile">
           <div className="li-profile-links">
             <button onClick={() => navigate("profile")}>
-              <Tile icon={Building2} c="#7c3aed" />
+              <ColorIcon name="building" />
               <span>หน้าโปรไฟล์บริษัทเรา</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => setTab("mine")}>
-              <Tile icon={Megaphone} c="#f97316" />
+              <ColorIcon name="megaphone" />
               <span>อัปเดตของบริษัทเรา</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => setTab("following")}>
-              <Tile icon={Users} c="#ec4899" />
+              <ColorIcon name="people" />
               <span>บริษัทที่ติดตาม</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => navigate("jobs")}>
-              <Tile icon={BriefcaseBusiness} c="#16a34a" />
+              <ColorIcon name="briefcase" />
               <span>งาน &amp; ข้อเสนอ</span>
               <ChevronRight size={15} />
             </button>
             <button onClick={() => navigate("chat?b2b=")}>
-              <Tile icon={MessageSquare} c="#0ea5e9" />
+              <ColorIcon name="chats" />
               <span>ข้อความกับบริษัทอื่น</span>
               {chatUnread > 0 ? <b className="li-alert-count">{chatUnread}</b> : <ChevronRight size={15} />}
             </button>
@@ -392,7 +391,7 @@ export function Feed({
           <span>หมวดอัปเดต</span>
           {tabs.map(([key, label]) => (
             <button key={key} className={tab === key ? "active" : ""} aria-current={tab === key} onClick={() => setTab(key)}>
-              <Tile icon={tabIcons[key][0]} c={tabIcons[key][1]} />
+              <ColorIcon name={tabArt[key]} />
               {label}
             </button>
           ))}
