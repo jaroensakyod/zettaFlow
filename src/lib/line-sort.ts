@@ -3,6 +3,7 @@
 import { catalog, type Field } from "./catalog";
 import { aiGenerate, type AiPart } from "./llm";
 import { dateContext, extract } from "./ai";
+import { normalizeDepartment } from "./line-target";
 import type { Template } from "./types";
 
 /** Pages a company chat realistically feeds, with the cues that point to each. */
@@ -21,7 +22,7 @@ export const sortPages: { kind: string; hint: string }[] = [
 ];
 
 // Bookkeeping fields nobody types into a chat.
-const skipKeys = new Set(["status", "aiNotes", "aiUncertain", "reviewStatus", "accountCode", "costCenter", "code", "checklist", "approvals", "history", "cover", "photo"]);
+const skipKeys = new Set(["status", "aiNotes", "aiUncertain", "reviewStatus", "accountCode", "costCenter", "code", "checklist", "approvals", "history", "cover", "photo", "color"]);
 
 /** The page's fields as a review form. Defaults the approval fills itself (ชื่อ, วันที่, dropdown status) are not required. */
 export function pageTemplate(kind: string): Template {
@@ -115,6 +116,6 @@ export async function sortMessage(input: SortInput) {
   const text = (input.sender ? `ผู้ส่ง: ${input.sender}\n` : "") + input.raw;
   const r = await extract(template, text, input.attachment, { sentAt: input.sentAt });
   const values: Record<string, unknown> = { ...r.values, name: r.values.name || title || null };
-  if (template.fields.some((f) => f.key === "department") && !values.department) values.department = template.department;
+  if (template.fields.some((f) => f.key === "department")) values.department = normalizeDepartment(values.department, template.department);
   return { kind, template, values, missing: r.missing, engine: "ai-sort" };
 }
