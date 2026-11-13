@@ -11,7 +11,7 @@ import { b2bSample, isSampleThread, quickQuestions, sampleThreadFor, SAMPLE_NOTE
 import { api, Empty, Loading } from "./shared";
 import { Chat } from "./tools";
 import { CompanyLogo, employmentLabels, kindLabel, since } from "./feed";
-import { DealBar, DealCardView, QuoteForm, RequestForm, sampleDeal } from "./deal-room";
+import { DealBar, DealCardView, PayForm, QuoteForm, RequestForm, StepForm, sampleDeal, sampleWorkDeal, type DealStepKind } from "./deal-room";
 import type { Deal, DealCard } from "@/lib/b2b-deal-types";
 
 export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: string) => void; navigate: (v: string) => void }) {
@@ -143,7 +143,13 @@ function B2bChat({
     viewer = ctx.member.role === "viewer",
     // ห้องดีล: the deals of the open conversation and the form being filled
     [deals, setDeals] = useState<Deal[]>([]),
-    [form, setForm] = useState<null | { kind: "request" } | { kind: "quote"; deal?: Deal | null; from?: DealCard | null }>(null);
+    [form, setForm] = useState<
+      | null
+      | { kind: "request" }
+      | { kind: "quote"; deal?: Deal | null; from?: DealCard | null }
+      | { kind: "step"; step: DealStepKind; deal: Deal }
+      | { kind: "pay"; card: DealCard }
+    >(null);
   // Samples while the company has no real conversation yet, and always in the demo.
   // Sample conversations only in the public demo; a real company sees its own (possibly empty) inbox.
   const sampleMode = ctx.demo,
@@ -227,7 +233,7 @@ function B2bChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages?.length]);
   // The public demo shows one sample deal in its first sample conversation.
-  const shownDeals = sample ? (list?.[0]?.id === sample.id ? [sampleDeal(sample.id, sample.company.name, "seller")] : list?.[1]?.id === sample.id ? [sampleDeal(sample.id, sample.company.name, "buyer")] : []) : deals,
+  const shownDeals = sample ? (list?.[0]?.id === sample.id ? [sampleDeal(sample.id, sample.company.name, "seller")] : list?.[1]?.id === sample.id ? [sampleDeal(sample.id, sample.company.name, "buyer")] : list?.[2]?.id === sample.id ? [sampleWorkDeal(sample.company.name)] : []) : deals,
     cardIndex = new Map(shownDeals.flatMap((d) => d.cards.map((c) => [c.id, { card: c, deal: d }] as const))),
     firstLine = new Set<string>(),
     dealChanged = () => {
@@ -367,6 +373,7 @@ function B2bChat({
               disabled={viewer}
               onRequest={() => setForm({ kind: "request" })}
               onQuote={() => setForm({ kind: "quote" })}
+              onStep={(step, deal) => setForm({ kind: "step", step, deal })}
             />
             <div className="b2b-messages">
               {!shown ? (
@@ -391,6 +398,7 @@ function B2bChat({
                             navigate={navigate}
                             onChanged={dealChanged}
                             onQuote={(from) => setForm({ kind: "quote", deal: hit.deal, from })}
+                            onPay={(card) => setForm({ kind: "pay", card })}
                           />
                         </div>
                       ) : (
@@ -426,7 +434,7 @@ function B2bChat({
                     shownDeals.flatMap((d) =>
                       d.cards.map((c) => (
                         <div className={"b2b-msg deal" + (c.mine ? " mine" : "")} key={c.id}>
-                          <DealCardView card={c} deal={d} ctx={ctx} sample notify={notify} navigate={navigate} onChanged={() => {}} onQuote={(from) => setForm({ kind: "quote", deal: d, from })} />
+                          <DealCardView card={c} deal={d} ctx={ctx} sample notify={notify} navigate={navigate} onChanged={() => {}} onQuote={(from) => setForm({ kind: "quote", deal: d, from })} onPay={(card) => setForm({ kind: "pay", card })} />
                         </div>
                       )),
                     )}
@@ -510,6 +518,31 @@ function B2bChat({
           onSent={() => {
             setForm(null);
             notify("ส่งคำขอใบเสนอราคาแล้ว");
+            dealChanged();
+          }}
+        />
+      )}
+      {form?.kind === "step" && (
+        <StepForm
+          sample={!!sample}
+          deal={form.deal}
+          step={form.step}
+          onClose={() => setForm(null)}
+          onSent={() => {
+            setForm(null);
+            notify("ส่งในแชทแล้ว");
+            dealChanged();
+          }}
+        />
+      )}
+      {form?.kind === "pay" && (
+        <PayForm
+          sample={!!sample}
+          invoice={form.card}
+          onClose={() => setForm(null)}
+          onSent={() => {
+            setForm(null);
+            notify("แจ้งชำระแล้ว รอผู้รับจ้างยืนยัน");
             dealChanged();
           }}
         />

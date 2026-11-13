@@ -4,7 +4,7 @@ export type DealParty = { id: string; name: string; taxId: string; address: stri
 export type DealCard = {
   id: string;
   deal_id: string;
-  kind: "request" | "quote";
+  kind: "request" | "quote" | "progress" | "delivery" | "invoice" | "payment" | "cancel";
   rev: number;
   status: "open" | "accepted" | "change" | "rejected" | "superseded" | "withdrawn";
   reason: string | null;
@@ -30,6 +30,30 @@ export type DealCard = {
     validUntil?: string;
     deliverBy?: string | null;
     payTerms?: string;
+    installments?: { label: string; percent: number }[];
+    // progress / delivery
+    percent?: number;
+    round?: number;
+    // invoice
+    index?: number;
+    count?: number;
+    label?: string;
+    net?: number;
+    amount?: number;
+    due?: string;
+    quoteNo?: string;
+    // payment
+    invoice?: string;
+    invoiceNo?: string;
+    whtRate?: number;
+    wht?: number;
+    transfer?: number;
+    date?: string;
+    method?: string;
+    reference?: string;
+    receiptNo?: string;
+    // cancel
+    paid?: number;
     buyer?: DealParty;
     seller?: DealParty;
   };
@@ -37,7 +61,7 @@ export type DealCard = {
 export type Deal = {
   id: string;
   title: string;
-  stage: "request" | "quote" | "accepted" | "rejected" | "cancelled";
+  stage: "request" | "quote" | "accepted" | "work" | "delivered" | "checked" | "closed" | "rejected" | "cancelled";
   role: "buyer" | "seller";
   accepted_at: string | null;
   accepted_by: string | null;
@@ -50,6 +74,20 @@ export type Deal = {
   task_id: string | null;
   cards: DealCard[];
 };
+
+/** Instalments of the accepted quotation with what is billed and paid (phase 2). */
+export function dealMoney(deal: Deal) {
+  const q = [...deal.cards].reverse().find((c) => c.kind === "quote" && c.status === "accepted");
+  const inst = q?.data.installments?.length ? q.data.installments : [{ label: "ชำระเต็มจำนวน", percent: 100 }];
+  const invoices = deal.cards.filter((c) => c.kind === "invoice" && c.status !== "withdrawn");
+  const rows = inst.map((x, i) => {
+    const inv = [...invoices].reverse().find((c) => c.data.index === i);
+    return { ...x, index: i, invoice: inv || null, paid: inv?.status === "accepted" };
+  });
+  const total = Number(q?.data.total) || 0,
+    paid = rows.filter((r) => r.paid).reduce((s, r) => s + (Number(r.invoice?.data.amount) || 0), 0);
+  return { quote: q || null, rows, total, paid, left: Math.max(0, total - paid) };
+}
 
 /** Totals as the database works them out (for the live preview in the quotation form). */
 export function quoteTotals(items: { qty?: number | string; price?: number | string }[], discount: number, vatMode: "excluded" | "included" | "none") {

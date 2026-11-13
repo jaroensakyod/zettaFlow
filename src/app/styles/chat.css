@@ -468,3 +468,50 @@
   .deal-rows.priced .deal-row { grid-template-columns: minmax(0, 1fr) 54px 84px 30px; }
   .deal-rows.priced .deal-row > b, .deal-rows.priced .deal-row.head span:nth-child(5) { display: none; }
 }
+
+/* ---- ห้องดีล phase 2: work panel, new cards, forms ---- */
+.deal-stage.work, .deal-stage.delivered { color: #b45309; background: #fef3c7; }
+.deal-stage.checked { color: #0369a1; background: #e0f2fe; }
+.deal-stage.closed { color: #15803d; background: #dcfce7; }
+.deal-bar.stage-closed .deal-steps li.done i { background: #16a34a; }
+.deal-work { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .8); border: 1px solid #ece9f5; }
+.deal-money { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12.5px; color: #5d5a78; }
+.deal-money b { margin-left: 3px; color: #2c2550; }
+.deal-money .ok b { color: #15803d; }
+.deal-money .left b { color: #b45309; }
+.deal-inst { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.deal-inst em { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-style: normal; font-weight: 700; color: #6b6585; background: #f1f0f5; }
+.deal-inst em.billed { color: #b45309; background: #fef3c7; }
+.deal-inst em.paid { color: #15803d; background: #dcfce7; }
+.deal-work-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.deal-work-actions button { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px; border: 1px solid #ddd6fe; border-radius: 99px; font-size: 12.5px; font-weight: 700; color: #5b21b6; background: #fff; cursor: pointer; }
+.deal-work-actions .go { color: #fff; border-color: transparent; background: linear-gradient(120deg, #f59e0b, #ea580c); }
+.deal-work-actions .bill { color: #fff; border-color: transparent; background: linear-gradient(120deg, #0ea5e9, #4f46e5); }
+.deal-work-actions .stop { color: #be123c; border-color: #fecdd3; }
+.deal-card.progress { border-top-color: #f59e0b; }
+.deal-card.progress .deal-card-icon { background: linear-gradient(135deg, #fbbf24, #d97706); }
+.deal-card.delivery { border-top: 4px solid #ea580c; }
+.deal-card.delivery .deal-card-icon { background: linear-gradient(135deg, #fb923c, #c2410c); }
+.deal-card.invoice { border-top: 4px solid #0ea5e9; }
+.deal-card.invoice .deal-card-icon { background: linear-gradient(135deg, #38bdf8, #4f46e5); }
+.deal-card.payment { border-top: 4px solid #16a34a; }
+.deal-card.payment .deal-card-icon { background: linear-gradient(135deg, #4ade80, #15803d); }
+.deal-card.cancel { border-top: 4px solid #e11d48; }
+.deal-card.cancel .deal-card-icon { background: linear-gradient(135deg, #fb7185, #be123c); }
+.deal-card.st-accepted.invoice, .deal-card.st-accepted.payment { border-top-color: #16a34a; }
+.deal-progress { display: flex; align-items: center; gap: 10px; }
+.deal-progress i { flex: 1; height: 9px; border-radius: 99px; background: #fef3c7; overflow: hidden; }
+.deal-progress em { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #fbbf24, #ea580c); }
+.deal-progress b { font-size: 15px; color: #b45309; }
+.deal-facts span.ok { color: #15803d; background: #dcfce7; }
+.deal-wait { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #b45309; background: #fffbeb; }
+.deal-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.deal-presets button { height: 28px; padding: 0 10px; border: 1px solid #ddd6fe; border-radius: 99px; font-size: 12px; font-weight: 700; color: #5b21b6; background: #fff; cursor: pointer; }
+.deal-inst-row { display: grid; grid-template-columns: minmax(0, 1fr) 70px auto 30px; gap: 6px; align-items: center; }
+.deal-inst-row input { width: 100%; min-width: 0; padding: 7px 9px; border: 1px solid #e3dff0; border-radius: 9px; font: inherit; font-size: 13px; }
+.deal-inst-row small { font-size: 12px; color: #5d5a78; white-space: nowrap; }
+.deal-field > span small { margin-left: 6px; font-weight: 700; }
+.deal-field > span small.ok { color: #15803d; }
+.deal-field > span small.bad { color: #be123c; }
+.deal-field input[type="range"] { padding: 0; accent-color: #7c3aed; }
+.modal.deal-modal.small { width: min(560px, calc(100vw - 24px)); }

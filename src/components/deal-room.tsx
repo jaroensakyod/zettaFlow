@@ -2,9 +2,9 @@
 // ห้องดีล in the B2B chat (phase 1): progress bar, the request / quotation cards, their forms and decisions.
 // Rules live in the database (migration 0064); these only show what each side can press.
 import { useMemo, useState, type FormEvent } from "react";
-import { BadgeCheck, CalendarClock, Check, CircleX, FileText, Handshake, LoaderCircle, Pencil, Plus, ReceiptText, Send, Trash2, Undo2, X } from "lucide-react";
+import { Ban, BadgeCheck, Banknote, CalendarClock, Camera, Check, CircleX, CreditCard, FileText, Handshake, LoaderCircle, Package, Pencil, Plus, ReceiptText, RotateCcw, Send, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import type { Context } from "@/lib/types";
-import { quoteTotals, type Deal, type DealCard, type DealItem } from "@/lib/b2b-deal-types";
+import { dealMoney, quoteTotals, type Deal, type DealCard, type DealItem } from "@/lib/b2b-deal-types";
 import { api, Modal, money } from "./shared";
 
 const baht = (n: number | undefined) => "฿" + money(Math.round((Number(n) || 0) * 100) / 100);
@@ -17,21 +17,55 @@ const plusDays = (n: number) => {
 };
 
 /* ---------- progress bar ---------- */
-const steps: { key: string; label: string; later?: boolean }[] = [
+const steps: { key: string; label: string }[] = [
   { key: "request", label: "คำขอ" },
   { key: "quote", label: "ใบเสนอราคา" },
   { key: "accepted", label: "ตกลงจ้าง" },
-  { key: "work", label: "กำลังทำ", later: true },
-  { key: "check", label: "ตรวจรับ", later: true },
-  { key: "bill", label: "วางบิล", later: true },
-  { key: "paid", label: "ชำระเงิน", later: true },
+  { key: "work", label: "กำลังทำ" },
+  { key: "check", label: "ตรวจรับ" },
+  { key: "bill", label: "วางบิล" },
+  { key: "paid", label: "ชำระครบ" },
 ];
-const stageText: Record<Deal["stage"], string> = { request: "รอใบเสนอราคา", quote: "รอผู้ซื้อตัดสินใจ", accepted: "ตกลงจ้างงานแล้ว", rejected: "ผู้ซื้อปฏิเสธ", cancelled: "ยกเลิกแล้ว" };
+const stageText: Record<Deal["stage"], string> = {
+  request: "รอใบเสนอราคา",
+  quote: "รอผู้ซื้อตัดสินใจ",
+  accepted: "ตกลงจ้างงานแล้ว",
+  work: "กำลังทำงาน",
+  delivered: "รอตรวจรับงาน",
+  checked: "ตรวจรับแล้ว · รอชำระ",
+  closed: "ปิดงานเรียบร้อย",
+  rejected: "ผู้ซื้อปฏิเสธ",
+  cancelled: "ยกเลิกแล้ว",
+};
+const working = (d: Deal) => ["accepted", "work", "delivered", "checked"].includes(d.stage);
+/** The step in progress (steps before it are done). */
+function stepAt(d: Deal) {
+  const m = dealMoney(d);
+  const at: Record<string, number> = { request: 0, quote: 1, accepted: 3, work: 3, delivered: 4, checked: m.total && m.paid >= m.total ? 7 : 5, closed: 7 };
+  return d.stage in at ? at[d.stage] : -1;
+}
+export type DealStepKind = "progress" | "deliver" | "invoice" | "cancel";
 
-export function DealBar({ deals, onRequest, onQuote, disabled }: { deals: Deal[]; onRequest: () => void; onQuote: () => void; disabled?: boolean }) {
+export function DealBar({
+  deals,
+  onRequest,
+  onQuote,
+  onStep,
+  disabled,
+}: {
+  deals: Deal[];
+  onRequest: () => void;
+  onQuote: () => void;
+  onStep: (step: DealStepKind, deal: Deal) => void;
+  disabled?: boolean;
+}) {
   // The deal in progress (else the latest one).
-  const deal = [...deals].reverse().find((d) => d.stage === "request" || d.stage === "quote") || deals[deals.length - 1];
-  const at = deal ? (deal.stage === "rejected" || deal.stage === "cancelled" ? -1 : steps.findIndex((s) => s.key === deal.stage)) : -1;
+  const deal = [...deals].reverse().find((d) => d.stage === "request" || d.stage === "quote" || working(d)) || deals[deals.length - 1];
+  const at = deal ? stepAt(deal) : -1,
+    m = deal ? dealMoney(deal) : null,
+    seller = deal?.role === "seller",
+    cancelOpen = deal?.cards.some((c) => c.kind === "cancel" && c.status === "open"),
+    billable = m ? m.rows.filter((r) => !r.invoice) : [];
   return (
     <div className={"deal-bar" + (deal ? " stage-" + deal.stage : "")}>
       <div className="deal-bar-top">
@@ -43,7 +77,7 @@ export function DealBar({ deals, onRequest, onQuote, disabled }: { deals: Deal[]
             {deals.length > 1 && <small>{deals.length} ดีลในห้องนี้</small>}
           </>
         ) : (
-          <span className="deal-bar-hint">ห้องดีล · ขอใบเสนอราคา ส่งใบเสนอราคา และตกลงจ้างงานได้ในแชทนี้</span>
+          <span className="deal-bar-hint">ห้องดีล · ขอใบเสนอราคา ส่งใบเสนอราคา ตกลงจ้าง ส่งมอบงาน และชำระเงินได้ในแชทนี้</span>
         )}
         <span className="deal-bar-actions">
           <button type="button" onClick={onRequest} disabled={disabled}>
@@ -56,13 +90,62 @@ export function DealBar({ deals, onRequest, onQuote, disabled }: { deals: Deal[]
       </div>
       {deal && (
         <ol className="deal-steps">
-          {steps.map((s, i) => (
-            <li key={s.key} className={(i < at ? "done" : i === at ? "now" : "") + (s.later ? " later" : "")} title={s.later ? "มาในเฟสถัดไป" : undefined}>
-              <i>{i < at || (i === at && deal.stage === "accepted") ? <Check size={11} /> : i + 1}</i>
-              {s.label}
+          {steps.map((st, i) => (
+            <li key={st.key} className={i < at ? "done" : i === at ? "now" : ""}>
+              <i>{i < at ? <Check size={11} /> : i + 1}</i>
+              {st.label}
             </li>
           ))}
         </ol>
+      )}
+      {deal && m && (working(deal) || deal.stage === "closed") && (
+        <div className="deal-work">
+          <div className="deal-money">
+            <span>
+              ยอดงาน <b>{baht(m.total)}</b>
+            </span>
+            <span className="ok">
+              ชำระแล้ว <b>{baht(m.paid)}</b>
+            </span>
+            {m.left > 0 && (
+              <span className="left">
+                คงเหลือ <b>{baht(m.left)}</b>
+              </span>
+            )}
+            <span className="deal-inst">
+              {m.rows.map((r) => (
+                <em key={r.index} className={r.paid ? "paid" : r.invoice ? "billed" : ""} title={r.paid ? "ชำระแล้ว" : r.invoice ? "ออกใบแจ้งหนี้แล้ว รอชำระ" : "ยังไม่ออกใบแจ้งหนี้"}>
+                  {r.paid ? <Check size={11} /> : null}
+                  {r.label} {r.percent}%
+                </em>
+              ))}
+            </span>
+          </div>
+          {working(deal) && !disabled && (
+            <div className="deal-work-actions">
+              {seller && (deal.stage === "accepted" || deal.stage === "work") && (
+                <>
+                  <button type="button" onClick={() => onStep("progress", deal)}>
+                    <Camera size={14} /> อัปเดตงาน
+                  </button>
+                  <button type="button" className="go" onClick={() => onStep("deliver", deal)}>
+                    <Package size={14} /> ส่งมอบงาน
+                  </button>
+                </>
+              )}
+              {seller && billable.length > 0 && (
+                <button type="button" className="bill" onClick={() => onStep("invoice", deal)}>
+                  <ReceiptText size={14} /> ออกใบแจ้งหนี้
+                </button>
+              )}
+              {!cancelOpen && (
+                <button type="button" className="stop" onClick={() => onStep("cancel", deal)}>
+                  <Ban size={14} /> ขอยกเลิกงาน
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -77,6 +160,22 @@ const statusChip: Record<DealCard["status"], [string, string]> = {
   superseded: ["ถูกแทนที่ด้วยฉบับใหม่", "muted"],
   withdrawn: ["ถอนแล้ว", "muted"],
 };
+const kindChip: Partial<Record<DealCard["kind"], Partial<Record<DealCard["status"], [string, string]>>>> = {
+  progress: { accepted: ["อัปเดตงาน", "open"] },
+  delivery: { open: ["รอตรวจรับ", "warn"], accepted: ["ตรวจรับแล้ว", "ok"], change: ["ขอแก้งาน", "warn"], withdrawn: ["ยกเลิก", "muted"] },
+  invoice: { open: ["รอชำระ", "warn"], accepted: ["ชำระแล้ว", "ok"], withdrawn: ["ยกเลิก", "muted"] },
+  payment: { open: ["รอยืนยันรับเงิน", "warn"], accepted: ["ได้รับเงินแล้ว", "ok"], rejected: ["ยังไม่ได้รับเงิน", "bad"], withdrawn: ["ยกเลิก", "muted"] },
+  cancel: { open: ["รออีกฝ่ายยืนยัน", "warn"], accepted: ["ยกเลิกงานแล้ว", "bad"], rejected: ["ไม่ยินยอม · ทำงานต่อ", "muted"] },
+};
+const kindHead: Record<DealCard["kind"], [string, typeof FileText]> = {
+  request: ["คำขอใบเสนอราคา", FileText],
+  quote: ["ใบเสนอราคา", ReceiptText],
+  progress: ["อัปเดตความคืบหน้า", Camera],
+  delivery: ["ส่งมอบงาน", Package],
+  invoice: ["ใบแจ้งหนี้", ReceiptText],
+  payment: ["แจ้งชำระเงิน", CreditCard],
+  cancel: ["ขอยกเลิกงาน", Ban],
+};
 
 export function DealCardView({
   card,
@@ -84,6 +183,7 @@ export function DealCardView({
   ctx,
   sample,
   onQuote,
+  onPay,
   onChanged,
   notify,
   navigate,
@@ -94,12 +194,14 @@ export function DealCardView({
   sample?: boolean;
   /** Seller: open the quotation form (from this request, or to revise this quotation). */
   onQuote: (from: DealCard) => void;
+  /** Buyer: open the payment form for this invoice. */
+  onPay?: (invoice: DealCard) => void;
   onChanged: () => void;
   notify: (s: string) => void;
   navigate: (v: string) => void;
 }) {
   const [busy, setBusy] = useState(false),
-    [ask, setAsk] = useState<"" | "change" | "reject">(""),
+    [ask, setAsk] = useState<"" | "change" | "reject" | "fix" | "notpaid" | "decline">(""),
     [reason, setReason] = useState(""),
     [error, setError] = useState("");
   const d = card.data,
@@ -127,14 +229,20 @@ export function DealCardView({
       setBusy(false);
     }
   };
-  const [label, tone] = expired ? ["หมดอายุ", "bad"] : statusChip[card.status];
+  const [label, tone] = expired ? ["หมดอายุ", "bad"] : kindChip[card.kind]?.[card.status] || statusChip[card.status];
+  const [headText, HeadIcon] = kindHead[card.kind],
+    paying = card.kind === "invoice" && deal.cards.some((c) => c.kind === "payment" && c.status === "open" && c.data.invoice === card.id);
   return (
     <article className={"deal-card " + card.kind + " st-" + card.status + (card.mine ? " mine" : "")}>
       <header>
-        <span className="deal-card-icon">{card.kind === "request" ? <FileText size={16} /> : <ReceiptText size={16} />}</span>
+        <span className="deal-card-icon">
+          <HeadIcon size={16} />
+        </span>
         <span className="deal-card-title">
           <small>
-            {card.kind === "request" ? "คำขอใบเสนอราคา" : `ใบเสนอราคา ${d.docNo || ""}`}
+            {headText} {d.docNo || ""}
+            {card.kind === "delivery" && (d.round || 1) > 1 && <em>รอบที่ {d.round}</em>}
+            {card.kind === "invoice" && <em>{d.label}</em>}
             {card.kind === "quote" && card.rev > 1 && <em>Rev.{card.rev}</em>}
           </small>
           <b>{d.title}</b>
@@ -142,6 +250,7 @@ export function DealCardView({
         <span className={"deal-chip " + tone}>{label}</span>
       </header>
 
+      {d.items?.length > 0 && (
       <table className="deal-items">
         <thead>
           <tr>
@@ -164,6 +273,7 @@ export function DealCardView({
           ))}
         </tbody>
       </table>
+      )}
 
       {card.kind === "quote" ? (
         <div className="deal-sum">
@@ -203,11 +313,93 @@ export function DealCardView({
       {d.notes && <p className="deal-notes">{d.notes}</p>}
       {card.reason && card.status !== "accepted" && (
         <p className={"deal-reason " + card.status}>
-          {card.status === "rejected" ? "เหตุผลที่ปฏิเสธ" : card.status === "withdrawn" ? "เหตุผล" : "ผู้ซื้อขอแก้ไข"}: {card.reason}
+          {card.kind === "delivery"
+            ? "สิ่งที่ต้องแก้"
+            : card.kind === "payment"
+              ? "ผู้รับจ้างแจ้งว่า"
+              : card.kind === "cancel"
+                ? "เหตุผลที่ไม่ยินยอม"
+                : card.status === "rejected"
+                  ? "เหตุผลที่ปฏิเสธ"
+                  : card.status === "withdrawn"
+                    ? "เหตุผล"
+                    : "ผู้ซื้อขอแก้ไข"}
+          : {card.reason}
           {card.decided_by && <small> — {card.decided_by}</small>}
         </p>
       )}
-      {card.status === "accepted" && (
+      {card.kind === "progress" && (
+        <div className="deal-progress">
+          <i>
+            <em style={{ width: (d.percent || 0) + "%" }} />
+          </i>
+          <b>{d.percent}%</b>
+        </div>
+      )}
+      {card.kind === "invoice" && (
+        <div className="deal-sum">
+          <span>
+            {d.label} {d.percent}% ของ {d.quoteNo}
+          </span>
+          <span>
+            ก่อน VAT <b>{baht(d.net)}</b>
+          </span>
+          {!!d.vat && (
+            <span>
+              VAT 7% <b>{baht(d.vat)}</b>
+            </span>
+          )}
+          <span className="total">
+            ยอดเรียกเก็บ <b>{baht(d.amount)}</b>
+          </span>
+        </div>
+      )}
+      {card.kind === "invoice" && d.due && (
+        <div className="deal-facts">
+          <span className={card.status === "open" && d.due < today() ? "bad" : ""}>
+            <CalendarClock size={13} /> ครบกำหนด {thaiDay(d.due)}
+          </span>
+        </div>
+      )}
+      {card.kind === "payment" && (
+        <div className="deal-sum">
+          <span>
+            ใบแจ้งหนี้ {d.invoiceNo} ({d.label}) <b>{baht(d.amount)}</b>
+          </span>
+          {!!d.wht && (
+            <span>
+              หัก ณ ที่จ่าย {d.whtRate}% <b>-{baht(d.wht)}</b>
+            </span>
+          )}
+          <span className="total">
+            ยอดโอน <b>{baht(d.transfer)}</b>
+          </span>
+        </div>
+      )}
+      {card.kind === "payment" && (
+        <div className="deal-facts">
+          <span>
+            <Banknote size={13} /> {d.method} · {thaiDay(d.date)}
+          </span>
+          {d.reference && <span>อ้างอิง {d.reference}</span>}
+          {d.receiptNo && <span className="ok">ใบเสร็จ {d.receiptNo}</span>}
+        </div>
+      )}
+      {card.kind === "cancel" && !!d.paid && (
+        <div className="deal-facts">
+          <span className="bad">มีเงินที่ชำระแล้ว {baht(d.paid)} — ตกลงเรื่องคืนเงินกันโดยตรง</span>
+        </div>
+      )}
+      {card.kind === "quote" && !!d.installments?.length && d.installments.length > 1 && (
+        <div className="deal-facts">
+          {d.installments.map((x, i) => (
+            <span key={i}>
+              งวด {i + 1}: {x.label} {x.percent}%
+            </span>
+          ))}
+        </div>
+      )}
+      {card.kind === "quote" && card.status === "accepted" && (
         <div className="deal-agreed">
           <BadgeCheck size={18} />
           <span>
@@ -274,12 +466,71 @@ export function DealCardView({
           )}
         </div>
       )}
+      {!viewer && !ask && (
+        <>
+          {card.kind === "delivery" && buyer && card.status === "open" && deal.stage === "delivered" && (
+            <div className="deal-actions">
+              <button type="button" className="ok" disabled={busy} onClick={() => act(`/b2b/cards/${card.id}/check`, { ok: true }, "ตรวจรับงานแล้ว")}>
+                <Check size={14} /> ตรวจรับงาน
+              </button>
+              <button type="button" className="warn" disabled={busy} onClick={() => setAsk("fix")}>
+                <RotateCcw size={14} /> ขอแก้งาน
+              </button>
+            </div>
+          )}
+          {card.kind === "invoice" && buyer && card.status === "open" && (
+            <div className="deal-actions">
+              {paying ? (
+                <span className="deal-wait">แจ้งชำระแล้ว รอผู้รับจ้างยืนยันรับเงิน</span>
+              ) : (
+                <button type="button" className="ok" onClick={() => (onPay ? onPay(card) : null)}>
+                  <CreditCard size={14} /> แจ้งชำระเงิน
+                </button>
+              )}
+            </div>
+          )}
+          {card.kind === "payment" && seller && card.status === "open" && (
+            <div className="deal-actions">
+              <button type="button" className="ok" disabled={busy} onClick={() => act(`/b2b/cards/${card.id}/receive`, { ok: true }, "ยืนยันรับเงินแล้ว ออกใบเสร็จให้แล้ว")}>
+                <Check size={14} /> ได้รับเงินแล้ว
+              </button>
+              <button type="button" className="warn" disabled={busy} onClick={() => setAsk("notpaid")}>
+                <TriangleAlert size={14} /> ยังไม่ได้รับเงิน
+              </button>
+            </div>
+          )}
+          {card.kind === "cancel" && !card.mine && card.status === "open" && (
+            <div className="deal-actions">
+              <button
+                type="button"
+                className="bad"
+                disabled={busy || !boss}
+                title={!boss ? "เฉพาะเจ้าของหรือผู้จัดการยืนยันได้" : undefined}
+                onClick={() => act(`/b2b/cards/${card.id}/answer`, { agree: true }, "ยืนยันยกเลิกงานแล้ว")}
+              >
+                <Ban size={14} /> ยืนยันยกเลิก
+              </button>
+              <button type="button" className="ghost" disabled={busy} onClick={() => setAsk("decline")}>
+                ไม่ยินยอม ทำงานต่อ
+              </button>
+            </div>
+          )}
+        </>
+      )}
       {ask && (
         <form
           className="deal-ask"
           onSubmit={(e) => {
             e.preventDefault();
-            act(`/b2b/cards/${card.id}/decide`, { decision: ask, reason }, ask === "change" ? "ส่งคำขอแก้ไขแล้ว" : "ปฏิเสธใบเสนอราคาแล้ว");
+            const go: Record<string, [string, object, string]> = {
+              change: ["decide", { decision: "change", reason }, "ส่งคำขอแก้ไขแล้ว"],
+              reject: ["decide", { decision: "reject", reason }, "ปฏิเสธใบเสนอราคาแล้ว"],
+              fix: ["check", { ok: false, reason }, "ส่งคำขอแก้งานแล้ว"],
+              notpaid: ["receive", { ok: false, reason }, "แจ้งว่ายังไม่ได้รับเงินแล้ว"],
+              decline: ["answer", { agree: false, reason }, "ไม่ยินยอมยกเลิก ทำงานต่อ"],
+            };
+            const [path, body, done] = go[ask];
+            act(`/b2b/cards/${card.id}/${path}`, body, done);
           }}
         >
           <input
@@ -287,10 +538,19 @@ export function DealCardView({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             maxLength={1000}
-            placeholder={ask === "change" ? "อยากให้แก้อะไร เช่น ขอลดราคาบูธเหลือ 110,000" : "เหตุผล (ไม่บังคับ)"}
+            placeholder={
+              ask === "change"
+                ? "อยากให้แก้อะไร เช่น ขอลดราคาบูธเหลือ 110,000"
+                : ask === "fix"
+                  ? "สิ่งที่ต้องแก้ เช่น ป้ายด้านข้างสีเพี้ยน"
+                  : ask === "notpaid"
+                    ? "เช่น ยอดยังไม่เข้าบัญชี / ยอดไม่ตรง"
+                    : "เหตุผล (ไม่บังคับ)"
+            }
           />
-          <button className={ask === "change" ? "warn" : "bad"} disabled={busy || (ask === "change" && reason.trim().length < 3)}>
-            {busy ? <LoaderCircle className="spin" size={14} /> : <Send size={14} />} {ask === "change" ? "ส่งคำขอแก้ไข" : "ยืนยันปฏิเสธ"}
+          <button className={ask === "reject" || ask === "decline" ? "bad" : "warn"} disabled={busy || (["change", "fix", "notpaid"].includes(ask) && reason.trim().length < 3)}>
+            {busy ? <LoaderCircle className="spin" size={14} /> : <Send size={14} />}{" "}
+            {{ change: "ส่งคำขอแก้ไข", reject: "ยืนยันปฏิเสธ", fix: "ส่งคำขอแก้งาน", notpaid: "แจ้งผู้จ้าง", decline: "ยืนยัน ทำงานต่อ" }[ask]}
           </button>
           <button type="button" className="ghost" onClick={() => setAsk("")} aria-label="ยกเลิก">
             <X size={14} />
@@ -412,11 +672,15 @@ export function QuoteForm({ thread, deal, from, onClose, onSent, sample }: { thr
     [validUntil, setValidUntil] = useState(src?.validUntil && src.validUntil >= today() ? src.validUntil : plusDays(30)),
     [deliverBy, setDeliverBy] = useState(src?.deliverBy || src?.needBy || ""),
     [payTerms, setPayTerms] = useState(src?.payTerms || ""),
+    [inst, setInst] = useState<{ label: string; percent: string }[]>(
+      src?.installments?.length ? src.installments.map((x) => ({ label: x.label, percent: String(x.percent) })) : [{ label: "ชำระเต็มจำนวน", percent: "100" }],
+    ),
     [notes, setNotes] = useState(from?.kind === "quote" ? src?.notes || "" : ""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const t = useMemo(() => quoteTotals(rows, Number(discount) || 0, vatMode), [rows, discount, vatMode]);
-  const revising = from?.kind === "quote";
+  const revising = from?.kind === "quote",
+    instSum = Math.round(inst.reduce((n, x) => n + (Number(x.percent) || 0), 0) * 100) / 100;
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (sample) return setError("นี่คือตัวอย่าง — ส่งได้จริงเมื่อคุยกับบริษัทในเครือข่าย");
@@ -434,6 +698,7 @@ export function QuoteForm({ thread, deal, from, onClose, onSent, sample }: { thr
           validUntil,
           deliverBy,
           payTerms,
+          installments: inst.filter((x) => Number(x.percent) > 0).map((x) => ({ label: x.label, percent: Number(x.percent) })),
           notes,
         },
       });
@@ -490,6 +755,39 @@ export function QuoteForm({ thread, deal, from, onClose, onSent, sample }: { thr
             <input type="date" value={deliverBy} min={today()} onChange={(e) => setDeliverBy(e.target.value)} />
           </label>
         </div>
+        <div className="deal-field wide">
+          <span>
+            งวดชำระ <small className={instSum === 100 ? "ok" : "bad"}>รวม {instSum}%</small>
+          </span>
+          <div className="deal-presets">
+            {(
+              [
+                ["จ่ายครั้งเดียว", [["ชำระเต็มจำนวน", 100]]],
+                ["มัดจำ 30/70", [["มัดจำ", 30], ["ส่วนที่เหลือเมื่อส่งมอบ", 70]]],
+                ["50/50", [["มัดจำ", 50], ["ส่วนที่เหลือเมื่อส่งมอบ", 50]]],
+              ] as [string, [string, number][]][]
+            ).map(([name, rows]) => (
+              <button type="button" key={name} onClick={() => setInst(rows.map(([label, percent]) => ({ label, percent: String(percent) })))}>
+                {name}
+              </button>
+            ))}
+          </div>
+          {inst.map((x, i) => (
+            <div className="deal-inst-row" key={i}>
+              <input value={x.label} maxLength={60} onChange={(e) => setInst(inst.map((y, n) => (n === i ? { ...y, label: e.target.value } : y)))} aria-label="ชื่องวด" />
+              <input value={x.percent} inputMode="decimal" onChange={(e) => setInst(inst.map((y, n) => (n === i ? { ...y, percent: e.target.value.replace(/[^\d.]/g, "") } : y)))} aria-label="เปอร์เซ็นต์" />
+              <small>% = {baht((t.total * (Number(x.percent) || 0)) / 100)}</small>
+              <button type="button" className="icon-button" aria-label="ลบงวด" disabled={inst.length < 2} onClick={() => setInst(inst.filter((_, n) => n !== i))}>
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          {inst.length < 6 && (
+            <button type="button" className="deal-addrow" onClick={() => setInst([...inst, { label: "งวดที่ " + (inst.length + 1), percent: "" }])}>
+              <Plus size={14} /> เพิ่มงวด
+            </button>
+          )}
+        </div>
         <label className="deal-field wide">
           <span>เงื่อนไขการชำระ</span>
           <input value={payTerms} onChange={(e) => setPayTerms(e.target.value)} maxLength={300} placeholder="เช่น มัดจำ 50% ส่วนที่เหลือเมื่อส่งมอบ" />
@@ -503,13 +801,212 @@ export function QuoteForm({ thread, deal, from, onClose, onSent, sample }: { thr
           <button type="button" className="secondary" onClick={onClose}>
             ยกเลิก
           </button>
-          <button className="primary" disabled={busy || !title.trim() || !rows.some((r) => r.name.trim())}>
+          <button className="primary" disabled={busy || !title.trim() || !rows.some((r) => r.name.trim()) || instSum !== 100}>
             {busy ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />} ส่งใบเสนอราคาในแชท
           </button>
         </div>
       </form>
     </Modal>
   );
+}
+
+/* ---------- phase 2 forms ---------- */
+export function StepForm({ deal, step, onClose, onSent, sample }: { deal: Deal; step: DealStepKind; onClose: () => void; onSent: () => void; sample?: boolean }) {
+  const m = dealMoney(deal),
+    billable = m.rows.filter((r) => !r.invoice),
+    lastIndex = m.rows.length - 1;
+  const [percent, setPercent] = useState(String(Math.max(...deal.cards.filter((c) => c.kind === "progress").map((c) => Number(c.data.percent) || 0), 0) || 50)),
+    [note, setNote] = useState(""),
+    [index, setIndex] = useState(String(billable.find((r) => r.index !== lastIndex || deal.stage === "checked")?.index ?? billable[0]?.index ?? 0)),
+    [due, setDue] = useState(plusDays(30)),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const title = { progress: "อัปเดตความคืบหน้า", deliver: "ส่งมอบงาน", invoice: "ออกใบแจ้งหนี้", cancel: "ขอยกเลิกงาน" }[step];
+  const pick = m.rows[Number(index)];
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (sample) return setError("นี่คือตัวอย่าง — ส่งได้จริงเมื่อคุยกับบริษัทในเครือข่าย");
+    setBusy(true);
+    setError("");
+    try {
+      const body = step === "progress" ? { percent: Number(percent), note } : step === "deliver" ? { note } : step === "invoice" ? { index: Number(index), due } : { reason: note };
+      await api(`/b2b/deals/${deal.id}/${step}`, { method: "POST", body });
+      onSent();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  }
+  const total = Number(m.quote?.data.total) || 0;
+  return (
+    <Modal title={title} onClose={onClose} className="deal-modal small">
+      <form onSubmit={submit} className="deal-form">
+        <p className="deal-from">{deal.title}</p>
+        {step === "progress" && (
+          <label className="deal-field wide">
+            <span>ความคืบหน้า {percent}%</span>
+            <input type="range" min={0} max={100} step={5} value={percent} onChange={(e) => setPercent(e.target.value)} />
+          </label>
+        )}
+        {step === "invoice" && (
+          <>
+            <label className="deal-field wide">
+              <span>งวดที่จะเรียกเก็บ</span>
+              <select value={index} onChange={(e) => setIndex(e.target.value)}>
+                {billable.map((r) => (
+                  <option key={r.index} value={r.index} disabled={r.index === lastIndex && deal.stage !== "checked"}>
+                    {r.label} {r.percent}% · {baht((total * r.percent) / 100)}
+                    {r.index === lastIndex && deal.stage !== "checked" ? " (ออกได้หลังตรวจรับงาน)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="deal-field">
+              <span>ครบกำหนดชำระ</span>
+              <input type="date" value={due} min={today()} onChange={(e) => setDue(e.target.value)} required />
+            </label>
+            {pick && <p className="deal-from">ยอดเรียกเก็บประมาณ {baht((total * pick.percent) / 100)} (รวม VAT ตามใบเสนอราคา) · ระบบออกเลขที่และบันทึกในใบแจ้งหนี้ของบริษัทให้</p>}
+          </>
+        )}
+        {step !== "invoice" && (
+          <label className="deal-field wide">
+            <span>{step === "progress" ? "ทำอะไรไปแล้ว" : step === "deliver" ? "รายละเอียดการส่งมอบ" : "เหตุผลที่ขอยกเลิก"}</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              required={step !== "deliver"}
+              placeholder={step === "progress" ? "เช่น ขึ้นโครงบูธเสร็จแล้ว รอติดตั้งป้าย" : step === "deliver" ? "เช่น ติดตั้งเสร็จที่ไบเทค ฮอลล์ 98 พร้อมลิงก์รูปงาน" : "อีกฝ่ายต้องกดยืนยันก่อน งานถึงจะถูกยกเลิก"}
+            />
+          </label>
+        )}
+        {step === "cancel" && m.paid > 0 && <p className="deal-reason rejected">มีเงินที่ชำระแล้ว {baht(m.paid)} — หลังยกเลิกให้ตกลงเรื่องคืนเงินกันโดยตรง</p>}
+        {error && <p className="form-error">{error}</p>}
+        <div className="modal-footer">
+          <button type="button" className="secondary" onClick={onClose}>
+            ยกเลิก
+          </button>
+          <button className={step === "cancel" ? "danger" : "primary"} disabled={busy || (step === "cancel" && note.trim().length < 3) || (step === "progress" && !note.trim())}>
+            {busy ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />} {step === "cancel" ? "ส่งคำขอยกเลิก" : "ส่งในแชท"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export function PayForm({ invoice, onClose, onSent, sample }: { invoice: DealCard; onClose: () => void; onSent: () => void; sample?: boolean }) {
+  const d = invoice.data;
+  const [rate, setRate] = useState("0"),
+    [date, setDate] = useState(today()),
+    [method, setMethod] = useState("โอนธนาคาร"),
+    [reference, setReference] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const wht = Math.round(((Number(d.net) || 0) * Number(rate)) / 100 * 100) / 100,
+    transfer = (Number(d.amount) || 0) - wht;
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (sample) return setError("นี่คือตัวอย่าง — ส่งได้จริงเมื่อคุยกับบริษัทในเครือข่าย");
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/b2b/cards/${invoice.id}/pay`, { method: "POST", body: { whtRate: Number(rate), date, method, reference } });
+      onSent();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal title="แจ้งชำระเงิน" onClose={onClose} className="deal-modal small">
+      <form onSubmit={submit} className="deal-form">
+        <p className="deal-from">
+          ใบแจ้งหนี้ {d.docNo} · {d.label} · {baht(d.amount)}
+        </p>
+        <div className="deal-two">
+          <label className="deal-field">
+            <span>หัก ณ ที่จ่าย</span>
+            <select value={rate} onChange={(e) => setRate(e.target.value)}>
+              <option value="0">ไม่หัก</option>
+              <option value="1">1% (ค่าขนส่ง)</option>
+              <option value="2">2% (ค่าโฆษณา)</option>
+              <option value="3">3% (ค่าบริการ / ค่าจ้าง)</option>
+              <option value="5">5% (ค่าเช่า)</option>
+            </select>
+          </label>
+          <label className="deal-field">
+            <span>วันที่โอน</span>
+            <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} required />
+          </label>
+          <label className="deal-field">
+            <span>ช่องทาง</span>
+            <select value={method} onChange={(e) => setMethod(e.target.value)}>
+              {["โอนธนาคาร", "เงินสด", "บัตร", "อื่นๆ"].map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label className="deal-field">
+            <span>เลขอ้างอิง / สลิป</span>
+            <input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} placeholder="เช่น KBank 12345" />
+          </label>
+        </div>
+        <div className="deal-total-box">
+          <span>
+            ยอดใบแจ้งหนี้ <b>{baht(d.amount)}</b>
+          </span>
+          {wht > 0 && (
+            <span>
+              หัก ณ ที่จ่าย {rate}% (จากยอดก่อน VAT {baht(d.net)}) <b>-{baht(wht)}</b>
+            </span>
+          )}
+          <span className="total">
+            ยอดที่โอน <b>{baht(transfer)}</b>
+          </span>
+        </div>
+        {wht > 0 && <p className="deal-from">อย่าลืมออกหนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ) ให้ผู้รับจ้าง</p>}
+        {error && <p className="form-error">{error}</p>}
+        <div className="modal-footer">
+          <button type="button" className="secondary" onClick={onClose}>
+            ยกเลิก
+          </button>
+          <button className="primary" disabled={busy}>
+            {busy ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />} แจ้งชำระในแชท
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Demo: a deal in the middle of the work — deposit paid, work delivered and waiting for the buyer to check it. */
+export function sampleWorkDeal(otherName: string): Deal {
+  const at = (h: number) => new Date(Date.now() - h * 3600000).toISOString();
+  const base = { deal_id: "sample-work", rev: 1, reason: null, decided_by: null, decided_at: null } as const;
+  const q = { title: "ป้ายไฟหน้าร้าน + ติดตั้ง", docNo: "QT2611-5C1D0", items: [{ name: "ป้ายไฟ LED 1.2x3 ม.", qty: 1, unit: "ชุด", price: 48000, amount: 48000 }, { name: "ค่าติดตั้ง", qty: 1, unit: "งาน", price: 7000, amount: 7000 }], subtotal: 55000, discount: 0, vatMode: "excluded" as const, vat: 3850, total: 58850, validUntil: plusDays(20), deliverBy: plusDays(2), installments: [{ label: "มัดจำ", percent: 30 }, { label: "ส่วนที่เหลือเมื่อส่งมอบ", percent: 70 }] };
+  const card = (id: string, kind: DealCard["kind"], status: DealCard["status"], mine: boolean, data: Partial<DealCard["data"]>, h: number): DealCard => ({ ...base, id, kind, status, mine, author_name: mine ? "คุณ" : otherName, created_at: at(h), data: { title: q.title, items: [], ...data } as DealCard["data"] });
+  return {
+    id: "sample-work",
+    title: q.title,
+    stage: "delivered",
+    role: "buyer",
+    accepted_at: at(70),
+    accepted_by: "คุณ",
+    created_at: at(80),
+    updated_at: at(1),
+    project_id: null,
+    quote_id: null,
+    task_id: null,
+    cards: [
+      card("sw-q", "quote", "accepted", false, q, 72),
+      card("sw-i1", "invoice", "accepted", false, { docNo: "IV2611-5C1D0-1", index: 0, count: 2, label: "มัดจำ", percent: 30, net: 16500, vat: 1155, amount: 17655, due: plusDays(-10), quoteNo: q.docNo }, 60),
+      card("sw-p1", "payment", "accepted", true, { invoice: "sw-i1", invoiceNo: "IV2611-5C1D0-1", label: "มัดจำ", index: 0, amount: 17655, net: 16500, vat: 1155, whtRate: 3, wht: 495, transfer: 17160, date: plusDays(-12), method: "โอนธนาคาร", reference: "KBank 88213", receiptNo: "RC2611-5C1D0-1" }, 48),
+      card("sw-g", "progress", "accepted", false, { percent: 70, notes: "ผลิตตัวป้ายเสร็จแล้ว นัดติดตั้งพรุ่งนี้ 9 โมง" }, 26),
+      card("sw-d", "delivery", "open", false, { notes: "ติดตั้งเสร็จแล้ว ทดสอบไฟครบทุกดวง ส่งรูปงานในแชทนี้แล้วค่ะ", round: 1 }, 2),
+    ],
+  };
 }
 
 /* ---------- sample deal (public demo) ---------- */
