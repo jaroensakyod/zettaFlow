@@ -45,6 +45,8 @@ export type B2bMessage = {
   created_at: string;
   mine: boolean;
   post?: B2bPostRef | null;
+  /** ห้องดีล: this line is a step of a deal card (migration 0064). */
+  card_id?: string | null;
 };
 
 const demoNote = "แชทระหว่างบริษัทใช้ได้เมื่อเชื่อมฐานข้อมูลจริง";

@@ -11,6 +11,8 @@ import { b2bSample, isSampleThread, quickQuestions, sampleThreadFor, SAMPLE_NOTE
 import { api, Empty, Loading } from "./shared";
 import { Chat } from "./tools";
 import { CompanyLogo, employmentLabels, kindLabel, since } from "./feed";
+import { DealBar, DealCardView, QuoteForm, RequestForm, sampleDeal } from "./deal-room";
+import type { Deal, DealCard } from "@/lib/b2b-deal-types";
 
 export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: string) => void; navigate: (v: string) => void }) {
   const params = useSearchParams(),
@@ -138,7 +140,10 @@ function B2bChat({
     [error, setError] = useState(""),
     bottom = useRef<HTMLDivElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
-    viewer = ctx.member.role === "viewer";
+    viewer = ctx.member.role === "viewer",
+    // ห้องดีล: the deals of the open conversation and the form being filled
+    [deals, setDeals] = useState<Deal[]>([]),
+    [form, setForm] = useState<null | { kind: "request" } | { kind: "quote"; deal?: Deal | null; from?: DealCard | null }>(null);
   // Samples while the company has no real conversation yet, and always in the demo.
   // Sample conversations only in the public demo; a real company sees its own (possibly empty) inbox.
   const sampleMode = ctx.demo,
@@ -206,6 +211,30 @@ function B2bChat({
   const thread = list?.find((t) => t.id === active),
     sample = thread && "sample" in thread ? (thread as SampleThread) : null,
     shown = sample ? sample.messages : messages;
+  // Deals follow the messages (each deal step is also a chat line), so they refresh when a line arrives.
+  const loadDeals = useCallback(() => {
+    if (!active || isSampleThread(active)) return;
+    api("/b2b/" + active + "/deals")
+      .then(setDeals)
+      .catch(() => {});
+  }, [active]);
+  useEffect(() => {
+    setDeals([]);
+    loadDeals();
+  }, [loadDeals]);
+  useEffect(() => {
+    if (messages?.some((m) => m.card_id)) loadDeals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages?.length]);
+  // The public demo shows one sample deal in its first sample conversation.
+  const shownDeals = sample ? (list?.[0]?.id === sample.id ? [sampleDeal(sample.id, sample.company.name, "seller")] : list?.[1]?.id === sample.id ? [sampleDeal(sample.id, sample.company.name, "buyer")] : []) : deals,
+    cardIndex = new Map(shownDeals.flatMap((d) => d.cards.map((c) => [c.id, { card: c, deal: d }] as const))),
+    firstLine = new Set<string>(),
+    dealChanged = () => {
+      loadDeals();
+      if (active && !isSampleThread(active)) api("/b2b/" + active).then(setMessages).catch(() => {});
+      loadThreads().catch(() => {});
+    };
   // Reading a sample conversation clears its unread badge.
   useEffect(() => {
     if (sample && Number(sample.unread) > 0) setSamples((all) => all.map((t) => (t.id === sample.id ? { ...t, unread: 0 } : t)));
@@ -333,6 +362,12 @@ function B2bChat({
                 <small>{[thread.company.industry, thread.company.province].filter(Boolean).join(" · ") || "บริษัทในเครือข่าย"}</small>
               </span>
             </header>
+            <DealBar
+              deals={shownDeals}
+              disabled={viewer}
+              onRequest={() => setForm({ kind: "request" })}
+              onQuote={() => setForm({ kind: "quote" })}
+            />
             <div className="b2b-messages">
               {!shown ? (
                 <Loading />
@@ -341,7 +376,33 @@ function B2bChat({
                   {!shown.length && !pendingCard && (
                     <Empty title={"เริ่มคุยกับ " + thread.company.name} description="ข้อความเห็นได้ทุกคนในสองบริษัทนี้เท่านั้น" />
                   )}
-                  {shown.map((m, i) => (
+                  {shown.map((m, i) => {
+                    const hit = m.card_id ? cardIndex.get(m.card_id) : undefined;
+                    if (hit && m.card_id) {
+                      const first = !firstLine.has(m.card_id);
+                      firstLine.add(m.card_id);
+                      return first ? (
+                        <div className={"b2b-msg deal" + (m.mine ? " mine" : "")} key={m.id}>
+                          <DealCardView
+                            card={hit.card}
+                            deal={hit.deal}
+                            ctx={ctx}
+                            notify={notify}
+                            navigate={navigate}
+                            onChanged={dealChanged}
+                            onQuote={(from) => setForm({ kind: "quote", deal: hit.deal, from })}
+                          />
+                        </div>
+                      ) : (
+                        <div className="b2b-deal-line" key={m.id}>
+                          <span>{m.body}</span>
+                          <small>
+                            {m.author_name} · {since(m.created_at)}
+                          </small>
+                        </div>
+                      );
+                    }
+                    return (
                     <div className={"b2b-msg" + (m.mine ? " mine" : "")} key={m.id}>
                       {(i === 0 || shown[i - 1].mine !== m.mine || Date.parse(m.created_at) - Date.parse(shown[i - 1].created_at) > 6e5) && (
                         <small>
@@ -358,7 +419,17 @@ function B2bChat({
                         ))}
                       <p>{m.body}</p>
                     </div>
-                  ))}
+                    );
+                  })}
+                  {/* the sample deal's cards (demo) */}
+                  {sample &&
+                    shownDeals.flatMap((d) =>
+                      d.cards.map((c) => (
+                        <div className={"b2b-msg deal" + (c.mine ? " mine" : "")} key={c.id}>
+                          <DealCardView card={c} deal={d} ctx={ctx} sample notify={notify} navigate={navigate} onChanged={() => {}} onQuote={(from) => setForm({ kind: "quote", deal: d, from })} />
+                        </div>
+                      )),
+                    )}
                   {pendingCard && (
                     <div className="b2b-msg mine b2b-pending">
                       <small>คุณกำลังถามเกี่ยวกับโพสต์นี้</small>
@@ -431,6 +502,32 @@ function B2bChat({
           </div>
         )}
       </div>
+      {form?.kind === "request" && active && (
+        <RequestForm
+          sample={!!sample}
+          thread={active}
+          onClose={() => setForm(null)}
+          onSent={() => {
+            setForm(null);
+            notify("ส่งคำขอใบเสนอราคาแล้ว");
+            dealChanged();
+          }}
+        />
+      )}
+      {form?.kind === "quote" && active && (
+        <QuoteForm
+          sample={!!sample}
+          thread={active}
+          deal={form.deal}
+          from={form.from}
+          onClose={() => setForm(null)}
+          onSent={() => {
+            setForm(null);
+            notify("ส่งใบเสนอราคาในแชทแล้ว");
+            dealChanged();
+          }}
+        />
+      )}
     </section>
   );
 }
