@@ -31,7 +31,7 @@ type Group = {
 };
 export type Form = { id: string; name: string; department: string };
 /** The group fields the detail panel needs (the overview row and the LINE page row both have them). */
-export type HubGroup = Pick<Group, "group_id" | "name" | "lineName" | "template_id" | "templateName" | "approve_keywords" | "department" | "test" | "found">;
+export type HubGroup = Pick<Group, "group_id" | "name" | "lineName" | "template_id" | "templateName" | "approve_keywords" | "department" | "test" | "found"> & { listen?: "mention" | "all" };
 
 const time = (iso: string) =>
   new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
@@ -46,6 +46,7 @@ function state(m: LineMessage): { label: string; tone: string } {
   if (m.status === "review") return m.missing.length ? { label: "ขาด: " + m.missing.join(", "), tone: "warn" } : { label: "รออนุมัติ", tone: "wait" };
   if (m.status === "skipped") return m.merged ? { label: "อ่านรวมกับข้อความที่ส่งติดกัน", tone: "muted" } : { label: "ข้อความทั่วไป · ไม่บันทึก", tone: "muted" };
   if (m.status === "failed") return { label: "อ่านไม่สำเร็จ", tone: "warn" };
+  if (m.status === "draft") return { label: "สรุปแล้ว · รอกด “บันทึกได้เลย” ใน LINE", tone: "wait" };
   return { label: "กำลังอ่าน…", tone: "wait" };
 }
 /** Where to look at it in the web: the record it became, else the page whose "รอตรวจจาก LINE" box holds it. */
@@ -97,7 +98,7 @@ export function LineGroupDetail({
   const shown = useMemo(
     () =>
       (messages || []).filter((m) =>
-        filter === "recorded" ? m.status === "approved" : filter === "pending" ? ["review", "failed", "queued", "processing"].includes(m.status) : filter === "skipped" ? ["skipped", "rejected"].includes(m.status) : true,
+        filter === "recorded" ? m.status === "approved" : filter === "pending" ? ["review", "failed", "queued", "processing", "draft"].includes(m.status) : filter === "skipped" ? ["skipped", "rejected"].includes(m.status) : true,
       ),
     [messages, filter],
   );
@@ -113,6 +114,7 @@ export function LineGroupDetail({
           templateId: f.get("templateId"),
           keywords: String(f.get("keywords")).split(",").map((s) => s.trim()).filter(Boolean),
           department: String(f.get("department") || "") || null,
+          listen: String(f.get("listen") || "mention"),
         },
       });
       notify("บันทึกการตั้งค่ากลุ่มแล้ว");
@@ -141,6 +143,7 @@ export function LineGroupDetail({
           <small>
             {group.department ? "กลุ่มของ" + deptName(group.department) + " · " : "ยังไม่ได้ระบุแผนก · "}
             {group.lineName && group.name && group.lineName !== group.name ? "ชื่อใน LINE: " + group.lineName + " · " : ""}
+            {group.listen === "all" ? "อ่านทุกข้อความ · " : "อ่านเมื่อถูกแท็ก @บอท · "}
             {group.templateName ? "ใช้ฟอร์ม " + group.templateName : "AI แยกแต่ละข้อความเข้าหน้าที่ถูก"} · อนุมัติด้วยคำว่า “{group.approve_keywords[0] || "อนุมัติ"}”
           </small>
         </div>
@@ -179,6 +182,14 @@ export function LineGroupDetail({
               ))}
             </select>
             <small className="line-hub-help">คำขอจากกลุ่มอื่นที่ต้องให้แผนกนี้อนุมัติ (เช่น เบิกงบ → ฝ่ายบัญชี) จะถูกส่งมาที่กลุ่มนี้ ผู้จัดการกด Reply เพื่ออนุมัติ ไม่อนุมัติ หรือแก้ แล้วระบบแจ้งผลกลับกลุ่มที่ขอ</small>
+          </label>
+          <label>
+            บอทอ่านข้อความเมื่อไหร่
+            <select name="listen" defaultValue={group.listen || "mention"}>
+              <option value="mention">💬 เฉพาะเมื่อมีคนแท็ก @บอท (แนะนำ): สรุปให้ตรวจก่อน กด “บันทึกได้เลย” จึงส่งเข้าเว็บ</option>
+              <option value="all">📥 ทุกข้อความ: AI อ่านและบันทึกทุกข้อความอัตโนมัติ</option>
+            </select>
+            <small className="line-hub-help">โหมดแท็ก: ข้อความที่ไม่ได้แท็กบอทจะไม่ถูกเก็บเลย ถ้าจะส่งรูปสลิป ให้แท็กบอทก่อนแล้วส่งรูปตามภายใน 2 นาที</small>
           </label>
           <label>
             ข้อความในกลุ่มนี้ให้บันทึกแบบไหน

@@ -21,6 +21,7 @@ import { pdfPages, MAX_PDF_PAGES } from "./billing";
 import { sortMessage } from "./line-sort";
 import { lineGroup, lineReplyId, sentMessageId } from "./line";
 import { approverNotice, deptThai, lineNotice } from "./line-message";
+import { draftCard, nothingToSave } from "./line-mention";
 import { aiEnabled, aiGenerate, aiProvider, forCompany, type AiPart } from "./llm";
 import { documentText, isAudio } from "./line-files";
 
@@ -211,7 +212,7 @@ export async function submit(
 }
 /** Messages one person sends this close together in one group are read as one item. */
 export const BURST_MS = 15000;
-type Job = Ingestion & { group_id?: string | null; reply_token?: string | null; lease_id?: string; attachment_id?: string | null };
+type Job = Ingestion & { group_id?: string | null; reply_token?: string | null; lease_id?: string; attachment_id?: string | null; confirm?: boolean };
 /**
  * A slip photo followed by "ค่าน้ำมัน" (or a request typed over two lines) is one item: one AI read, one free reply.
  * Takes same-sender messages within BURST_MS that this worker claimed in the same batch or that are still queued;
@@ -311,6 +312,11 @@ export async function processJobs(id?: string) {
           p_engine: r.engine,
         });
         dbError(e);
+        if (job.confirm) {
+          if (r.kind) await draftNotice(sb, job, { kind: r.kind, fields: r.template?.fields || [], values: r.values, missing: r.missing });
+          else if (job.reply_token) await lineReplyId(job.reply_token, nothingToSave);
+          continue;
+        }
         if (r.kind) {
           await rewriteNotice(sb, job, { kind: r.kind, values: r.values, missing: r.missing });
           await replyInsteadOfPush(sb, job);
@@ -345,6 +351,10 @@ export async function processJobs(id?: string) {
       });
       dbError(e);
       const t = job.template as Template & { target_kind?: string | null };
+      if (job.confirm) {
+        await draftNotice(sb, job, { kind: t.target_kind || null, form: t.name, fields: t.fields, values: result.values, missing: result.missing });
+        continue;
+      }
       await rewriteNotice(sb, job, { kind: t.target_kind || null, form: t.name, values: result.values, missing: result.missing });
       await replyInsteadOfPush(sb, job);
       await routeToApprovers(sb, job, { kind: t.target_kind || null, values: result.values, missing: result.missing });
@@ -488,7 +498,7 @@ async function replyInsteadOfPush(
   if (!job.reply_token) return;
   const { data: item } = await sb
     .from("notification_outbox")
-    .select("id, body")
+    .select("id, body, payload")
     .eq("id", job.id)
     .eq("status", "queued")
     .maybeSingle();
@@ -500,7 +510,7 @@ async function replyInsteadOfPush(
     .eq("status", "queued")
     .select("id");
   if (!claimed?.length) return;
-  const sent = await lineReplyId(job.reply_token, item.body);
+  const sent = await lineReplyId(job.reply_token, (item.payload as Record<string, unknown> | null) || item.body);
   if (!sent.ok)
     await sb
       .from("notification_outbox")
@@ -573,6 +583,44 @@ async function rewriteNotice(
     .eq("id", job.id)
     .eq("status", "queued");
 }
+/**
+ * Mention mode: the item is a draft. The queued notice becomes the summary card (บันทึกได้เลย / แก้ไข / ยกเลิก),
+ * sent as the free reply to the mention (or pushed when the token is stale). Nothing goes to approvers yet.
+ */
+async function draftNotice(
+  sb: ReturnType<typeof supabaseAdmin>,
+  job: Job,
+  input: { kind: string | null; form?: string; fields: { key: string; label: string }[]; values: Record<string, unknown>; missing: string[] },
+) {
+  if (!job.group_id) return;
+  const { count } = await sb.from("line_bot_messages").select("message_id", { count: "exact", head: true }).eq("ingestion_id", job.id);
+  const card = draftCard({ id: job.id, ...input, requester: await lineName(job.group_id, job.source_user), round: (count || 0) + 1 });
+  await sb.from("notification_outbox").update({ body: card.altText, payload: card }).eq("id", job.id).eq("status", "queued");
+  await replyInsteadOfPush(sb, job);
+}
+/**
+ * "บันทึกได้เลย" pressed: the draft is now in the review box on the website. Answers in the group with the usual
+ * notice (which a manager can Reply to with อนุมัติ) and sends cross-department requests to their groups.
+ */
+export async function draftSaved(id: string, replyToken: string | null) {
+  const sb = supabaseAdmin();
+  const { data: job } = await sb.from("ingestions").select("*").eq("id", id).maybeSingle();
+  if (!job) return;
+  const { data: g } = await sb.from("line_groups").select("approve_keywords").eq("group_id", job.group_id).maybeSingle();
+  const t = job.template as Template | null;
+  const body = lineNotice({
+      kind: job.target_kind,
+      form: t?.name,
+      values: job.values || {},
+      missing: job.missing || [],
+      keyword: (g?.approve_keywords as string[] | null)?.[0],
+      requester: await lineName(job.group_id, job.source_user),
+    });
+  const sent = await lineReplyId(replyToken, body);
+  if (sent.id) await rememberBotMessage(sb, { messageId: sent.id, groupId: String(job.group_id), companyId: job.company_id, ingestionId: id, role: "source" });
+  else if (!sent.ok) await sb.from("notification_outbox").insert({ company_id: job.company_id, target: job.group_id, body, ingestion_id: id, role: "source" });
+  await routeToApprovers(sb, job, { kind: job.target_kind, values: job.values || {}, missing: job.missing || [] });
+}
 export async function processNotifications() {
   if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return 0;
   const sb = supabaseAdmin();
@@ -590,7 +638,7 @@ export async function processNotifications() {
         },
         body: JSON.stringify({
           to: item.target,
-          messages: [{ type: "text", text: item.body }],
+          messages: [item.payload || { type: "text", text: item.body }],
         }),
       });
       // A notice for an item (same id) remembers the LINE message, so a Reply to it can be matched.

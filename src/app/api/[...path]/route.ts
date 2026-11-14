@@ -1256,6 +1256,7 @@ async function handle(req: NextRequest) {
             name: z.string().max(100).default(""),
             keywords: z.array(z.string().trim().min(2).max(50)).min(1).max(10),
             department: z.string().max(60).nullable().default(null),
+            listen: z.enum(["mention", "all"]).optional(),
           })
           .parse(await body(req));
         const { error } = await sb.rpc("update_line_group", {
@@ -1267,6 +1268,10 @@ async function handle(req: NextRequest) {
           p_department: input.department || null,
         });
         dbError(error);
+        if (input.listen) {
+          const { error: e } = await sb.rpc("set_line_group_listen", { p_company: ctx.company.id, p_group: group, p_listen: input.listen });
+          dbError(e);
+        }
         return response({ ok: true });
       }
       assert(

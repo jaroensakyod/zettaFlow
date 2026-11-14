@@ -47,6 +47,7 @@ export async function lineGroupsOverview(ctx: Context) {
         preview: latest ? String(latest.raw).slice(0, 60) : "",
         approve_keywords: (g.approve_keywords as string[]) || [],
         department: (g.department as string | null) || null,
+        listen: (g.listen === "all" ? "all" : "mention") as "mention" | "all",
         total: mine.length,
         week: mine.filter((r) => Date.parse(r.created_at) > weekAgo).length,
         waiting: mine.filter((r) => r.status === "review").length,

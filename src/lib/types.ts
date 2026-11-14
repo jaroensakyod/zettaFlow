@@ -141,7 +141,7 @@ export type Ingestion = {
   values: Record<string, unknown>;
   missing: string[];
   status:
-    "queued" | "processing" | "review" | "approved" | "rejected" | "failed" | "skipped";
+    "queued" | "processing" | "draft" | "review" | "approved" | "rejected" | "failed" | "skipped";
   source: string;
   created_at: string;
   error?: string;

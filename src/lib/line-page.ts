@@ -27,6 +27,8 @@ export type PageGroup = {
   template_id: string | null;
   templateName: string | null;
   approve_keywords: string[];
+  /** mention = the bot reads only messages that @mention it (default); all = every message. */
+  listen: "mention" | "all";
   test: boolean;
   found: boolean;
   status: GroupStatus;
@@ -344,6 +346,7 @@ export async function linePageData(ctx: Context): Promise<LinePageData> {
         template_id: (g.template_id as string | null) || null,
         templateName,
         approve_keywords: (g.approve_keywords as string[]) || [],
+        listen: g.listen === "all" ? "all" : "mention",
         found,
         status: groupStatus({ test, found, failedWeek }, configured),
         kinds: kindsOf(mine, templateName),
