@@ -82,12 +82,14 @@ async function draftButton(sb: Admin, event: { replyToken?: string; postback?: {
     userId = event.source.userId;
   if (!a || !userId) return;
   if (a.act === "edit") {
-    const { data: i } = await sb.from("ingestions").select("id, company_id, status").eq("id", a.id).eq("group_id", groupId).maybeSingle();
+    const { data: i } = await sb.from("ingestions").select("id, company_id, status, source_user").eq("id", a.id).eq("group_id", groupId).maybeSingle();
     if (!i || i.status !== "draft") {
       await lineReply(event.replyToken, i && ["queued", "processing"].includes(i.status) ? "กำลังสรุปใหม่อยู่ค่ะ รอสักครู่นะคะ" : "รายการนี้บันทึกหรือยกเลิกไปแล้ว แก้จากการ์ดนี้ไม่ได้ค่ะ");
       return;
     }
+    // The correction may come from whoever pressed แก้ไข or from the person who asked (often not the same person).
     await listen(sb, i.company_id, groupId, userId, "edit", i.id, EDIT_MS);
+    if (i.source_user && i.source_user !== userId) await listen(sb, i.company_id, groupId, i.source_user, "edit", i.id, EDIT_MS);
     await lineReply(event.replyToken, editPrompt);
     return;
   }
@@ -399,6 +401,15 @@ export async function POST(req: Request) {
             await lineReply(event.replyToken, mentionPrompt);
             continue;
           }
+          // Waiting for this member's correction (after แก้ไข): "@บอท กฤติน …" is that correction, not a new request.
+          {
+            const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
+            const plan = listenPlan(row as ListenRow | null, "text");
+            if (plan.act === "edit") {
+              await sb.from("line_listen").delete().eq("ingestion_id", plan.id).eq("mode", "edit");
+              if (await rereadDraft(sb, plan.id, editText(raw) || raw, event.replyToken || null)) continue;
+            }
+          }
           const paid = slipRequest(raw);
           if (paid) {
             // "@บอท ส่งสลิป EXP-69-0001" (or the requester's latest approved request waiting for one)
@@ -434,7 +445,7 @@ export async function POST(req: Request) {
           if (plan.act === "ignore") continue;
           if (plan.act === "edit") {
             if (message.type === "text") {
-              await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);
+              await sb.from("line_listen").delete().eq("ingestion_id", plan.id).eq("mode", "edit");
               await rereadDraft(sb, plan.id, raw, event.replyToken || null);
               continue;
             }
