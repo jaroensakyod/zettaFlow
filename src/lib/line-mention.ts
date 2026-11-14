@@ -6,6 +6,11 @@ import { formatMoney, isForeign } from "./fx";
 import { deptThai, pageUrl } from "./line-message";
 import type { Approval } from "./types";
 
+/** What the document is called on the cards (an expense asked for in LINE is a request for approval). */
+export function docLabel(kind: string | null | undefined, form?: string | null) {
+  if (kind === "expenses") return "ใบขออนุมัติค่าใช้จ่าย";
+  return (kind && catalog[kind]?.label) || form || "รายการ";
+}
 /** How long the bot keeps listening to one member after a mention / after "แก้ไข". */
 export const LISTEN_MS = 2 * 60_000;
 export const EDIT_MS = 10 * 60_000;
@@ -40,13 +45,14 @@ export function editText(text: string): string | null {
   return m ? m[1].trim() : null;
 }
 
-export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix"; ingestion_id: string | null; until: string };
+export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix" | "slip"; ingestion_id: string | null; until: string };
 export type ListenPlan =
   | { act: "ignore" }
   | { act: "new" }
   | { act: "attach"; id: string }
   | { act: "edit"; id: string }
-  | { act: "decide"; id: string; action: "reject" | "fix"; note?: never };
+  | { act: "decide"; id: string; action: "reject" | "fix"; note?: never }
+  | { act: "slip"; id: string };
 /**
  * A message that does not mention the bot, from a member the bot is listening to:
  * • "any" (after an empty mention): any message or file starts a draft;
@@ -61,6 +67,8 @@ export function listenPlan(row: ListenRow | null | undefined, messageType: strin
   if (!file && !text) return { act: "ignore" };
   // An approver who pressed ไม่อนุมัติ / ขอแก้ไข: their next typed message is the reason.
   if ((row.mode === "reject" || row.mode === "fix") && row.ingestion_id) return text ? { act: "decide", id: row.ingestion_id, action: row.mode } : { act: "ignore" };
+  // After "ยืนยันจ่ายแล้ว · ส่งสลิป": the photo / file is the slip.
+  if (row.mode === "slip" && row.ingestion_id) return file ? { act: "slip", id: row.ingestion_id } : { act: "ignore" };
   if (row.mode === "any") return { act: "new" };
   if (row.mode === "edit" && row.ingestion_id) return { act: "edit", id: row.ingestion_id };
   if (row.mode === "files" && file) return row.ingestion_id ? { act: "attach", id: row.ingestion_id } : { act: "new" };
@@ -109,25 +117,41 @@ export type DraftInput = {
   round?: number;
   /** Shown on top, e.g. what an approver asked to change. */
   notice?: string | null;
+  /** Document number reserved for it (PO-69-0001 …). */
+  docCode?: string | null;
 };
 /** Rows the card shows: labelled values in the page's field order, at most 12. */
 export function draftRows(input: Pick<DraftInput, "fields" | "values">) {
   const rows: { label: string; value: string }[] = [];
   const seen = new Set<string>();
+  const items = itemLines(input.values.lines);
   for (const f of input.fields) {
     if (skip.has(f.key) || seen.has(f.key)) continue;
     seen.add(f.key);
+    if ((f as { type?: string }).type === "lines" || f.key === "lines") {
+      items.forEach((x, i) => rows.push({ label: `${i + 1}. ${x.name}`, value: [x.qty.toLocaleString("en-US") + (x.unit ? " " + x.unit : ""), x.price ? "@ ฿" + x.price.toLocaleString("en-US") : ""].filter(Boolean).join(" ") }));
+      continue;
+    }
+    // With item lines, the single product / quantity / unit cost fields say nothing more.
+    if (items.length && ["productId", "quantity", "unitCost"].includes(f.key)) continue;
     const v = shownValue(f.key, input.values[f.key], input.values.currency);
     if (v) rows.push({ label: f.label || f.key, value: v });
   }
-  return rows.slice(0, 12);
+  return rows.slice(0, 14);
+}
+/** Item lines of a request ("กระดาษ A4 10 รีม", "หมึก 2 กล่อง"), each with its own quantity. */
+export function itemLines(v: unknown): { name: string; qty: number; unit?: string; price: number }[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => ({ name: String(x?.name || "").trim(), qty: Number(x?.qty) || 0, unit: x?.unit ? String(x.unit) : undefined, price: Number(x?.price) || 0 }))
+    .filter((x) => x.name);
 }
 /** Plain-text version of the summary (alt text, and the fallback when a card cannot be sent). */
 export function draftText(input: DraftInput) {
-  const page = (input.kind && catalog[input.kind]?.label) || input.form || "รายการ";
+  const page = docLabel(input.kind, input.form);
   const rows = draftRows(input);
   return [
-    `📝 สรุปก่อนบันทึก · ${page}`,
+    `📝 สรุปก่อนบันทึก · ${page}${input.docCode ? " " + input.docCode : ""}`,
     ...rows.map((r) => `• ${r.label}: ${r.value}`),
     ...(input.missing.length ? [`⚠️ ยังขาด: ${input.missing.join(", ")}`] : []),
     "กด “ส่งขออนุมัติ” หรือ “แก้ไข” แล้วพิมพ์สิ่งที่ต้องแก้",
@@ -145,7 +169,7 @@ const btn = (label: string, data: string, style: "primary" | "secondary" | "link
 });
 /** The summary card: page, what was read, what is missing, and the three buttons. */
 export function draftCard(input: DraftInput) {
-  const page = (input.kind && catalog[input.kind]?.label) || input.form || "รายการ";
+  const page = docLabel(input.kind, input.form);
   const rows = draftRows(input);
   const url = pageUrl(input.kind);
   const small = (text: string, color = "#8a86a3") => ({ type: "text", text, size: "xs", color, wrap: true });
@@ -162,7 +186,7 @@ export function draftCard(input: DraftInput) {
         paddingAll: "12px",
         contents: [
           small((input.round || 1) > 1 ? `📝 สรุปใหม่หลังแก้ไข (ครั้งที่ ${input.round})` : "📝 สรุปก่อนบันทึก", "#6d28d9"),
-          { type: "text", text: page, weight: "bold", size: "md", color: "#2c2550", wrap: true },
+          { type: "text", text: page + (input.docCode ? " · " + input.docCode : ""), weight: "bold", size: "md", color: "#2c2550", wrap: true },
           ...(input.requester ? [small("ผู้ส่ง: " + input.requester)] : []),
           ...(input.notice ? [{ type: "text", text: input.notice, size: "xs", color: "#b45309", wrap: true, margin: "sm" }] : []),
         ],
@@ -209,6 +233,15 @@ export function draftCard(input: DraftInput) {
   };
 }
 
+export const SLIP_MS = 30 * 60_000;
+export const slipPrompt = "🧾 ส่งรูปสลิปโอนเงิน หรือใบเสร็จได้เลยค่ะ (ภายใน 30 นาที) ได้รับแล้วน้องจะลงเป็นค่าใช้จ่ายให้";
+/** "ส่งสลิป EXP-69-0001" (with a mention) → that request's slip comes next. */
+export function slipRequest(text: string): { code: string | null } | null {
+  const t = text.trim();
+  if (!/^(ส่ง|แนบ)\s*(สลิป|ใบเสร็จ)|^(ยืนยัน)?จ่ายแล้ว/.test(t)) return null;
+  const m = t.match(/\b([A-Z]{2,3}-\d{2}-\d{3,})\b/i);
+  return { code: m ? m[1].toUpperCase() : null };
+}
 /** What the bot says to an empty mention, and how to use it. */
 export const mentionPrompt =
   "สวัสดีค่ะ 👋 พิมพ์สิ่งที่ต้องการบันทึก หรือส่งรูป/ไฟล์ตามมาได้เลย (ภายใน 2 นาที)\nเช่น “ค่าน้ำมัน 500 บาท” แล้วน้องจะสรุปให้ตรวจก่อนบันทึกค่ะ";
@@ -250,6 +283,10 @@ export type ApprovalItem = {
   values: Record<string, unknown>;
   requester?: string | null;
   approval: Approval;
+  /** The record made on approval (for the link to it). */
+  recordId?: string | null;
+  /** Who may press อนุมัติ on this step (managers of the step's department). */
+  approvers?: string[];
 };
 const done = (a: Approval) => a.history.filter((h) => h.action === "approve" && h.round === (a.round || 1));
 /** Card to the approver of the current step: what is asked, steps already approved, and อนุมัติ / ขอแก้ไข / ไม่อนุมัติ. */
@@ -257,7 +294,7 @@ export function approvalCard(item: ApprovalItem) {
   const a = item.approval,
     n = a.steps.length,
     at = Math.min(a.at, n - 1);
-  const page = (item.kind && catalog[item.kind]?.label) || item.form || "รายการ";
+  const page = docLabel(item.kind, item.form);
   const rows = draftRows(item);
   const small = (text: string, color = "#8a86a3") => ({ type: "text", text, size: "xs", color, wrap: true });
   const prev = done(a).map((h) => small(`✅ ขั้นที่ ${h.step}/${h.of} ${approverLabel(h.dept)} · ${h.name} · ${thaiTime(h.at)}`, "#15803d"));
@@ -318,7 +355,10 @@ export function approvalCard(item: ApprovalItem) {
             spacing: "sm",
             contents: [btn("✏️ ขอแก้ไข", data("fix"), "secondary"), btn("❌ ไม่อนุมัติ", data("reject"), "link", "#be123c")],
           },
-          small("กดได้เฉพาะผู้มีสิทธิ์ที่เชื่อมบัญชี LINE แล้ว และอนุมัติคำขอของตัวเองไม่ได้"),
+          small(
+            (item.approvers?.length ? "🔒 กดได้เฉพาะ " + item.approvers.join(", ") + " (หรือเจ้าของบริษัท)" : "🔒 กดได้เฉพาะ" + approverLabel(a.steps[at].dept) + " หรือเจ้าของบริษัท") +
+              " · คนอื่นกดแล้วระบบไม่รับ",
+          ),
         ],
       },
     },
@@ -335,19 +375,32 @@ export function stepText(r: ActResult, what: string, at = new Date()) {
   const who = `${r.name} (${approverLabel(r.dept)}) · ${thaiTime(at)}`;
   if (r.action === "reject") return `❌ ไม่อนุมัติ (ขั้นที่ ${r.step}/${r.of}): ${what}\nโดย ${who}\nเหตุผล: ${r.note || "-"}\nเลขอ้างอิง ${r.approval.ref}`;
   if (r.action === "fix") return `✏️ ขอแก้ไข (ขั้นที่ ${r.step}/${r.of}): ${what}\nโดย ${who}\nสิ่งที่ต้องแก้: ${r.note || "-"}`;
+  if (r.status === "awaiting_slip") return `✅ อนุมัติแล้ว (ขั้นที่ ${r.step}/${r.of}): ${what}\nโดย ${who}\nเลขอ้างอิง ${r.approval.ref}\n🧾 รอผู้ขอส่งสลิป แล้วจึงลงเป็นค่าใช้จ่าย`;
   if (r.status === "approved") return `✅ อนุมัติเรียบร้อย (ขั้นที่ ${r.step}/${r.of}): ${what}\nโดย ${who}\nเลขอ้างอิง ${r.approval.ref}`;
   const next = r.approval.steps[r.approval.at];
   return `✅ อนุมัติแล้ว (ขั้นที่ ${r.step}/${r.of}): ${what}\nโดย ${who}\n➡️ ส่งต่อให้${approverLabel(next?.dept || "")} (ยังไม่ถือว่าอนุมัติสมบูรณ์)`;
 }
 /** Final card in the requester's group: everyone who approved, when, the reference, and a link to the record. */
-export function approvedCard(item: ApprovalItem) {
+/**
+ * stage "approved": the record is made. "awaiting_slip": an expense request approved but not an expense yet — the
+ * button asks for the slip. "paid": the slip arrived and the expense is recorded.
+ */
+export function approvedCard(item: ApprovalItem, stage: "approved" | "awaiting_slip" | "paid" = "approved") {
   const a = item.approval;
-  const page = (item.kind && catalog[item.kind]?.label) || item.form || "รายการ";
-  const url = pageUrl(item.kind);
+  const page = docLabel(item.kind, item.form);
+  const url = recordUrl(item.kind, item.recordId);
   const steps = done(a);
   const small = (text: string, color = "#5d5a78") => ({ type: "text", text, size: "xs", color, wrap: true });
   const what = String(item.values.name || item.values.title || page);
-  const alt = [`✅ อนุมัติเรียบร้อย: ${what}`, ...steps.map((h) => `ขั้นที่ ${h.step}/${h.of} โดย ${h.name} · ${thaiTime(h.at)}`), `เลขอ้างอิง ${a.ref}`].join("\n");
+  const head =
+    stage === "awaiting_slip" ? `✅ อนุมัติแล้ว (${a.steps.length}/${a.steps.length}) · รอสลิป` : stage === "paid" ? "🧾 บันทึกค่าใช้จ่ายสมบูรณ์" : `✅ อนุมัติเรียบร้อย (${a.steps.length}/${a.steps.length})`;
+  const after =
+    stage === "awaiting_slip"
+      ? "ยังไม่ลงเป็นค่าใช้จ่าย จ่ายเงินแล้วกด “ยืนยันจ่ายแล้ว · ส่งสลิป” แล้วส่งรูปสลิปหรือใบเสร็จ"
+      : stage === "paid"
+        ? `แนบสลิปแล้ว บันทึก${page === "ใบขออนุมัติค่าใช้จ่าย" ? "ค่าใช้จ่าย" : page} ${a.ref} เข้า EliteFlow แล้ว`
+        : `บันทึก${page} ${a.ref} เข้า EliteFlow แล้ว ขอเอกสารได้ด้วย “@บอท ขอเอกสาร ${a.ref}”`;
+  const alt = [`${head}: ${what}`, ...steps.map((h) => `ขั้นที่ ${h.step}/${h.of} โดย ${h.name} · ${thaiTime(h.at)}`), `เลขอ้างอิง ${a.ref}`, after].join("\n");
   return {
     type: "flex",
     altText: alt.slice(0, 380),
@@ -360,7 +413,7 @@ export function approvedCard(item: ApprovalItem) {
         backgroundColor: "#dcfce7",
         paddingAll: "12px",
         contents: [
-          { type: "text", text: `✅ อนุมัติเรียบร้อย (${a.steps.length}/${a.steps.length})`, weight: "bold", size: "md", color: "#15803d", wrap: true },
+          { type: "text", text: head, weight: "bold", size: "md", color: "#15803d", wrap: true },
           small(page + " · " + what),
           ...(item.requester ? [small("ผู้ขอ: " + item.requester)] : []),
         ],
@@ -374,11 +427,111 @@ export function approvedCard(item: ApprovalItem) {
           ...steps.map((h) => small(`✅ ขั้นที่ ${h.step}/${h.of} · ${h.name} (${approverLabel(h.dept)})\n    ${thaiTime(h.at)}${h.note ? " · " + h.note : ""}`, "#2c2550")),
           { type: "separator", margin: "md" },
           { type: "text", text: "เลขอ้างอิง " + a.ref, size: "sm", weight: "bold", color: "#2c2550", margin: "md" },
-          small("บันทึกเข้า EliteFlow แล้ว"),
+          small(after, stage === "awaiting_slip" ? "#b45309" : "#5d5a78"),
+        ],
+      },
+      ...(stage === "awaiting_slip"
+        ? {
+            footer: {
+              type: "box",
+              layout: "vertical",
+              paddingAll: "12px",
+              contents: [btn("🧾 ยืนยันจ่ายแล้ว · ส่งสลิป", `slip=${item.id}`, "primary", "#16a34a")],
+            },
+          }
+        : url
+        ? { footer: { type: "box", layout: "vertical", paddingAll: "12px", contents: [{ type: "button", style: "secondary", height: "sm", action: { type: "uri", label: "เปิดดูใน EliteFlow", uri: url } }] } }
+        : {}),
+    },
+  };
+}
+
+/** Link to one record on the website (its page with ?id=), or the page when the record is not known. */
+export function recordUrl(kind: string | null | undefined, id?: string | null) {
+  const base = pageUrl(kind);
+  return base && id ? base + "?id=" + encodeURIComponent(id) : base;
+}
+
+/* ---------- "@บอท ขอเอกสาร …" ---------- */
+
+/** "ขอเอกสาร PO-69-0001" → { code }, "ขอเอกสาร" → { code: null } (choose from the latest); null = not a request. */
+export function docRequest(text: string): { code: string | null } | null {
+  const t = text.trim();
+  if (!/^(ขอ|ส่ง|เปิด|ดู)\s*(เอกสาร|ใบ(?!ลา)|ไฟล์)/.test(t) && !/^ขอ\s*[A-Z]{2,3}-\d{2}-\d{3,}/i.test(t)) return null;
+  const m = t.match(/\b([A-Z]{2,3}-\d{2}-\d{3,})\b/i);
+  return { code: m ? m[1].toUpperCase() : null };
+}
+export type DocRecord = { id: string; kind: string; code: string; name: string; total: number | null; status: string | null; at: string; lines: { name: string; qty: number; unit?: string; price: number }[] };
+/** Pick-a-document card: the latest documents of this group as buttons. */
+export function docChoices(docs: DocRecord[]) {
+  return {
+    type: "flex",
+    altText: "เลือกเอกสาร: " + docs.map((d) => d.code).join(", "),
+    contents: {
+      type: "bubble",
+      size: "kilo",
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "12px",
+        contents: [
+          { type: "text", text: "📄 ขอเอกสารไหนคะ", weight: "bold", size: "md", color: "#2c2550" },
+          { type: "text", text: "เอกสารล่าสุดในกลุ่มนี้", size: "xs", color: "#8a86a3" },
+          ...docs.slice(0, 6).map((d) => ({
+            type: "button",
+            style: "secondary",
+            height: "sm",
+            action: { type: "postback", label: (d.code + " " + d.name).slice(0, 40), data: "doc=" + d.id, displayText: "ขอเอกสาร " + d.code },
+          })),
+        ],
+      },
+    },
+  };
+}
+/** One document: what it is, its items and total, and a button to open it on the website. */
+export function docCard(d: DocRecord) {
+  const page = docLabel(d.kind) || "เอกสาร";
+  const url = recordUrl(d.kind, d.id);
+  const row = (l: string, v: string) => ({
+    type: "box",
+    layout: "baseline",
+    spacing: "sm",
+    contents: [
+      { type: "text", text: l, size: "sm", color: "#8a86a3", flex: 5, wrap: true },
+      { type: "text", text: v, size: "sm", color: "#2c2550", flex: 5, wrap: true, weight: "bold", align: "end" },
+    ],
+  });
+  return {
+    type: "flex",
+    altText: `📄 ${page} ${d.code}${d.total ? " ฿" + d.total.toLocaleString("en-US") : ""}`,
+    contents: {
+      type: "bubble",
+      size: "kilo",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#eef2ff",
+        paddingAll: "12px",
+        contents: [
+          { type: "text", text: "📄 " + page, size: "xs", color: "#4f46e5" },
+          { type: "text", text: d.code, weight: "bold", size: "lg", color: "#2c2550" },
+          { type: "text", text: d.name, size: "xs", color: "#5d5a78", wrap: true },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "12px",
+        contents: [
+          ...d.lines.slice(0, 10).map((x, i) => row(`${i + 1}. ${x.name}`, x.qty.toLocaleString("en-US") + (x.unit ? " " + x.unit : ""))),
+          ...(d.total ? [row("ยอดรวม", "฿" + d.total.toLocaleString("en-US", { maximumFractionDigits: 2 }))] : []),
+          row("วันที่บันทึก", thaiTime(d.at)),
         ],
       },
       ...(url
-        ? { footer: { type: "box", layout: "vertical", paddingAll: "12px", contents: [{ type: "button", style: "secondary", height: "sm", action: { type: "uri", label: "เปิดดูใน EliteFlow", uri: url } }] } }
+        ? { footer: { type: "box", layout: "vertical", paddingAll: "12px", contents: [{ type: "button", style: "primary", color: "#4f46e5", height: "sm", action: { type: "uri", label: "เปิดเอกสารในเว็บ", uri: url } }] } }
         : {}),
     },
   };

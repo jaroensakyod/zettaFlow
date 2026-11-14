@@ -46,6 +46,7 @@ function state(m: LineMessage): { label: string; tone: string } {
   if (m.status === "review") return m.missing.length ? { label: "ขาด: " + m.missing.join(", "), tone: "warn" } : { label: "รออนุมัติ", tone: "wait" };
   if (m.status === "skipped") return m.merged ? { label: "อ่านรวมกับข้อความที่ส่งติดกัน", tone: "muted" } : { label: "ข้อความทั่วไป · ไม่บันทึก", tone: "muted" };
   if (m.status === "failed") return { label: "อ่านไม่สำเร็จ", tone: "warn" };
+  if (m.status === "awaiting_slip") return { label: "อนุมัติแล้ว · รอสลิปก่อนลงค่าใช้จ่าย", tone: "wait" };
   if (m.status === "draft") return { label: "สรุปแล้ว · รอกด “บันทึกได้เลย” ใน LINE", tone: "wait" };
   return { label: "กำลังอ่าน…", tone: "wait" };
 }
@@ -98,7 +99,7 @@ export function LineGroupDetail({
   const shown = useMemo(
     () =>
       (messages || []).filter((m) =>
-        filter === "recorded" ? m.status === "approved" : filter === "pending" ? ["review", "failed", "queued", "processing", "draft"].includes(m.status) : filter === "skipped" ? ["skipped", "rejected"].includes(m.status) : true,
+        filter === "recorded" ? m.status === "approved" : filter === "pending" ? ["review", "failed", "queued", "processing", "draft", "awaiting_slip"].includes(m.status) : filter === "skipped" ? ["skipped", "rejected"].includes(m.status) : true,
       ),
     [messages, filter],
   );

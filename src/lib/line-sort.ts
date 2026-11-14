@@ -9,12 +9,12 @@ import type { Template } from "./types";
 /** Pages a company chat realistically feeds, with the cues that point to each. */
 export const sortPages: { kind: string; hint: string }[] = [
   { kind: "tasks", hint: "สั่งงาน มอบหมายงาน นัดประชุม ขอให้ใครทำอะไร ติดตาม/ทวงถาม (รวมตามหนี้ลูกค้า)" },
-  { kind: "expenses", hint: "จ่ายเงินไปแล้ว ค่าใช้จ่าย ใบเสร็จ บิลค่าน้ำค่าไฟ ค่าเดินทาง ค่าโฆษณา" },
+  { kind: "expenses", hint: "ขอซื้อ ขอเบิกซื้อ ขออนุมัติซื้ออุปกรณ์/ของใช้ ขออนุมัติค่าใช้จ่าย เบิกเงิน จ่ายเงินไปแล้ว ใบเสร็จ บิลค่าน้ำค่าไฟ ค่าเดินทาง ค่าโฆษณา" },
   { kind: "sales", hint: "ยอดขายที่เกิดขึ้นแล้ว ยอดหน้าร้าน ขายได้" },
   { kind: "leads", hint: "ดีล โอกาสขาย ลูกค้าสนใจ เสนอราคา ปิดดีลแล้วรอเซ็นสัญญา" },
   { kind: "leaves", hint: "ขอลา ลาป่วย ลากิจ ลาพักร้อน ลาครึ่งวัน" },
   { kind: "stock_issues", hint: "เบิกสินค้า/ของออกจากคลัง ขอเบิก" },
-  { kind: "purchases", hint: "สั่งซื้อของ ของเข้า/รับสินค้าเข้าคลัง ใบสั่งซื้อ PO" },
+  { kind: "purchases", hint: "ของเข้า รับสินค้าเข้าคลังจากซัพพลายเออร์ตามใบสั่งซื้อที่ออกไปแล้ว (คำขอซื้อของพนักงาน → expenses ไม่ใช่ที่นี่)" },
   { kind: "tickets", hint: "แจ้งปัญหา IT คอม เน็ต เครื่องเสีย ลูกค้าร้องเรียน" },
   { kind: "employees", hint: "พนักงานใหม่เริ่มงาน" },
   { kind: "services", hint: "งานบริการทั่วไป ซ่อมบำรุง แม่บ้าน ขอใช้รถ ขอห้องประชุม" },
@@ -24,15 +24,18 @@ export const sortPages: { kind: string; hint: string }[] = [
 // Bookkeeping fields nobody types into a chat.
 const skipKeys = new Set(["status", "aiNotes", "aiUncertain", "reviewStatus", "accountCode", "costCenter", "code", "checklist", "approvals", "history", "cover", "photo", "color"]);
 
+/** Pages whose item lines are read from chat (each item with its own quantity), even when the web form hides them. */
+const readLines = new Set(["expenses", "purchases"]);
 /** The page's fields as a review form. Defaults the approval fills itself (ชื่อ, วันที่, dropdown status) are not required. */
 export function pageTemplate(kind: string): Template {
   const page = catalog[kind];
   if (!page) throw Error("ไม่พบหน้า " + kind);
   const fields = (page.fields as Field[])
-    .filter((f) => f.type !== "image" && f.type !== "lines" && !skipKeys.has(f.key))
+    // Item lines are read only where the page shows them (a PO's items); hidden ones (a receipt's) are not asked for.
+    .filter((f) => f.type !== "image" && !(f.type === "lines" && f.hidden && !readLines.has(kind)) && !skipKeys.has(f.key))
     .map((f) => {
       const type: Template["fields"][number]["type"] =
-        f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "select" && f.options?.length ? "choice" : "text";
+        f.type === "lines" ? "lines" : f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "select" && f.options?.length ? "choice" : "text";
       return {
         key: f.key,
         label: f.type === "relation" ? f.label + " (ชื่อ)" : f.label,

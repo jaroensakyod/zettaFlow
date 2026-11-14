@@ -79,6 +79,8 @@ test("only the required fields filled: name, dropdowns and date get defaults so 
     assert.ok(String(target.data.name).trim(), `${kind} has a name`);
     for (const f of catalog[kind].fields)
       if (f.type === "select" && f.required) assert.ok(f.options!.includes(String(target.data[f.key])), `${kind}.${f.key} default`);
+    // A purchase order needs its items (or one product with a quantity).
+    if (kind === "purchases") target.data.lines = [{ name: "กระดาษ A4", qty: 10, price: 250 }];
     assert.doesNotThrow(() => validateEntity(kind, target.data), kind);
   }
 });

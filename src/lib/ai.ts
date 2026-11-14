@@ -124,7 +124,23 @@ export async function extract(
   const properties = Object.fromEntries(
     t.fields.map((f) => [
       f.key,
-      f.type === "choice"
+      f.type === "lines"
+        ? {
+            type: ["array", "null"],
+            description: f.label + ": one entry per item, each with its own quantity (never add different items together)",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Item name" },
+                qty: { type: "number", description: "Quantity of this item only" },
+                unit: { type: ["string", "null"], description: "Unit, e.g. รีม, กล่อง, ชิ้น" },
+                price: { type: ["number", "null"], description: "Price per unit if stated, else null" },
+              },
+              required: ["name", "qty", "unit", "price"],
+              additionalProperties: false,
+            },
+          }
+        : f.type === "choice"
         ? {
             type: ["string", "null"],
             enum: [...(f.options || []), null],
@@ -566,7 +582,17 @@ async function draftNotice(
 ) {
   if (!job.group_id) return;
   const { count } = await sb.from("line_bot_messages").select("message_id", { count: "exact", head: true }).eq("ingestion_id", job.id);
-  const card = draftCard({ id: job.id, ...input, requester: await lineName(job.group_id, job.source_user), round: (count || 0) + 1 });
+  // What the database kept (the document number, a PO's number as its name, what is still missing).
+  const { data: saved } = await sb.from("ingestions").select("values, missing, doc_code").eq("id", job.id).maybeSingle();
+  const card = draftCard({
+    id: job.id,
+    ...input,
+    values: (saved?.values as Record<string, unknown>) || input.values,
+    missing: (saved?.missing as string[]) || input.missing,
+    docCode: (saved?.doc_code as string | null) || null,
+    requester: await lineName(job.group_id, job.source_user),
+    round: (count || 0) + 1,
+  });
   await sb.from("notification_outbox").update({ body: card.altText, payload: card }).eq("id", job.id).eq("status", "queued");
   await replyInsteadOfPush(sb, job);
 }
@@ -582,7 +608,12 @@ async function approvalItem(i: Row): Promise<ApprovalItem> {
     values: i.values || {},
     requester: await lineName(i.group_id, i.source_user),
     approval: i.approval as Approval,
+    recordId: i.status === "approved" ? await recordOf(i.company_id, i.id) : null,
   };
+}
+async function recordOf(companyId: string, ingestionId: string) {
+  const { data } = await supabaseAdmin().from("entities").select("id").eq("company_id", companyId).eq("data->>ingestionId", ingestionId).limit(1).maybeSingle();
+  return (data?.id as string | undefined) || null;
 }
 /**
  * The approver card for the current step goes to every LINE group of that step's department
@@ -598,7 +629,19 @@ export async function approvalAsk(id: string) {
   const { data: groups } = await sb.from("line_groups").select("group_id").eq("company_id", i.company_id).eq("department", step.dept);
   const targets = groups?.length ? groups.map((g) => g.group_id as string) : i.group_id ? [i.group_id as string] : [];
   if (!targets.length) return;
-  const card = approvalCard(await approvalItem(i));
+  // Name who may press (managers of this step's department who are not the requester).
+  const { data: managers } = await sb
+    .from("memberships")
+    .select("name, email, user_id")
+    .eq("company_id", i.company_id)
+    .eq("role", "manager")
+    .eq("disabled", false)
+    .contains("departments", [step.dept]);
+  const { data: asker } = i.source_user
+    ? await sb.from("line_users").select("user_id").eq("company_id", i.company_id).eq("line_user_id", i.source_user).maybeSingle()
+    : { data: null };
+  const approvers = (managers || []).filter((m) => m.user_id !== asker?.user_id).map((m) => String(m.name || m.email)).slice(0, 4);
+  const card = approvalCard({ ...(await approvalItem(i)), approvers });
   await sb
     .from("notification_outbox")
     .insert(targets.map((target) => ({ company_id: i.company_id, target, body: card.altText, payload: card, ingestion_id: id, role: "approver" })));
@@ -630,9 +673,9 @@ export async function approvalAfter(id: string, r: ActResult, replyToken: string
   const line = stepText(r, what);
   const toRequester: Record<string, unknown>[] =
     r.action === "fix"
-      ? [{ type: "text", text: line }, draftCard({ id, kind: item.kind, form: item.form, fields: item.fields, values: item.values, missing: i.missing || [], requester: item.requester, notice: `✏️ ${r.name} ขอแก้ไข: ${r.note || ""}` })]
-      : r.status === "approved"
-        ? [approvedCard(item)]
+      ? [{ type: "text", text: line }, draftCard({ id, kind: item.kind, form: item.form, fields: item.fields, values: item.values, missing: i.missing || [], requester: item.requester, docCode: i.doc_code || null, notice: `✏️ ${r.name} ขอแก้ไข: ${r.note || ""}` })]
+      : r.status === "approved" || r.status === "awaiting_slip"
+        ? [approvedCard(item, r.status === "awaiting_slip" ? "awaiting_slip" : "approved")]
         : [{ type: "text", text: line }];
   if (actorGroup && actorGroup === i.group_id) {
     const sent = await lineReplyId(replyToken, toRequester);
@@ -643,6 +686,11 @@ export async function approvalAfter(id: string, r: ActResult, replyToken: string
     if (i.group_id) await queue(sb, i, toRequester);
   }
   if (r.action === "approve" && r.status === "review") await approvalAsk(id);
+}
+/** The slip arrived: the expense is recorded; tell the group with a link to it. */
+export async function expensePaidCard(id: string) {
+  const { data: i } = await supabaseAdmin().from("ingestions").select("*").eq("id", id).maybeSingle();
+  return i ? approvedCard(await approvalItem(i), "paid") : null;
 }
 async function queue(sb: ReturnType<typeof supabaseAdmin>, i: Row, messages: Record<string, unknown>[]) {
   if (!i.group_id) return;

@@ -123,7 +123,8 @@ test("migration 0067: approval chain on the database", async () => {
     let r = await row(buy);
     assert.equal(r.status, "review"); // sent is not approved
     assert.deepEqual(r.approval.steps, [{ dept: "Purchasing" }]);
-    assert.match(r.approval.ref, /^EF-[0-9A-F]{8}$/);
+    // the reference is the document number (ค่าใช้จ่าย → EXP-69-0001)
+    assert.match(r.approval.ref, /^EXP-\d{2}-\d{4}$/);
     // the requester (staff) cannot approve; nor can an unlinked LINE account; nor another department's manager
     await assert.rejects(act("G-pur", "L-ton", buy, "approve"), /อนุมัติคำขอของตัวเองไม่ได้/);
     await assert.rejects(act("G-pur", "L-stranger", buy, "approve"), /ยังไม่ได้เชื่อม/);
@@ -132,9 +133,9 @@ test("migration 0067: approval chain on the database", async () => {
     await assert.rejects(db.query("select line_decide('G-pur','L-a',$1,'approved','')", [buy]), /ปุ่มในการ์ด/);
     await assert.rejects(db.query("select line_keyword_approve('G-pur','L-a','อนุมัติ')"), /ปุ่มในการ์ด/);
     const done1 = (await act("G-pur", "L-a", buy, "approve")).rows[0] as { line_approval_act: ActResult };
-    assert.equal(done1.line_approval_act.status, "approved");
+    assert.equal(done1.line_approval_act.status, "awaiting_slip");
     r = await row(buy);
-    assert.equal(r.status, "approved");
+    assert.equal(r.status, "awaiting_slip"); // an approved expense request waits for its slip
     assert.equal(r.decided_name, "คุณเอ");
     assert.equal(r.approval.history.length, 1);
     assert.equal(r.approval.history[0].name, "คุณเอ");
@@ -183,7 +184,7 @@ test("migration 0067: approval chain on the database", async () => {
     await send("G-pur", "L-a", own);
     await assert.rejects(act("G-pur", "L-a", own, "approve"), /ของตัวเองไม่ได้/);
     await act("G-pur", "L-owner", own, "approve");
-    assert.equal((await row(own)).status, "approved");
+    assert.equal((await row(own)).status, "awaiting_slip");
 
     // 4) one manager cannot approve two steps of the same round
     await db.exec("reset role;");

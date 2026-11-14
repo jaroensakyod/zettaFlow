@@ -436,9 +436,11 @@ export const modules: Module[] = [
       f("supplierId", "ซัพพลายเออร์", "relation", true, {
         resource: "suppliers",
       }),
-      f("productId", "สินค้า", "relation", true, { resource: "products" }),
-      f("quantity", "จำนวน", "number", true, { min: 1 }),
-      f("unitCost", "ราคาต่อหน่วย", "number", true, { min: 0 }),
+      // Several items, each with its own quantity — or one product below.
+      f("lines", "รายการสินค้า", "lines"),
+      f("productId", "สินค้า", "relation", false, { resource: "products" }),
+      f("quantity", "จำนวน", "number", false, { min: 1 }),
+      f("unitCost", "ราคาต่อหน่วย", "number", false, { min: 0 }),
       f("orderDate", "วันที่สั่งซื้อ", "date", true),
       f("dueDate", "กำหนดรับ", "date"),
       project,

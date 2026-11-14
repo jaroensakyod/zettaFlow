@@ -8,12 +8,13 @@ import {
   processNotifications,
   draftSaved,
   approvalAfter,
+  expensePaidCard,
 } from "@/lib/ai";
-import { approvalAction, reasonPrompt, type ActResult } from "@/lib/line-mention";
+import { approvalAction, docCard, docChoices, docRequest, reasonPrompt, SLIP_MS, slipPrompt, slipRequest, type ActResult, type DocRecord } from "@/lib/line-mention";
 import { draftAction, editPrompt, EDIT_MS, editText, listenPlan, LISTEN_MS, mentionOf, mentionPrompt, type ListenRow } from "@/lib/line-mention";
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
-import { isQuestion, answerQuestion, lineReply, type QuickStats } from "@/lib/line";
+import { isQuestion, answerQuestion, lineReply, lineReplyId, type QuickStats } from "@/lib/line";
 import { decidedText, deptThai, groupRejection, parseDecision } from "@/lib/line-message";
 import { classifyLineFile, LINE_MAX_BYTES, shrinkImage, VOICE_MAX_MS } from "@/lib/line-files";
 export const runtime = "nodejs";
@@ -108,6 +109,27 @@ async function approvalDecide(sb: Admin, groupId: string, userId: string, id: st
   }
   await approvalAfter(id, data as ActResult, replyToken, groupId);
 }
+/** "@บอท ขอเอกสาร PO-69-0001" → that document; "@บอท ขอเอกสาร" → the latest ones as buttons; a button → that one. */
+async function sendDocuments(sb: Admin, groupId: string, userId: string, replyToken: string | null, find: { code?: string | null; id?: string | null }) {
+  const { data, error } = await sb.rpc("line_documents", { p_group: groupId, p_user: userId, p_code: find.code || null, p_id: find.id || null });
+  if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
+  const docs = (data || []) as DocRecord[];
+  if (!docs.length)
+    return lineReply(
+      replyToken || undefined,
+      find.code
+        ? `ไม่พบเอกสาร ${find.code} ที่คุณขอดูได้ค่ะ (ต้องเป็นเอกสารของบริษัทนี้ และเชื่อมบัญชี LINE แล้ว หรือเป็นคนที่ขอเอกสารนั้นเอง)`
+        : "ยังไม่มีเอกสารที่บันทึกจากกลุ่มนี้ค่ะ ลองพิมพ์ “@บอท ขอเอกสาร PO-69-0001” พร้อมเลขเอกสาร",
+    );
+  return lineReplyId(replyToken, docs.length === 1 || find.code || find.id ? docCard(docs[0]) : docChoices(docs));
+}
+/** "ยืนยันจ่ายแล้ว · ส่งสลิป": check it waits for a slip and who asks, then listen for the photo. */
+async function askSlip(sb: Admin, groupId: string, userId: string, id: string, replyToken: string | null) {
+  const { data: company, error } = await sb.rpc("line_slip_check", { p_group: groupId, p_user: userId, p_id: id });
+  if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
+  await listen(sb, String(company), groupId, userId, "slip", id, SLIP_MS);
+  return lineReply(replyToken || undefined, slipPrompt);
+}
 /** Buttons on an approver card: อนุมัติ acts at once; ไม่อนุมัติ / ขอแก้ไข first ask for the reason. */
 async function approvalButton(sb: Admin, event: { replyToken?: string; postback?: { data?: string }; source: { groupId: string; userId?: string } }) {
   const a = approvalAction(String(event.postback?.data || ""));
@@ -147,7 +169,11 @@ export async function POST(req: Request) {
     const sb = supabaseAdmin();
     for (const event of body.events) {
       if (event.type === "postback" && event.source?.groupId) {
-        if (!(await approvalButton(sb, event))) await draftButton(sb, event);
+        const doc = /^doc=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
+        const slip = /^slip=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
+        if (slip && event.source.userId) await askSlip(sb, event.source.groupId, event.source.userId, slip[1], event.replyToken || null);
+        else if (doc && event.source.userId) await sendDocuments(sb, event.source.groupId, event.source.userId, event.replyToken || null, { id: doc[1] });
+        else if (!(await approvalButton(sb, event))) await draftButton(sb, event);
         continue;
       }
       if (event.type !== "message" || !event.source?.groupId) continue;
@@ -360,7 +386,8 @@ export async function POST(req: Request) {
       let raw = message.type === "text" ? String(message.text || "") : "",
         mentioned = false,
         attachTo: string | null = null,
-        editOf: string | null = null;
+        editOf: string | null = null,
+        slipFor: string | null = null;
       if (mentionMode) {
         if (!userId) continue;
         const m = message.type === "text" ? mentionOf(message, await botName()) : { mentioned: false, text: "" };
@@ -370,6 +397,21 @@ export async function POST(req: Request) {
           if (!raw) {
             await listen(sb, group.company_id, groupId, userId, "any", null, LISTEN_MS);
             await lineReply(event.replyToken, mentionPrompt);
+            continue;
+          }
+          const paid = slipRequest(raw);
+          if (paid) {
+            // "@บอท ส่งสลิป EXP-69-0001" (or the requester's latest approved request waiting for one)
+            let q = sb.from("ingestions").select("id").eq("company_id", group.company_id).eq("status", "awaiting_slip");
+            q = paid.code ? q.eq("doc_code", paid.code) : q.eq("source_user", userId).eq("group_id", groupId);
+            const { data: waiting } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
+            if (waiting) await askSlip(sb, groupId, userId, waiting.id as string, event.replyToken || null);
+            else await lineReply(event.replyToken, paid.code ? `ไม่พบ ${paid.code} ที่รอสลิปอยู่ค่ะ (ต้องอนุมัติแล้วและยังไม่ได้ส่งสลิป)` : "ไม่มีคำขอของคุณที่อนุมัติแล้วรอสลิปในกลุ่มนี้ค่ะ ลองพิมพ์พร้อมเลข เช่น “@บอท ส่งสลิป EXP-69-0001”");
+            continue;
+          }
+          const wants = docRequest(raw);
+          if (wants) {
+            await sendDocuments(sb, groupId, userId, event.replyToken || null, { code: wants.code });
             continue;
           }
           const fix = editText(raw);
@@ -399,7 +441,13 @@ export async function POST(req: Request) {
             editOf = plan.id;
           }
           if (plan.act === "attach") attachTo = plan.id;
+          if (plan.act === "slip") slipFor = plan.id;
         }
+      } else if (message.type !== "text" && userId) {
+        // Groups that read every message: a photo right after "ส่งสลิป" is still that slip.
+        const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
+        const plan = listenPlan(row as ListenRow | null, message.type);
+        if (plan.act === "slip") slipFor = plan.id;
       }
       const question = mentionMode ? mentioned && isQuestion(raw) : message.type === "text" && isQuestion(raw);
       if (question) {
@@ -503,6 +551,16 @@ export async function POST(req: Request) {
         });
         dbError(e);
       } else if (message.type !== "text") continue;
+      if (slipFor && attachmentId) {
+        await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);
+        const { error: e } = await sb.rpc("line_expense_paid", { p_group: groupId, p_user: userId, p_id: slipFor, p_attachment: attachmentId });
+        if (e) await lineReply(event.replyToken, "⚠️ " + e.message);
+        else {
+          const card = await expensePaidCard(slipFor);
+          if (card) await lineReplyId(event.replyToken, card);
+        }
+        continue;
+      }
       if (editOf) {
         await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);
         await rereadDraft(sb, editOf, "ส่งไฟล์ใหม่", event.replyToken || null, attachmentId);

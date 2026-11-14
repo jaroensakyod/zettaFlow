@@ -111,8 +111,12 @@ export function validateEntity(kind: string, input: unknown) {
       "วันสิ้นสุดต้องไม่ก่อนวันเริ่ม",
     );
   if (kind === "purchases") {
-    assert(Number.isInteger(data.quantity), "จำนวนสินค้าต้องเป็นจำนวนเต็ม");
-    data.total = Number(data.quantity) * Number(data.unitCost);
+    const lines = Array.isArray(data.lines) ? (data.lines as { qty?: unknown; price?: unknown }[]) : [];
+    if (lines.length) data.total = lines.reduce((s, x) => s + Number(x.qty || 0) * Number(x.price || 0), 0);
+    else {
+      assert(data.productId && Number.isInteger(data.quantity), "ใส่รายการสินค้า หรือ สินค้าและจำนวน (จำนวนเต็ม)");
+      data.total = Number(data.quantity) * Number(data.unitCost || 0);
+    }
     data.status = "draft";
   }
   if (kind === "invoices") {
@@ -224,9 +228,21 @@ export function validateValues(
     missing: string[] = [];
   for (const f of t.fields) {
     const v = input[f.key];
-    if (v === null || v === undefined || v === "") {
+    if (v === null || v === undefined || v === "" || (f.type === "lines" && Array.isArray(v) && !v.length)) {
       values[f.key] = null;
       if (f.required) missing.push(f.label);
+      continue;
+    }
+    if (f.type === "lines") {
+      assert(Array.isArray(v) && v.length <= 100, `รูปแบบ ${f.label} ไม่ถูกต้อง`);
+      values[f.key] = (v as Record<string, unknown>[]).map((x) => {
+        const name = String(x?.name ?? "").trim().slice(0, 500),
+          qty = Number(x?.qty),
+          price = x?.price === null || x?.price === undefined || x?.price === "" ? 0 : Number(x.price),
+          unit = String(x?.unit ?? "").trim().slice(0, 30);
+        assert(name && Number.isFinite(qty) && qty >= 0 && qty <= 1e9 && Number.isFinite(price) && Math.abs(price) <= 1e12, `รูปแบบ ${f.label} ไม่ถูกต้อง`);
+        return { name, qty, price, ...(unit ? { unit } : {}) };
+      });
       continue;
     }
     assert(

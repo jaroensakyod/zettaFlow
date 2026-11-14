@@ -123,7 +123,7 @@ export type Template = {
   fields: {
     key: string;
     label: string;
-    type: "text" | "number" | "date" | "choice";
+    type: "text" | "number" | "date" | "choice" | "lines";
     required: boolean;
     options?: string[];
   }[];
@@ -141,7 +141,7 @@ export type Ingestion = {
   values: Record<string, unknown>;
   missing: string[];
   status:
-    "queued" | "processing" | "draft" | "review" | "approved" | "rejected" | "failed" | "skipped";
+    "queued" | "processing" | "draft" | "review" | "awaiting_slip" | "approved" | "rejected" | "failed" | "skipped";
   source: string;
   created_at: string;
   error?: string;

@@ -15,6 +15,7 @@ import {
   Paperclip,
   Camera,
   UserRound,
+  Trash2,
 } from "lucide-react";
 import { DocPrintButtons } from "./doc-print";
 import { catalog, statusLabels, type Field } from "@/lib/catalog";
@@ -94,6 +95,35 @@ function ImageField({
     </div>
   );
 }
+type ItemLine = { name: string; qty: number; unit?: string; price: number };
+/** Item lines (a purchase order's items): each item with its own quantity, unit and price. */
+function LinesField({ field, value, set }: { field: Field; value: unknown; set: (value: unknown) => void }) {
+  const rows: ItemLine[] = Array.isArray(value) ? (value as ItemLine[]) : [];
+  const put = (i: number, patch: Partial<ItemLine>) => set(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const total = rows.reduce((t, r) => t + Number(r.qty || 0) * Number(r.price || 0), 0);
+  return (
+    <div className="lines-field">
+      <span className="ip-field-label">{field.label}</span>
+      {rows.map((r, i) => (
+        <div className="lines-row" key={i}>
+          <input aria-label={"ชื่อรายการ " + (i + 1)} placeholder="เช่น กระดาษ A4" value={r.name} onChange={(e) => put(i, { name: e.target.value })} required />
+          <input aria-label={"จำนวน " + (i + 1)} type="number" min={0} step="any" value={r.qty} onChange={(e) => put(i, { qty: Number(e.target.value) })} />
+          <input aria-label={"หน่วย " + (i + 1)} placeholder="หน่วย" value={r.unit || ""} onChange={(e) => put(i, { unit: e.target.value || undefined })} />
+          <input aria-label={"ราคาต่อหน่วย " + (i + 1)} type="number" min={0} step="any" value={r.price} onChange={(e) => put(i, { price: Number(e.target.value) })} />
+          <button type="button" className="icon-button" aria-label={"ลบรายการ " + (i + 1)} onClick={() => set(rows.filter((_, j) => j !== i))}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      <div className="lines-foot">
+        <button type="button" className="text-button" onClick={() => set([...rows, { name: "", qty: 1, price: 0 }])}>
+          <Plus size={14} /> เพิ่มรายการ
+        </button>
+        {rows.length > 0 && <span>รวม ฿{money(total)}</span>}
+      </div>
+    </div>
+  );
+}
 export function FieldControl({
   field,
   value,
@@ -107,6 +137,7 @@ export function FieldControl({
   options: Option[];
   department?: string;
 }) {
+  if (field.type === "lines" && !field.hidden) return <LinesField field={field} value={value} set={set} />;
   if (field.hidden || field.type === "lines") return null;
   // ประเภทธุรกิจ everywhere uses the searchable grouped picker (kept outside a <label> so its buttons work).
   if (field.key === "businessType" || field.key === "industry")
@@ -876,7 +907,9 @@ export function Records({
               <div className="note">
                 ยอดรวม ฿
                 {money(
-                  Number(values.quantity || 0) * Number(values.unitCost || 0),
+                  Array.isArray(values.lines) && values.lines.length
+                    ? (values.lines as { qty?: unknown; price?: unknown }[]).reduce((s, x) => s + Number(x.qty || 0) * Number(x.price || 0), 0)
+                    : Number(values.quantity || 0) * Number(values.unitCost || 0),
                 )}{" "}
                 · {statusLabels[String(row?.data.status || "draft")]}
               </div>

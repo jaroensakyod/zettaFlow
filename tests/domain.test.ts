@@ -31,6 +31,8 @@ test("every business module has a valid server-validated create payload", () => 
                   : "Test record",
         ]),
     );
+    // A purchase order needs its items (or one product with a quantity).
+    if (m.key === "purchases") Object.assign(input, { lines: [{ name: "กระดาษ A4", qty: 10, price: 250 }] });
     const result = validateEntity(m.key, input);
     assert.equal(result.name, "Test record", m.key);
     assert.equal(

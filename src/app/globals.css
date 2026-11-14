@@ -7996,3 +7996,10 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .flow-fb .flow-action { color: #fff; background: linear-gradient(120deg, #7c3aed, #ec4899); border: 0; box-shadow: 0 6px 14px rgba(124, 58, 237, .28); }
 .flow-fb.bug .flow-action { background: linear-gradient(120deg, #f97316, #e11d48); box-shadow: 0 6px 14px rgba(225, 29, 72, .25); }
 .flow-fb .flow-action:disabled { opacity: .6; }
+
+/* Item lines in record forms (a purchase order's items, each with its own quantity) */
+.lines-field { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+.lines-row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 80px 100px 32px; gap: 6px; align-items: center; }
+.lines-row input { min-width: 0; }
+.lines-foot { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted, #6b6585); }
+@media (max-width: 560px) { .lines-row { grid-template-columns: minmax(0, 1fr) 64px 64px 32px; } .lines-row input:nth-child(3) { display: none; } }

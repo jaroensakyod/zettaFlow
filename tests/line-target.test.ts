@@ -217,14 +217,16 @@ test("sorted page forms keep chat fields and only ask for what the group must se
     const t = pageTemplate(kind);
     assert.ok(t.fields.length > 0, kind);
     for (const f of t.fields) {
-      assert.ok(["text", "number", "date", "choice"].includes(f.type), `${kind}.${f.key}`);
+      assert.ok(["text", "number", "date", "choice", "lines"].includes(f.type), `${kind}.${f.key}`);
       if (f.type === "choice") assert.ok(f.options?.length, `${kind}.${f.key} options`);
       assert.ok(!(f.required && ["name", "date", "department"].includes(f.key)), `${kind}.${f.key} defaults on approval`);
     }
   }
   const leave = pageTemplate("leaves");
   assert.deepEqual(leave.fields.find((f) => f.key === "employeeId"), { key: "employeeId", label: "พนักงาน (ชื่อ)", type: "text", required: true });
-  assert.ok(!pageTemplate("expenses").fields.some((f) => ["receiptId", "lines", "aiNotes"].includes(f.key)));
+  assert.ok(!pageTemplate("expenses").fields.some((f) => ["receiptId", "aiNotes"].includes(f.key)));
+  // a request to buy keeps each item's quantity
+  assert.ok(pageTemplate("expenses").fields.some((f) => f.key === "lines" && f.type === "lines"));
 });
 
 test("the attachments table takes files up to the 15 MB upload limit", async () => {
