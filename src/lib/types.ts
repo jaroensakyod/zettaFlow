@@ -157,7 +157,11 @@ export type Ingestion = {
   decided_name?: string | null;
   decided_at?: string | null;
   decided_via?: string | null;
+  /** Approval chain (items from LINE): steps in order, the current one, and who did what when. */
+  approval?: Approval | null;
 };
+export type ApprovalEntry = { step: number; of: number; dept: string; action: "approve" | "reject" | "fix"; by: string; name: string; at: string; note: string | null; via: string; round: number };
+export type Approval = { steps: { dept: string }[]; at: number; round?: number; ref: string; history: ApprovalEntry[] };
 export type Attachment = {
   id: string;
   company_id: string;

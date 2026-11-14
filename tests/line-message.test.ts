@@ -6,10 +6,10 @@ process.env.NEXT_PUBLIC_APP_URL = "https://eliteflow-ai.com";
 
 test("a complete item names its page, who asked, what was read and the approve keyword — no raw ids", () => {
   const t = lineNotice({ kind: "expenses", values: { name: "ค่า claude", amount: 4000 }, missing: [], keyword: "อนุมัติ", requester: "SIRI" });
-  assert.match(t, /บันทึกเข้า「ค่าใช้จ่าย」แล้ว รอผู้จัดการอนุมัติ/);
+  assert.match(t, /บันทึกเข้า「ค่าใช้จ่าย」แล้ว ส่งขออนุมัติต่อ/);
   assert.match(t, /👤 ผู้ขอ: SIRI/);
   assert.match(t, /ค่า claude · ฿4,000/);
-  assert.match(t, /พิมพ์ “อนุมัติ”/);
+  assert.match(t, /ยังไม่ถือว่าอนุมัติ/);
   assert.doesNotMatch(t, /ข้อมูลผิด/);
   assert.doesNotMatch(t, /[0-9a-f]{8}-[0-9a-f]{4}/);
   assert.doesNotMatch(t, /#approve/);

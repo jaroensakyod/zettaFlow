@@ -838,6 +838,20 @@ export async function decide(
     validateValues(i.template, input.values, true);
   }
   const sb = await supabaseServer();
+  // Items from LINE go through their approval chain: this approves (or rejects) the current step only.
+  if (i.approval) {
+    const { data, error } = await sb.rpc("web_approval_act", {
+      p_company: ctx.company.id,
+      p_id: id,
+      p_action: input.status === "approved" ? "approve" : "reject",
+      p_values: input.values,
+      p_note: input.reason || null,
+    });
+    dbError(error);
+    const { approvalAfter } = await import("./ai");
+    await approvalAfter(id, data, null, null).catch(() => {});
+    return;
+  }
   const { error } = await sb.rpc("decide_ingestion", {
     p_company: ctx.company.id,
     p_id: id,

@@ -20,8 +20,9 @@ import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES } from "./billing";
 import { sortMessage } from "./line-sort";
 import { lineGroup, lineReplyId, sentMessageId } from "./line";
-import { approverNotice, deptThai, lineNotice } from "./line-message";
-import { draftCard, nothingToSave } from "./line-mention";
+import { deptThai, lineNotice } from "./line-message";
+import { approvalCard, approvedCard, draftCard, nothingToSave, sentText, stepText, type ActResult, type ApprovalItem } from "./line-mention";
+import type { Approval } from "./types";
 import { aiEnabled, aiGenerate, aiProvider, forCompany, type AiPart } from "./llm";
 import { documentText, isAudio } from "./line-files";
 
@@ -320,7 +321,7 @@ export async function processJobs(id?: string) {
         if (r.kind) {
           await rewriteNotice(sb, job, { kind: r.kind, values: r.values, missing: r.missing });
           await replyInsteadOfPush(sb, job);
-          await routeToApprovers(sb, job, { kind: r.kind, values: r.values, missing: r.missing });
+          if (!r.missing.length) await approvalAsk(job.id);
         }
         continue;
       }
@@ -357,7 +358,7 @@ export async function processJobs(id?: string) {
       }
       await rewriteNotice(sb, job, { kind: t.target_kind || null, form: t.name, values: result.values, missing: result.missing });
       await replyInsteadOfPush(sb, job);
-      await routeToApprovers(sb, job, { kind: t.target_kind || null, values: result.values, missing: result.missing });
+      if (!result.missing.length) await approvalAsk(job.id);
     } catch (e) {
       // A free trial out of AI allowance: say so in the group that sent it.
       if (e instanceof AppError && e.status === 402 && (claimed as { group_id?: string | null }).group_id)
@@ -532,35 +533,6 @@ async function rememberBotMessage(
     .then(() => {}, () => {});
 }
 /**
- * Cross-department: an item filed to another department's page (แผนกซ่อม asks for budget → ค่าใช้จ่าย, Finance)
- * is announced in every LINE group set to that department, where a manager replies to approve, reject or correct it.
- */
-async function routeToApprovers(
-  sb: ReturnType<typeof supabaseAdmin>,
-  job: Ingestion & { group_id?: string | null },
-  input: { kind: string | null; values: Record<string, unknown>; missing: string[] },
-) {
-  if (!job.group_id || input.missing.length) return;
-  const { data: item } = await sb.from("ingestions").select("department").eq("id", job.id).maybeSingle();
-  const department = item?.department as string | undefined;
-  if (!department) return;
-  const [{ data: targets }, { data: source }] = await Promise.all([
-    sb.from("line_groups").select("group_id").eq("company_id", job.company_id).eq("department", department).neq("group_id", job.group_id),
-    sb.from("line_groups").select("name, department").eq("group_id", job.group_id).maybeSingle(),
-  ]);
-  if (!targets?.length) return;
-  const from = [source?.department ? deptThai[source.department] || source.department : "", source?.name || ""].filter(Boolean).join(" · ") || "กลุ่ม LINE";
-  const body = approverNotice({
-    kind: input.kind,
-    values: input.values,
-    from,
-    requester: await lineName(job.group_id, (job as { source_user?: string | null }).source_user),
-  });
-  await sb.from("notification_outbox").insert(
-    targets.map((t) => ({ company_id: job.company_id, target: t.group_id, body, ingestion_id: job.id, role: "approver" })),
-  );
-}
-/**
  * The database queues a plain notice; replace it with one that names the page, what was read, what is missing,
  * the group's approve keyword and how to fix it. Only while it is still queued (not yet sent).
  */
@@ -598,28 +570,92 @@ async function draftNotice(
   await sb.from("notification_outbox").update({ body: card.altText, payload: card }).eq("id", job.id).eq("status", "queued");
   await replyInsteadOfPush(sb, job);
 }
+type Row = Record<string, any>;
+/** What the approval cards show about an item. */
+async function approvalItem(i: Row): Promise<ApprovalItem> {
+  const t = i.template as Template | null;
+  return {
+    id: i.id,
+    kind: i.target_kind || (t as { target_kind?: string | null } | null)?.target_kind || null,
+    form: t?.name,
+    fields: t?.fields || [],
+    values: i.values || {},
+    requester: await lineName(i.group_id, i.source_user),
+    approval: i.approval as Approval,
+  };
+}
 /**
- * "บันทึกได้เลย" pressed: the draft is now in the review box on the website. Answers in the group with the usual
- * notice (which a manager can Reply to with อนุมัติ) and sends cross-department requests to their groups.
+ * The approver card for the current step goes to every LINE group of that step's department
+ * (or, when the company has none, back to the group that asked). Nothing goes out while data is missing.
+ */
+export async function approvalAsk(id: string) {
+  const sb = supabaseAdmin();
+  const { data: i } = await sb.from("ingestions").select("*").eq("id", id).maybeSingle();
+  if (!i || i.status !== "review" || !i.approval || (i.missing || []).length) return;
+  const a = i.approval as Approval,
+    step = a.steps[a.at];
+  if (!step) return;
+  const { data: groups } = await sb.from("line_groups").select("group_id").eq("company_id", i.company_id).eq("department", step.dept);
+  const targets = groups?.length ? groups.map((g) => g.group_id as string) : i.group_id ? [i.group_id as string] : [];
+  if (!targets.length) return;
+  const card = approvalCard(await approvalItem(i));
+  await sb
+    .from("notification_outbox")
+    .insert(targets.map((target) => ({ company_id: i.company_id, target, body: card.altText, payload: card, ingestion_id: id, role: "approver" })));
+}
+/**
+ * "ส่งขออนุมัติ" pressed: the group that asked is told it is sent (not approved) with the steps and reference,
+ * and the first approver gets the card.
  */
 export async function draftSaved(id: string, replyToken: string | null) {
   const sb = supabaseAdmin();
   const { data: job } = await sb.from("ingestions").select("*").eq("id", id).maybeSingle();
-  if (!job) return;
-  const { data: g } = await sb.from("line_groups").select("approve_keywords").eq("group_id", job.group_id).maybeSingle();
-  const t = job.template as Template | null;
-  const body = lineNotice({
-      kind: job.target_kind,
-      form: t?.name,
-      values: job.values || {},
-      missing: job.missing || [],
-      keyword: (g?.approve_keywords as string[] | null)?.[0],
-      requester: await lineName(job.group_id, job.source_user),
-    });
+  if (!job?.approval) return;
+  const body = sentText(job.approval as Approval);
   const sent = await lineReplyId(replyToken, body);
-  if (sent.id) await rememberBotMessage(sb, { messageId: sent.id, groupId: String(job.group_id), companyId: job.company_id, ingestionId: id, role: "source" });
-  else if (!sent.ok) await sb.from("notification_outbox").insert({ company_id: job.company_id, target: job.group_id, body, ingestion_id: id, role: "source" });
-  await routeToApprovers(sb, job, { kind: job.target_kind, values: job.values || {}, missing: job.missing || [] });
+  if (!sent.ok) await sb.from("notification_outbox").insert({ company_id: job.company_id, target: job.group_id, body, ingestion_id: id, role: "source" });
+  await approvalAsk(id);
+}
+/**
+ * After an approver decided (LINE button or website): the approver gets a short confirmation; the group that asked
+ * gets the step result, the final card (everyone who approved, when, reference, link) or the draft back to fix;
+ * the next approver gets their card. When the approver acted in the group that asked, one reply says it all.
+ */
+export async function approvalAfter(id: string, r: ActResult, replyToken: string | null, actorGroup: string | null) {
+  const sb = supabaseAdmin();
+  const { data: i } = await sb.from("ingestions").select("*").eq("id", id).maybeSingle();
+  if (!i) return;
+  const item = await approvalItem(i);
+  const what = String(item.values.name || item.values.title || "รายการที่ขอ");
+  const line = stepText(r, what);
+  const toRequester: Record<string, unknown>[] =
+    r.action === "fix"
+      ? [{ type: "text", text: line }, draftCard({ id, kind: item.kind, form: item.form, fields: item.fields, values: item.values, missing: i.missing || [], requester: item.requester, notice: `✏️ ${r.name} ขอแก้ไข: ${r.note || ""}` })]
+      : r.status === "approved"
+        ? [approvedCard(item)]
+        : [{ type: "text", text: line }];
+  if (actorGroup && actorGroup === i.group_id) {
+    const sent = await lineReplyId(replyToken, toRequester);
+    if (sent.id && r.action === "fix") await rememberBotMessage(sb, { messageId: sent.id, groupId: actorGroup, companyId: i.company_id, ingestionId: id, role: "source" });
+    if (!sent.ok) await queue(sb, i, toRequester);
+  } else {
+    if (replyToken) await lineReplyId(replyToken, line);
+    if (i.group_id) await queue(sb, i, toRequester);
+  }
+  if (r.action === "approve" && r.status === "review") await approvalAsk(id);
+}
+async function queue(sb: ReturnType<typeof supabaseAdmin>, i: Row, messages: Record<string, unknown>[]) {
+  if (!i.group_id) return;
+  await sb.from("notification_outbox").insert(
+    messages.map((m) => ({
+      company_id: i.company_id,
+      target: i.group_id,
+      body: String((m as { text?: string; altText?: string }).text || (m as { altText?: string }).altText || ""),
+      payload: m,
+      ingestion_id: i.id,
+      role: "source",
+    })),
+  );
 }
 export async function processNotifications() {
   if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return 0;

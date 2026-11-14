@@ -39,7 +39,7 @@ export async function lineReply(replyToken: string | undefined, text: string) {
   return (await lineReplyId(replyToken, text)).ok;
 }
 /** Reply and return the id LINE gave the sent message (so a member's Reply to it can be traced back). */
-export async function lineReplyId(replyToken: string | undefined | null, text: string | Record<string, unknown>): Promise<{ ok: boolean; id: string | null }> {
+export async function lineReplyId(replyToken: string | undefined | null, text: string | Record<string, unknown> | Record<string, unknown>[]): Promise<{ ok: boolean; id: string | null }> {
   if (!replyToken || !process.env.LINE_CHANNEL_ACCESS_TOKEN) return { ok: false, id: null };
   const r = await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
@@ -48,7 +48,7 @@ export async function lineReplyId(replyToken: string | undefined | null, text: s
       Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ replyToken, messages: [typeof text === "string" ? { type: "text", text: text.slice(0, 4900) } : text] }),
+    body: JSON.stringify({ replyToken, messages: Array.isArray(text) ? text.slice(0, 5) : [typeof text === "string" ? { type: "text", text: text.slice(0, 4900) } : text] }),
   }).catch(() => null);
   if (!r?.ok) return { ok: false, id: null };
   return { ok: true, id: await sentMessageId(r) };

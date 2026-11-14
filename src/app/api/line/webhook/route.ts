@@ -7,7 +7,9 @@ import {
   processJobs,
   processNotifications,
   draftSaved,
+  approvalAfter,
 } from "@/lib/ai";
+import { approvalAction, reasonPrompt, type ActResult } from "@/lib/line-mention";
 import { draftAction, editPrompt, EDIT_MS, editText, listenPlan, LISTEN_MS, mentionOf, mentionPrompt, type ListenRow } from "@/lib/line-mention";
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
@@ -94,6 +96,38 @@ async function draftButton(sb: Admin, event: { replyToken?: string; postback?: {
   else await lineReply(event.replyToken, "🗑️ ยกเลิกแล้ว ไม่บันทึกรายการนี้ค่ะ");
 }
 
+/**
+ * An approver's decision from LINE (button, or the reason typed after ไม่อนุมัติ / ขอแก้ไข). The database checks
+ * who they are (linked LINE account), that it is their step, and that it is not their own request.
+ */
+async function approvalDecide(sb: Admin, groupId: string, userId: string, id: string, action: "approve" | "reject" | "fix", note: string | null, step: number | null, replyToken: string | null) {
+  const { data, error } = await sb.rpc("line_approval_act", { p_group: groupId, p_user: userId, p_id: id, p_action: action, p_note: note, p_step: step });
+  if (error) {
+    await lineReply(replyToken || undefined, "⚠️ " + error.message);
+    return;
+  }
+  await approvalAfter(id, data as ActResult, replyToken, groupId);
+}
+/** Buttons on an approver card: อนุมัติ acts at once; ไม่อนุมัติ / ขอแก้ไข first ask for the reason. */
+async function approvalButton(sb: Admin, event: { replyToken?: string; postback?: { data?: string }; source: { groupId: string; userId?: string } }) {
+  const a = approvalAction(String(event.postback?.data || ""));
+  const groupId = event.source.groupId,
+    userId = event.source.userId;
+  if (!a || !userId) return false;
+  if (a.act === "approve") {
+    await approvalDecide(sb, groupId, userId, a.id, "approve", null, a.step, event.replyToken || null);
+    return true;
+  }
+  const { data: i } = await sb.from("ingestions").select("id, company_id, status").eq("id", a.id).maybeSingle();
+  if (!i || i.status !== "review") {
+    await lineReply(event.replyToken, "รายการนี้ตัดสินหรือส่งกลับไปแล้วค่ะ");
+    return true;
+  }
+  await listen(sb, i.company_id, groupId, userId, a.act, i.id, EDIT_MS);
+  await lineReply(event.replyToken, reasonPrompt[a.act]);
+  return true;
+}
+
 export async function POST(req: Request) {
   try {
     assert(
@@ -113,13 +147,22 @@ export async function POST(req: Request) {
     const sb = supabaseAdmin();
     for (const event of body.events) {
       if (event.type === "postback" && event.source?.groupId) {
-        await draftButton(sb, event);
+        if (!(await approvalButton(sb, event))) await draftButton(sb, event);
         continue;
       }
       if (event.type !== "message" || !event.source?.groupId) continue;
       const message = event.message,
         groupId = event.source.groupId,
         userId = event.source.userId;
+      if (message.type === "text" && userId && !message.text.startsWith("#")) {
+        const { data: wait } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
+        const plan = listenPlan(wait as ListenRow | null, "text");
+        if (plan.act === "decide") {
+          await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);
+          await approvalDecide(sb, groupId, userId, plan.id, plan.action, message.text.trim(), null, event.replyToken || null);
+          continue;
+        }
+      }
       if (message.type === "text" && message.text.startsWith("#connect ")) {
         const { error } = await sb.rpc("pair_line_group", {
           p_hash: tokenHash(message.text.slice(9).trim()),
@@ -178,8 +221,8 @@ export async function POST(req: Request) {
           .eq("message_id", quoted)
           .maybeSingle();
         const { data: item } = link
-          ? await sb.from("ingestions").select("id, raw, status, target_kind, department").eq("id", link.ingestion_id).maybeSingle()
-          : await sb.from("ingestions").select("id, raw, status, target_kind, department").eq("group_id", groupId).eq("bot_message_id", quoted).maybeSingle();
+          ? await sb.from("ingestions").select("id, raw, status, target_kind, department, approval").eq("id", link.ingestion_id).maybeSingle()
+          : await sb.from("ingestions").select("id, raw, status, target_kind, department, approval").eq("group_id", groupId).eq("bot_message_id", quoted).maybeSingle();
         if (item) {
           const role = link?.role || "source";
           const reread = async (note: string, replyToken: string | null) => {
@@ -204,7 +247,14 @@ export async function POST(req: Request) {
               await processNotifications();
             });
           };
-          if (role === "approver") {
+          if (role === "approver" && item.approval) {
+            const decision = parseDecision(message.text);
+            if (decision?.status === "rejected" && decision.reason && userId)
+              await approvalDecide(sb, groupId, userId, item.id, "reject", decision.reason, null, event.replyToken || null);
+            else if (decision?.status === "edit" && userId) await approvalDecide(sb, groupId, userId, item.id, "fix", decision.note, null, event.replyToken || null);
+            else await lineReply(event.replyToken, "กดปุ่ม ✅ อนุมัติ / ✏️ ขอแก้ไข / ❌ ไม่อนุมัติ ในการ์ดขออนุมัติได้เลยค่ะ (อนุมัติด้วยการพิมพ์ไม่ได้ เพื่อกันการอนุมัติโดยไม่ตั้งใจ)");
+            continue;
+          } else if (role === "approver") {
             const decision = parseDecision(message.text);
             if (!decision) {
               await lineReply(event.replyToken, "พิมพ์ “อนุมัติ”, “ไม่อนุมัติ เพราะ…” หรือ “แก้ …” ตอบข้อความคำขอนะคะ");

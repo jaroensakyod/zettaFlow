@@ -195,7 +195,8 @@ test("AI-sorted LINE group: pairs without a template, skips small talk, files wo
 
     // Approval creates the task on its page; an unknown project name is dropped, required dropdowns get defaults.
     await login(owner, "owner@test.local");
-    await db.query("select decide_ingestion($1,$2,'approved',$3,'')", [c, work.id, values]);
+    // LINE items go through their approval chain; the owner may approve every step.
+    for (let k = 0; k < 3; k++) if ((await db.query<{ s: string }>("select status s from ingestions where id=$1", [work.id])).rows[0].s === "review") await db.query("select web_approval_act($1,$2,'approve',$3,null)", [c, work.id, values]);
     await db.exec("reset role;");
     const task = await one<{ data: Record<string, unknown>; department: string }>(db, "select data,department from entities where company_id=$1 and kind='tasks'", [c]);
     assert.equal(task.data.name, "ส่งแบบบูธ");
@@ -256,7 +257,7 @@ test("a receipt photo from LINE follows the approved expense", async () => {
     const values = { name: "ชาเขียวนม", amount: 60, payee: "หจก.บุญรอดคอฟฟี่", date: "2023-11-27" };
     await db.query("select complete_sorted_ingestion($1,$2,'expenses',$3,$4,'[]','ai-sort')", [job.id, job.lease_id, pageTemplate("expenses"), values]);
     await login(owner, "owner@test.local");
-    await db.query("select decide_ingestion($1,$2,'approved',$3,'')", [c, job.id, values]);
+    for (let k = 0; k < 3; k++) if ((await db.query<{ s: string }>("select status s from ingestions where id=$1", [job.id])).rows[0].s === "review") await db.query("select web_approval_act($1,$2,'approve',$3,null)", [c, job.id, values]);
     await db.exec("reset role;");
     const e = await one<{ id: string; data: Record<string, unknown> }>(db, "select id,data from entities where company_id=$1 and kind='expenses'", [c]);
     assert.equal(e.data.receiptId, file);

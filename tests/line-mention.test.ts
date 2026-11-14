@@ -90,7 +90,7 @@ test("the summary card shows the page, labelled values, what is missing and the 
   assert.match(json, /ยังขาด: ผู้ขาย/);
   assert.match(json, /ผู้ส่ง: SIRI/);
   for (const a of ["save", "edit", "cancel"]) assert.match(json, new RegExp(`draft=${a}&id=${id}`));
-  assert.match(json, /บันทึกได้เลย/);
+  assert.match(json, /ส่งขออนุมัติ/);
   assert.ok(card.altText.length <= 400);
   // after a correction the card says so
   assert.match(JSON.stringify(draftCard({ ...input, round: 2 })), /สรุปใหม่หลังแก้ไข \(ครั้งที่ 2\)/);
@@ -160,7 +160,7 @@ test("migration 0066: drafts stay out of the website until บันทึกไ
     assert.equal(await one<string>("select line_draft_decide('G1','U-sender',$1,true)", [d1]), "review");
     assert.equal(await status(d1), "review");
     // pressing the button twice says it is already there
-    await assert.rejects(db.query("select line_draft_decide('G1','U-sender',$1,true)", [d1]), /ส่งเข้าเว็บแล้ว/);
+    await assert.rejects(db.query("select line_draft_decide('G1','U-sender',$1,true)", [d1]), /ส่งขออนุมัติแล้ว/);
 
     // a linked owner can cancel someone's draft; it is never on the website
     await db.exec("reset role;");
