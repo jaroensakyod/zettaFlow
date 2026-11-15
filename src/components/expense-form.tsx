@@ -4,7 +4,7 @@
 // "บันทึกและส่งอนุมัติ" saves it, posts the journal and waits for the approver.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Building2, CalendarDays, ChevronDown, ChevronRight, CloudUpload, FileSpreadsheet, FileText, Folder, NotebookPen,
+  Building2, CalendarDays, ChevronDown, ChevronRight, FileSpreadsheet, FileText, Folder, NotebookPen,
   Pencil, Plus, Printer, Save, Send, Tag, Trash2, Upload, User, UserRound, Wallet, X, Calculator, Paperclip, Sparkles,
 } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
@@ -12,6 +12,7 @@ import { departmentNames, docTypes, lineAmount, lineCategories, payeeTypes, type
 import { computeExpense, FULL_TAX_INVOICE, awaitingReview } from "@/lib/tax";
 import { api } from "./shared";
 import { CategorySelect } from "./category-select";
+import { AiDropHero } from "./ai-drop";
 import { uploadFile } from "./platform";
 import { deptLabels } from "./home-dashboard";
 import { currencies, formatMoney, isForeign } from "@/lib/fx";
@@ -128,10 +129,8 @@ export function ExpenseForm({
     [menu, setMenu] = useState(false),
     [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
-    [drag, setDrag] = useState(false),
     formRef = useRef<HTMLFormElement>(null),
-    importRef = useRef<HTMLInputElement>(null),
-    attachRef = useRef<HTMLInputElement>(null);
+    importRef = useRef<HTMLInputElement>(null);
   const writable = ctx.member.role !== "viewer" && (ctx.member.role === "owner" || ctx.member.departments.includes("Finance"));
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
   // Previews of files added here are local object URLs; free them when the form closes.
@@ -495,6 +494,70 @@ export function ExpenseForm({
         )}
       </header>
 
+      <AiDropHero
+        title="แนบไฟล์ทีเดียวจบ ให้ AI กรอกให้อัตโนมัติ"
+        subtitle="ถ่ายรูปหรือแนบใบเสร็จ ใบกำกับภาษี สลิปโอนเงิน AI อ่านผู้ขาย วันที่ รายการ ยอดเงิน และ VAT ให้ครบ เร็วกว่าพิมพ์เองหลายเท่า"
+        docs={["ใบเสร็จรับเงิน", "ใบกำกับภาษี", "ใบแจ้งหนี้ / บิล", "สลิปโอนเงิน"]}
+        accept={ACCEPT}
+        reading={reading}
+        disabled={locked}
+        onFiles={addFiles}
+      >
+        {(!!reading || !!reports.length || !!files.length) && (
+          <>
+            {(!!reading || !!reports.length) && (
+              <div className="exf-ai" aria-live="polite">
+                {reading && (
+                  <p className="exf-ai-busy">
+                    <Sparkles size={15} /> {reading}…
+                  </p>
+                )}
+                {reports.map((r, i) => (
+                  <p key={i} className={r.error || r.warning || r.scan?.mismatch || r.scan?.uncertain.length ? "warn" : ""}>
+                    {(() => {
+                      const file = files.find((x) => x.id === r.fileId);
+                      return file ? <Thumb file={file} size="sm" onOpen={setViewing} /> : <Sparkles size={15} />;
+                    })()}
+                    <span>
+                      <b>{r.file}</b>{" "}
+                      {r.error
+                        ? "AI อ่านไม่ได้: " + r.error
+                        : (r.scan!.lines.length ? `เพิ่ม ${r.scan!.lines.length} รายการ` : "ไม่พบรายการ") +
+                          (r.scan!.slip ? ` · สลิปโอนเงิน ${r.scan!.slip.bank} เลขอ้างอิง ${r.scan!.slip.transRef}` : "") +
+                          (r.scan!.notes ? " · " + r.scan!.notes : "")}
+                      {r.scan?.mismatch && <em> · ยอดรวมที่อ่านได้ {two(r.scan.mismatch.rebuilt)} ไม่ตรงกับยอดบนเอกสาร {two(r.scan.mismatch.printed)} กรุณาตรวจ</em>}
+                      {!!r.scan?.uncertain.length && <em> · ไม่แน่ใจ: {r.scan.uncertain.map((u) => uncertainLabels[u] || u).join(", ")}</em>}
+                      {r.warning && <em> · {r.warning}</em>}
+                    </span>
+                    <button type="button" className="exf-icon" aria-label="ปิดข้อความ" onClick={() => setReports((rs) => rs.filter((_, j) => j !== i))}>
+                      <X size={14} />
+                    </button>
+                  </p>
+                ))}
+              </div>
+            )}
+            {!!files.length && (
+              <ul className="exf-files">
+                {files.map((f) => (
+                  <li key={f.id}>
+                    <Thumb file={f} size="sm" onOpen={setViewing} />
+                    <span>
+                      {f.name}
+                      {f.local ? <small> (โหมดตัวอย่าง ไม่ได้เก็บไฟล์)</small> : !f.linked ? <small> · แนบเมื่อบันทึก</small> : null}
+                    </span>
+                    {!f.linked && !f.local && (
+                      <button type="button" className="exf-icon" aria-label={"เอา " + f.name + " ออก"} onClick={() => setFiles((fs) => fs.filter((x) => x.id !== f.id))}>
+                        <X size={13} />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </AiDropHero>
+
       <form ref={formRef} className="exf-grid" onSubmit={(e) => e.preventDefault()}>
         <fieldset className="exf-card exf-general" disabled={locked}>
           <SectionTitle icon={<FileText size={22} />}>1. ข้อมูลทั่วไป</SectionTitle>
@@ -558,7 +621,7 @@ export function ExpenseForm({
         </fieldset>
 
         <section className="exf-card exf-summary" aria-label="สรุปยอดเงิน">
-          <SectionTitle icon={<Calculator size={20} />}>6. สรุปยอดเงิน</SectionTitle>
+          <SectionTitle icon={<Calculator size={20} />}>5. สรุปยอดเงิน</SectionTitle>
           <fieldset disabled={locked}>
             <SumRow label="ยอดรวมก่อนภาษี" value={sums.subtotal} />
             <SumRow
@@ -740,37 +803,6 @@ export function ExpenseForm({
               </div>
             </div>
           )}
-          {(!!reading || !!reports.length) && (
-            <div className="exf-ai" aria-live="polite">
-              {reading && (
-                <p className="exf-ai-busy">
-                  <Sparkles size={15} /> {reading}…
-                </p>
-              )}
-              {reports.map((r, i) => (
-                <p key={i} className={r.error || r.warning || r.scan?.mismatch || r.scan?.uncertain.length ? "warn" : ""}>
-                  {(() => {
-                    const file = files.find((x) => x.id === r.fileId);
-                    return file ? <Thumb file={file} size="sm" onOpen={setViewing} /> : <Sparkles size={15} />;
-                  })()}
-                  <span>
-                    <b>{r.file}</b>{" "}
-                    {r.error
-                      ? "AI อ่านไม่ได้: " + r.error
-                      : (r.scan!.lines.length ? `เพิ่ม ${r.scan!.lines.length} รายการ` : "ไม่พบรายการ") +
-                        (r.scan!.slip ? ` · สลิปโอนเงิน ${r.scan!.slip.bank} เลขอ้างอิง ${r.scan!.slip.transRef}` : "") +
-                        (r.scan!.notes ? " · " + r.scan!.notes : "")}
-                    {r.scan?.mismatch && <em> · ยอดรวมที่อ่านได้ {two(r.scan.mismatch.rebuilt)} ไม่ตรงกับยอดบนเอกสาร {two(r.scan.mismatch.printed)} กรุณาตรวจ</em>}
-                    {!!r.scan?.uncertain.length && <em> · ไม่แน่ใจ: {r.scan.uncertain.map((u) => uncertainLabels[u] || u).join(", ")}</em>}
-                    {r.warning && <em> · {r.warning}</em>}
-                  </span>
-                  <button type="button" className="exf-icon" aria-label="ปิดข้อความ" onClick={() => setReports((rs) => rs.filter((_, j) => j !== i))}>
-                    <X size={14} />
-                  </button>
-                </p>
-              ))}
-            </div>
-          )}
           <div className="exf-table-wrap">
             <table className="exf-table">
               <thead>
@@ -854,57 +886,9 @@ export function ExpenseForm({
           </div>
         </fieldset>
 
-        <div className="exf-bottom">
-        <fieldset className="exf-card exf-attach" disabled={locked}>
-          <SectionTitle icon={<FileText size={22} />}>4. เอกสารแนบ</SectionTitle>
-          <div>
-            <label
-              className={"exf-drop" + (drag ? " drag" : "")}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDrag(true);
-              }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDrag(false);
-                addFiles([...e.dataTransfer.files]);
-              }}
-            >
-              <CloudUpload size={30} />
-              <span>
-                {reading || "ลากไฟล์มาวางที่นี่ หรือ"} {!reading && <b>คลิกเพื่ออัปโหลด</b>}
-              </span>
-              <small>PDF, JPG, PNG ไม่เกิน 15MB · AI อ่านใบเสร็จ/สลิปแล้วเพิ่มรายการให้อัตโนมัติ</small>
-              <input ref={attachRef} type="file" hidden multiple accept={ACCEPT} onChange={(e) => {
-                const list = [...(e.target.files || [])];
-                e.target.value = "";
-                addFiles(list);
-              }} />
-            </label>
-            {!!files.length && (
-              <ul className="exf-files">
-                {files.map((f) => (
-                  <li key={f.id}>
-                    <Thumb file={f} size="sm" onOpen={setViewing} />
-                    <span>
-                      {f.name}
-                      {f.local ? <small> (โหมดตัวอย่าง ไม่ได้เก็บไฟล์)</small> : !f.linked ? <small> · แนบเมื่อบันทึก</small> : null}
-                    </span>
-                    {!f.linked && !f.local && (
-                      <button type="button" className="exf-icon" aria-label={"เอา " + f.name + " ออก"} onClick={() => setFiles((fs) => fs.filter((x) => x.id !== f.id))}>
-                        <X size={13} />
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </fieldset>
-
+        <div className="exf-bottom one">
         <fieldset className="exf-card exf-notes" disabled={locked}>
-          <SectionTitle icon={<NotebookPen size={22} />}>5. หมายเหตุ</SectionTitle>
+          <SectionTitle icon={<NotebookPen size={22} />}>4. หมายเหตุ</SectionTitle>
           <div className="exf-note-box">
             <textarea aria-label="หมายเหตุ" value={d.notes} maxLength={NOTE_MAX} placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)" onChange={(e) => set("notes", e.target.value)} />
             <small>
