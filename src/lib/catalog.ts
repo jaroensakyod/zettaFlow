@@ -553,6 +553,9 @@ export const modules: Module[] = [
       }),
       f("reference", "เลขอ้างอิง"),
       f("notes", "หมายเหตุ", "textarea"),
+      // บันทึกรายรับ (0073): its document number and the customer who paid (also without an invoice).
+      f("code", "เลขที่เอกสาร"),
+      f("customerId", "ลูกค้า", "relation", false, { resource: "customers" }),
     ],
   },
   {

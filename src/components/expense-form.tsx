@@ -1029,7 +1029,7 @@ function Viewer({ file, files, onClose, onPick }: { file: FileItem; files: FileI
   );
 }
 
-function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+export function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <h2 className="exf-title">
       <span>{icon}</span>
@@ -1038,7 +1038,7 @@ function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode
   );
 }
 
-function Field({ label, required, icon, children }: { label: string; required?: boolean; icon?: ReactNode; children: ReactNode }) {
+export function Field({ label, required, icon, children }: { label: string; required?: boolean; icon?: ReactNode; children: ReactNode }) {
   return (
     <label className={"exf-field" + (icon ? " with-icon" : "")}>
       {label && (
@@ -1055,7 +1055,7 @@ function Field({ label, required, icon, children }: { label: string; required?: 
   );
 }
 
-function SumRow({ label, extra, value, accent, children }: { label: ReactNode; extra?: ReactNode; value?: number; accent?: boolean; children?: ReactNode }) {
+export function SumRow({ label, extra, value, accent, children }: { label: ReactNode; extra?: ReactNode; value?: number; accent?: boolean; children?: ReactNode }) {
   return (
     <div className="exf-sum-row">
       <span className="exf-sum-label">{label}</span>

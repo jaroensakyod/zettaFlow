@@ -59,7 +59,7 @@ export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: stri
     <div className="acc income-page">
       <FinanceTabs current="income" navigate={navigate}>
         {writable && (
-          <button className="primary acc-new" onClick={() => navigate("payments?direction=income&new=1")}>
+          <button className="primary acc-new" onClick={() => navigate("income-new")}>
             <Plus size={16} /> บันทึกรายรับ
           </button>
         )}

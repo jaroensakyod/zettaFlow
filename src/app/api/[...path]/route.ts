@@ -85,7 +85,7 @@ import { dealDecide, dealQuote, dealRequest, dealStep, dealSteps, dealWithdraw, 
 import { b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
-import { taxReport, incomeReport, ledger, ledgerDetail, expiries } from "@/lib/dept-views";
+import { taxReport, incomeReport, incomeForm, ledger, ledgerDetail, expiries } from "@/lib/dept-views";
 import { ordersList, recordOrderPayment, setOrderWaiting } from "@/lib/orders";
 import { quotesList, updateQuote, quoteForm } from "@/lib/quotes";
 import { accountingOverview, importReceipt, postExpense, expenseBooks, whtCertificateHtml, linkAttachment } from "@/lib/accounting";
@@ -506,6 +506,7 @@ async function handle(req: NextRequest) {
     }
     if (path[0] === "tax-report") return response(await taxReport(ctx));
     if (path[0] === "income-report") return response(await incomeReport(ctx));
+    if (path[0] === "income-form" && method === "GET") return response(await incomeForm(ctx));
     // คำสั่งซื้อ: GET /orders, POST /orders/:id/pay {payerName,paidAt,payMethod,payReference}, POST /orders/:id/status {payStatus}.
     // ใบเสนอราคา: GET /quotes, POST /quotes/:id {status?, projectId?}.
     if (path[0] === "quotes" && !path[1] && method === "GET") return response(await quotesList(ctx));

@@ -4272,3 +4272,11 @@ revoke all on function public.line_approval_act(text,text,uuid,text,text,int)fro
 -- Free plan: 300 AI items a month, as the website says (a file read and its summary may take a few calls each).
 update public.free_limits set amount=300 where resource='ai_files';
 update public.free_limits set amount=1500 where resource='ai_calls';
+
+-- 0073: บันทึกรายรับ page — a payment keeps its document number (RV-20261116-001) and the customer who paid
+-- (for money received without an invoice, e.g. a cash sale). Both optional.
+update public.entity_schemas set fields=fields
+ ||case when fields @> '[{"key":"code"}]'::jsonb then '[]'::jsonb else '[{"key":"code","label":"เลขที่เอกสาร","type":"text","required":false}]'::jsonb end
+ ||case when fields @> '[{"key":"customerId"}]'::jsonb then '[]'::jsonb else '[{"key":"customerId","label":"ลูกค้า","type":"relation","required":false,"resource":"customers"}]'::jsonb end
+ where kind='payments';
+select 'ok 0073' as result,(select count(*)from jsonb_array_elements((select fields from public.entity_schemas where kind='payments'))f where f->>'key'in('code','customerId'))as added;

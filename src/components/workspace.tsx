@@ -80,6 +80,7 @@ import { DepartmentMegaMenu, DEPT_KEY } from "./dept-menu";
 import { DepartmentSidebar } from "./dept-sidebar";
 import { SampleDataCard } from "./sample-data-card";
 import { ExpenseForm } from "./expense-form";
+import { IncomeForm } from "./income-form";
 import { departmentOf } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
@@ -201,6 +202,11 @@ const extra: Record<
     label: "บันทึกค่าใช้จ่าย",
     icon: "Wallet",
     description: "กรอกข้อมูลค่าใช้จ่าย เพื่ออนุมัติและบันทึกเข้าระบบ",
+  },
+  "income-new": {
+    label: "บันทึกรายรับ",
+    icon: "Wallet",
+    description: "บันทึกเงินที่ได้รับจากลูกค้า ผูกกับใบแจ้งหนี้ แล้วออกใบเสร็จรับเงินได้",
   },
   income: {
     label: "รายรับ",
@@ -738,7 +744,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
         <main className="main" key={ctx.company.id}>
-          {!["feed", "jobs", "dashboard", "company", "expense-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company", "expense-new", "income-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat"].includes(view) && (
           // Accounting pages carry their own period picker and tabs: a one-line heading keeps the numbers near the top.
           <div className={"page-heading" + (sideDept?.id === "accounting" ? " compact" : "")}>
             <div>
@@ -782,6 +788,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               notify={notify}
               refreshKey={lastSync.getTime()}
             />
+          ) : view === "income-new" ? (
+            <IncomeForm key={searchParams.get("n") || "new"} ctx={ctx} invoiceId={searchParams.get("invoice")} navigate={navigate} notify={notify} changed={load} />
           ) : view === "expense-new" ? (
             <ExpenseForm key={searchParams.get("id") || "new"} ctx={ctx} id={searchParams.get("id")} navigate={navigate} notify={notify} changed={load} />
           ) : view === "expenses" && catalog[view] && !searchParams.get("filter") ? (
@@ -842,7 +850,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                 only={listFilter}
                 preset={listFilter && "preset" in listFilter ? listFilter.preset : undefined}
                 addLabel={view === "payments" && searchParams.get("direction") === "income" ? "บันทึกรับชำระ" : undefined}
-                newSignal={searchParams.get("new") ? 1 : 0}
+                onAdd={view === "payments" && searchParams.get("direction") === "income" ? () => navigate("income-new") : undefined}
+                newSignal={searchParams.get("new") && !(view === "payments" && searchParams.get("direction") === "income") ? 1 : 0}
               />
             </>
           ) : view === "ai-inbox" || view === "templates" ? (

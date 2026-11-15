@@ -183,8 +183,12 @@ export const sidebarOf = (d: DepartmentMenu): SideItem[] => d.sidebar || d.items
 const entries = (d: DepartmentMenu) => sidebarOf(d).flatMap((i) => [i, ...(i.children || [])]);
 // App-wide pages: they only show a department sidebar when the user came from that department.
 const shared = new Set(["feed", "jobs", "dashboard", "calendar", "chat", "company", "team", "store", "ads", "departments", "pricing", "assistant", "admin", "integrations", "templates", "ai-inbox", "tasks", "documents", "reports", "profile"]);
+/** Full pages opened from a list sit under that list's menu entry (บันทึกรายรับ → รับชำระเงิน). */
+const menuAlias: Record<string, string> = { "income-new": "payments?direction=income" };
+const alias = (view: string) => menuAlias[baseView(view)] || view;
 /** The department whose sidebar a page shows: an exact match (with ?query) wins, the last-used department is preferred. */
 export function departmentOf(view: string, preferred?: string | null) {
+  view = alias(view);
   const ordered = [...departmentMenu].sort((a, b) => Number(b.id === preferred) - Number(a.id === preferred));
   const exact = ordered.find((d) => entries(d).some((i) => i.view === view));
   if (exact && (!shared.has(baseView(view)) || exact.id === preferred || view.includes("?"))) return exact;
@@ -194,6 +198,7 @@ export function departmentOf(view: string, preferred?: string | null) {
 }
 /** The sidebar entry for this page: the exact view (with ?query) if listed, else the first entry with the same base view. */
 export function activeEntry(d: DepartmentMenu, view: string) {
+  view = alias(view);
   // Sub-pages first, so a group and its child with the same view highlight the child.
   const all = sidebarOf(d).flatMap((i) => [...(i.children || []), i]);
   return all.find((i) => i.view === view) || all.find((i) => baseView(i.view) === baseView(view));

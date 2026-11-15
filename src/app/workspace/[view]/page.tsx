@@ -26,6 +26,7 @@ const extra = [
   "departments",
   "tax",
   "expense-new",
+  "income-new",
   "expiries",
   "transfers",
   "pricing",

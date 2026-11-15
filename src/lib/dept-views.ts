@@ -382,3 +382,35 @@ export async function ledgerDetail(ctx: Context, kind: string, id: string): Prom
     },
   };
 }
+
+/** บันทึกรายรับ: what the page needs in one read — invoices with what is still owed, customers, branches and the
+ *  next document number (RV-yyyymmdd-nnn, counted from today's income payments). */
+export async function incomeForm(ctx: Context) {
+  assert(canRead(ctx, "Finance"), "ไม่มีสิทธิ์ฝ่ายการเงิน", 403);
+  const [payments, invoices, customers, branches] = await Promise.all([
+    allEntities(ctx, "payments", 5000),
+    allEntities(ctx, "invoices", 5000),
+    allEntities(ctx, "customers", 5000),
+    allEntities(ctx, "branches", 500),
+  ]);
+  const received = new Map<string, number>();
+  for (const p of payments)
+    if (p.data.direction === "income" && p.data.invoiceId) received.set(String(p.data.invoiceId), r2((received.get(String(p.data.invoiceId)) || 0) + (Number(p.data.amount) || 0)));
+  const names = new Map(customers.map((c) => [c.id, String(c.data.name || "")]));
+  const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+  const prefix = "RV-" + today.replace(/-/g, "") + "-";
+  const n = payments.filter((p) => String(p.data.code || "").startsWith(prefix)).length + 1;
+  return {
+    next: prefix + String(n).padStart(3, "0"),
+    invoices: invoices
+      .map((e) => {
+        const sub = Number(e.data.subtotal) || 0,
+          total = r2(sub + (sub * (Number(e.data.vat) || 0)) / 100),
+          got = received.get(e.id) || 0;
+        return { id: e.id, name: String(e.data.name || ""), customerId: String(e.data.customerId || ""), customer: names.get(String(e.data.customerId || "")) || "", date: String(e.data.date || ""), dueDate: String(e.data.dueDate || ""), total, received: got, owed: r2(Math.max(0, total - got)) };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date)),
+    customers: customers.map((c) => ({ id: c.id, name: String(c.data.name || ""), taxId: String(c.data.taxId || ""), phone: String(c.data.phone || c.data.contactPhone || "") })).sort((a, b) => a.name.localeCompare(b.name, "th")),
+    branches: branches.map((b) => ({ id: b.id, name: String(b.data.name || "") })),
+  };
+}

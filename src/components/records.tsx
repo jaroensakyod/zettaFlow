@@ -373,6 +373,7 @@ export function Records({
   preset,
   addLabel,
   newSignal = 0,
+  onAdd,
 }: {
   kind: string;
   ctx: Context;
@@ -387,6 +388,8 @@ export function Records({
   addLabel?: string;
   /** Bump to open the add form from outside (a page's own header button). */
   newSignal?: number;
+  /** The add button opens a full page instead of the form (รับชำระ → บันทึกรายรับ). */
+  onAdd?: () => void;
 }) {
   const module = catalog[kind];
   const [rows, setRows] = useState<Entity[]>([]),
@@ -581,7 +584,7 @@ export function Records({
           </button>
           {ctx.member.role === "owner" && !archived && <LineFeedButton kind={kind} notify={notify} />}
           {writable && !archived && (
-            <button className="primary" onClick={() => open("edit")}>
+            <button className="primary" onClick={() => (onAdd ? onAdd() : open("edit"))}>
               <Plus size={16} />
               {addLabel || "เพิ่ม" + module.label}
             </button>
