@@ -326,31 +326,25 @@
 .dept-side-step.active i { background: var(--sec); color: #fff; border-color: var(--sec); }
 
 /* รายรับ page: ขั้นตอนการขาย (quote → SO → invoice → payment → receipt) */
-.sales-flow { padding: 14px 16px; margin-bottom: 14px; display: grid; gap: 10px; }
-.sales-flow header { display: grid; gap: 2px; }
-.sales-flow header small { color: var(--muted); font-size: 12px; }
-/* Five coloured steps in one row: soft tinted card, gradient number, icon, the amount in the step's colour. */
-.sales-flow ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.sales-flow li { --c1: #16a34a; --c2: #4ade80; --bg: #effbf3; --ink: #15803d; display: flex; align-items: center; gap: 6px; min-width: 0; }
-.sales-flow li.sf-violet { --c1: #7c3aed; --c2: #a78bfa; --bg: #f5f1ff; --ink: #6d28d9; }
-.sales-flow li.sf-blue { --c1: #2563eb; --c2: #60a5fa; --bg: #eff5ff; --ink: #1d4ed8; }
-.sales-flow li.sf-amber { --c1: #ea580c; --c2: #fbbf24; --bg: #fff6ea; --ink: #c2410c; }
-.sales-flow li.sf-teal { --c1: #0d9488; --c2: #2dd4bf; --bg: #ecfbf8; --ink: #0f766e; }
-.sales-flow li.sf-green { --c1: #16a34a; --c2: #4ade80; --bg: #effbf3; --ink: #15803d; }
-.sales-flow li > button { position: relative; overflow: hidden; flex: 1; min-width: 0; display: grid; gap: 3px; align-content: start; padding: 12px 14px 13px; border: 1px solid color-mix(in srgb, var(--c1) 22%, transparent); border-radius: 14px; background: linear-gradient(160deg, var(--bg) 0%, #fff 85%); cursor: pointer; text-align: left; transition: transform .15s, box-shadow .15s, border-color .15s; }
-.sales-flow li > button::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--c1), var(--c2)); }
-.sales-flow li > button:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c1) 45%, transparent); box-shadow: 0 10px 22px color-mix(in srgb, var(--c1) 16%, transparent); }
-.sales-flow .sf-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.sales-flow li i { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--c1), var(--c2)); color: #fff; font-style: normal; font-size: 12.5px; font-weight: 800; box-shadow: 0 4px 10px color-mix(in srgb, var(--c1) 30%, transparent); }
-.sales-flow .sf-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: color-mix(in srgb, var(--c1) 12%, #fff); color: var(--c1); }
-.sales-flow li b { font-size: 14.5px; color: #2c2550; }
-.sales-flow li small { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sales-flow li em { margin-top: 2px; font-style: normal; font-size: 18px; font-weight: 800; letter-spacing: -.2px; color: var(--ink); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sales-flow-arrow { flex: none; color: color-mix(in srgb, var(--c1) 55%, #fff); }
-@media (prefers-reduced-motion: reduce) { .sales-flow li > button { transition: none; } .sales-flow li > button:hover { transform: none; } }
-@media (max-width: 1200px) { .sales-flow ol { grid-template-columns: repeat(3, minmax(0, 1fr)); } .sales-flow-arrow { display: none; } }
-@media (max-width: 760px) { .sales-flow ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 420px) { .sales-flow ol { grid-template-columns: minmax(0, 1fr); } }
+/* ขั้นตอนการขาย: one slim row of coloured steps, for reading only (not buttons). */
+.sales-flow { display: flex; align-items: center; gap: 14px; padding: 9px 14px; margin-bottom: 12px; }
+.sales-flow .sf-title { flex: none; font-size: 13px; color: #2c2550; padding-right: 14px; border-right: 1px solid var(--line); }
+.sales-flow ol { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.sales-flow li { --c1: #16a34a; --c2: #4ade80; --bg: #effbf3; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.sales-flow li.sf-violet { --c1: #7c3aed; --c2: #a78bfa; --bg: #f5f1ff; }
+.sales-flow li.sf-blue { --c1: #2563eb; --c2: #60a5fa; --bg: #eff5ff; }
+.sales-flow li.sf-amber { --c1: #ea580c; --c2: #fbbf24; --bg: #fff4e6; }
+.sales-flow li.sf-teal { --c1: #0d9488; --c2: #2dd4bf; --bg: #e9faf6; }
+.sales-flow li.sf-green { --c1: #16a34a; --c2: #4ade80; --bg: #ecfaf1; }
+.sales-flow .sf-step { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; padding: 5px 10px 5px 5px; border-radius: 999px; background: var(--bg); border: 1px solid color-mix(in srgb, var(--c1) 20%, transparent); }
+.sales-flow li i { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--c1), var(--c2)); color: #fff; font-style: normal; font-size: 11.5px; font-weight: 800; }
+.sales-flow .sf-icon { flex: none; display: grid; place-items: center; color: var(--c1); }
+.sales-flow .sf-text { display: grid; min-width: 0; line-height: 1.2; }
+.sales-flow li b { font-size: 13px; color: #2c2550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sales-flow li small { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sales-flow-arrow { flex: none; color: color-mix(in srgb, var(--c1) 50%, #fff); }
+@media (max-width: 1200px) { .sales-flow .sf-icon, .sales-flow li small { display: none; } }
+@media (max-width: 900px) { .sales-flow { flex-direction: column; align-items: stretch; gap: 8px; } .sales-flow .sf-title { border: 0; padding: 0; } .sales-flow ol { display: flex; overflow-x: auto; scrollbar-width: none; } .sales-flow li { flex: none; } }
 
 /* สรุปรายรับ / ค่าใช้จ่าย (finance-ledger.tsx) */
 .fl { --fc-violet: var(--th-accent, #7c3aed); --fc-soft: var(--th-tint, #f3eefe); display: grid; gap: 14px; min-width: 0; }

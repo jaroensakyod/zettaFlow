@@ -64,7 +64,7 @@ export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: stri
           </button>
         )}
       </FinanceTabs>
-      <SalesFlow data={data} month={now} navigate={navigate} />
+      <SalesFlow />
       <FinanceLedger
         kind="income"
         navigate={navigate}
@@ -106,40 +106,33 @@ export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: stri
   );
 }
 
-/** ขั้นตอนการขาย: how many documents wait at each stage, each stage opens its page. */
-function SalesFlow({ data, month, navigate }: { data: IncomeReport; month: IncomeMonth; navigate: (v: string) => void }) {
-  const p = data.pipeline;
-  // Each step has its own colour and icon (the same icons as the sidebar), so the flow reads left to right at a glance.
-  const steps: [number, string, string, string, string, string, ReactNode][] = [
-    [1, "ใบเสนอราคา", p ? p.quotesSent.count + " ใบ รอลูกค้าตอบ" : "—", p ? "฿" + money(p.quotesSent.amount) : "", "quotations", "violet", <FileText key="i" size={18} />],
-    [2, "คำสั่งซื้อ", p ? p.ordersUnpaid.count + " คำสั่งซื้อ ยังไม่ได้รับเงิน" : "—", p ? "฿" + money(p.ordersUnpaid.amount) : "", "sales_orders", "blue", <ShoppingCart key="i" size={18} />],
-    [3, "ใบแจ้งหนี้", p ? p.ordersToInvoice.count + p.quotesAccepted.count + " งาน รอออกใบแจ้งหนี้" : "—", p ? "฿" + money(p.ordersToInvoice.amount + p.quotesAccepted.amount) : "", "invoices", "amber", <FileDigit key="i" size={18} />],
-    [4, "รับชำระเงิน", data.openInvoices + " ใบแจ้งหนี้ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income", "teal", <Wallet key="i" size={18} />],
-    [5, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts", "green", <ScrollText key="i" size={18} />],
-  ];
+/** ขั้นตอนการขาย: a slim strip that only shows the order of the steps (not buttons), each in its own colour. */
+const salesSteps: [string, string, string, ReactNode][] = [
+  ["ใบเสนอราคา", "ส่งให้ลูกค้า", "violet", <FileText key="i" size={15} />],
+  ["คำสั่งซื้อ", "ลูกค้าตอบรับ", "blue", <ShoppingCart key="i" size={15} />],
+  ["ใบแจ้งหนี้", "เรียกเก็บเงิน", "amber", <FileDigit key="i" size={15} />],
+  ["รับชำระเงิน", "เงินเข้า", "teal", <Wallet key="i" size={15} />],
+  ["ใบเสร็จรับเงิน", "ส่งหลักฐาน", "green", <ScrollText key="i" size={15} />],
+];
+function SalesFlow() {
   return (
     <section className="card sales-flow" aria-label="ขั้นตอนการขาย">
-      <header>
-        <b>ขั้นตอนการขาย</b>
-        <small>ใบเสนอราคา → ลูกค้าตอบรับ → เปิดคำสั่งซื้อ (แพ็กเกจ · แพลตฟอร์ม) → ออกใบแจ้งหนี้ → รับเงิน → เก็บใบเสร็จ</small>
-      </header>
+      <b className="sf-title">ขั้นตอนการขาย</b>
       <ol>
-        {steps.map(([n, label, note, amount, view, tone, icon], i) => (
-          <li key={n} className={"sf-" + tone}>
-            <button onClick={() => navigate(view)}>
-              <span className="sf-top">
-                <i>{n}</i>
-                <span className="sf-icon">{icon}</span>
+        {salesSteps.map(([label, hint, tone, icon], i) => (
+          <li key={label} className={"sf-" + tone}>
+            <span className="sf-step">
+              <i>{i + 1}</i>
+              <span className="sf-icon">{icon}</span>
+              <span className="sf-text">
+                <b>{label}</b>
+                <small>{hint}</small>
               </span>
-              <b>{label}</b>
-              <small>{note}</small>
-              {amount && <em>{amount}</em>}
-            </button>
-            {i < steps.length - 1 && <ChevronRight size={18} className="sales-flow-arrow" />}
+            </span>
+            {i < salesSteps.length - 1 && <ChevronRight size={16} className="sales-flow-arrow" aria-hidden />}
           </li>
         ))}
       </ol>
-      {!p && <p className="note">ตัวเลขใบเสนอราคาแสดงเฉพาะผู้ที่มีสิทธิ์ฝ่ายขาย</p>}
     </section>
   );
 }
