@@ -45,14 +45,15 @@ export function editText(text: string): string | null {
   return m ? m[1].trim() : null;
 }
 
-export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix" | "slip"; ingestion_id: string | null; until: string };
+export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix" | "slip" | "evidence"; ingestion_id: string | null; until: string };
 export type ListenPlan =
   | { act: "ignore" }
   | { act: "new" }
   | { act: "attach"; id: string }
   | { act: "edit"; id: string }
   | { act: "decide"; id: string; action: "reject" | "fix"; note?: never }
-  | { act: "slip"; id: string };
+  | { act: "slip"; id: string }
+  | { act: "evidence"; id: string };
 /**
  * A message that does not mention the bot, from a member the bot is listening to:
  * • "any" (after an empty mention): any message or file starts a draft;
@@ -69,6 +70,8 @@ export function listenPlan(row: ListenRow | null | undefined, messageType: strin
   if ((row.mode === "reject" || row.mode === "fix") && row.ingestion_id) return text ? { act: "decide", id: row.ingestion_id, action: row.mode } : { act: "ignore" };
   // After "ยืนยันจ่ายแล้ว · ส่งสลิป": the photo / file is the slip.
   if (row.mode === "slip" && row.ingestion_id) return file ? { act: "slip", id: row.ingestion_id } : { act: "ignore" };
+  // After "📎 เพิ่มรูป/หลักฐาน": each photo / file is more evidence for that item.
+  if (row.mode === "evidence" && row.ingestion_id) return file ? { act: "evidence", id: row.ingestion_id } : { act: "ignore" };
   if (row.mode === "any") return { act: "new" };
   if (row.mode === "edit" && row.ingestion_id) return { act: "edit", id: row.ingestion_id };
   if (row.mode === "files" && file) return row.ingestion_id ? { act: "attach", id: row.ingestion_id } : { act: "new" };
@@ -226,6 +229,7 @@ export function draftCard(input: DraftInput) {
             spacing: "sm",
             contents: [btn("✏️ แก้ไข", `draft=edit&id=${input.id}`, "secondary"), btn("ยกเลิก", `draft=cancel&id=${input.id}`, "link", "#be123c")],
           },
+          btn("📎 เพิ่มรูป/หลักฐาน", `add=${input.id}`, "link", "#4f46e5"),
           small("ส่งขออนุมัติแล้วยังไม่ถือว่าอนุมัติ จนกว่าผู้อนุมัติคนสุดท้ายจะยืนยัน"),
         ],
       },
@@ -234,6 +238,8 @@ export function draftCard(input: DraftInput) {
 }
 
 export const SLIP_MS = 30 * 60_000;
+export const EVIDENCE_MS = 10 * 60_000;
+export const evidencePrompt = (left: number) => `📎 ส่งรูปหรือ PDF หลักฐานได้เลยค่ะ (ภายใน 10 นาที) เพิ่มได้อีก ${left} ไฟล์ เช่น สลิป ใบเสร็จ รูปสินค้า`;
 export const slipPrompt = "🧾 ส่งรูปสลิปโอนเงิน หรือใบเสร็จได้เลยค่ะ (ภายใน 30 นาที) ได้รับแล้วน้องจะลงเป็นค่าใช้จ่ายให้";
 /** "ส่งสลิป EXP-69-0001" (with a mention) → that request's slip comes next. */
 export function slipRequest(text: string): { code: string | null } | null {
@@ -287,6 +293,8 @@ export type ApprovalItem = {
   recordId?: string | null;
   /** Who may press อนุมัติ on this step (managers of the step's department). */
   approvers?: string[];
+  /** Signed link to the ใบรับรองแทนใบเสร็จรับเงิน of the recorded expense. */
+  substituteUrl?: string | null;
 };
 const done = (a: Approval) => a.history.filter((h) => h.action === "approve" && h.round === (a.round || 1));
 /** Card to the approver of the current step: what is asked, steps already approved, and อนุมัติ / ขอแก้ไข / ไม่อนุมัติ. */
@@ -436,12 +444,23 @@ export function approvedCard(item: ApprovalItem, stage: "approved" | "awaiting_s
               type: "box",
               layout: "vertical",
               paddingAll: "12px",
-              contents: [btn("🧾 ยืนยันจ่ายแล้ว · ส่งสลิป", `slip=${item.id}`, "primary", "#16a34a")],
+              spacing: "sm",
+              contents: [btn("🧾 ยืนยันจ่ายแล้ว · ส่งสลิป", `slip=${item.id}`, "primary", "#16a34a"), btn("📎 แนบหลักฐานเพิ่ม", `add=${item.id}`, "link", "#4f46e5")],
             },
           }
-        : url
-        ? { footer: { type: "box", layout: "vertical", paddingAll: "12px", contents: [{ type: "button", style: "secondary", height: "sm", action: { type: "uri", label: "เปิดดูใน EliteFlow", uri: url } }] } }
-        : {}),
+        : {
+            footer: {
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              paddingAll: "12px",
+              contents: [
+                ...(item.substituteUrl ? [{ type: "button", style: "primary", color: "#4f46e5", height: "sm", action: { type: "uri", label: "📄 ใบแทนใบเสร็จ", uri: item.substituteUrl } }] : []),
+                ...(url ? [{ type: "button", style: "secondary", height: "sm", action: { type: "uri", label: "เปิดดูใน EliteFlow", uri: url } }] : []),
+                btn("📎 แนบหลักฐานเพิ่ม", `add=${item.id}`, "link", "#4f46e5"),
+              ],
+            },
+          }),
     },
   };
 }
@@ -461,7 +480,7 @@ export function docRequest(text: string): { code: string | null } | null {
   const m = t.match(/\b([A-Z]{2,3}-\d{2}-\d{3,})\b/i);
   return { code: m ? m[1].toUpperCase() : null };
 }
-export type DocRecord = { id: string; kind: string; code: string; name: string; total: number | null; status: string | null; at: string; lines: { name: string; qty: number; unit?: string; price: number }[] };
+export type DocRecord = { id: string; kind: string; code: string; name: string; total: number | null; status: string | null; at: string; lines: { name: string; qty: number; unit?: string; price: number }[]; substituteUrl?: string | null };
 /** Pick-a-document card: the latest documents of this group as buttons. */
 export function docChoices(docs: DocRecord[]) {
   return {
@@ -531,7 +550,18 @@ export function docCard(d: DocRecord) {
         ],
       },
       ...(url
-        ? { footer: { type: "box", layout: "vertical", paddingAll: "12px", contents: [{ type: "button", style: "primary", color: "#4f46e5", height: "sm", action: { type: "uri", label: "เปิดเอกสารในเว็บ", uri: url } }] } }
+        ? {
+            footer: {
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              paddingAll: "12px",
+              contents: [
+                { type: "button", style: "primary", color: "#4f46e5", height: "sm", action: { type: "uri", label: "เปิดเอกสารในเว็บ", uri: url } },
+                ...(d.substituteUrl ? [{ type: "button", style: "secondary", height: "sm", action: { type: "uri", label: "📄 ใบแทนใบเสร็จ", uri: d.substituteUrl } }] : []),
+              ],
+            },
+          }
         : {}),
     },
   };

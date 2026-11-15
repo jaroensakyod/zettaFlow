@@ -23,6 +23,7 @@ import { lineGroup, lineReplyId, sentMessageId } from "./line";
 import { deptThai, lineNotice } from "./line-message";
 import { approvalCard, approvedCard, draftCard, nothingToSave, sentText, stepText, type ActResult, type ApprovalItem } from "./line-mention";
 import type { Approval } from "./types";
+import { shareUrl } from "./share-link";
 import { aiEnabled, aiGenerate, aiProvider, forCompany, type AiPart } from "./llm";
 import { documentText, isAudio } from "./line-files";
 
@@ -611,6 +612,10 @@ async function approvalItem(i: Row): Promise<ApprovalItem> {
     recordId: i.status === "approved" ? await recordOf(i.company_id, i.id) : null,
   };
 }
+/** The item plus, for a recorded expense, the signed link to its ใบรับรองแทนใบเสร็จรับเงิน. */
+async function withSubstitute(item: ApprovalItem): Promise<ApprovalItem> {
+  return item.kind === "expenses" && item.recordId ? { ...item, substituteUrl: shareUrl({ k: "sub", id: item.recordId }) || null } : item;
+}
 async function recordOf(companyId: string, ingestionId: string) {
   const { data } = await supabaseAdmin().from("entities").select("id").eq("company_id", companyId).eq("data->>ingestionId", ingestionId).limit(1).maybeSingle();
   return (data?.id as string | undefined) || null;
@@ -675,7 +680,7 @@ export async function approvalAfter(id: string, r: ActResult, replyToken: string
     r.action === "fix"
       ? [{ type: "text", text: line }, draftCard({ id, kind: item.kind, form: item.form, fields: item.fields, values: item.values, missing: i.missing || [], requester: item.requester, docCode: i.doc_code || null, notice: `✏️ ${r.name} ขอแก้ไข: ${r.note || ""}` })]
       : r.status === "approved" || r.status === "awaiting_slip"
-        ? [approvedCard(item, r.status === "awaiting_slip" ? "awaiting_slip" : "approved")]
+        ? [approvedCard(await withSubstitute(item), r.status === "awaiting_slip" ? "awaiting_slip" : "approved")]
         : [{ type: "text", text: line }];
   if (actorGroup && actorGroup === i.group_id) {
     const sent = await lineReplyId(replyToken, toRequester);
@@ -690,7 +695,7 @@ export async function approvalAfter(id: string, r: ActResult, replyToken: string
 /** The slip arrived: the expense is recorded; tell the group with a link to it. */
 export async function expensePaidCard(id: string) {
   const { data: i } = await supabaseAdmin().from("ingestions").select("*").eq("id", id).maybeSingle();
-  return i ? approvedCard(await approvalItem(i), "paid") : null;
+  return i ? approvedCard(await withSubstitute(await approvalItem(i)), "paid") : null;
 }
 async function queue(sb: ReturnType<typeof supabaseAdmin>, i: Row, messages: Record<string, unknown>[]) {
   if (!i.group_id) return;

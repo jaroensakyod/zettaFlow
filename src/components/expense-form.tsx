@@ -472,6 +472,27 @@ export function ExpenseForm({
         <button type="button" className="exf-print" onClick={() => window.print()}>
           <Printer size={17} /> พิมพ์แบบฟอร์ม
         </button>
+        {entity && (
+          <button
+            type="button"
+            className="exf-print"
+            title="ใช้แทนใบเสร็จ เมื่อไม่อาจเรียกเก็บใบเสร็จจากผู้รับเงินได้"
+            onClick={async () => {
+              // Open the tab first (popup blockers), then point it at the signed link.
+              const tab = window.open("about:blank", "_blank");
+              try {
+                const { url } = (await api("/substitute-receipt/" + entity.id)) as { url: string };
+                if (tab) tab.location.href = url;
+                else window.location.href = url;
+              } catch (err) {
+                tab?.close();
+                alert((err as Error).message);
+              }
+            }}
+          >
+            <FileText size={17} /> ใบแทนใบเสร็จ
+          </button>
+        )}
       </header>
 
       <form ref={formRef} className="exf-grid" onSubmit={(e) => e.preventDefault()}>

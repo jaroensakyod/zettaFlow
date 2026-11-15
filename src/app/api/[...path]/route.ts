@@ -1212,6 +1212,16 @@ async function handle(req: NextRequest) {
       const group = req.nextUrl.searchParams.get("group");
       return response(group ? await lineGroupMessages(ctx, z.string().min(1).max(100).parse(group)) : await lineGroupsOverview(ctx));
     }
+    // A signed link to an expense's ใบรับรองแทนใบเสร็จรับเงิน (the same document LINE sends).
+    if (path[0] === "substitute-receipt" && path[1] && method === "GET") {
+      const id = z.uuid().parse(path[1]);
+      assert(!ctx.demo, "เชื่อมระบบจริงก่อนจึงออกใบแทนใบเสร็จได้", 503);
+      const sb = await supabaseServer();
+      const { data: e } = await sb.from("entities").select("id, kind, department").eq("id", id).eq("company_id", ctx.company.id).maybeSingle();
+      assert(e && e.kind === "expenses" && canRead(ctx, e.department), "ไม่พบรายการค่าใช้จ่าย", 404);
+      const { shareUrl } = await import("@/lib/share-link");
+      return response({ url: shareUrl({ k: "sub", id }, 7) });
+    }
     if (path[0] === "integrations") {
       if (method === "GET") {
         if (ctx.demo)

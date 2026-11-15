@@ -10,7 +10,10 @@ import {
   approvalAfter,
   expensePaidCard,
 } from "@/lib/ai";
-import { approvalAction, docCard, docChoices, docRequest, reasonPrompt, SLIP_MS, slipPrompt, slipRequest, type ActResult, type DocRecord } from "@/lib/line-mention";
+import { approvalAction, docCard, docChoices, docRequest, EVIDENCE_MS, evidencePrompt, reasonPrompt, SLIP_MS, slipPrompt, slipRequest, type ActResult, type DocRecord } from "@/lib/line-mention";
+import { summaryCard, summaryRequest, type Summary } from "@/lib/expense-summary";
+import { shareUrl } from "@/lib/share-link";
+import { pageUrl } from "@/lib/line-message";
 import { draftAction, editPrompt, EDIT_MS, editText, listenPlan, LISTEN_MS, mentionOf, mentionPrompt, type ListenRow } from "@/lib/line-mention";
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
@@ -115,7 +118,7 @@ async function approvalDecide(sb: Admin, groupId: string, userId: string, id: st
 async function sendDocuments(sb: Admin, groupId: string, userId: string, replyToken: string | null, find: { code?: string | null; id?: string | null }) {
   const { data, error } = await sb.rpc("line_documents", { p_group: groupId, p_user: userId, p_code: find.code || null, p_id: find.id || null });
   if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
-  const docs = (data || []) as DocRecord[];
+  const docs = ((data || []) as DocRecord[]).map((d) => (d.kind === "expenses" ? { ...d, substituteUrl: shareUrl({ k: "sub", id: d.id }) || null } : d));
   if (!docs.length)
     return lineReply(
       replyToken || undefined,
@@ -131,6 +134,23 @@ async function askSlip(sb: Admin, groupId: string, userId: string, id: string, r
   if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
   await listen(sb, String(company), groupId, userId, "slip", id, SLIP_MS);
   return lineReply(replyToken || undefined, slipPrompt);
+}
+/** "📎 เพิ่มรูป/หลักฐาน": who may, how many are left, then listen for the files. */
+async function askEvidence(sb: Admin, groupId: string, userId: string, id: string, replyToken: string | null) {
+  const { data, error } = await sb.rpc("line_evidence_check", { p_group: groupId, p_user: userId, p_id: id });
+  if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
+  const c = data as { company: string; left: number };
+  if (c.left < 1) return lineReply(replyToken || undefined, "แนบครบ 5 ไฟล์แล้วค่ะ ดูหรือลบไฟล์ได้ในเว็บ");
+  await listen(sb, c.company, groupId, userId, "evidence", id, EVIDENCE_MS);
+  return lineReply(replyToken || undefined, evidencePrompt(c.left));
+}
+/** "@บอท สรุปค่าใช้จ่ายเดือนนี้": totals for owners / managers, with the file and the web page. */
+async function sendSummary(sb: Admin, groupId: string, userId: string, companyId: string, period: { from: string; to: string; label: string }, replyToken: string | null) {
+  const { data, error } = await sb.rpc("line_expense_summary", { p_group: groupId, p_user: userId, p_from: period.from, p_to: period.to });
+  if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
+  const s = data as Summary;
+  const file = s.count ? shareUrl({ k: "sum", c: companyId, from: period.from, to: period.to }, 7) : "";
+  return lineReplyId(replyToken, summaryCard(s, period, { file, web: pageUrl("expenses") }));
 }
 /** Buttons on an approver card: อนุมัติ acts at once; ไม่อนุมัติ / ขอแก้ไข first ask for the reason. */
 async function approvalButton(sb: Admin, event: { replyToken?: string; postback?: { data?: string }; source: { groupId: string; userId?: string } }) {
@@ -173,7 +193,9 @@ export async function POST(req: Request) {
       if (event.type === "postback" && event.source?.groupId) {
         const doc = /^doc=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
         const slip = /^slip=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
-        if (slip && event.source.userId) await askSlip(sb, event.source.groupId, event.source.userId, slip[1], event.replyToken || null);
+        const add = /^add=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
+        if (add && event.source.userId) await askEvidence(sb, event.source.groupId, event.source.userId, add[1], event.replyToken || null);
+        else if (slip && event.source.userId) await askSlip(sb, event.source.groupId, event.source.userId, slip[1], event.replyToken || null);
         else if (doc && event.source.userId) await sendDocuments(sb, event.source.groupId, event.source.userId, event.replyToken || null, { id: doc[1] });
         else if (!(await approvalButton(sb, event))) await draftButton(sb, event);
         continue;
@@ -389,7 +411,8 @@ export async function POST(req: Request) {
         mentioned = false,
         attachTo: string | null = null,
         editOf: string | null = null,
-        slipFor: string | null = null;
+        slipFor: string | null = null,
+        evidenceFor: string | null = null;
       if (mentionMode) {
         if (!userId) continue;
         const m = message.type === "text" ? mentionOf(message, await botName()) : { mentioned: false, text: "" };
@@ -409,6 +432,11 @@ export async function POST(req: Request) {
               await sb.from("line_listen").delete().eq("ingestion_id", plan.id).eq("mode", "edit");
               if (await rereadDraft(sb, plan.id, editText(raw) || raw, event.replyToken || null)) continue;
             }
+          }
+          const period = summaryRequest(raw);
+          if (period) {
+            await sendSummary(sb, groupId, userId, group.company_id, period, event.replyToken || null);
+            continue;
           }
           const paid = slipRequest(raw);
           if (paid) {
@@ -453,12 +481,14 @@ export async function POST(req: Request) {
           }
           if (plan.act === "attach") attachTo = plan.id;
           if (plan.act === "slip") slipFor = plan.id;
+          if (plan.act === "evidence") evidenceFor = plan.id;
         }
       } else if (message.type !== "text" && userId) {
         // Groups that read every message: a photo right after "ส่งสลิป" is still that slip.
         const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
         const plan = listenPlan(row as ListenRow | null, message.type);
         if (plan.act === "slip") slipFor = plan.id;
+        if (plan.act === "evidence") evidenceFor = plan.id;
       }
       const question = mentionMode ? mentioned && isQuestion(raw) : message.type === "text" && isQuestion(raw);
       if (question) {
@@ -562,6 +592,17 @@ export async function POST(req: Request) {
         });
         dbError(e);
       } else if (message.type !== "text") continue;
+      if (evidenceFor && attachmentId) {
+        const { data: added, error: e } = await sb.rpc("line_add_evidence", { p_group: groupId, p_user: userId, p_id: evidenceFor, p_attachment: attachmentId });
+        if (e) await lineReply(event.replyToken, "⚠️ " + e.message);
+        else {
+          const r = added as { count: number; left: number };
+          if (r.left > 0) await listen(sb, group.company_id, groupId, userId, "evidence", evidenceFor, EVIDENCE_MS);
+          else await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);
+          await lineReply(event.replyToken, `📎 แนบหลักฐานแล้ว (${r.count}/5)${r.left ? ` · ส่งเพิ่มได้อีก ${r.left} ไฟล์` : " · ครบแล้วค่ะ"}`);
+        }
+        continue;
+      }
       if (slipFor && attachmentId) {
         await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);
         const { error: e } = await sb.rpc("line_expense_paid", { p_group: groupId, p_user: userId, p_id: slipFor, p_attachment: attachmentId });
