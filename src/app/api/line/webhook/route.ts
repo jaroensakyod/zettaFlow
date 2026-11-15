@@ -9,6 +9,7 @@ import {
   draftSaved,
   approvalAfter,
   expensePaidCard,
+  draftCardNow,
 } from "@/lib/ai";
 import { approvalAction, docCard, docChoices, docRequest, EVIDENCE_MS, evidencePrompt, reasonPrompt, SLIP_MS, slipPrompt, slipRequest, type ActResult, type DocRecord } from "@/lib/line-mention";
 import { summaryCard, summaryRequest, type Summary } from "@/lib/expense-summary";
@@ -593,9 +594,20 @@ export async function POST(req: Request) {
         dbError(e);
       } else if (message.type !== "text") continue;
       if (evidenceFor && attachmentId) {
+        const { data: item } = await sb.from("ingestions").select("status, attachment_id").eq("id", evidenceFor).maybeSingle();
         const { data: added, error: e } = await sb.rpc("line_add_evidence", { p_group: groupId, p_user: userId, p_id: evidenceFor, p_attachment: attachmentId });
         if (e) await lineReply(event.replyToken, "⚠️ " + e.message);
-        else {
+        else if (item && ["draft", "queued", "processing"].includes(item.status)) {
+          // Still a draft: the summary follows the photo. The first file is read by the AI (amount, shop, items …)
+          // and a new summary comes back; more files just update the card's evidence count.
+          const r = added as { count: number; left: number };
+          if (r.left > 0) await listen(sb, group.company_id, groupId, userId, "evidence", evidenceFor, EVIDENCE_MS);
+          if (item.status === "draft" && !item.attachment_id) await rereadDraft(sb, evidenceFor, "", event.replyToken || null, attachmentId);
+          else if (item.status === "draft") {
+            const card = await draftCardNow(evidenceFor);
+            if (card) await lineReplyId(event.replyToken, card);
+          } else await lineReply(event.replyToken, `📎 แนบแล้ว (${r.count}/5) น้องกำลังสรุปให้ใหม่ค่ะ`);
+        } else {
           const r = added as { count: number; left: number };
           if (r.left > 0) await listen(sb, group.company_id, groupId, userId, "evidence", evidenceFor, EVIDENCE_MS);
           else await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);

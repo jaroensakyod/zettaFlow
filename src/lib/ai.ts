@@ -585,9 +585,11 @@ async function draftNotice(
   const { count } = await sb.from("line_bot_messages").select("message_id", { count: "exact", head: true }).eq("ingestion_id", job.id);
   // What the database kept (the document number, a PO's number as its name, what is still missing).
   const { data: saved } = await sb.from("ingestions").select("values, missing, doc_code").eq("id", job.id).maybeSingle();
+  const { data: files } = await sb.rpc("item_file_count", { p_id: job.id });
   const card = draftCard({
     id: job.id,
     ...input,
+    files: Number(files) || 0,
     values: (saved?.values as Record<string, unknown>) || input.values,
     missing: (saved?.missing as string[]) || input.missing,
     docCode: (saved?.doc_code as string | null) || null,
@@ -596,6 +598,29 @@ async function draftNotice(
   });
   await sb.from("notification_outbox").update({ body: card.altText, payload: card }).eq("id", job.id).eq("status", "queued");
   await replyInsteadOfPush(sb, job);
+}
+/** The draft's summary card as it stands now (after more evidence was attached, without reading it again). */
+export async function draftCardNow(id: string) {
+  const sb = supabaseAdmin();
+  const { data: i } = await sb.from("ingestions").select("*").eq("id", id).maybeSingle();
+  if (!i || i.status !== "draft") return null;
+  const t = i.template as Template | null;
+  const [{ count }, { data: files }] = await Promise.all([
+    sb.from("line_bot_messages").select("message_id", { count: "exact", head: true }).eq("ingestion_id", id),
+    sb.rpc("item_file_count", { p_id: id }),
+  ]);
+  return draftCard({
+    id,
+    kind: i.target_kind || null,
+    form: t?.name,
+    fields: t?.fields || [],
+    values: i.values || {},
+    missing: i.missing || [],
+    docCode: i.doc_code || null,
+    requester: await lineName(i.group_id, i.source_user),
+    round: (count || 0) + 1,
+    files: Number(files) || 0,
+  });
 }
 type Row = Record<string, any>;
 /** What the approval cards show about an item. */

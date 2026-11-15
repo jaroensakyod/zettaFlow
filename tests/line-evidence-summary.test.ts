@@ -207,3 +207,9 @@ test("migration 0070: up to 5 files per item, moved onto its record; summary for
     await db.close();
   }
 });
+
+test("the summary card counts the evidence attached so far", () => {
+  const card = JSON.stringify(draftCard({ id, kind: "expenses", fields: [], values: { name: "ค่าน้ำมัน" }, missing: [], files: 2 }));
+  assert.match(card, /แนบหลักฐานแล้ว 2 ไฟล์/);
+  assert.doesNotMatch(JSON.stringify(draftCard({ id, kind: "expenses", fields: [], values: {}, missing: [] })), /แนบหลักฐานแล้ว/);
+});

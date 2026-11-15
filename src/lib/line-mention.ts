@@ -122,6 +122,8 @@ export type DraftInput = {
   notice?: string | null;
   /** Document number reserved for it (PO-69-0001 …). */
   docCode?: string | null;
+  /** Evidence files attached so far (photos, PDFs). */
+  files?: number;
 };
 /** Rows the card shows: labelled values in the page's field order, at most 12. */
 export function draftRows(input: Pick<DraftInput, "fields" | "values">) {
@@ -214,6 +216,7 @@ export function draftCard(input: DraftInput) {
           ...(input.missing.length
             ? [{ type: "text", text: "⚠️ ยังขาด: " + input.missing.join(", "), size: "xs", color: "#b45309", wrap: true, margin: "md" }]
             : []),
+          ...(input.files ? [{ type: "text", text: `📎 แนบหลักฐานแล้ว ${input.files} ไฟล์`, size: "xs", color: "#4f46e5", wrap: true, margin: "md" }] : []),
         ],
       },
       footer: {
