@@ -179,7 +179,7 @@ export function Accounting({ ctx, notify, changed, navigate }: { ctx: Context; n
     <div className="acc">
       <FinanceTabs current="expenses" navigate={navigate}>
         {writable && navigate && (
-          <button className="primary acc-new" onClick={() => navigate("expense-new")}>
+          <button className="primary acc-new expense" onClick={() => navigate("expense-new")}>
             <Plus size={16} /> บันทึกค่าใช้จ่าย
           </button>
         )}

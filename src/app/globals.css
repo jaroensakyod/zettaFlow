@@ -6887,6 +6887,15 @@ fieldset.exf-card:disabled { opacity: 1; }
   .exf-card { box-shadow: none; break-inside: avoid; }
 }
 .acc-new { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+/* บันทึกรายรับ (green) / บันทึกค่าใช้จ่าย (pink): a bright pill on the tab bar; .acc-tabs button would make it a plain tab. */
+.acc-tabs .acc-new { align-self: center; margin: 0 0 6px auto; gap: 8px; padding: 9px 18px 9px 10px; border: 0; border-radius: 999px; color: #fff; font-size: 14px; font-weight: 700; letter-spacing: .1px; background: linear-gradient(135deg, var(--n1), var(--n2)); box-shadow: 0 6px 16px color-mix(in srgb, var(--n1) 32%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25); transition: transform .15s, box-shadow .15s, filter .15s; }
+.acc-tabs .acc-new.income { --n1: #16a34a; --n2: #22c55e; }
+.acc-tabs .acc-new.expense { --n1: #db2777; --n2: #f472b6; }
+.acc-tabs .acc-new svg { box-sizing: content-box; width: 16px; height: 16px; padding: 3px; border-radius: 50%; background: rgba(255, 255, 255, .25); }
+.acc-tabs .acc-new:hover { color: #fff; transform: translateY(-1px); filter: brightness(1.05); box-shadow: 0 10px 22px color-mix(in srgb, var(--n1) 38%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25); }
+.acc-tabs .acc-new:active { transform: none; }
+.acc-tabs .acc-new:focus-visible { outline: 3px solid color-mix(in srgb, var(--n1) 40%, transparent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .acc-tabs .acc-new { transition: none; } .acc-tabs .acc-new:hover { transform: none; } }
 /* Sidebar card art for departments other than accounting: two paper sheets behind the department icon. */
 .dept-side-badge { position: relative; width: 150px; height: 104px; margin-bottom: 10px; }
 .dept-side-badge i { position: absolute; left: 22px; top: 8px; width: 92px; height: 74px; border-radius: 11px; background: var(--th-accent-soft, #ece9fb); transform: rotate(-9deg); }

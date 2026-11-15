@@ -797,7 +797,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <div className="acc">
               <FinanceTabs current="expenses" navigate={navigate}>
                 {ctx.member.role !== "viewer" && (
-                  <button className="primary acc-new" onClick={() => navigate("expense-new")}>
+                  <button className="primary acc-new expense" onClick={() => navigate("expense-new")}>
                     <Plus size={16} /> บันทึกค่าใช้จ่าย
                   </button>
                 )}
