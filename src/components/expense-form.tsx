@@ -27,7 +27,7 @@ type Scan = {
 };
 type ScanReport = { file: string; fileId?: string; scan?: Scan; error?: string; warning?: string };
 /** An attached document: `src` previews it (a local object URL for files added here, else the stored file). */
-type FileItem = { id: string; name: string; mime: string; src: string; linked: boolean; local?: boolean };
+export type FileItem = { id: string; name: string; mime: string; src: string; linked: boolean; local?: boolean };
 const uncertainLabels: Record<string, string> = { vendor: "ผู้ขาย", taxId: "เลขผู้เสียภาษี", date: "วันที่", docNo: "เลขที่เอกสาร", total: "ยอดรวม", lines: "รายการ", vatMode: "VAT" };
 type Overview = { expenses: Entity[]; costCenters: { code: string; name: string }[] };
 type Row = Line & { key: number };
@@ -948,7 +948,7 @@ export function ExpenseForm({
 }
 
 /** Photos are scaled to at most 1600px and re-saved as JPEG: smaller uploads and fewer AI image tokens, text stays readable. */
-async function shrink(file: File): Promise<File> {
+export async function shrink(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || typeof createImageBitmap === "undefined") return file;
   try {
     const img = await createImageBitmap(file);
@@ -967,7 +967,7 @@ async function shrink(file: File): Promise<File> {
 
 
 /** A receipt preview: the picture itself, or a PDF tile. Clicking opens the large viewer. */
-function Thumb({ file, size = "md", onOpen }: { file: FileItem; size?: "sm" | "md"; onOpen: (f: FileItem) => void }) {
+export function Thumb({ file, size = "md", onOpen }: { file: FileItem; size?: "sm" | "md"; onOpen: (f: FileItem) => void }) {
   return (
     <button type="button" className={"exf-thumb " + size} title={file.name} aria-label={"ดู " + file.name} onClick={() => onOpen(file)}>
       {file.mime.startsWith("image/") ? (
@@ -983,7 +983,7 @@ function Thumb({ file, size = "md", onOpen }: { file: FileItem; size?: "sm" | "m
 }
 
 /** Large view of one receipt, to check the rows against it; arrows step through all attached files. */
-function Viewer({ file, files, onClose, onPick }: { file: FileItem; files: FileItem[]; onClose: () => void; onPick: (f: FileItem) => void }) {
+export function Viewer({ file, files, onClose, onPick }: { file: FileItem; files: FileItem[]; onClose: () => void; onPick: (f: FileItem) => void }) {
   const at = files.findIndex((f) => f.id === file.id);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {

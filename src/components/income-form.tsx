@@ -2,16 +2,23 @@
 // บันทึกรายรับ: one page to record money received, laid out like บันทึกค่าใช้จ่าย. General info and who paid on the
 // left, a live summary of the invoice (total, received before, this payment, still owed) on the right, notes below.
 // A payment cannot be edited after it is saved (archive it to cancel), so there is no draft: one save.
-import { useEffect, useMemo, useState } from "react";
-import { Building2, CalendarDays, Calculator, ChevronDown, ChevronRight, FileText, Hash, HandCoins, NotebookPen, Pencil, Printer, Save, UserRound, Wallet, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Building2, CalendarDays, Calculator, ChevronDown, ChevronRight, CloudUpload, FileText, Hash, HandCoins, NotebookPen, Pencil, Printer, Save, Sparkles, UserRound, Wallet, X } from "lucide-react";
 import type { Context } from "@/lib/types";
 import { api } from "./shared";
-import { Field, SectionTitle, SumRow } from "./expense-form";
+import { Field, SectionTitle, SumRow, Thumb, Viewer, shrink, type FileItem } from "./expense-form";
+import { uploadFile } from "./platform";
 
 type Invoice = { id: string; name: string; customerId: string; customer: string; date: string; dueDate: string; total: number; received: number; owed: number };
 type Customer = { id: string; name: string; taxId: string; phone: string };
 type FormData = { next: string; invoices: Invoice[]; customers: Customer[]; branches: { id: string; name: string }[] };
 
+/** What AI read from one slip / cheque / payment advice (src/lib/income-scan.ts). */
+type Scan = { payer: string | null; customerId: string | null; invoiceId: string | null; amount: number | null; date: string | null; reference: string | null; method: string | null; slip: { transRef: string; bank: string } | null; notes: string; uncertain: string[] };
+type Report = { file: string; fileId: string; scan?: Scan; error?: string };
+const uncertainLabels: Record<string, string> = { payer: "ผู้จ่าย", amount: "จำนวนเงิน", date: "วันที่", reference: "เลขอ้างอิง" };
+const ACCEPT = "application/pdf,image/png,image/jpeg";
+const MAX_FILE = 15_000_000;
 const METHODS = ["โอนธนาคาร", "เงินสด", "บัตร", "อื่นๆ"];
 const NOTE_MAX = 500;
 const today = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
@@ -49,7 +56,15 @@ export function IncomeForm({
     [menu, setMenu] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [stamp] = useState(() => new Date().toISOString());
+    [stamp] = useState(() => new Date().toISOString()),
+    [files, setFiles] = useState<FileItem[]>([]),
+    [viewing, setViewing] = useState<FileItem | null>(null),
+    [reports, setReports] = useState<Report[]>([]),
+    [reading, setReading] = useState(""),
+    [drag, setDrag] = useState(false);
+  // Previews of files added here are local object URLs; free them when the page closes.
+  const previews = useRef<string[]>([]);
+  useEffect(() => () => previews.current.forEach((u) => URL.revokeObjectURL(u)), []);
   const writable = ctx.member.role !== "viewer" && (ctx.member.role === "owner" || ctx.member.departments.includes("Finance"));
 
   useEffect(() => {
@@ -77,6 +92,59 @@ export function IncomeForm({
     if (!nameTouched) setName("รับชำระ " + i.name);
   }
 
+  // เอกสารแนบ: each file is shrunk (photos), uploaded, then AI reads it and fills what is still blank.
+  // Nothing is saved until บันทึกรายรับ; the files are linked to the payment then.
+  async function addFiles(list: File[]) {
+    setError("");
+    const ok = list.filter((f) => ACCEPT.includes(f.type));
+    if (ok.length < list.length) setError("แนบได้เฉพาะ PDF, JPG, PNG");
+    if (!ok.length) return;
+    setBusy(true);
+    for (const [i, original] of ok.entries()) {
+      setReading(`AI กำลังอ่าน ${ok.length > 1 ? `${i + 1}/${ok.length} ` : ""}${original.name}`);
+      try {
+        const f = await shrink(original);
+        if (f.size > MAX_FILE) throw Error(original.name + " ใหญ่เกิน 15MB");
+        // The public demo stores nothing: AI reads the file sent with the request and it is listed but not kept.
+        const attachmentId = ctx.demo ? await uploadFile(f, "Finance").catch(() => "") : await uploadFile(f, "Finance");
+        const fileId = attachmentId || "local-" + Date.now() + i;
+        const item: FileItem = { id: fileId, name: original.name, mime: f.type, src: URL.createObjectURL(f), linked: !attachmentId, local: !attachmentId };
+        previews.current.push(item.src);
+        setFiles((fs) => [...fs, item]);
+        try {
+          let scan: Scan;
+          if (attachmentId) scan = await api("/income-scan", { method: "POST", body: { attachmentId } });
+          else {
+            const fd = new FormData();
+            fd.set("file", f);
+            const r = await fetch("/api/income-scan", { method: "POST", body: fd });
+            scan = await r.json();
+            if (!r.ok) throw Error((scan as unknown as { error: string }).error);
+          }
+          apply(scan);
+          setReports((r) => [...r, { file: original.name, fileId, scan }]);
+        } catch (e) {
+          setReports((r) => [...r, { file: original.name, fileId, error: (e as Error).message }]);
+        }
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    }
+    setReading("");
+    setBusy(false);
+  }
+  // Fields the person already filled are kept; AI fills the blanks (an invoice it found fills customer and amount).
+  function apply(scan: Scan) {
+    if (scan.invoiceId && !invoice && form?.invoices.some((i) => i.id === scan.invoiceId)) pickInvoice(scan.invoiceId);
+    else if (scan.customerId && !customerId) setCustomerId(scan.customerId);
+    if (scan.amount && (!amount || (!invoice && !scan.invoiceId))) setAmount(scan.amount);
+    if (scan.date) setDate(scan.date);
+    if (scan.reference && !reference) setReference(scan.reference.slice(0, 100));
+    if (scan.method && METHODS.includes(scan.method)) setMethod(scan.method);
+    if (!nameTouched && !invoice && !scan.invoiceId && scan.payer) setName("รับเงินจาก " + scan.payer);
+    if (scan.notes && !notes) setNotes(scan.notes.slice(0, NOTE_MAX));
+  }
+
   const after = inv ? r2(Math.max(0, inv.owed - amount)) : 0;
   const over = inv ? amount > inv.owed + 0.001 : false;
 
@@ -89,7 +157,9 @@ export function IncomeForm({
     try {
       const data = { name: name.trim(), code: code.trim(), invoiceId: invoice, customerId, direction: "income", date, amount: r2(amount), method, reference: reference.trim(), notes: notes.trim(), branchId };
       const body = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== "" && v !== undefined && v !== null));
-      await api("/entities/payments", { method: "POST", body: { data: body } });
+      const saved: { id: string } = await api("/entities/payments", { method: "POST", body: { data: body } });
+      // Files uploaded before saving are linked to the payment now.
+      for (const f of files.filter((x) => !x.linked && !x.local)) await api("/expense-files", { method: "POST", body: { attachmentId: f.id, entityId: saved.id } }).catch(() => {});
       changed();
       notify("บันทึกรายรับแล้ว");
       navigate(next === "new" ? "income-new?n=" + Date.now() : "income");
@@ -196,7 +266,7 @@ export function IncomeForm({
         </fieldset>
 
         <section className="exf-card exf-summary" aria-label="สรุปยอดเงิน">
-          <SectionTitle icon={<Calculator size={20} />}>4. สรุปยอดเงิน</SectionTitle>
+          <SectionTitle icon={<Calculator size={20} />}>5. สรุปยอดเงิน</SectionTitle>
           <fieldset disabled={locked}>
             <SumRow label="ยอดใบแจ้งหนี้" value={inv?.total || 0} />
             <SumRow label="รับชำระแล้วก่อนหน้า" value={inv?.received || 0} />
@@ -243,8 +313,96 @@ export function IncomeForm({
         </fieldset>
 
         <div className="exf-bottom">
+          <fieldset className="exf-card exf-attach" disabled={locked}>
+            <SectionTitle icon={<FileText size={22} />}>3. เอกสารแนบ</SectionTitle>
+            <div>
+              <label
+                className={"exf-drop" + (drag ? " drag" : "")}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDrag(true);
+                }}
+                onDragLeave={() => setDrag(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDrag(false);
+                  addFiles([...e.dataTransfer.files]);
+                }}
+              >
+                <CloudUpload size={30} />
+                <span>
+                  {reading || "ลากไฟล์มาวางที่นี่ หรือ"} {!reading && <b>คลิกเพื่ออัปโหลด</b>}
+                </span>
+                <small>PDF, JPG, PNG ไม่เกิน 15MB · AI อ่านสลิปโอนเงิน เช็ค หรือหนังสือแจ้งชำระ แล้วกรอกให้อัตโนมัติ</small>
+                <input
+                  type="file"
+                  hidden
+                  multiple
+                  accept={ACCEPT}
+                  onChange={(e) => {
+                    const list = [...(e.target.files || [])];
+                    e.target.value = "";
+                    addFiles(list);
+                  }}
+                />
+              </label>
+              {(!!reading || !!reports.length) && (
+                <div className="exf-ai" aria-live="polite">
+                  {reading && (
+                    <p className="exf-ai-busy">
+                      <Sparkles size={15} /> {reading}…
+                    </p>
+                  )}
+                  {reports.map((r, i) => (
+                    <p key={i} className={r.error || r.scan?.uncertain.length ? "warn" : ""}>
+                      {(() => {
+                        const file = files.find((x) => x.id === r.fileId);
+                        return file ? <Thumb file={file} size="sm" onOpen={setViewing} /> : <Sparkles size={15} />;
+                      })()}
+                      <span>
+                        <b>{r.file}</b>{" "}
+                        {r.error
+                          ? "AI อ่านไม่ได้: " + r.error
+                          : [
+                              r.scan!.amount ? "฿" + two(r.scan!.amount) : "ไม่พบยอดเงิน",
+                              r.scan!.payer && "จาก " + r.scan!.payer,
+                              r.scan!.invoiceId && "ตรงกับใบแจ้งหนี้ " + (form?.invoices.find((x) => x.id === r.scan!.invoiceId)?.name || ""),
+                              r.scan!.slip && `สลิป ${r.scan!.slip.bank} เลขอ้างอิง ${r.scan!.slip.transRef}`,
+                              r.scan!.notes,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                        {!!r.scan?.uncertain.length && <em> · ไม่แน่ใจ: {r.scan.uncertain.map((u) => uncertainLabels[u] || u).join(", ")} กรุณาตรวจ</em>}
+                      </span>
+                      <button type="button" className="exf-icon" aria-label="ปิดข้อความ" onClick={() => setReports((rs) => rs.filter((_, j) => j !== i))}>
+                        <X size={14} />
+                      </button>
+                    </p>
+                  ))}
+                </div>
+              )}
+              {!!files.length && (
+                <ul className="exf-files">
+                  {files.map((f) => (
+                    <li key={f.id}>
+                      <Thumb file={f} size="sm" onOpen={setViewing} />
+                      <span>
+                        {f.name}
+                        {f.local ? <small> (โหมดตัวอย่าง ไม่ได้เก็บไฟล์)</small> : <small> · แนบเมื่อบันทึก</small>}
+                      </span>
+                      {!f.local && (
+                        <button type="button" className="exf-icon" aria-label={"เอา " + f.name + " ออก"} onClick={() => setFiles((fs) => fs.filter((x) => x.id !== f.id))}>
+                          <X size={13} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </fieldset>
           <fieldset className="exf-card exf-notes" disabled={locked}>
-            <SectionTitle icon={<NotebookPen size={22} />}>3. หมายเหตุ</SectionTitle>
+            <SectionTitle icon={<NotebookPen size={22} />}>4. หมายเหตุ</SectionTitle>
             <div className="exf-note-box">
               <textarea aria-label="หมายเหตุ" value={notes} maxLength={NOTE_MAX} placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)" onChange={(e) => setNotes(e.target.value)} />
               <small>
@@ -256,6 +414,7 @@ export function IncomeForm({
       </form>
 
       {error && <p className="form-error exf-error">{error}</p>}
+      {viewing && <Viewer file={viewing} files={files} onClose={() => setViewing(null)} onPick={setViewing} />}
       {!writable && <p className="muted exf-error">ดูได้อย่างเดียว · บันทึกรายรับได้เฉพาะเจ้าของบริษัทหรือทีมบัญชี</p>}
 
       <footer className="exf-actions">

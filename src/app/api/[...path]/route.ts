@@ -310,7 +310,7 @@ async function handle(req: NextRequest) {
       ctx.demo &&
       !demoEnabled() &&
       method !== "GET" &&
-      !(path[0] === "presence" || path[0] === "assistant" || path[0] === "flow" || path[0] === "expense-scan" || (path[0] === "templates" && path[1] === "draft"))
+      !(path[0] === "presence" || path[0] === "assistant" || path[0] === "flow" || path[0] === "expense-scan" || path[0] === "income-scan" || (path[0] === "templates" && path[1] === "draft"))
     )
       throw new AppError(READ_ONLY_DEMO, 403);
     if (path[0] === "companies") {
@@ -535,6 +535,18 @@ async function handle(req: NextRequest) {
         return response(await scanExpenseDocument(ctx, {}, file));
       }
       return response(await scanExpenseDocument(ctx, await body(req)));
+    }
+    // บันทึกรายรับ: AI reads a slip / cheque / payment advice into the form (nothing saved), like expense-scan.
+    if (path[0] === "income-scan" && method === "POST") {
+      const { scanIncomeDocument } = await import("@/lib/income-scan");
+      if ((req.headers.get("content-type") || "").startsWith("multipart/form-data")) {
+        assert(Number(req.headers.get("content-length") || 0) <= (demoEnabled() ? MAX_UPLOAD + 200000 : 4500000), "ไฟล์ใหญ่เกินไป", 413);
+        if (ctx.demo && !demoEnabled()) demoScanAllowed(req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown");
+        const file = (await req.formData()).get("file");
+        assert(file instanceof File, "แนบไฟล์");
+        return response(await scanIncomeDocument(ctx, {}, file));
+      }
+      return response(await scanIncomeDocument(ctx, await body(req)));
     }
     if (path[0] === "expense-files" && method === "POST") {
       const input = z.object({ attachmentId: z.uuid(), entityId: z.uuid() }).parse(await body(req));
