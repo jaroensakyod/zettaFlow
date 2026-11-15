@@ -1,8 +1,8 @@
 "use client";
 // รายรับ: money in, with its tax on the same page — ภาษีขาย (output VAT) from invoices, the ภ.พ.30 balance against
 // ภาษีซื้อ from expenses, what customers still owe, the sales flow, and the period summary with every income row.
-import { useEffect, useState } from "react";
-import { TrendingUp, Landmark, HandCoins, AlertTriangle, Plus, LayoutDashboard, Receipt, FileDigit, ChevronRight } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { TrendingUp, Landmark, HandCoins, AlertTriangle, Plus, LayoutDashboard, Receipt, FileDigit, ChevronRight, FileText, ShoppingCart, Wallet, ScrollText } from "lucide-react";
 import type { Context } from "@/lib/types";
 import { api, money, Loading } from "./shared";
 import { FinanceLedger } from "./finance-ledger";
@@ -109,12 +109,13 @@ export function IncomePage({ ctx, navigate }: { ctx: Context; navigate: (v: stri
 /** ขั้นตอนการขาย: how many documents wait at each stage, each stage opens its page. */
 function SalesFlow({ data, month, navigate }: { data: IncomeReport; month: IncomeMonth; navigate: (v: string) => void }) {
   const p = data.pipeline;
-  const steps: [number, string, string, string, string][] = [
-    [1, "ใบเสนอราคา", p ? p.quotesSent.count + " ใบ รอลูกค้าตอบ" : "—", p ? "฿" + money(p.quotesSent.amount) : "", "quotations"],
-    [2, "คำสั่งซื้อ", p ? p.ordersUnpaid.count + " คำสั่งซื้อ ยังไม่ได้รับเงิน" : "—", p ? "฿" + money(p.ordersUnpaid.amount) : "", "sales_orders"],
-    [3, "ใบแจ้งหนี้", p ? p.ordersToInvoice.count + p.quotesAccepted.count + " งาน รอออกใบแจ้งหนี้" : "—", p ? "฿" + money(p.ordersToInvoice.amount + p.quotesAccepted.amount) : "", "invoices"],
-    [4, "รับชำระเงิน", data.openInvoices + " ใบแจ้งหนี้ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income"],
-    [5, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts"],
+  // Each step has its own colour and icon (the same icons as the sidebar), so the flow reads left to right at a glance.
+  const steps: [number, string, string, string, string, string, ReactNode][] = [
+    [1, "ใบเสนอราคา", p ? p.quotesSent.count + " ใบ รอลูกค้าตอบ" : "—", p ? "฿" + money(p.quotesSent.amount) : "", "quotations", "violet", <FileText key="i" size={18} />],
+    [2, "คำสั่งซื้อ", p ? p.ordersUnpaid.count + " คำสั่งซื้อ ยังไม่ได้รับเงิน" : "—", p ? "฿" + money(p.ordersUnpaid.amount) : "", "sales_orders", "blue", <ShoppingCart key="i" size={18} />],
+    [3, "ใบแจ้งหนี้", p ? p.ordersToInvoice.count + p.quotesAccepted.count + " งาน รอออกใบแจ้งหนี้" : "—", p ? "฿" + money(p.ordersToInvoice.amount + p.quotesAccepted.amount) : "", "invoices", "amber", <FileDigit key="i" size={18} />],
+    [4, "รับชำระเงิน", data.openInvoices + " ใบแจ้งหนี้ รอรับเงิน", "฿" + money(data.outstanding), "payments?direction=income", "teal", <Wallet key="i" size={18} />],
+    [5, "ใบเสร็จรับเงิน", month.docs + " รายการ รับเงินเดือนนี้", "฿" + money(month.income), "receipts", "green", <ScrollText key="i" size={18} />],
   ];
   return (
     <section className="card sales-flow" aria-label="ขั้นตอนการขาย">
@@ -123,17 +124,18 @@ function SalesFlow({ data, month, navigate }: { data: IncomeReport; month: Incom
         <small>ใบเสนอราคา → ลูกค้าตอบรับ → เปิดคำสั่งซื้อ (แพ็กเกจ · แพลตฟอร์ม) → ออกใบแจ้งหนี้ → รับเงิน → เก็บใบเสร็จ</small>
       </header>
       <ol>
-        {steps.map(([n, label, note, amount, view], i) => (
-          <li key={n}>
+        {steps.map(([n, label, note, amount, view, tone, icon], i) => (
+          <li key={n} className={"sf-" + tone}>
             <button onClick={() => navigate(view)}>
-              <i>{n}</i>
-              <span>
-                <b>{label}</b>
-                <small>{note}</small>
-                {amount && <em>{amount}</em>}
+              <span className="sf-top">
+                <i>{n}</i>
+                <span className="sf-icon">{icon}</span>
               </span>
+              <b>{label}</b>
+              <small>{note}</small>
+              {amount && <em>{amount}</em>}
             </button>
-            {i < steps.length - 1 && <ChevronRight size={16} className="sales-flow-arrow" />}
+            {i < steps.length - 1 && <ChevronRight size={18} className="sales-flow-arrow" />}
           </li>
         ))}
       </ol>
