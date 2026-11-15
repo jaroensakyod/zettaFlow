@@ -43,5 +43,5 @@ export function readShare(token: string, now = Date.now(), key?: string): ShareT
 /** Full URL of a shared document on this site. */
 export function shareUrl(t: ShareTarget, days?: number) {
   const base = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
-  return base ? `${base}/share/${signShare(t, days)}` : "";
+  return base ? `${base}/doc/${signShare(t, days)}` : "";
 }

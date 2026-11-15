@@ -122,12 +122,12 @@ test("cards offer more evidence; the recorded expense offers its substitute rece
     fields: [],
     values: { name: "ผัก" },
     recordId: "rec-1",
-    substituteUrl: "https://eliteflow-ai.com/share/abc",
+    substituteUrl: "https://eliteflow-ai.com/doc/abc",
     approval: { steps: [{ dept: "IT" }], at: 1, round: 1, ref: "EXP-69-0001", history: [] },
   };
   const paid = JSON.stringify(approvedCard(item, "paid"));
   assert.match(paid, /ใบแทนใบเสร็จ/);
-  assert.match(paid, /share\/abc/);
+  assert.match(paid, /doc\/abc/);
   assert.match(paid, /แนบหลักฐานเพิ่ม/);
 });
 
