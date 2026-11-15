@@ -848,6 +848,9 @@ textarea.qe-input { height: auto; resize: vertical; line-height: 1.45; padding: 
 .qe-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; align-self: end; padding-top: 14px; }
 .qe-sign > div { display: grid; grid-template-rows: 40px auto auto 16px; justify-items: center; gap: 2px; text-align: center; font-size: 12px; }
 .qe-sign i { width: 80%; align-self: end; border-bottom: 1.5px solid #1f1a3a; margin-bottom: 4px; }
+.qe-sign i.qe-sign-line { position: relative; display: flex; align-items: flex-end; justify-content: center; min-height: 44px; }
+.qe-sig { max-width: 85%; max-height: 54px; object-fit: contain; margin-bottom: -6px; }
+.qe-stamp { position: absolute; right: -14px; bottom: -26px; width: 86px; height: 86px; object-fit: contain; opacity: .88; mix-blend-mode: multiply; transform: rotate(-8deg); pointer-events: none; }
 .qe-sign small { color: #6b6585; font-size: 11px; }
 .qe-foot { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6b6585; }
 @media (max-width: 820px) {

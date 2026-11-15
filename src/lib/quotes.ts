@@ -8,6 +8,7 @@ import { assert, canRead, canWrite } from "./domain";
 import { catalog } from "./catalog";
 import { docUrl } from "./documents";
 import type { Context, Entity } from "./types";
+import { signatureFor, stampFor } from "./signers";
 
 /** Where an accepted quotation stands; the other statuses are the quotation's own. */
 export type QuoteStage = "ร่าง" | "ส่งแล้ว" | "หมดอายุ" | "ปฏิเสธ" | "ตอบรับ" | "เปิดคำสั่งซื้อแล้ว" | "ออกใบแจ้งหนี้แล้ว" | "ชำระแล้ว";
@@ -153,7 +154,7 @@ export async function updateQuote(ctx: Context, id: string, input: unknown) {
 
 export type QuoteFormCustomer = { id: string; name: string; address: string; taxId: string; branch: string; contact: string; phone: string; email: string; creditDays: number | null };
 export type QuoteForm = {
-  company: { id: string; name: string; nameEn: string; hasLogo: boolean; address: string; taxId: string; branch: string; phone: string; email: string; website: string; line: string; bank: string; bankAccount: string; bankAccountName: string; bankAccountType: string; promptPay: string; signerName: string; signerPosition: string; approverName: string; approverPosition: string; conditions: string[]; notes: string[] };
+  company: { id: string; name: string; nameEn: string; hasLogo: boolean; address: string; taxId: string; branch: string; phone: string; email: string; website: string; line: string; bank: string; bankAccount: string; bankAccountName: string; bankAccountType: string; promptPay: string; signerName: string; signerPosition: string; approverName: string; approverPosition: string; signerSign: string; approverSign: string; stamp: string; conditions: string[]; notes: string[] };
   customers: QuoteFormCustomer[];
   projects: { id: string; code: string; name: string }[];
   /** สินค้า & แพ็กเกจ (Sales) — packages, products and services we sell. */
@@ -185,7 +186,9 @@ export async function quoteForm(ctx: Context, id?: string): Promise<QuoteForm> {
       id: ctx.company.id, name: s(ctx.company.name), nameEn: s(p.nameEn), hasLogo: !!s(p.logo), address: s(p.address), taxId: s(p.taxId), branch: s(p.branch),
       phone: s(p.phone), email: s(p.email), website: s(p.website), line: s(p.line), bank: s(p.bank) || s(p.bankName), bankAccount: s(p.bankAccount),
       bankAccountName: s(p.bankAccountName), bankAccountType: s(p.bankAccountType), promptPay: s(p.promptPay), signerName: s(p.signerName),
-      signerPosition: s(p.signerPosition), approverName: s(p.approverName), approverPosition: s(p.approverPosition), conditions: lines(p.docConditions), notes: lines(p.quotationNotes),
+      signerPosition: s(p.signerPosition), approverName: s(p.approverName), approverPosition: s(p.approverPosition),
+      signerSign: signatureFor(p, s(p.signerName)), approverSign: signatureFor(p, s(p.approverName)), stamp: stampFor(p),
+      conditions: lines(p.docConditions), notes: lines(p.quotationNotes),
     },
     customers: customers
       .filter((c) => c.data.status !== "inactive")

@@ -10,6 +10,7 @@ import { assert, canRead, canWrite } from "./domain";
 import { lineAmount, type Line } from "./catalog";
 import { dbError, allEntities } from "./data";
 import type { Context, Entity } from "./types";
+import { signatureFor, stampFor } from "./signers";
 
 export const docKinds = ["quotation", "invoice", "tax_invoice", "receipt"] as const;
 export type DocKind = (typeof docKinds)[number];
@@ -322,7 +323,8 @@ export type DocModel = {
   payment: { bank: string; account: string; accountName: string; accountType: string; promptPay: string | null; amount: number } | null;
   conditions: { label: string; text: string }[];
   contact: { name: string; position: string; phone: string; email: string; line: string; website: string; phoneLabel?: string };
-  signatures: { role: string; name: string; position: string }[];
+  /** sign: the person's signature image; stamp: the company stamp (on the approver), both from ตั้งค่า › เอกสาร. */
+  signatures: { role: string; name: string; position: string; sign?: string; stamp?: string }[];
   /** Footer notes for the receipt (the design's หมายเหตุ box). */
   footerNotes: string[];
   /** Form target that issues the number (shown on previews). */
@@ -509,9 +511,15 @@ export async function documentModel(ctx: Context, kind: DocKind, id: string): Pr
   const company: Rec = { ...p, name: s(p.name) || ctx.company.name };
   const rec = await entity(ctx, id);
   assert(rec, "ไม่พบเอกสาร", 404);
-  const model = await buildModel(ctx, kind, rec, p, company);
+  const model = withSignatures(await buildModel(ctx, kind, rec, p, company), p);
   const missing = profileGaps(p, kind);
   return missing.length ? { ...model, warnings: [`ข้อมูลบริษัทยังไม่ครบ (${missing.join(", ")}) — เพิ่มได้ที่ ตั้งค่า › ข้อมูลบริษัท`] } : model;
+}
+/** Signed online: each signer's saved signature, and the company stamp on the approver's block (last one). */
+export function withSignatures(m: DocModel, p: Rec): DocModel {
+  const stamp = stampFor(p);
+  const last = m.signatures.length - 1;
+  return { ...m, signatures: m.signatures.map((g, i) => ({ ...g, sign: signatureFor(p, g.name), stamp: i === last ? stamp : "" })) };
 }
 /** Company profile fields a document's header/footer would show but are still blank. */
 export function profileGaps(p: Rec, kind: DocKind): string[] {
@@ -911,7 +919,7 @@ export function renderDocument(m: DocModel): string {
   else if (m.kind === "tax_invoice") bottom = pair(payBox, conditions);
   else bottom = `${payBox ? `<div class="avoid">${payBox}</div>` : ""}${pair(conditions, contactBox, "cond-row")}`;
   const signs = `<div class="signs avoid">${m.signatures
-    .map((g) => `<div class="sign"><div class="line"></div><b>${esc(g.role)}</b><span>(${esc(g.name || dots)})</span><span>${esc(g.position || "ตำแหน่ง " + dots)}</span></div>`)
+    .map((g) => `<div class="sign"><div class="line">${g.sign ? `<img class="sig" src="${esc(g.sign)}" alt="">` : ""}${g.stamp ? `<img class="stamp" src="${esc(g.stamp)}" alt="">` : ""}</div><b>${esc(g.role)}</b><span>(${esc(g.name || dots)})</span><span>${esc(g.position || "ตำแหน่ง " + dots)}</span></div>`)
     .join("")}</div>`;
   const warnings = !m.sample && m.warnings?.length ? m.warnings.map((w) => `<p class="warn">${esc(w)}</p>`).join("") : "";
   const toolbar = `<div class="toolbar"><span class="t">${
@@ -1023,7 +1031,9 @@ table.items{width:100%;border-collapse:collapse;font-size:8.4pt}
 .signs{display:grid;grid-template-columns:1fr 1fr;margin-top:5mm}
 .sign{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:8.6pt;padding:0 6mm;line-height:1.45}
 .sign+.sign{border-left:1px solid #dcdbe8}
-.sign .line{width:58mm;border-bottom:1.2px solid #8b7fd9;height:12mm;margin-bottom:1.4mm}
+.sign .line{position:relative;display:flex;align-items:flex-end;justify-content:center;width:58mm;border-bottom:1.2px solid #8b7fd9;height:12mm;margin-bottom:1.4mm}
+.sign .sig{max-width:50mm;max-height:16mm;object-fit:contain;margin-bottom:-1.6mm;position:relative;z-index:1}
+.sign .stamp{position:absolute;right:-9mm;bottom:-8mm;width:27mm;height:27mm;object-fit:contain;opacity:.88;mix-blend-mode:multiply;transform:rotate(-8deg)}
 .sign b{font-size:9.4pt;font-weight:600}
 .sign span{color:var(--text)}
 .avoid{break-inside:avoid}

@@ -15,7 +15,11 @@ import {
   Briefcase,
   BookOpen,
   Lock,
+  Landmark,
+  PenLine,
+  NotebookPen,
 } from "lucide-react";
+import { DocSigners } from "./doc-signers";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { UserOnline } from "./presence";
 import { FieldControl } from "./records";
@@ -437,34 +441,70 @@ export function CompanySettings({
               </div>
             </section>
           </>
+        ) : tab === "docs" ? (
+          // เอกสาร: everything printed on quotations, invoices and receipts, in coloured groups. All of it stays
+          // within the team (never on the public company card), so no per-field lock badges here.
+          <section className="card company-section docs-tab">
+            <h2 className="cs-head tone-docs">ข้อมูลบนเอกสาร</h2>
+            <p className="docs-private">
+              <Lock size={14} /> ข้อมูลในหน้านี้เห็นเฉพาะทีมของคุณ ใช้พิมพ์บนใบเสนอราคา ใบแจ้งหนี้ ใบกำกับภาษี และใบเสร็จ
+            </p>
+            <div className="docs-groups">
+              <div className="docs-group g-violet">
+                <h3 className="cs-group g-violet"><Building2 size={15} /> นิติบุคคลและสาขา</h3>
+                <div className="form-grid company-grid two">
+                  {input("legal")}
+                  {input("branch")}
+                </div>
+              </div>
+              <div className="docs-group g-blue">
+                <h3 className="cs-group g-blue"><Landmark size={15} /> บัญชีรับเงิน</h3>
+                <div className="form-grid company-grid two">
+                  {input("bank")}
+                  {input("bankAccountType")}
+                  {input("bankAccount")}
+                  {input("bankAccountName")}
+                  <div className="wide">{input("promptPay")}</div>
+                </div>
+              </div>
+            </div>
+            <div className="docs-group g-amber">
+              <h3 className="cs-group g-amber"><PenLine size={15} /> ตราประทับและผู้ลงนาม</h3>
+              <DocSigners values={values} set={set} disabled={!owner || busy} />
+            </div>
+            <div className="docs-group g-pink">
+              <h3 className="cs-group g-pink"><NotebookPen size={15} /> ข้อความบนเอกสาร</h3>
+              <div className="form-grid company-grid two">
+                {["docConditions", "quotationNotes", "invoiceNotes", "receiptNotes"].map((k) => input(k))}
+              </div>
+            </div>
+            <div className="docs-group g-slate">
+              <h3 className="cs-group g-slate"><Palette size={15} /> ปรับแต่ง workspace</h3>
+              <div className="form-grid company-grid two">
+                <label>
+                  ธีม
+                  <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+                    <option value="violet">Violet</option>
+                    <option value="ocean">Ocean</option>
+                    <option value="forest">Forest</option>
+                  </select>
+                </label>
+                <label>
+                  ชื่อแพลตฟอร์ม
+                  <select value={brand} onChange={(e) => setBrand(e.target.value)}>
+                    <option>EliteFlow</option>
+                    <option>ZettaFlow</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </section>
         ) : (
           <section className="card company-section">
             <h2 className={"cs-head tone-" + tab}>{companyTabs.find(([k]) => k === tab)![1]}</h2>
             <div className="form-grid company-grid">
               {tabFields[tab].map((k) => pv(k, input(k), field(k).type === "textarea"))}
             </div>
-            {tab === "docs" && (
-              <>
-                <h3 className="form-section-title">ปรับแต่ง workspace</h3>
-                <div className="form-grid company-grid">
-                  <label>
-                    ธีม
-                    <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-                      <option value="violet">Violet</option>
-                      <option value="ocean">Ocean</option>
-                      <option value="forest">Forest</option>
-                    </select>
-                  </label>
-                  <label>
-                    ชื่อแพลตฟอร์ม
-                    <select value={brand} onChange={(e) => setBrand(e.target.value)}>
-                      <option>EliteFlow</option>
-                      <option>ZettaFlow</option>
-                    </select>
-                  </label>
-                </div>
-              </>
-            )}
           </section>
         )}
       </fieldset>

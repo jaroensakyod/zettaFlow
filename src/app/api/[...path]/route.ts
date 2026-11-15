@@ -126,6 +126,7 @@ import { sendFeedback,
 } from "@/lib/engage";
 import { presence } from "@/lib/presence";
 import { validVisibility } from "@/lib/company-visibility";
+import { isImage, MAX_STAMP, signersProblem } from "@/lib/signers";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -854,6 +855,11 @@ async function handle(req: NextRequest) {
               /^(data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+|https:\/\/\S+)$/.test(v),
             "รูปภาพไม่ถูกต้องหรือใหญ่เกินไป",
           );
+        else if (k === "stamp") assert(isImage(v, MAX_STAMP), "รูปตราประทับไม่ถูกต้องหรือใหญ่เกินไป");
+        else if (k === "signers") {
+          const problem = signersProblem(v);
+          assert(!problem, problem || "");
+        } else if (k === "autoSign") assert(v === "1" || v === "0", "ตัวเลือกลายเซ็นไม่ถูกต้อง");
         else assert(v.length <= 3000, "ข้อมูลบริษัทยาวเกินไป");
       }
       assert(

@@ -1031,6 +1031,10 @@ export const companyFields: Field[] = [
   f("signerPosition", "ตำแหน่งผู้ออกเอกสาร"),
   f("approverName", "ชื่อผู้อนุมัติเอกสาร"),
   f("approverPosition", "ตำแหน่งผู้อนุมัติ"),
+  // ตราประทับและลายเซ็น (src/lib/signers.ts): the stamp image, the signers as JSON, and whether to put them on documents.
+  f("stamp", "ตราประทับบริษัท"),
+  f("signers", "ผู้ลงนามบนเอกสาร"),
+  f("autoSign", "ใส่ลายเซ็นและตราประทับบนเอกสารอัตโนมัติ"),
   f("docConditions", "เงื่อนไขเพิ่มเติมบนเอกสาร (บรรทัดละข้อ)", "textarea"),
   f("quotationNotes", "หมายเหตุท้ายใบเสนอราคา (บรรทัดละข้อ)", "textarea"),
   f("invoiceNotes", "หมายเหตุท้ายใบแจ้งหนี้ (บรรทัดละข้อ)", "textarea"),

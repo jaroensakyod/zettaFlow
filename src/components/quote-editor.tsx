@@ -645,11 +645,14 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
           </section>
           <section className="qe-sign">
             {[
-              ["ผู้เสนอราคา", c.signerName || v.owner, c.signerPosition || "ฝ่ายขาย"],
-              ["ผู้อนุมัติ", c.approverName, c.approverPosition],
-            ].map(([role, name, pos]) => (
+              ["ผู้เสนอราคา", c.signerName || v.owner, c.signerPosition || "ฝ่ายขาย", c.signerName ? c.signerSign : "", ""],
+              ["ผู้อนุมัติ", c.approverName, c.approverPosition, c.approverSign, c.stamp],
+            ].map(([role, name, pos, sign, stamp]) => (
               <div key={role}>
-                <i />
+                <i className="qe-sign-line">
+                  {sign && <img className="qe-sig" src={sign} alt="" />}
+                  {stamp && <img className="qe-stamp" src={stamp} alt="" />}
+                </i>
                 <b>{role}</b>
                 <span>({name || "................................"})</span>
                 <small>{pos || " "}</small>
