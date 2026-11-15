@@ -6621,6 +6621,9 @@ input[type="file"][hidden] { display: none !important; }
 /* ---------- Department left sidebar (every แผนก page) ---------- */
 .dept-shell.with-side { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
 .dept-shell.with-side > .main { margin: 0; width: 100%; padding: 22px 26px 20px; }
+/* รายรับ pages tinted green at the top, ค่าใช้จ่าย pages pink, so the two read apart at a glance. */
+.main.top-green { background: linear-gradient(180deg, #c6efd5 0, #dcf6e5 140px, #effbf3 300px, transparent 520px) no-repeat; }
+.main.top-pink { background: linear-gradient(180deg, #fde0ec 0, #feecf3 140px, #fff6fa 300px, transparent 520px) no-repeat; }
 .dept-side { position: sticky; top: 64px; height: calc(100vh - 64px); overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 22px 14px 18px; background: var(--th-surface, #faf9fe); border-right: 1px solid var(--line); scrollbar-width: thin; }
 .dept-side-head { position: relative; display: flex; align-items: center; gap: 4px; }
 .dept-side-back { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--accent); cursor: pointer; padding: 0; }

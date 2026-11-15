@@ -81,7 +81,7 @@ import { DepartmentSidebar } from "./dept-sidebar";
 import { SampleDataCard } from "./sample-data-card";
 import { ExpenseForm } from "./expense-form";
 import { IncomeForm } from "./income-form";
-import { departmentOf } from "@/lib/departments";
+import { departmentOf, sectionTone } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { Team } from "./settings";
@@ -743,7 +743,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         )}
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
-        <main className="main" key={ctx.company.id}>
+        <main className={"main" + (sectionTone(sideDept, fullView) ? " top-" + sectionTone(sideDept, fullView) : "")} key={ctx.company.id}>
           {!["feed", "jobs", "dashboard", "company", "expense-new", "income-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat"].includes(view) && (
           // Accounting pages carry their own period picker and tabs: a one-line heading keeps the numbers near the top.
           <div className={"page-heading" + (sideDept?.id === "accounting" ? " compact" : "")}>

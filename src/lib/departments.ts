@@ -203,3 +203,10 @@ export function activeEntry(d: DepartmentMenu, view: string) {
   const all = sidebarOf(d).flatMap((i) => [...(i.children || []), i]);
   return all.find((i) => i.view === view) || all.find((i) => baseView(i.view) === baseView(view));
 }
+/** The coloured section (รายรับ green, ค่าใช้จ่าย pink) a page belongs to, for the tint at the top of the page. */
+export function sectionTone(d: DepartmentMenu | undefined, view: string) {
+  if (!d) return undefined;
+  const entry = activeEntry(d, view);
+  if (!entry) return undefined;
+  return sidebarOf(d).find((i) => i.section && (i === entry || i.children?.includes(entry)))?.section?.tone;
+}
