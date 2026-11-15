@@ -690,16 +690,62 @@ function Timeline({ items, compact = false }: { items: Activity[]; compact?: boo
   );
 }
 
+/** "ตั้งผู้อนุมัติจาก LINE": a one-time code for "#ผู้อนุมัติ <code> @คนที่จะอนุมัติ" in the group. */
+function ApproverCode() {
+  const [command, setCommand] = useState(""),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function make() {
+    setBusy(true);
+    setError("");
+    try {
+      setCommand(((await api("/line-approver-code", { method: "POST" })) as { command: string }).command);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="lp-approver-code">
+      <div>
+        <b>ตั้งผู้อนุมัติจากในกลุ่ม LINE</b>
+        <p>ไม่ต้องมีบัญชี EliteFlow: กดสร้างรหัส แล้วพิมพ์ในกลุ่มพร้อมแท็กคนที่จะให้อนุมัติ (แท็กตัวเองได้) ครั้งต่อไปผู้อนุมัติเพิ่ม/ลบกันเองได้ด้วย “@บอท เพิ่มผู้อนุมัติ @ชื่อ”</p>
+        {command && (
+          <>
+            <code className="lp-code">{command} @ชื่อผู้อนุมัติ</code>
+            <small>คัดลอกรหัส แล้วพิมพ์ในกลุ่มภายใน 10 นาที ต่อท้ายด้วยการแท็กคน เช่น {command.slice(0, 18)}… @คุณเอ @คุณบี</small>
+          </>
+        )}
+        {error && <p className="form-error">{error}</p>}
+      </div>
+      <button className="secondary" onClick={make} disabled={busy}>
+        {busy ? "กำลังสร้าง…" : command ? "สร้างรหัสใหม่" : "สร้างรหัสตั้งผู้อนุมัติ"}
+      </button>
+    </div>
+  );
+}
 function Approvals({ data, owner, sample, ctx, edit }: { data: LinePageData; owner: boolean; sample: boolean; ctx: Context; edit: (id: string) => void }) {
+  const [removed, setRemoved] = useState<string[]>([]);
+  async function removeApprover(group: string, user: string, name: string) {
+    if (!confirm(`เอา "${name || "ผู้อนุมัติ"}" ออกจากผู้อนุมัติของกลุ่มนี้?`)) return;
+    try {
+      await api(`/line-approvers/${encodeURIComponent(group)}/${encodeURIComponent(user)}`, { method: "DELETE" });
+      setRemoved((r) => [...r, group + "/" + user]);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
   return (
     <>
+      {owner && <ApproverCode />}
       <section className="lp-card">
         <div className="lp-card-head">
           <h2>สิทธิ์และการอนุมัติต่อกลุ่ม</h2>
           {sample && <span className="sample-badge">ตัวอย่าง</span>}
         </div>
         <p className="lp-note">
-          ในกลุ่ม ผู้อนุมัติพิมพ์คำอนุมัติ (หรือกด Reply) เพื่ออนุมัติรายการ เจ้าของอนุมัติได้ทุกกลุ่ม ผู้จัดการอนุมัติได้เฉพาะรายการของแผนกตน และต้องเชื่อมบัญชี LINE ของตัวเองก่อน
+          ผู้อนุมัติกดปุ่มในการ์ดขออนุมัติในกลุ่ม LINE ได้ 2 แบบ: คนที่ตั้งเป็นผู้อนุมัติของกลุ่มด้วยการแท็กในกลุ่ม (ไม่ต้องมีบัญชี) หรือเจ้าของ/ผู้จัดการที่เชื่อมบัญชี LINE แล้ว ผู้จัดการอนุมัติได้เฉพาะรายการของแผนกตน และไม่มีใครอนุมัติคำขอของตัวเองได้
         </p>
         {!data.groups.length ? (
           <Empty title="ยังไม่ได้เชื่อมกลุ่ม LINE" />
@@ -730,6 +776,22 @@ function Approvals({ data, owner, sample, ctx, edit }: { data: LinePageData; own
                       </span>
                     </td>
                     <td>
+                      {g.lineApprovers.filter((x) => !removed.includes(g.group_id + "/" + x.id)).length > 0 && (
+                        <ul className="lp-people">
+                          {g.lineApprovers
+                            .filter((x) => !removed.includes(g.group_id + "/" + x.id))
+                            .map((x) => (
+                              <li key={x.id}>
+                                {x.name || "ไม่ทราบชื่อ"} <small>(ตั้งใน LINE)</small>
+                                {owner && (
+                                  <button className="text-button lp-remove" aria-label={"เอา " + x.name + " ออกจากผู้อนุมัติ"} onClick={() => removeApprover(g.group_id, x.id, x.name)}>
+                                    เอาออก
+                                  </button>
+                                )}
+                              </li>
+                            ))}
+                        </ul>
+                      )}
                       {g.approvers.length ? (
                         <ul className="lp-people">
                           {g.approvers.map((a) => (

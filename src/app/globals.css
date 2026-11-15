@@ -8013,3 +8013,13 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .lp-bot-btn { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 999px; background: #06c755; color: #fff; font-weight: 700; font-size: 13px; text-decoration: none; }
 .lp-bot-btn:hover { background: #05b04b; }
 @media (max-width: 520px) { .lp-bot-add { flex-direction: column; text-align: center; } }
+
+/* LINE page: approvers named in the group */
+.lp-approver-code { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 14px 16px; margin-bottom: 14px; border-radius: 14px; background: #f5f3ff; border: 1px solid #ddd6fe; }
+.lp-approver-code b { font-size: 15px; color: #3b0764; }
+.lp-approver-code p { margin: 4px 0 6px; font-size: 13px; color: #5b5675; }
+.lp-approver-code .lp-code { display: block; margin: 6px 0 4px; padding: 8px 10px; border-radius: 10px; background: #fff; font-size: 13px; word-break: break-all; user-select: all; }
+.lp-approver-code small { color: #6b6585; font-size: 12px; }
+.lp-approver-code > button { flex: none; }
+.lp-remove { margin-left: 6px; font-size: 12px; color: #be123c; }
+@media (max-width: 640px) { .lp-approver-code { flex-direction: column; align-items: stretch; } }

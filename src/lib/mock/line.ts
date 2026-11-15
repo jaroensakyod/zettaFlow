@@ -102,6 +102,7 @@ export function lineSample(now = Date.now()): LinePageData {
       templateName: null,
       approve_keywords: ["อนุมัติ", "ok"],
       listen: i === 2 ? ("all" as const) : ("mention" as const),
+      lineApprovers: [],
       test: false,
       found: true,
       status: "connected",

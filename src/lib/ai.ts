@@ -670,7 +670,13 @@ export async function approvalAsk(id: string) {
   const { data: asker } = i.source_user
     ? await sb.from("line_users").select("user_id").eq("company_id", i.company_id).eq("line_user_id", i.source_user).maybeSingle()
     : { data: null };
-  const approvers = (managers || []).filter((m) => m.user_id !== asker?.user_id).map((m) => String(m.name || m.email)).slice(0, 4);
+  const { data: inGroup } = await sb.from("line_group_approvers").select("line_user, name").in("group_id", targets);
+  const approvers = [
+    ...(managers || []).filter((m) => m.user_id !== asker?.user_id).map((m) => String(m.name || m.email)),
+    ...(inGroup || []).filter((x) => x.line_user !== i.source_user).map((x) => String(x.name || "")),
+  ]
+    .filter((n, k, all) => n && all.indexOf(n) === k)
+    .slice(0, 5);
   const card = approvalCard({ ...(await approvalItem(i)), approvers });
   await sb
     .from("notification_outbox")

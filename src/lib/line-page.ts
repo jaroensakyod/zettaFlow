@@ -27,6 +27,8 @@ export type PageGroup = {
   template_id: string | null;
   templateName: string | null;
   approve_keywords: string[];
+  /** Approvers named in the LINE group by tagging (no account needed). */
+  lineApprovers: { id: string; name: string }[];
   /** mention = the bot reads only messages that @mention it (default); all = every message. */
   listen: "mention" | "all";
   test: boolean;
@@ -287,6 +289,7 @@ export async function linePageData(ctx: Context): Promise<LinePageData> {
       .limit(3000),
     sb.from("data_templates").select("id, name").eq("company_id", ctx.company.id),
   ]);
+  const { data: tagged } = await sb.from("line_group_approvers").select("group_id, line_user, name, created_at").order("created_at");
   dbError(error);
   dbError(e2);
 
@@ -346,6 +349,7 @@ export async function linePageData(ctx: Context): Promise<LinePageData> {
         template_id: (g.template_id as string | null) || null,
         templateName,
         approve_keywords: (g.approve_keywords as string[]) || [],
+        lineApprovers: (tagged || []).filter((x) => x.group_id === id).map((x) => ({ id: String(x.line_user), name: String(x.name || "") })),
         listen: g.listen === "all" ? "all" : "mention",
         found,
         status: groupStatus({ test, found, failedWeek }, configured),

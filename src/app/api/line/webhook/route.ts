@@ -11,6 +11,8 @@ import {
   expensePaidCard,
   draftCardNow,
 } from "@/lib/ai";
+import { approverCommand, approversText, taggedPeople } from "@/lib/line-mention";
+import { lineName } from "@/lib/ai";
 import { approvalAction, docCard, docChoices, docRequest, EVIDENCE_MS, evidencePrompt, reasonPrompt, SLIP_MS, slipPrompt, slipRequest, type ActResult, type DocRecord } from "@/lib/line-mention";
 import { summaryCard, summaryRequest, type Summary } from "@/lib/expense-summary";
 import { shareUrl } from "@/lib/share-link";
@@ -153,6 +155,32 @@ async function sendSummary(sb: Admin, groupId: string, userId: string, companyId
   const file = s.count ? shareUrl({ k: "sum", c: companyId, from: period.from, to: period.to }, 7) : "";
   return lineReplyId(replyToken, summaryCard(s, period, { file, web: pageUrl("expenses") }));
 }
+/** "#ผู้อนุมัติ <code> @…" / "@บอท เพิ่ม|ลบผู้อนุมัติ @…" / "@บอท ผู้อนุมัติ": the group's approvers. */
+async function setApprovers(
+  sb: Admin,
+  groupId: string,
+  userId: string,
+  message: { text?: string; mention?: { mentionees?: { index?: number; length?: number; type?: string; userId?: string; isSelf?: boolean }[] } },
+  cmd: { act: "add" | "remove" | "list"; code: string | null },
+  replyToken: string | null,
+) {
+  if (cmd.act === "list") {
+    const { data } = await sb.from("line_group_approvers").select("line_user, name").eq("group_id", groupId).order("created_at");
+    return lineReply(replyToken || undefined, approversText((data || []) as { name: string }[]));
+  }
+  const people = taggedPeople({ type: "text", ...message });
+  if (!people.length) return lineReply(replyToken || undefined, "แท็กคนที่จะ" + (cmd.act === "remove" ? "ลบออกจาก" : "ตั้งเป็น") + "ผู้อนุมัติด้วยนะคะ เช่น “@บอท เพิ่มผู้อนุมัติ @คุณเอ @คุณบี” (แท็กตัวเองได้)");
+  const named = await Promise.all(people.map(async (p) => ({ id: p.id, name: (await lineName(groupId, p.id)) || p.name })));
+  const { data, error } = await sb.rpc("line_set_approvers", {
+    p_group: groupId,
+    p_user: userId,
+    p_hash: cmd.code ? tokenHash(cmd.code) : null,
+    p_add: cmd.act === "add" ? named : [],
+    p_remove: cmd.act === "remove" ? named.map((p) => p.id) : null,
+  });
+  if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
+  return lineReply(replyToken || undefined, approversText((data || []) as { name: string }[]));
+}
 /** Buttons on an approver card: อนุมัติ acts at once; ไม่อนุมัติ / ขอแก้ไข first ask for the reason. */
 async function approvalButton(sb: Admin, event: { replyToken?: string; postback?: { data?: string }; source: { groupId: string; userId?: string } }) {
   const a = approvalAction(String(event.postback?.data || ""));
@@ -232,6 +260,11 @@ export async function POST(req: Request) {
               "\n\nℹ️ แจ้งสมาชิก: ระบบอ่านและบันทึกเฉพาะข้อความที่แท็กบอท (และรูปหรือไฟล์ที่ส่งตามมา) พร้อมชื่อผู้ส่ง เพื่อใช้งานภายในบริษัท " +
               "ข้อความอื่นในกลุ่มจะไม่ถูกเก็บ (ข้อความเสียงจะถูกถอดเป็นตัวอักษร และลบไฟล์เสียงหลัง 90 วัน)",
         );
+        continue;
+      }
+      if (message.type === "text" && message.text.startsWith("#ผู้อนุมัติ") && userId) {
+        const cmd = approverCommand(message.text);
+        await (cmd ? setApprovers(sb, groupId, userId, message, cmd, event.replyToken || null) : lineReply(event.replyToken, "พิมพ์ “#ผู้อนุมัติ <รหัส>” แล้วแท็กคนที่จะเป็นผู้อนุมัติ (รหัสสร้างได้ที่หน้า LINE ในเว็บ)"));
         continue;
       }
       if (message.type === "text" && message.text.startsWith("#user ")) {
@@ -433,6 +466,11 @@ export async function POST(req: Request) {
               await sb.from("line_listen").delete().eq("ingestion_id", plan.id).eq("mode", "edit");
               if (await rereadDraft(sb, plan.id, editText(raw) || raw, event.replyToken || null)) continue;
             }
+          }
+          const who = approverCommand(raw);
+          if (who) {
+            await setApprovers(sb, groupId, userId, message, who, event.replyToken || null);
+            continue;
           }
           const period = summaryRequest(raw);
           if (period) {

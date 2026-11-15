@@ -127,7 +127,7 @@ test("migration 0067: approval chain on the database", async () => {
     assert.match(r.approval.ref, /^EXP-\d{2}-\d{4}$/);
     // the requester (staff) cannot approve; nor can an unlinked LINE account; nor another department's manager
     await assert.rejects(act("G-pur", "L-ton", buy, "approve"), /อนุมัติคำขอของตัวเองไม่ได้/);
-    await assert.rejects(act("G-pur", "L-stranger", buy, "approve"), /ยังไม่ได้เชื่อม/);
+    await assert.rejects(act("G-pur", "L-stranger", buy, "approve"), /ยังไม่ได้เป็นผู้อนุมัติ/);
     await assert.rejects(act("G-pur", "L-boss", buy, "approve"), /ขั้นนี้ต้องให้ผู้จัดการจัดซื้อ/);
     // the old typed paths refuse chained items
     await assert.rejects(db.query("select line_decide('G-pur','L-a',$1,'approved','')", [buy]), /ปุ่มในการ์ด/);

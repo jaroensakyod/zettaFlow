@@ -569,3 +569,33 @@ export function docCard(d: DocRecord) {
     },
   };
 }
+
+/* ---------- approvers named in the group by tagging ---------- */
+
+/** People tagged in a message (not the bot): LINE user id and the name as tagged ("@คุณเอ" → "คุณเอ"). */
+export function taggedPeople(message: LineTextMessage): { id: string; name: string }[] {
+  const text = String(message.text || "");
+  const seen = new Set<string>();
+  return (message.mention?.mentionees || [])
+    .filter((m) => !m.isSelf && m.type !== "all" && typeof m.userId === "string" && /^U[0-9a-f]{32}$/.test(m.userId))
+    .filter((m) => (seen.has(m.userId!) ? false : (seen.add(m.userId!), true)))
+    .map((m) => ({ id: m.userId!, name: typeof m.index === "number" && typeof m.length === "number" ? text.slice(m.index, m.index + m.length).replace(/^@/, "").trim() : "" }));
+}
+/**
+ * "#ผู้อนุมัติ <code> @…" (first time, code from the website) / "เพิ่มผู้อนุมัติ @…" / "ตั้งผู้อนุมัติ @…" /
+ * "ลบผู้อนุมัติ @…" / "ผู้อนุมัติ" (who are they) — null when the message is none of these.
+ */
+export function approverCommand(text: string): { act: "add" | "remove" | "list"; code: string | null } | null {
+  const t = text.trim();
+  const code = t.match(/^#ผู้อนุมัติ\s+([0-9a-f]{32,128})/i);
+  if (code) return { act: "add", code: code[1].toLowerCase() };
+  if (/^(ลบ|เอา(ออก)?)\s*ผู้อนุมัติ/.test(t)) return { act: "remove", code: null };
+  if (/^(เพิ่ม|ตั้ง|กำหนด|แต่งตั้ง)\s*ผู้อนุมัติ/.test(t)) return { act: "add", code: null };
+  if (/^(ใคร(เป็น)?|ดู|รายชื่อ)?\s*ผู้อนุมัติ\s*(มีใครบ้าง|ใครบ้าง|กลุ่มนี้)?\s*[?？]?$/.test(t)) return { act: "list", code: null };
+  return null;
+}
+/** The group's approvers, as the bot says them. */
+export function approversText(list: { name: string }[]) {
+  if (!list.length) return "กลุ่มนี้ยังไม่มีผู้อนุมัติที่ตั้งไว้ค่ะ ตั้งได้ด้วย “@บอท เพิ่มผู้อนุมัติ @ชื่อ” (หรือรหัสจากหน้า LINE ในเว็บ ครั้งแรก)";
+  return `✅ ผู้อนุมัติของกลุ่มนี้ (${list.length} คน): ${list.map((x) => x.name || "ไม่ทราบชื่อ").join(", ")}\nกดปุ่มอนุมัติในการ์ดขออนุมัติได้ทันที (อนุมัติคำขอของตัวเองไม่ได้)`;
+}

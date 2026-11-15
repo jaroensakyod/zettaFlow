@@ -1206,6 +1206,24 @@ async function handle(req: NextRequest) {
       // LINE Integration page: groups + stats + approvers + activity + package in one read.
       return response(await linePageData(ctx));
     }
+    // Approvers named in a LINE group: a one-time code for "#ผู้อนุมัติ <code> @…", and removing one (owner).
+    if (path[0] === "line-approver-code" && method === "POST") {
+      requireOwner(ctx);
+      assert(!ctx.demo, "เชื่อม LINE จริงก่อนจึงตั้งผู้อนุมัติได้", 503);
+      const code = randomBytes(16).toString("hex");
+      const { tokenHash } = await import("@/lib/ai");
+      const sb = await supabaseServer();
+      const { error } = await sb.rpc("create_approver_code", { p_company: ctx.company.id, p_hash: tokenHash(code) });
+      dbError(error);
+      return response({ command: "#ผู้อนุมัติ " + code });
+    }
+    if (path[0] === "line-approvers" && path[1] && path[2] && method === "DELETE") {
+      requireOwner(ctx);
+      const sb = await supabaseServer();
+      const { error } = await sb.rpc("remove_line_approver", { p_company: ctx.company.id, p_group: z.string().max(100).parse(path[1]), p_line_user: z.string().max(100).parse(path[2]) });
+      dbError(error);
+      return response({ ok: true });
+    }
     if (path[0] === "line-groups" && method === "GET") {
       // หน้า LINE: groups with activity, or one group's messages (?group=…).
       if (ctx.demo) return response([]);

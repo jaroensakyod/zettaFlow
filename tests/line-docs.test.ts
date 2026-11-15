@@ -132,7 +132,7 @@ test("migration 0068: PO numbers, item lines and document requests on the databa
     assert.equal(await one<string>("select approval->>'ref' from ingestions where id=$1", [job]), po);
     await db.exec("set role service_role;");
     // only the manager of the step can approve; the requester cannot
-    await assert.rejects(db.query("select line_approval_act('G-pur','L-ton',$1,'approve',null,null)", [job]), /ยังไม่ได้เชื่อม/);
+    await assert.rejects(db.query("select line_approval_act('G-pur','L-ton',$1,'approve',null,null)", [job]), /ของตัวเองไม่ได้/);
     await db.query("select line_approval_act('G-pur','L-a',$1,'approve',null,null)", [job]);
     await db.exec("reset role;");
     const rec = (await db.query<{ id: string; data: Record<string, any> }>("select id,data from entities where company_id=$1 and kind='purchases'", [c])).rows[0];
