@@ -11,7 +11,8 @@ import {
   expensePaidCard,
   draftCardNow,
 } from "@/lib/ai";
-import { approverCommand, approversText, taggedPeople } from "@/lib/line-mention";
+import { approverAction, approverCommand, approverIntent, approverSetupCard, approversText, taggedPeople, untaggedNames } from "@/lib/line-mention";
+import { randomBytes } from "node:crypto";
 import { lineName } from "@/lib/ai";
 import { approvalAction, docCard, docChoices, docRequest, EVIDENCE_MS, evidencePrompt, reasonPrompt, SLIP_MS, slipPrompt, slipRequest, type ActResult, type DocRecord } from "@/lib/line-mention";
 import { summaryCard, summaryRequest, type Summary } from "@/lib/expense-summary";
@@ -181,6 +182,33 @@ async function setApprovers(
   if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
   return lineReply(replyToken || undefined, approversText((data || []) as { name: string }[]));
 }
+/** The approver card of a group: who approves now plus the changes asked for (nothing saved yet). */
+async function approverCard(sb: Admin, groupId: string, add: string[], remove: string[], unknown: string[] = []) {
+  const { data } = await sb.from("line_group_approvers").select("line_user, name").eq("group_id", groupId).order("created_at");
+  const current = (data || []).map((x) => ({ id: String(x.line_user), name: String(x.name || "") }));
+  const named = await Promise.all(add.map(async (id) => ({ id, name: (await lineName(groupId, id)) || "" })));
+  return approverSetupCard({ current, add: named, remove, unknown });
+}
+/**
+ * "บันทึก" on the approver card. The first approvers of a group may be set by anyone in it (the group belongs to
+ * the company; the owner sees and can remove them on the website); after that only an approver of the group or a
+ * linked owner/manager (checked in line_set_approvers).
+ */
+async function saveApprovers(sb: Admin, groupId: string, userId: string, add: string[], remove: string[], replyToken: string | null) {
+  const { data: g } = await sb.from("line_groups").select("company_id").eq("group_id", groupId).maybeSingle();
+  if (!g) return lineReply(replyToken || undefined, "กลุ่มนี้ยังไม่ได้เชื่อมกับ EliteFlow");
+  const { count } = await sb.from("line_group_approvers").select("line_user", { count: "exact", head: true }).eq("group_id", groupId);
+  let hash: string | null = null;
+  if (!count) {
+    const code = randomBytes(16).toString("hex");
+    hash = tokenHash(code);
+    await sb.from("line_approver_codes").insert({ token_hash: hash, company_id: g.company_id, expires_at: new Date(Date.now() + 60_000).toISOString() });
+  }
+  const named = await Promise.all(add.map(async (id) => ({ id, name: (await lineName(groupId, id)) || "" })));
+  const { data, error } = await sb.rpc("line_set_approvers", { p_group: groupId, p_user: userId, p_hash: hash, p_add: named, p_remove: remove.length ? remove : null });
+  if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
+  return lineReply(replyToken || undefined, "💾 บันทึกแล้ว มีผลทันที\n" + approversText((data || []) as { name: string }[]));
+}
 /** Buttons on an approver card: อนุมัติ acts at once; ไม่อนุมัติ / ขอแก้ไข first ask for the reason. */
 async function approvalButton(sb: Admin, event: { replyToken?: string; postback?: { data?: string }; source: { groupId: string; userId?: string } }) {
   const a = approvalAction(String(event.postback?.data || ""));
@@ -220,6 +248,13 @@ export async function POST(req: Request) {
     const sb = supabaseAdmin();
     for (const event of body.events) {
       if (event.type === "postback" && event.source?.groupId) {
+        const apv = approverAction(String(event.postback?.data || ""));
+        if (apv && event.source.userId) {
+          if (apv.act === "cancel") await lineReply(event.replyToken, "ยกเลิกแล้ว ไม่ได้เปลี่ยนผู้อนุมัติค่ะ");
+          else if (apv.act === "save") await saveApprovers(sb, event.source.groupId, event.source.userId, apv.add, apv.remove, event.replyToken || null);
+          else await lineReplyId(event.replyToken, await approverCard(sb, event.source.groupId, apv.add, apv.remove));
+          continue;
+        }
         const doc = /^doc=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
         const slip = /^slip=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
         const add = /^add=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
@@ -467,9 +502,20 @@ export async function POST(req: Request) {
               if (await rereadDraft(sb, plan.id, editText(raw) || raw, event.replyToken || null)) continue;
             }
           }
-          const who = approverCommand(raw);
-          if (who) {
-            await setApprovers(sb, groupId, userId, message, who, event.replyToken || null);
+          // "@บอท ให้พี่ศิริอนุมัติได้ @พี่ศิริ" / "เอา @A ออกจากผู้อนุมัติ" / "ขอเป็นผู้อนุมัติ" / "กำหนดผู้อนุมัติ":
+          // a card with the changes; nothing is saved before its บันทึก.
+          const people = taggedPeople(message);
+          const intent = approverIntent(raw, people.length + untaggedNames(message).length);
+          if (intent) {
+            const ids = people.map((p) => p.id);
+            const card = await approverCard(
+              sb,
+              groupId,
+              intent === "add" ? ids : intent === "self" ? [userId] : [],
+              intent === "remove" ? ids : [],
+              untaggedNames(message),
+            );
+            await lineReplyId(event.replyToken, card);
             continue;
           }
           const period = summaryRequest(raw);

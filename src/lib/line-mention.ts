@@ -599,3 +599,117 @@ export function approversText(list: { name: string }[]) {
   if (!list.length) return "กลุ่มนี้ยังไม่มีผู้อนุมัติที่ตั้งไว้ค่ะ ตั้งได้ด้วย “@บอท เพิ่มผู้อนุมัติ @ชื่อ” (หรือรหัสจากหน้า LINE ในเว็บ ครั้งแรก)";
   return `✅ ผู้อนุมัติของกลุ่มนี้ (${list.length} คน): ${list.map((x) => x.name || "ไม่ทราบชื่อ").join(", ")}\nกดปุ่มอนุมัติในการ์ดขออนุมัติได้ทันที (อนุมัติคำขอของตัวเองไม่ได้)`;
 }
+
+/** People tagged whom LINE does not identify (they have not added the bot / allowed their profile): names only. */
+export function untaggedNames(message: LineTextMessage): string[] {
+  const text = String(message.text || "");
+  return (message.mention?.mentionees || [])
+    .filter((m) => !m.isSelf && m.type !== "all" && !(typeof m.userId === "string" && /^U[0-9a-f]{32}$/.test(m.userId)))
+    .map((m) => (typeof m.index === "number" && typeof m.length === "number" ? text.slice(m.index, m.index + m.length).replace(/^@/, "").trim() : ""))
+    .filter(Boolean);
+}
+/**
+ * Plain words about who may approve, with the people tagged:
+ *  "ให้พี่ศิริอนุมัติได้ @พี่ศิริ" / "กำหนดผู้อนุมัติ @A @B" / "เพิ่มสิทธิ์อนุมัติ @A" → add;
+ *  "เอา @A ออกจากผู้อนุมัติ" / "ไม่ให้ @A อนุมัติแล้ว" → remove;  "ขอเป็นผู้อนุมัติ" → add the person typing;
+ *  "กำหนดผู้อนุมัติ" / "ใครอนุมัติได้บ้าง" (nobody tagged) → show. null = not about approvers.
+ */
+export function approverIntent(text: string, tagged: number): "add" | "remove" | "self" | "show" | null {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!/อนุมัติ|สิทธิ/.test(t)) return null;
+  // A request (ขออนุมัติซื้อ… / ขอเบิก…) is never about who approves.
+  if (/ขอ\s*อนุมัติ|ขอ\s*เบิก|ขอ\s*ซื้อ|ขอ\s*ลา|ขออนุญาต/.test(t) && !/ขอ\s*(เป็น|มี)\s*(ผู้อนุมัติ|สิทธิ)/.test(t)) return null;
+  if (/ขอ\s*(เป็น|มี)\s*(ผู้อนุมัติ|สิทธิ์?\s*(การ)?อนุมัติ)|ให้(ฉัน|ผม|หนู|เรา|ตัวเอง)\s*(เป็นผู้)?อนุมัติ/.test(t) && !tagged) return "self";
+  const about = /ผู้อนุมัติ|อนุมัติได้|สิทธิ์?\s*(การ)?\s*อนุมัติ|เป็นคนอนุมัติ|ให้.{0,40}อนุมัติ/.test(t);
+  if (tagged && about) return /ลบ|เอา.*ออก|ถอด|ยกเลิกสิทธิ|ไม่ให้|ห้าม|เลิกให้|ไม่ต้องให้/.test(t) ? "remove" : "add";
+  if (
+    !tagged &&
+    t.length <= 60 &&
+    /^(กำหนด|ตั้ง|ดู|ใคร|รายชื่อ|จัดการ|แก้|เปลี่ยน)?\s*(คน|ผู้)?\s*(สิทธิ์?\s*(การ)?)?\s*อนุมัติ(ได้)?\s*(บ้าง|มีใคร(บ้าง)?|ใครบ้าง|ของ(แชท|กลุ่ม)นี้)?\s*[?？]?$|^(กำหนด|ตั้ง|ดู|จัดการ)\s*(ผู้|คน|สิทธิ์?)\s*อนุมัติ|^ใคร(เป็นคน|เป็นผู้)?\s*อนุมัติ(ได้)?/.test(t)
+  )
+    return "show";
+  return null;
+}
+export type ApproverDraft = { current: { id: string; name: string }[]; add: { id: string; name: string }[]; remove: string[]; unknown?: string[] };
+const enc = (ids: string[]) => ids.map((i) => i.slice(1)).join(".");
+const dec = (s: string | null) => (s ? s.split(".").filter((x) => /^[0-9a-f]{32}$/.test(x)).map((x) => "U" + x) : []);
+/** "apv=save|edit|cancel&a=<ids>&r=<ids>" (ids without the leading U, joined by dots) */
+export function approverAction(data: string): { act: "save" | "edit" | "cancel"; add: string[]; remove: string[] } | null {
+  const p = new URLSearchParams(data || "");
+  const act = p.get("apv");
+  if (!act || !["save", "edit", "cancel"].includes(act)) return null;
+  return { act: act as "save" | "edit" | "cancel", add: dec(p.get("a")).slice(0, 8), remove: dec(p.get("r")).slice(0, 8) };
+}
+const apvData = (act: string, add: string[], remove: string[]) => `apv=${act}&a=${enc(add)}&r=${enc(remove)}`;
+/**
+ * The card after "@บอท ให้พี่ศิริอนุมัติได้ @พี่ศิริ": who approves in this chat now, who will be added / removed,
+ * a button per person to change it, and บันทึก (nothing changes before it is pressed).
+ */
+export function approverSetupCard(d: ApproverDraft) {
+  const add = d.add.filter((x) => !d.current.some((c) => c.id === x.id)).slice(0, 8);
+  const remove = d.remove.filter((id) => d.current.some((c) => c.id === id)).slice(0, 8);
+  const addIds = add.map((x) => x.id);
+  const changed = add.length + remove.length > 0;
+  const small = (text: string, color = "#8a86a3") => ({ type: "text", text, size: "xs", color, wrap: true });
+  const row = (label: string, color: string, btnLabel: string, data: string, decor?: string) => ({
+    type: "box",
+    layout: "horizontal",
+    alignItems: "center",
+    spacing: "sm",
+    contents: [
+      { type: "text", text: label, size: "sm", color, flex: 7, wrap: true, ...(decor ? { decoration: decor } : {}) },
+      { type: "button", style: "link", height: "sm", flex: 3, action: { type: "postback", label: btnLabel, data } },
+    ],
+  });
+  const rows = [
+    ...d.current.map((c) =>
+      remove.includes(c.id)
+        ? row(`➖ ${c.name || "ไม่ทราบชื่อ"} (จะเอาออก)`, "#be123c", "คืน", apvData("edit", addIds, remove.filter((r) => r !== c.id)), "line-through")
+        : row(`✅ ${c.name || "ไม่ทราบชื่อ"}`, "#2c2550", "เอาออก", apvData("edit", addIds, [...remove, c.id])),
+    ),
+    ...add.map((x) => row(`➕ ${x.name || "ไม่ทราบชื่อ"} (เพิ่มใหม่)`, "#15803d", "ไม่เพิ่ม", apvData("edit", addIds.filter((i) => i !== x.id), remove))),
+  ];
+  const alt = `🔐 ผู้อนุมัติของแชทนี้: ${[...d.current.filter((c) => !remove.includes(c.id)), ...add].map((x) => x.name).join(", ") || "ยังไม่มี"}${changed ? " · กดบันทึกเพื่อยืนยัน" : ""}`;
+  return {
+    type: "flex",
+    altText: alt.slice(0, 380),
+    contents: {
+      type: "bubble",
+      size: "kilo",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#f5f3ff",
+        paddingAll: "12px",
+        contents: [
+          { type: "text", text: "🔐 ผู้อนุมัติของแชทนี้", weight: "bold", size: "md", color: "#3b0764" },
+          small(changed ? "ตรวจรายชื่อ แล้วกด “บันทึก” เพื่อให้มีผลทันที" : "เพิ่มได้ด้วย “@บอท ให้ @ชื่อ อนุมัติได้” · เอาออกได้ด้วยปุ่มด้านขวา"),
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        paddingAll: "12px",
+        contents: [
+          ...(rows.length ? rows : [small("ยังไม่มีผู้อนุมัติ แท็กคนที่จะให้อนุมัติได้เลย เช่น “@บอท ให้ @พี่ศิริ อนุมัติได้”", "#5d5a78")]),
+          ...((d.unknown || []).length
+            ? [small(`⚠️ ยังระบุตัว ${d.unknown!.map((n) => "@" + n).join(", ")} ไม่ได้: ให้เพิ่มบอทเป็นเพื่อน (@532csucn) ก่อน แล้วแท็กใหม่`, "#b45309")]
+            : []),
+          small("ผู้อนุมัติกดปุ่มอนุมัติในการ์ดขออนุมัติของแชทนี้ได้ (อนุมัติคำขอของตัวเองไม่ได้)"),
+        ],
+      },
+      ...(changed
+        ? {
+            footer: {
+              type: "box",
+              layout: "horizontal",
+              spacing: "sm",
+              paddingAll: "12px",
+              contents: [btn("💾 บันทึก", apvData("save", addIds, remove), "primary", "#7c3aed"), btn("ยกเลิก", "apv=cancel&a=&r=", "secondary")],
+            },
+          }
+        : {}),
+    },
+  };
+}

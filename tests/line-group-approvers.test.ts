@@ -147,3 +147,38 @@ test("migration 0071: approvers by tagging decide the group's step; no self-appr
     await db.close();
   }
 });
+
+test("plain words about who approves, never a request", async () => {
+  const { approverIntent, approverSetupCard, approverAction, untaggedNames } = await import("../src/lib/line-mention");
+  assert.equal(approverIntent("ให้พี่ศิริ อนุมัติได้ @พี่ศิริ", 1), "add");
+  assert.equal(approverIntent("กำหนดผู้อนุมัติ @A @B", 2), "add");
+  assert.equal(approverIntent("ตั้ง @A เป็นผู้อนุมัติ", 1), "add");
+  assert.equal(approverIntent("เพิ่มสิทธิ์อนุมัติให้ @A", 1), "add");
+  assert.equal(approverIntent("เอา @A ออกจากผู้อนุมัติ", 1), "remove");
+  assert.equal(approverIntent("ไม่ให้ @A อนุมัติแล้ว", 1), "remove");
+  assert.equal(approverIntent("ขอเป็นผู้อนุมัติ", 0), "self");
+  assert.equal(approverIntent("กำหนดผู้อนุมัติ", 0), "show");
+  assert.equal(approverIntent("ใครอนุมัติได้บ้าง", 0), "show");
+  assert.equal(approverIntent("ผู้อนุมัติ", 0), "show");
+  // requests and other talk are not about approvers
+  assert.equal(approverIntent("ขออนุมัติซื้อกระดาษ A4 3,500 บาท", 0), null);
+  assert.equal(approverIntent("ขออนุมัติเบิกเงินค่าน้ำมัน @พี่ศิริ ช่วยดูให้หน่อย", 1), null);
+  assert.equal(approverIntent("ขอซื้อของให้ทีม @A อนุมัติด้วย", 1), null);
+  assert.equal(approverIntent("ค่าน้ำมัน 500 @A", 1), null);
+  assert.equal(approverIntent("สรุปค่าใช้จ่ายเดือนนี้", 0), null);
+  // someone tagged whom LINE does not identify
+  assert.deepEqual(untaggedNames({ type: "text", text: "ให้ @ใหม่ อนุมัติ", mention: { mentionees: [{ index: 4, length: 5, type: "user" }] } }), ["ใหม่"]);
+  // the card: current approvers, the change, buttons that carry the state, and save
+  const card = JSON.stringify(approverSetupCard({ current: [{ id: A, name: "คุณเอ" }], add: [{ id: B, name: "พี่ศิริ" }], remove: [], unknown: ["ใหม่"] }));
+  assert.match(card, /ผู้อนุมัติของแชทนี้/);
+  assert.match(card, /✅ คุณเอ/);
+  assert.match(card, /➕ พี่ศิริ \(เพิ่มใหม่\)/);
+  assert.match(card, /ยังระบุตัว @ใหม่ ไม่ได้/);
+  assert.match(card, /บันทึก/);
+  const save = card.match(/"data":"(apv=save[^"]*)"/)![1];
+  assert.deepEqual(approverAction(save), { act: "save", add: [B], remove: [] });
+  const drop = card.match(/"label":"เอาออก","data":"(apv=edit[^"]*)"/)![1];
+  assert.deepEqual(approverAction(drop), { act: "edit", add: [B], remove: [A] });
+  // nothing to change: no save button
+  assert.doesNotMatch(JSON.stringify(approverSetupCard({ current: [{ id: A, name: "คุณเอ" }], add: [], remove: [] })), /apv=save/);
+});

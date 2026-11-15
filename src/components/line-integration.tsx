@@ -690,38 +690,18 @@ function Timeline({ items, compact = false }: { items: Activity[]; compact?: boo
   );
 }
 
-/** "ตั้งผู้อนุมัติจาก LINE": a one-time code for "#ผู้อนุมัติ <code> @คนที่จะอนุมัติ" in the group. */
-function ApproverCode() {
-  const [command, setCommand] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function make() {
-    setBusy(true);
-    setError("");
-    try {
-      setCommand(((await api("/line-approver-code", { method: "POST" })) as { command: string }).command);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
+/** How approvers are named: in the LINE group, by tagging (plain words; a card to confirm). */
+function ApproverHowTo() {
   return (
     <div className="lp-approver-code">
       <div>
-        <b>ตั้งผู้อนุมัติจากในกลุ่ม LINE</b>
-        <p>ไม่ต้องมีบัญชี EliteFlow: กดสร้างรหัส แล้วพิมพ์ในกลุ่มพร้อมแท็กคนที่จะให้อนุมัติ (แท็กตัวเองได้) ครั้งต่อไปผู้อนุมัติเพิ่ม/ลบกันเองได้ด้วย “@บอท เพิ่มผู้อนุมัติ @ชื่อ”</p>
-        {command && (
-          <>
-            <code className="lp-code">{command} @ชื่อผู้อนุมัติ</code>
-            <small>คัดลอกรหัส แล้วพิมพ์ในกลุ่มภายใน 10 นาที ต่อท้ายด้วยการแท็กคน เช่น {command.slice(0, 18)}… @คุณเอ @คุณบี</small>
-          </>
-        )}
-        {error && <p className="form-error">{error}</p>}
+        <b>ตั้งผู้อนุมัติจากในกลุ่ม LINE ได้เลย ไม่ต้องมีบัญชี EliteFlow</b>
+        <p>
+          ในกลุ่ม พิมพ์แท็กบอทแล้วบอกด้วยภาษาปกติ เช่น <code>@บอท ให้ @พี่ศิริ อนุมัติได้</code> หรือ <code>@บอท เอา @คุณบี ออกจากผู้อนุมัติ</code> หรือ <code>@บอท ใครอนุมัติได้บ้าง</code>
+          บอทจะส่งการ์ดสรุปรายชื่อ เพิ่มหรือเอาออกได้ในการ์ด แล้วกด “บันทึก” มีผลทันที ครั้งแรกใครในกลุ่มตั้งก็ได้ หลังจากนั้นเฉพาะผู้อนุมัติของกลุ่มหรือเจ้าของ/ผู้จัดการ
+        </p>
+        <small>คนที่ถูกแท็กต้องเพิ่มบอทเป็นเพื่อนไว้ (@532csucn) บอทจึงจะรู้ว่าเป็นใคร</small>
       </div>
-      <button className="secondary" onClick={make} disabled={busy}>
-        {busy ? "กำลังสร้าง…" : command ? "สร้างรหัสใหม่" : "สร้างรหัสตั้งผู้อนุมัติ"}
-      </button>
     </div>
   );
 }
@@ -738,7 +718,7 @@ function Approvals({ data, owner, sample, ctx, edit }: { data: LinePageData; own
   }
   return (
     <>
-      {owner && <ApproverCode />}
+      {owner && <ApproverHowTo />}
       <section className="lp-card">
         <div className="lp-card-head">
           <h2>สิทธิ์และการอนุมัติต่อกลุ่ม</h2>
