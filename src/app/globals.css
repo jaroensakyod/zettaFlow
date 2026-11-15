@@ -8003,3 +8003,13 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .lines-row input { min-width: 0; }
 .lines-foot { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted, #6b6585); }
 @media (max-width: 560px) { .lines-row { grid-template-columns: minmax(0, 1fr) 64px 64px 32px; } .lines-row input:nth-child(3) { display: none; } }
+
+/* "เชื่อมต่อกลุ่ม LINE": add the bot as a friend (QR + button) */
+.lp-bot-add { display: flex; gap: 16px; align-items: center; padding: 14px; margin-bottom: 14px; border-radius: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; }
+.lp-bot-add img { flex: none; border-radius: 10px; background: #fff; padding: 4px; border: 1px solid #dcfce7; }
+.lp-bot-add b { display: block; font-size: 15px; color: #14532d; }
+.lp-bot-add p { margin: 4px 0 10px; font-size: 13px; color: #3f5f4a; }
+.lp-bot-add code { padding: 1px 6px; border-radius: 6px; background: #fff; color: #15803d; font-weight: 700; }
+.lp-bot-btn { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 999px; background: #06c755; color: #fff; font-weight: 700; font-size: 13px; text-decoration: none; }
+.lp-bot-btn:hover { background: #05b04b; }
+@media (max-width: 520px) { .lp-bot-add { flex-direction: column; text-align: center; } }

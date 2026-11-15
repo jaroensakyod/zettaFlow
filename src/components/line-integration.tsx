@@ -159,6 +159,8 @@ function GroupCell({ g }: { g: PageGroup }) {
   );
 }
 
+/** The EliteFlow bot's LINE ID (add-friend link and the QR in public/line-bot-qr.svg, made by scripts/line-bot-qr.ts). */
+const LINE_BOT_ID = process.env.NEXT_PUBLIC_LINE_BOT_ID || "@532csucn";
 export function LineIntegrationPage({ ctx, notify }: { ctx: Context; notify: (s: string) => void }) {
   const allowed = ["owner", "manager"].includes(ctx.member.role),
     owner = ctx.member.role === "owner";
@@ -949,8 +951,18 @@ function LinePairing({ ctx, forms, userOnly = false, full = false }: { ctx: Cont
     <div className="lp-pair">
       {!userOnly && (
         <>
+          <div className="lp-bot-add">
+            <img src="/line-bot-qr.svg" alt={"QR เพิ่มเพื่อน " + LINE_BOT_ID} width={112} height={112} />
+            <div>
+              <b>เพิ่มบอท EliteFlow เป็นเพื่อน</b>
+              <p>สแกน QR ด้วยกล้องมือถือหรือแอป LINE หรือค้นหา ID <code>{LINE_BOT_ID}</code> ในเมนูเพิ่มเพื่อน แล้วเชิญบอทเข้ากลุ่มของคุณ</p>
+              <a className="lp-bot-btn" href={"https://line.me/R/ti/p/" + LINE_BOT_ID} target="_blank" rel="noopener">
+                เพิ่มเพื่อนใน LINE
+              </a>
+            </div>
+          </div>
           <ol className="lp-steps">
-            <li>เพิ่มบอท EliteFlow เข้ากลุ่ม LINE</li>
+            <li>เชิญบอท EliteFlow (<code>{LINE_BOT_ID}</code>) เข้ากลุ่ม LINE: แตะชื่อกลุ่ม → เชิญ → เลือก EliteFlow</li>
             <li>เลือกแผนกของกลุ่ม แล้วกด “สร้างรหัสเชื่อมกลุ่ม” คัดลอกคำสั่งไปพิมพ์ในกลุ่มนั้นภายใน 10 นาที</li>
             <li>กลุ่มจะขึ้นในตาราง แก้ชื่อ แผนก และวิธีบันทึกได้ที่ปุ่มแก้ไข</li>
           </ol>
