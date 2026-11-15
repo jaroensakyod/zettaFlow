@@ -6853,6 +6853,52 @@ fieldset.exf-card:disabled { opacity: 1; }
 .exf-primary { display: inline-flex; align-items: center; gap: 12px; height: 48px; padding: 0 26px; border: 0; background: linear-gradient(135deg, var(--th-accent-2, #8a63ec), var(--th-accent, #6d45d9)); color: var(--th-on-accent, white); font-size: 14.5px; font-weight: 600; cursor: pointer; border-radius: 11px 0 0 11px; }
 .exf-primary.exf-caret { padding: 0 14px; border-radius: 0 11px 11px 0; border-left: 1px solid rgba(255, 255, 255, .28); }
 .exf-primary:hover:not(:disabled) { filter: brightness(1.05); }
+
+/* ---- บันทึกค่าใช้จ่าย / บันทึกรายรับ: colour so each section reads apart and the fields stand out ---- */
+/* Each card has its own colour: a thin bar on top, the title icon in a tinted tile, the number in that colour. */
+.exf-card { --sc: #7c3aed; --sc2: #a78bfa; --sc-soft: #f3eeff; position: relative; overflow: hidden; border-color: color-mix(in srgb, var(--sc) 14%, var(--exf-line)); box-shadow: 0 6px 22px rgba(60, 40, 140, .06); }
+.exf-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--sc), var(--sc2)); }
+.exf-general { --sc: #7c3aed; --sc2: #a78bfa; --sc-soft: #f3eeff; }
+.exf-payee { --sc: #2563eb; --sc2: #60a5fa; --sc-soft: #eaf2ff; }
+.exf-items { --sc: #ea580c; --sc2: #fbbf24; --sc-soft: #fff3e6; }
+.exf-notes { --sc: #0d9488; --sc2: #2dd4bf; --sc-soft: #e6f8f5; }
+.exf-summary { --sc: #db2777; --sc2: #f472b6; --sc-soft: #fdebf3; background: linear-gradient(180deg, var(--sc-soft) 0, var(--th-surface, #fff) 180px); }
+.inf .exf-summary { --sc: #16a34a; --sc2: #4ade80; --sc-soft: #e7f8ee; }
+.exf-title > span { width: 38px; height: 38px; flex: none; border-radius: 11px; background: var(--sc-soft); color: var(--sc); }
+.exf-summary .exf-title > span { width: 34px; height: 34px; background: #fff; }
+.exf-title { color: #241d45; }
+.exf-card .exf-title { font-size: 17px; }
+/* Fields: a soft fill so empty boxes are easy to spot, white and outlined in the card colour when focused. */
+.exf-label { font-weight: 600; color: #4a4466; }
+.exf-control > input, .exf-control > select, .exf-note-box textarea { background-color: #faf9fe; border-color: #e6e1f3; transition: border-color .15s, background-color .15s, box-shadow .15s; }
+.exf-control > input:hover, .exf-control > select:hover, .exf-note-box textarea:hover { border-color: color-mix(in srgb, var(--sc) 35%, #e6e1f3); }
+.exf-control > input:focus, .exf-control > select:focus, .exf-note-box textarea:focus { background-color: #fff; border-color: var(--sc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc) 16%, transparent); }
+.exf-control > input[readonly] { background-color: #f3f2f8; }
+.exf-control-icon { color: var(--sc); }
+/* Payee type: the chosen one filled in blue. */
+.exf-segment { border-color: color-mix(in srgb, var(--sc) 22%, #e6e1f3); }
+.exf-segment label.active { background: var(--sc-soft); color: var(--sc); }
+.exf-segment label.active i { border-color: var(--sc); }
+.exf-segment label.active i::after { background: var(--sc); }
+.exf-payee .exf-link { color: var(--sc); }
+/* Item table: tinted header, zebra rows, a highlight on the row being typed in. */
+.exf-items .exf-outline { border-color: color-mix(in srgb, var(--sc) 30%, transparent); color: var(--sc); }
+.exf-items .exf-outline:hover { background: var(--sc-soft); }
+.exf-table-wrap { border-color: color-mix(in srgb, var(--sc) 18%, #e6e1f3); }
+.exf-table th { background: linear-gradient(180deg, var(--sc-soft), color-mix(in srgb, var(--sc-soft) 55%, #fff)); color: #5a3a1a; border-bottom-color: color-mix(in srgb, var(--sc) 18%, #e6e1f3); }
+.exf-table tbody tr:nth-child(even) td { background: #fcfbfe; }
+.exf-table tbody tr:focus-within td { background: color-mix(in srgb, var(--sc-soft) 60%, #fff); }
+.exf-table td:first-child { font-weight: 700; color: var(--sc); }
+.exf-table input, .exf-table select, .exf-discount { background-color: #faf9fe; }
+.exf-table input:focus, .exf-table select:focus { background-color: #fff; border-color: var(--sc); }
+/* Summary: boxes on white, the grand total in the page colour (pink for expenses, green for income). */
+.exf-sum-box { background: #fff; }
+.exf-summary .exf-total { color: #fff; background: linear-gradient(135deg, var(--sc), var(--sc2)); box-shadow: 0 10px 24px color-mix(in srgb, var(--sc) 30%, transparent); }
+.exf-baht.accent { color: var(--sc); }
+/* Notes and the bottom bar. */
+.exf-note-box textarea { min-height: 96px; }
+.exf-actions { box-shadow: 0 -8px 24px rgba(60, 40, 140, .07); }
+@media (prefers-reduced-motion: reduce) { .exf-control > input, .exf-control > select, .exf-note-box textarea { transition: none; } }
 .exf-menu { position: absolute; right: 0; bottom: calc(100% + 8px); min-width: 280px; padding: 6px; background: var(--th-surface, white); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 34px rgba(30, 20, 70, .16); animation: dept-switch-in .16s ease both; }
 .exf-menu button { width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 13.5px; color: var(--ink); cursor: pointer; }
 .exf-menu button:hover { background: var(--accent-soft); color: var(--accent); }
