@@ -35,6 +35,8 @@ export function answerQuestion(text: string, s: QuickStats) {
     );
   return lines.join("\n");
 }
+/** Messages from the database still say "@บอท"; the bot is called @EliteFlow in the group. */
+const botWord = (t: string) => t.replace(/@บอท/g, "@EliteFlow");
 export async function lineReply(replyToken: string | undefined, text: string) {
   return (await lineReplyId(replyToken, text)).ok;
 }
@@ -48,7 +50,7 @@ export async function lineReplyId(replyToken: string | undefined | null, text: s
       Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ replyToken, messages: Array.isArray(text) ? text.slice(0, 5) : [typeof text === "string" ? { type: "text", text: text.slice(0, 4900) } : text] }),
+    body: JSON.stringify({ replyToken, messages: Array.isArray(text) ? text.slice(0, 5) : [typeof text === "string" ? { type: "text", text: botWord(text).slice(0, 4900) } : text] }),
   }).catch(() => null);
   if (!r?.ok) return { ok: false, id: null };
   return { ok: true, id: await sentMessageId(r) };

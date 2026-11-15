@@ -1,4 +1,4 @@
-// "@บอท สรุปค่าใช้จ่ายเดือนนี้" in LINE: totals by category and by person, the biggest items, what still waits,
+// "@EliteFlow สรุปค่าใช้จ่ายเดือนนี้" in LINE: totals by category and by person, the biggest items, what still waits,
 // and a file (CSV, opens in Excel / Google Sheets) of every expense in the period. Pure helpers (tested); the
 // webhook asks the database (line_expense_summary) and the share route builds the file.
 

@@ -410,7 +410,7 @@ export function approvedCard(item: ApprovalItem, stage: "approved" | "awaiting_s
       ? "ยังไม่ลงเป็นค่าใช้จ่าย จ่ายเงินแล้วกด “ยืนยันจ่ายแล้ว · ส่งสลิป” แล้วส่งรูปสลิปหรือใบเสร็จ"
       : stage === "paid"
         ? `แนบสลิปแล้ว บันทึก${page === "ใบขออนุมัติค่าใช้จ่าย" ? "ค่าใช้จ่าย" : page} ${a.ref} เข้า EliteFlow แล้ว`
-        : `บันทึก${page} ${a.ref} เข้า EliteFlow แล้ว ขอเอกสารได้ด้วย “@บอท ขอเอกสาร ${a.ref}”`;
+        : `บันทึก${page} ${a.ref} เข้า EliteFlow แล้ว ขอเอกสารได้ด้วย “@EliteFlow ขอเอกสาร ${a.ref}”`;
   const alt = [`${head}: ${what}`, ...steps.map((h) => `ขั้นที่ ${h.step}/${h.of} โดย ${h.name} · ${thaiTime(h.at)}`), `เลขอ้างอิง ${a.ref}`, after].join("\n");
   return {
     type: "flex",
@@ -474,7 +474,7 @@ export function recordUrl(kind: string | null | undefined, id?: string | null) {
   return base && id ? base + "?id=" + encodeURIComponent(id) : base;
 }
 
-/* ---------- "@บอท ขอเอกสาร …" ---------- */
+/* ---------- "@EliteFlow ขอเอกสาร …" ---------- */
 
 /** "ขอเอกสาร PO-69-0001" → { code }, "ขอเอกสาร" → { code: null } (choose from the latest); null = not a request. */
 export function docRequest(text: string): { code: string | null } | null {
@@ -596,7 +596,7 @@ export function approverCommand(text: string): { act: "add" | "remove" | "list";
 }
 /** The group's approvers, as the bot says them. */
 export function approversText(list: { name: string }[]) {
-  if (!list.length) return "กลุ่มนี้ยังไม่มีผู้อนุมัติที่ตั้งไว้ค่ะ ตั้งได้ด้วย “@บอท เพิ่มผู้อนุมัติ @ชื่อ” (หรือรหัสจากหน้า LINE ในเว็บ ครั้งแรก)";
+  if (!list.length) return "กลุ่มนี้ยังไม่มีผู้อนุมัติที่ตั้งไว้ค่ะ ตั้งได้ด้วย “@EliteFlow เพิ่มผู้อนุมัติ @ชื่อ” (หรือรหัสจากหน้า LINE ในเว็บ ครั้งแรก)";
   return `✅ ผู้อนุมัติของกลุ่มนี้ (${list.length} คน): ${list.map((x) => x.name || "ไม่ทราบชื่อ").join(", ")}\nกดปุ่มอนุมัติในการ์ดขออนุมัติได้ทันที (อนุมัติคำขอของตัวเองไม่ได้)`;
 }
 
@@ -642,7 +642,7 @@ export function approverAction(data: string): { act: "save" | "edit" | "cancel";
 }
 const apvData = (act: string, add: string[], remove: string[]) => `apv=${act}&a=${enc(add)}&r=${enc(remove)}`;
 /**
- * The card after "@บอท ให้พี่ศิริอนุมัติได้ @พี่ศิริ": who approves in this chat now, who will be added / removed,
+ * The card after "@EliteFlow ให้พี่ศิริอนุมัติได้ @พี่ศิริ": who approves in this chat now, who will be added / removed,
  * a button per person to change it, and บันทึก (nothing changes before it is pressed).
  */
 export function approverSetupCard(d: ApproverDraft) {
@@ -683,7 +683,7 @@ export function approverSetupCard(d: ApproverDraft) {
         paddingAll: "12px",
         contents: [
           { type: "text", text: "🔐 ผู้อนุมัติของแชทนี้", weight: "bold", size: "md", color: "#3b0764" },
-          small(changed ? "ตรวจรายชื่อ แล้วกด “บันทึก” เพื่อให้มีผลทันที" : "เพิ่มได้ด้วย “@บอท ให้ @ชื่อ อนุมัติได้” · เอาออกได้ด้วยปุ่มด้านขวา"),
+          small(changed ? "ตรวจรายชื่อ แล้วกด “บันทึก” เพื่อให้มีผลทันที" : "เพิ่มได้ด้วย “@EliteFlow ให้ @ชื่อ อนุมัติได้” · เอาออกได้ด้วยปุ่มด้านขวา"),
         ],
       },
       body: {
@@ -692,7 +692,7 @@ export function approverSetupCard(d: ApproverDraft) {
         spacing: "xs",
         paddingAll: "12px",
         contents: [
-          ...(rows.length ? rows : [small("ยังไม่มีผู้อนุมัติ แท็กคนที่จะให้อนุมัติได้เลย เช่น “@บอท ให้ @พี่ศิริ อนุมัติได้”", "#5d5a78")]),
+          ...(rows.length ? rows : [small("ยังไม่มีผู้อนุมัติ แท็กคนที่จะให้อนุมัติได้เลย เช่น “@EliteFlow ให้ @พี่ศิริ อนุมัติได้”", "#5d5a78")]),
           ...((d.unknown || []).length
             ? [small(`⚠️ ยังระบุตัว ${d.unknown!.map((n) => "@" + n).join(", ")} ไม่ได้: ให้เพิ่มบอทเป็นเพื่อน (@532csucn) ก่อน แล้วแท็กใหม่`, "#b45309")]
             : []),

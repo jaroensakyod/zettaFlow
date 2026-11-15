@@ -118,7 +118,7 @@ async function approvalDecide(sb: Admin, groupId: string, userId: string, id: st
   }
   await approvalAfter(id, data as ActResult, replyToken, groupId);
 }
-/** "@บอท ขอเอกสาร PO-69-0001" → that document; "@บอท ขอเอกสาร" → the latest ones as buttons; a button → that one. */
+/** "@EliteFlow ขอเอกสาร PO-69-0001" → that document; "@EliteFlow ขอเอกสาร" → the latest ones as buttons; a button → that one. */
 async function sendDocuments(sb: Admin, groupId: string, userId: string, replyToken: string | null, find: { code?: string | null; id?: string | null }) {
   const { data, error } = await sb.rpc("line_documents", { p_group: groupId, p_user: userId, p_code: find.code || null, p_id: find.id || null });
   if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
@@ -128,7 +128,7 @@ async function sendDocuments(sb: Admin, groupId: string, userId: string, replyTo
       replyToken || undefined,
       find.code
         ? `ไม่พบเอกสาร ${find.code} ที่คุณขอดูได้ค่ะ (ต้องเป็นเอกสารของบริษัทนี้ และเชื่อมบัญชี LINE แล้ว หรือเป็นคนที่ขอเอกสารนั้นเอง)`
-        : "ยังไม่มีเอกสารที่บันทึกจากกลุ่มนี้ค่ะ ลองพิมพ์ “@บอท ขอเอกสาร PO-69-0001” พร้อมเลขเอกสาร",
+        : "ยังไม่มีเอกสารที่บันทึกจากกลุ่มนี้ค่ะ ลองพิมพ์ “@EliteFlow ขอเอกสาร PO-69-0001” พร้อมเลขเอกสาร",
     );
   return lineReplyId(replyToken, docs.length === 1 || find.code || find.id ? docCard(docs[0]) : docChoices(docs));
 }
@@ -148,7 +148,7 @@ async function askEvidence(sb: Admin, groupId: string, userId: string, id: strin
   await listen(sb, c.company, groupId, userId, "evidence", id, EVIDENCE_MS);
   return lineReply(replyToken || undefined, evidencePrompt(c.left));
 }
-/** "@บอท สรุปค่าใช้จ่ายเดือนนี้": totals for owners / managers, with the file and the web page. */
+/** "@EliteFlow สรุปค่าใช้จ่ายเดือนนี้": totals for owners / managers, with the file and the web page. */
 async function sendSummary(sb: Admin, groupId: string, userId: string, companyId: string, period: { from: string; to: string; label: string }, replyToken: string | null) {
   const { data, error } = await sb.rpc("line_expense_summary", { p_group: groupId, p_user: userId, p_from: period.from, p_to: period.to });
   if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
@@ -156,7 +156,7 @@ async function sendSummary(sb: Admin, groupId: string, userId: string, companyId
   const file = s.count ? shareUrl({ k: "sum", c: companyId, from: period.from, to: period.to }, 7) : "";
   return lineReplyId(replyToken, summaryCard(s, period, { file, web: pageUrl("expenses") }));
 }
-/** "#ผู้อนุมัติ <code> @…" / "@บอท เพิ่ม|ลบผู้อนุมัติ @…" / "@บอท ผู้อนุมัติ": the group's approvers. */
+/** "#ผู้อนุมัติ <code> @…" / "@EliteFlow เพิ่ม|ลบผู้อนุมัติ @…" / "@EliteFlow ผู้อนุมัติ": the group's approvers. */
 async function setApprovers(
   sb: Admin,
   groupId: string,
@@ -170,7 +170,7 @@ async function setApprovers(
     return lineReply(replyToken || undefined, approversText((data || []) as { name: string }[]));
   }
   const people = taggedPeople({ type: "text", ...message });
-  if (!people.length) return lineReply(replyToken || undefined, "แท็กคนที่จะ" + (cmd.act === "remove" ? "ลบออกจาก" : "ตั้งเป็น") + "ผู้อนุมัติด้วยนะคะ เช่น “@บอท เพิ่มผู้อนุมัติ @คุณเอ @คุณบี” (แท็กตัวเองได้)");
+  if (!people.length) return lineReply(replyToken || undefined, "แท็กคนที่จะ" + (cmd.act === "remove" ? "ลบออกจาก" : "ตั้งเป็น") + "ผู้อนุมัติด้วยนะคะ เช่น “@EliteFlow เพิ่มผู้อนุมัติ @คุณเอ @คุณบี” (แท็กตัวเองได้)");
   const named = await Promise.all(people.map(async (p) => ({ id: p.id, name: (await lineName(groupId, p.id)) || p.name })));
   const { data, error } = await sb.rpc("line_set_approvers", {
     p_group: groupId,
@@ -290,7 +290,7 @@ export async function POST(req: Request) {
             ? "เชื่อมกลุ่มไม่สำเร็จ: " + error.message
             : "✅ เชื่อมกลุ่มนี้กับ EliteFlow แล้ว" +
               (dept ? " เป็นกลุ่มของ" + dept : "") +
-              "\nแท็ก @บอท แล้วพิมพ์สิ่งที่จะบันทึก เช่น “@บอท ค่าน้ำมัน 500 บาท” หรือแท็กแล้วส่งรูป ไฟล์ หรือข้อความเสียงตามภายใน 2 นาที" +
+              "\nแท็ก @EliteFlow แล้วพิมพ์สิ่งที่จะบันทึก เช่น “@EliteFlow ค่าน้ำมัน 500 บาท” หรือแท็กแล้วส่งรูป ไฟล์ หรือข้อความเสียงตามภายใน 2 นาที" +
               "\nน้องจะสรุปให้ตรวจก่อน กด “บันทึกได้เลย” จึงส่งเข้าเว็บ ถ้าต้องแก้ กด “แก้ไข” แล้วพิมพ์ได้เลย" +
               "\n\nℹ️ แจ้งสมาชิก: ระบบอ่านและบันทึกเฉพาะข้อความที่แท็กบอท (และรูปหรือไฟล์ที่ส่งตามมา) พร้อมชื่อผู้ส่ง เพื่อใช้งานภายในบริษัท " +
               "ข้อความอื่นในกลุ่มจะไม่ถูกเก็บ (ข้อความเสียงจะถูกถอดเป็นตัวอักษร และลบไฟล์เสียงหลัง 90 วัน)",
@@ -493,7 +493,7 @@ export async function POST(req: Request) {
             await lineReply(event.replyToken, mentionPrompt);
             continue;
           }
-          // Waiting for this member's correction (after แก้ไข): "@บอท กฤติน …" is that correction, not a new request.
+          // Waiting for this member's correction (after แก้ไข): "@EliteFlow กฤติน …" is that correction, not a new request.
           {
             const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
             const plan = listenPlan(row as ListenRow | null, "text");
@@ -502,7 +502,7 @@ export async function POST(req: Request) {
               if (await rereadDraft(sb, plan.id, editText(raw) || raw, event.replyToken || null)) continue;
             }
           }
-          // "@บอท ให้พี่ศิริอนุมัติได้ @พี่ศิริ" / "เอา @A ออกจากผู้อนุมัติ" / "ขอเป็นผู้อนุมัติ" / "กำหนดผู้อนุมัติ":
+          // "@EliteFlow ให้พี่ศิริอนุมัติได้ @พี่ศิริ" / "เอา @A ออกจากผู้อนุมัติ" / "ขอเป็นผู้อนุมัติ" / "กำหนดผู้อนุมัติ":
           // a card with the changes; nothing is saved before its บันทึก.
           const people = taggedPeople(message);
           const intent = approverIntent(raw, people.length + untaggedNames(message).length);
@@ -525,12 +525,12 @@ export async function POST(req: Request) {
           }
           const paid = slipRequest(raw);
           if (paid) {
-            // "@บอท ส่งสลิป EXP-69-0001" (or the requester's latest approved request waiting for one)
+            // "@EliteFlow ส่งสลิป EXP-69-0001" (or the requester's latest approved request waiting for one)
             let q = sb.from("ingestions").select("id").eq("company_id", group.company_id).eq("status", "awaiting_slip");
             q = paid.code ? q.eq("doc_code", paid.code) : q.eq("source_user", userId).eq("group_id", groupId);
             const { data: waiting } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
             if (waiting) await askSlip(sb, groupId, userId, waiting.id as string, event.replyToken || null);
-            else await lineReply(event.replyToken, paid.code ? `ไม่พบ ${paid.code} ที่รอสลิปอยู่ค่ะ (ต้องอนุมัติแล้วและยังไม่ได้ส่งสลิป)` : "ไม่มีคำขอของคุณที่อนุมัติแล้วรอสลิปในกลุ่มนี้ค่ะ ลองพิมพ์พร้อมเลข เช่น “@บอท ส่งสลิป EXP-69-0001”");
+            else await lineReply(event.replyToken, paid.code ? `ไม่พบ ${paid.code} ที่รอสลิปอยู่ค่ะ (ต้องอนุมัติแล้วและยังไม่ได้ส่งสลิป)` : "ไม่มีคำขอของคุณที่อนุมัติแล้วรอสลิปในกลุ่มนี้ค่ะ ลองพิมพ์พร้อมเลข เช่น “@EliteFlow ส่งสลิป EXP-69-0001”");
             continue;
           }
           const wants = docRequest(raw);
@@ -715,7 +715,7 @@ export async function POST(req: Request) {
         continue;
       }
       if (attachTo && attachmentId) {
-        // A photo right after "@บอท สลิปค่าน้ำมัน": it belongs to that draft (read again with the file).
+        // A photo right after "@EliteFlow สลิปค่าน้ำมัน": it belongs to that draft (read again with the file).
         const { data: d } = await sb.from("ingestions").select("id, status, attachment_id").eq("id", attachTo).maybeSingle();
         if (d && !d.attachment_id && d.status === "queued") {
           await sb.from("ingestions").update({ attachment_id: attachmentId, reply_token: event.replyToken || null }).eq("id", d.id).eq("status", "queued");
