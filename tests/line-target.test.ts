@@ -351,7 +351,7 @@ test("Free plan: new companies start free forever; 1 LINE group, monthly items; 
     await assert.rejects(db.query("select submit_ingestion($1,$2,'c')", [c, t]), /แพ็กเกจฟรีใช้ได้ 2 รายการต่อเดือน/);
     const meters = (await one<{ x: { kind: string; ai_calls: { limit: number } } }>(db, "select trial_usage($1)as x", [c])).x;
     assert.equal(meters.kind, "free");
-    assert.equal(meters.ai_calls.limit, 300);
+    assert.equal(meters.ai_calls.limit, 1500);
     assert.equal((await one<{ h: boolean }>(db, "select has_addon($1,'exec_dashboard')as h", [c])).h, false);
     // An ended Growth trial keeps working, on Free limits.
     const d = (await one<{ id: string }>(db, "select create_company('Ended Co')as id")).id;

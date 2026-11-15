@@ -11,8 +11,7 @@ import {
   expensePaidCard,
   draftCardNow,
 } from "@/lib/ai";
-import { approverAction, approverCommand, approverIntent, approverSetupCard, approversText, taggedPeople, untaggedNames } from "@/lib/line-mention";
-import { randomBytes } from "node:crypto";
+import { approverAction, approverIntent, approverSetupCard, approversText, taggedPeople, untaggedNames } from "@/lib/line-mention";
 import { lineName } from "@/lib/ai";
 import { approvalAction, docCard, docChoices, docRequest, EVIDENCE_MS, evidencePrompt, reasonPrompt, SLIP_MS, slipPrompt, slipRequest, type ActResult, type DocRecord } from "@/lib/line-mention";
 import { summaryCard, summaryRequest, type Summary } from "@/lib/expense-summary";
@@ -156,32 +155,6 @@ async function sendSummary(sb: Admin, groupId: string, userId: string, companyId
   const file = s.count ? shareUrl({ k: "sum", c: companyId, from: period.from, to: period.to }, 7) : "";
   return lineReplyId(replyToken, summaryCard(s, period, { file, web: pageUrl("expenses") }));
 }
-/** "#ผู้อนุมัติ <code> @…" / "@EliteFlow เพิ่ม|ลบผู้อนุมัติ @…" / "@EliteFlow ผู้อนุมัติ": the group's approvers. */
-async function setApprovers(
-  sb: Admin,
-  groupId: string,
-  userId: string,
-  message: { text?: string; mention?: { mentionees?: { index?: number; length?: number; type?: string; userId?: string; isSelf?: boolean }[] } },
-  cmd: { act: "add" | "remove" | "list"; code: string | null },
-  replyToken: string | null,
-) {
-  if (cmd.act === "list") {
-    const { data } = await sb.from("line_group_approvers").select("line_user, name").eq("group_id", groupId).order("created_at");
-    return lineReply(replyToken || undefined, approversText((data || []) as { name: string }[]));
-  }
-  const people = taggedPeople({ type: "text", ...message });
-  if (!people.length) return lineReply(replyToken || undefined, "แท็กคนที่จะ" + (cmd.act === "remove" ? "ลบออกจาก" : "ตั้งเป็น") + "ผู้อนุมัติด้วยนะคะ เช่น “@EliteFlow เพิ่มผู้อนุมัติ @คุณเอ @คุณบี” (แท็กตัวเองได้)");
-  const named = await Promise.all(people.map(async (p) => ({ id: p.id, name: (await lineName(groupId, p.id)) || p.name })));
-  const { data, error } = await sb.rpc("line_set_approvers", {
-    p_group: groupId,
-    p_user: userId,
-    p_hash: cmd.code ? tokenHash(cmd.code) : null,
-    p_add: cmd.act === "add" ? named : [],
-    p_remove: cmd.act === "remove" ? named.map((p) => p.id) : null,
-  });
-  if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
-  return lineReply(replyToken || undefined, approversText((data || []) as { name: string }[]));
-}
 /** The approver card of a group: who approves now plus the changes asked for (nothing saved yet). */
 async function approverCard(sb: Admin, groupId: string, add: string[], remove: string[], unknown: string[] = []) {
   const { data } = await sb.from("line_group_approvers").select("line_user, name").eq("group_id", groupId).order("created_at");
@@ -190,22 +163,15 @@ async function approverCard(sb: Admin, groupId: string, add: string[], remove: s
   return approverSetupCard({ current, add: named, remove, unknown });
 }
 /**
- * "บันทึก" on the approver card. The first approvers of a group may be set by anyone in it (the group belongs to
- * the company; the owner sees and can remove them on the website); after that only an approver of the group or a
+ * "บันทึก" on the approver card, no code needed. The first approvers of a group may be set by anyone in it (the group
+ * belongs to the company; the owner sees and can remove them on the website); after that an approver of the group or a
  * linked owner/manager (checked in line_set_approvers).
  */
 async function saveApprovers(sb: Admin, groupId: string, userId: string, add: string[], remove: string[], replyToken: string | null) {
   const { data: g } = await sb.from("line_groups").select("company_id").eq("group_id", groupId).maybeSingle();
   if (!g) return lineReply(replyToken || undefined, "กลุ่มนี้ยังไม่ได้เชื่อมกับ EliteFlow");
-  const { count } = await sb.from("line_group_approvers").select("line_user", { count: "exact", head: true }).eq("group_id", groupId);
-  let hash: string | null = null;
-  if (!count) {
-    const code = randomBytes(16).toString("hex");
-    hash = tokenHash(code);
-    await sb.from("line_approver_codes").insert({ token_hash: hash, company_id: g.company_id, expires_at: new Date(Date.now() + 60_000).toISOString() });
-  }
   const named = await Promise.all(add.map(async (id) => ({ id, name: (await lineName(groupId, id)) || "" })));
-  const { data, error } = await sb.rpc("line_set_approvers", { p_group: groupId, p_user: userId, p_hash: hash, p_add: named, p_remove: remove.length ? remove : null });
+  const { data, error } = await sb.rpc("line_set_approvers", { p_group: groupId, p_user: userId, p_hash: null, p_add: named, p_remove: remove.length ? remove : null });
   if (error) return lineReply(replyToken || undefined, "⚠️ " + error.message);
   return lineReply(replyToken || undefined, "💾 บันทึกแล้ว มีผลทันที\n" + approversText((data || []) as { name: string }[]));
 }
@@ -298,8 +264,9 @@ export async function POST(req: Request) {
         continue;
       }
       if (message.type === "text" && message.text.startsWith("#ผู้อนุมัติ") && userId) {
-        const cmd = approverCommand(message.text);
-        await (cmd ? setApprovers(sb, groupId, userId, message, cmd, event.replyToken || null) : lineReply(event.replyToken, "พิมพ์ “#ผู้อนุมัติ <รหัส>” แล้วแท็กคนที่จะเป็นผู้อนุมัติ (รหัสสร้างได้ที่หน้า LINE ในเว็บ)"));
+        // the old "#ผู้อนุมัติ <code> @…" (no code needed any more): the approver card with the people tagged
+        const tagged = taggedPeople(message).map((p) => p.id);
+        await lineReplyId(event.replyToken, await approverCard(sb, groupId, /ลบ|เอาออก/.test(message.text) ? [] : tagged, /ลบ|เอาออก/.test(message.text) ? tagged : [], untaggedNames(message)));
         continue;
       }
       if (message.type === "text" && message.text.startsWith("#user ")) {

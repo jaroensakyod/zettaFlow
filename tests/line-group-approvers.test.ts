@@ -1,11 +1,10 @@
-// Approvers named in the LINE group by tagging (migration 0071): no EliteFlow account needed. The first time with a
-// one-time code made by the owner on the website; later by an approver of the group or a linked owner/manager.
+// Approvers named in the LINE group by tagging (migrations 0071, 0072): no EliteFlow account and no code. The first
+// approvers by anyone in the group; later by an approver of the group or a linked owner/manager.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
-import { approverCommand, approversText, taggedPeople } from "../src/lib/line-mention";
+import { approversText, taggedPeople } from "../src/lib/line-mention";
 
 const A = "U" + "a".repeat(32),
   B = "U" + "b".repeat(32),
@@ -33,19 +32,13 @@ test("tagged people are read from LINE's mention data (not the bot, not @All)", 
   ]);
 });
 
-test("approver commands", () => {
-  assert.deepEqual(approverCommand("#ผู้อนุมัติ 0123456789abcdef0123456789abcdef @คุณเอ"), { act: "add", code: "0123456789abcdef0123456789abcdef" });
-  assert.deepEqual(approverCommand("เพิ่มผู้อนุมัติ @คุณเอ"), { act: "add", code: null });
-  assert.deepEqual(approverCommand("ตั้งผู้อนุมัติ @คุณเอ @ตัวเอง"), { act: "add", code: null });
-  assert.deepEqual(approverCommand("ลบผู้อนุมัติ @คุณบี"), { act: "remove", code: null });
-  assert.deepEqual(approverCommand("ผู้อนุมัติ"), { act: "list", code: null });
-  assert.deepEqual(approverCommand("ใครเป็นผู้อนุมัติ"), { act: "list", code: null });
-  assert.equal(approverCommand("ส่งให้ผู้อนุมัติดูหน่อย"), null);
+test("approvers text", () => {
   assert.match(approversText([{ name: "คุณเอ" }, { name: "ศิริ" }]), /ผู้อนุมัติของกลุ่มนี้ \(2 คน\): คุณเอ, ศิริ/);
   assert.match(approversText([]), /ยังไม่มีผู้อนุมัติ/);
+  assert.doesNotMatch(approversText([]), /รหัสจาก/);
 });
 
-test("migration 0071: approvers by tagging decide the group's step; no self-approval; code once", async () => {
+test("migration 0071: approvers by tagging decide the group's step; no self-approval; no code", async () => {
   const owner = "10000000-0000-4000-8000-000000000001";
   const db = new PGlite();
   try {
@@ -72,21 +65,15 @@ test("migration 0071: approvers by tagging decide the group's step; no self-appr
     await db.query("update subscriptions set plan='enterprise',status='active',current_period_end=now()+interval '30 days' where company_id=$1", [c]);
     await db.query("insert into line_groups(group_id,company_id,department)values('G-fin',$1,'Finance'),('G-it',$1,'IT')", [c]);
 
-    // nobody is an approver yet: setting them needs the owner's code
+    // nobody is an approver yet: anyone in the group names the first ones, with no code
     await db.exec("set role service_role;");
-    await assert.rejects(db.query("select line_set_approvers('G-fin',$1,null,$2,null)", [A, JSON.stringify([{ id: A, name: "คุณเอ" }])]), /เฉพาะผู้อนุมัติของกลุ่มนี้/);
-    const code = "0123456789abcdef0123456789abcdef";
-    const hash = createHash("sha256").update(code).digest("hex");
-    await asOwner();
-    await db.query("select create_approver_code($1,$2)", [c, hash]);
-    await db.exec("set role service_role;");
-    const set = await one<{ id: string; name: string }[]>("select line_set_approvers('G-fin',$1,$2,$3,null)", [A, hash, JSON.stringify([{ id: A, name: "คุณเอ" }, { id: ASKER, name: "ศิริ" }, { id: "not-a-line-id", name: "x" }])]);
+    const set = await one<{ id: string; name: string }[]>("select line_set_approvers('G-fin',$1,null,$2,null)", [A, JSON.stringify([{ id: A, name: "คุณเอ" }, { id: ASKER, name: "ศิริ" }, { id: "not-a-line-id", name: "x" }])]);
     assert.deepEqual(set.map((x) => x.name), ["คุณเอ", "ศิริ"]);
-    // the code works once
-    await assert.rejects(db.query("select line_set_approvers('G-fin',$1,$2,'[]',null)", [STRANGER, hash]), /หมดอายุ/);
+    // a leftover code from an old message is ignored, not an error
+    await db.query("select line_set_approvers('G-fin',$1,'deadbeef','[]',null)", [A]);
     // an approver adds another; a stranger cannot
     await db.query("select line_set_approvers('G-fin',$1,null,$2,null)", [A, JSON.stringify([{ id: B, name: "คุณบี" }])]);
-    await assert.rejects(db.query("select line_set_approvers('G-fin',$1,null,'[]',null)", [STRANGER]), /เฉพาะผู้อนุมัติ/);
+    await assert.rejects(db.query("select line_set_approvers('G-fin',$1,null,'[]',null)", [STRANGER]), /มีผู้อนุมัติแล้ว/);
 
     // an expense asked in the IT group by ASKER: step 1 IT (no approver there), step 2 Finance (≥ 5,000)
     await db.exec("reset role;");
@@ -118,12 +105,7 @@ test("migration 0071: approvers by tagging decide the group's step; no self-appr
 
     // an approver of another department's group cannot decide this step
     await db.exec("set role service_role;");
-    await asOwner();
-    const code2 = "fedcba9876543210fedcba9876543210";
-    const hash2 = createHash("sha256").update(code2).digest("hex");
-    await db.query("select create_approver_code($1,$2)", [c, hash2]);
-    await db.exec("set role service_role;");
-    await db.query("select line_set_approvers('G-it',$1,$2,$3,null)", [STRANGER, hash2, JSON.stringify([{ id: STRANGER, name: "ไอที" }])]);
+    await db.query("select line_set_approvers('G-it',$1,null,$2,null)", [STRANGER, JSON.stringify([{ id: STRANGER, name: "ไอที" }])]);
     await db.exec("reset role;");
     const job2 = await one<string>(
       "insert into ingestions(company_id,template,department,raw,source,group_id,source_user,confirm,target_kind)values($1,$2,'Finance','x','LINE','G-fin',$3,true,'expenses')returning id",
@@ -143,6 +125,8 @@ test("migration 0071: approvers by tagging decide the group's step; no self-appr
     await db.query("select line_set_approvers('G-fin',$1,null,'[]',$2)", [A, [ASKER]]);
     await db.exec("reset role;");
     assert.equal(await one<number>("select count(*)::int from line_group_approvers where group_id='G-fin'"), 1);
+    // Free plan AI allowance matches the website: 300 items a month
+    assert.equal(await one<number>("select amount from free_limits where resource='ai_files'"), 300);
   } finally {
     await db.close();
   }
