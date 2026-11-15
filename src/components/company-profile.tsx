@@ -150,7 +150,7 @@ export function CompanyProfilePage({
         </div>
         <div className="cp-head">
           <span className="cp-logo">
-            <CompanyLogo id={p.id} name={p.name} logo={logoSrc} size={150} />
+            <CompanyLogo id={p.id} name={p.name} logo={logoSrc} size={200} />
             {canEdit && (
               <label className={"cp-logo-edit" + (uploading === "logo" ? " busy" : "")} title="เปลี่ยนโลโก้" aria-label="เปลี่ยนโลโก้">
                 <Camera size={16} />

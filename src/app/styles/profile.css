@@ -644,15 +644,18 @@
 /* Company logo: the same large circle on every company page, half over the cover (drawn in front of it),
    with the name, counts and buttons beside it so nothing is covered. */
 .cp-hero .cp-head { position: relative; z-index: 1; margin-top: 0; align-items: end; column-gap: 22px; }
-.cp-hero .cp-logo { align-self: start; justify-self: start; margin-top: -72px; }
-.cp-hero .cp-logo .pres, .cp-hero .cp-logo .net-logo { border-radius: 50%; }
-.cp-hero .cp-logo .net-logo { box-sizing: border-box; object-fit: cover; border: 5px solid var(--surface, #fff); box-shadow: 0 10px 28px rgb(30 20 60 / 0.22); }
-.cp-hero .cp-logo-edit { right: 8px; bottom: 8px; }
-.cp-hero .cp-title { padding-top: 14px; }
+.cp-hero .cp-logo { --cp-logo: 200px; align-self: start; justify-self: start; margin-top: calc(var(--cp-logo) * -0.5); }
+/* Fixed size and aspect on both the wrapper and the image, so a tall or wide logo is still the same circle. */
+.cp-hero .cp-logo .pres, .cp-hero .cp-logo .net-logo { width: var(--cp-logo) !important; height: var(--cp-logo) !important; min-width: var(--cp-logo); max-width: none; aspect-ratio: 1 / 1; border-radius: 50%; }
+.cp-hero .cp-logo .net-logo { box-sizing: border-box; object-fit: cover; object-position: center; border: 6px solid var(--surface, #fff); box-shadow: 0 12px 32px rgb(30 20 60 / 0.24); font-size: 64px !important; }
+.cp-hero .cp-logo-edit { right: 14px; bottom: 14px; width: 40px; height: 40px; }
+.cp-hero .cp-logo .pres-dot { top: 22px; right: 22px; bottom: auto; width: 16px; height: 16px; border-width: 3px; }
+.cp-hero .cp-title { padding-top: 16px; }
 @media (max-width: 900px) {
   .cp-hero .cp-head { grid-template-columns: 1fr; }
-  .cp-hero .cp-logo { margin-top: -60px; }
-  .cp-hero .cp-logo .pres, .cp-hero .cp-logo .net-logo { width: 116px !important; height: 116px !important; }
-  .cp-hero .cp-logo-edit { right: 2px; bottom: 2px; }
+  .cp-hero .cp-logo { --cp-logo: 140px; }
+  .cp-hero .cp-logo .net-logo { font-size: 46px !important; border-width: 5px; }
+  .cp-hero .cp-logo-edit { right: 6px; bottom: 6px; width: 36px; height: 36px; }
+  .cp-hero .cp-logo .pres-dot { top: 15px; right: 15px; width: 13px; height: 13px; }
   .cp-hero .cp-title { padding-top: 0; }
 }
