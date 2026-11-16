@@ -52,6 +52,7 @@ import { api, Empty, Loading, Modal } from "./shared";
 import { LineGroupDetail, type Form } from "./line-hub";
 import { deptThai } from "@/lib/line-message";
 import { DeptPicker } from "./dept-picker";
+import { LineSetupGuide } from "./line-guide";
 import type { Context } from "@/lib/types";
 import type { Activity, Approver, LinePageData, PageGroup } from "@/lib/line-page";
 import { approverPortrait, lineSample } from "@/lib/mock/line";
@@ -996,21 +997,7 @@ function LinePairing({ ctx, forms, userOnly = false, full = false }: { ctx: Cont
     <div className="lp-pair">
       {!userOnly && (
         <>
-          <div className="lp-bot-add">
-            <img src="/line-bot-qr.svg" alt={"QR เพิ่มเพื่อน " + LINE_BOT_ID} width={112} height={112} />
-            <div>
-              <b>เพิ่มบอท EliteFlow เป็นเพื่อน</b>
-              <p>สแกน QR ด้วยกล้องมือถือหรือแอป LINE หรือค้นหา ID <code>{LINE_BOT_ID}</code> ในเมนูเพิ่มเพื่อน แล้วเชิญบอทเข้ากลุ่มของคุณ</p>
-              <a className="lp-bot-btn" href={"https://line.me/R/ti/p/" + LINE_BOT_ID} target="_blank" rel="noopener">
-                เพิ่มเพื่อนใน LINE
-              </a>
-            </div>
-          </div>
-          <ol className="lp-steps">
-            <li>เชิญบอท EliteFlow (<code>{LINE_BOT_ID}</code>) เข้ากลุ่ม LINE: แตะชื่อกลุ่ม → เชิญ → เลือก EliteFlow</li>
-            <li>เลือกแผนกของกลุ่ม แล้วกด “สร้างรหัสเชื่อมกลุ่ม” คัดลอกคำสั่งไปพิมพ์ในกลุ่มนั้นภายใน 10 นาที</li>
-            <li>กลุ่มจะขึ้นในตาราง แก้ชื่อ แผนก และวิธีบันทึกได้ที่ปุ่มแก้ไข</li>
-          </ol>
+          <LineSetupGuide botId={LINE_BOT_ID} />
           {full && <p className="form-error">เชื่อมกลุ่มครบตามแพ็กเกจแล้ว อัปเกรดแพ็กเกจที่หน้า “จัดการแพ็กเกจ” เพื่อเพิ่มกลุ่ม</p>}
           {owner && (
             <>

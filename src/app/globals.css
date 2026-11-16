@@ -8160,3 +8160,62 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .lp-form-select { width: 100%; height: 42px; padding: 0 12px; border: 1.5px solid #bfdbfe; border-radius: 12px; background: #fff; font: inherit; font-size: 13.5px; }
 @media (max-width: 640px) { .lp-mode { grid-template-columns: minmax(0, 1fr); } .dpk { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .dpk-item, .lp-mode-card { transition: none; } .dpk-item:hover { transform: none; } }
+
+/* เชื่อมกลุ่ม LINE ใน 5 ขั้นตอน (line-guide.tsx): a coloured timeline, each step with a small phone drawing */
+.lsg { display: grid; gap: 12px; margin-bottom: 16px; padding: 16px; border-radius: 18px; background: linear-gradient(180deg, #effcf4 0, #fff 140px); border: 1px solid #c8f0d6; }
+.lsg-head { display: grid; gap: 2px; }
+.lsg-head b { font-size: 17px; color: #14532d; }
+.lsg-head small { font-size: 12.5px; color: #4b7a5c; }
+.lsg-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.lsg-step { --c: #06c755; --c2: #4ade80; --s: #ecfdf3; position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr) 190px; gap: 14px; align-items: center; padding: 10px 0 18px; }
+.lsg-step.t-teal { --c: #0d9488; --c2: #2dd4bf; --s: #e6faf6; }
+.lsg-step.t-blue { --c: #2563eb; --c2: #60a5fa; --s: #eaf2ff; }
+.lsg-step.t-violet { --c: #7c3aed; --c2: #a78bfa; --s: #f3eeff; }
+.lsg-step.t-pink { --c: #db2777; --c2: #f472b6; --s: #fdeef6; }
+/* the line joining the numbers */
+.lsg-step:not(.last)::before { content: ""; position: absolute; left: 18px; top: 48px; bottom: -10px; width: 3px; border-radius: 3px; background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 25%, #e5e7eb)); }
+.lsg-n { align-self: start; display: grid; place-items: center; width: 38px; height: 38px; margin-top: 10px; border-radius: 50%; background: linear-gradient(135deg, var(--c), var(--c2)); color: #fff; box-shadow: 0 6px 14px color-mix(in srgb, var(--c) 35%, transparent); position: relative; z-index: 1; }
+.lsg-n b { font-size: 16px; }
+.lsg-body { display: grid; gap: 5px; min-width: 0; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid color-mix(in srgb, var(--c) 18%, #ece9f5); }
+.lsg-body h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; color: #1f2937; }
+.lsg-body h4 i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--s); color: var(--c); }
+.lsg-body p { margin: 0; font-size: 13px; line-height: 1.55; color: #4b5563; }
+.lsg-art { display: grid; place-items: center; }
+/* tiny phone */
+.lsg-phone { width: 168px; border-radius: 18px; border: 3px solid #1f2937; background: #fff; overflow: hidden; box-shadow: 0 8px 20px rgba(15, 23, 42, .14); }
+.lsg-phone-bar { padding: 6px 10px; background: #06c755; color: #fff; font-size: 11.5px; font-weight: 700; }
+.lsg-phone-body { display: grid; gap: 7px; padding: 9px; min-height: 92px; align-content: start; background: #f1f5f9; }
+.lsg-row { display: flex; align-items: center; gap: 6px; }
+.lsg-av { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; color: #fff; }
+.lsg-av.g { background: #06c755; }
+.lsg-av.bot { background: linear-gradient(135deg, #7c3aed, #ec4899); }
+.lsg-input { flex: 1; padding: 4px 8px; border-radius: 8px; background: #fff; border: 1px solid #cbd5e1; font-size: 11px; color: #111827; }
+.lsg-name { flex: 1; font-size: 11.5px; font-weight: 700; color: #111827; }
+.lsg-tick { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #06c755; color: #fff; }
+.lsg-avs { display: flex; gap: 4px; }
+.lsg-avs i { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; }
+.lsg-avs i.more { display: grid; place-items: center; background: #e2e8f0; color: #64748b; }
+.lsg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 10px; border-radius: 99px; color: #fff; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.lsg-btn.green { background: #06c755; }
+.lsg-btn.violet { background: linear-gradient(135deg, #7c3aed, #a855f7); box-shadow: 0 4px 10px rgba(124, 58, 237, .3); }
+.lsg-path { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; font-size: 10.5px; color: #64748b; }
+.lsg-path span { padding: 2px 6px; border-radius: 6px; background: #fff; border: 1px solid #e2e8f0; }
+.lsg-path span.on { background: #ecfdf3; border-color: #86efac; color: #15803d; font-weight: 700; }
+.lsg-sys { justify-self: center; padding: 2px 8px; border-radius: 99px; background: #e2e8f0; color: #475569; font-size: 10px; }
+.lsg-bubble { display: flex; align-items: center; gap: 5px; max-width: 92%; padding: 6px 9px; border-radius: 12px; font-size: 11px; line-height: 1.35; }
+.lsg-bubble.me { justify-self: end; background: #86efac; color: #14532d; font-family: ui-monospace, monospace; border-bottom-right-radius: 4px; }
+.lsg-bubble.bot { justify-self: start; background: #fff; color: #1f2937; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
+/* QR and "make the code" drawings */
+.lsg-qr { display: grid; justify-items: center; gap: 6px; padding: 10px; border-radius: 16px; background: #fff; border: 1px solid #c8f0d6; box-shadow: 0 6px 16px rgba(6, 199, 85, .12); }
+.lsg-qr img { width: 96px; height: 96px; }
+.lsg-qr code { font-size: 12px; font-weight: 700; color: #15803d; }
+.lsg-make { position: relative; display: grid; justify-items: center; gap: 6px; width: 168px; padding: 12px 10px 18px; border-radius: 16px; background: #fff; border: 1px dashed #c4b5fd; }
+.lsg-chip { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; color: #15803d; background: #dcfce7; }
+.lsg-chip.ai { color: #7e22ce; background: #f3e8ff; }
+.lsg-down { position: absolute; bottom: -9px; padding: 2px; border-radius: 50%; background: #7c3aed; color: #fff; }
+@media (max-width: 700px) {
+  .lsg-step { grid-template-columns: 34px minmax(0, 1fr); }
+  .lsg-art { grid-column: 2; justify-items: start; }
+  .lsg-n { width: 34px; height: 34px; }
+  .lsg-step:not(.last)::before { left: 16px; }
+}
