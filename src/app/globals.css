@@ -8161,7 +8161,7 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 @media (max-width: 640px) { .lp-mode { grid-template-columns: minmax(0, 1fr); } .dpk { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .dpk-item, .lp-mode-card { transition: none; } .dpk-item:hover { transform: none; } }
 
-/* เชื่อมกลุ่ม LINE ใน 5 ขั้นตอน (line-guide.tsx): a coloured timeline, each step with a small phone drawing */
+/* เชื่อมกลุ่ม LINE ใน 6 ขั้นตอน (line-guide.tsx): a coloured timeline, each step with a small phone drawing */
 .lsg { display: grid; gap: 12px; margin-bottom: 16px; padding: 16px; border-radius: 18px; background: linear-gradient(180deg, #effcf4 0, #fff 140px); border: 1px solid #c8f0d6; }
 .lsg-head { display: grid; gap: 2px; }
 .lsg-head b { font-size: 17px; color: #14532d; }
@@ -8219,3 +8219,11 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
   .lsg-n { width: 34px; height: 34px; }
   .lsg-step:not(.last)::before { left: 16px; }
 }
+.lsg-step.t-amber { --c: #ea580c; --c2: #fbbf24; --s: #fff3e6; }
+.lsg-bubble.me.plain { display: block; font-family: inherit; max-width: 100%; }
+.lsg-btn.amber { background: linear-gradient(135deg, #f97316, #ea580c); justify-self: end; }
+.lsg-card { display: grid; gap: 5px; padding: 7px 8px; border-radius: 10px; background: #fff; border: 1px solid #fed7aa; font-size: 10.5px; }
+.lsg-card b { display: flex; align-items: center; gap: 4px; color: #9a3412; }
+.lsg-card span:not(.lsg-btn) { display: flex; align-items: center; gap: 5px; color: #166534; font-weight: 700; }
+.lsg-card span i { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: #16a34a; color: #fff; font-style: normal; font-size: 10px; }
+.lsg-card em { margin-left: auto; font-style: normal; font-weight: 600; color: #6b7280; font-size: 9.5px; }

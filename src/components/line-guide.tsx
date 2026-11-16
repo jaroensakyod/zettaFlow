@@ -1,14 +1,15 @@
 "use client";
 // เชื่อมต่อกลุ่ม LINE, from the very start: a timeline of five steps, each with a small drawing of what the
-// person sees on the phone (create the group → add the bot → invite it → make the code → paste it in the group).
-import { ArrowDown, Bot, Check, ChevronRight, Copy, KeyRound, MessageCirclePlus, Plus, QrCode, Send, UserPlus, Users } from "lucide-react";
+// person sees on the phone (create the group → add the bot → invite it → make the code → paste it in the group →
+// name who may approve).
+import { ArrowDown, Bot, Check, ChevronRight, Copy, KeyRound, MessageCirclePlus, Plus, QrCode, Send, ShieldCheck, UserPlus, Users } from "lucide-react";
 
 export function LineSetupGuide({ botId }: { botId: string }) {
   return (
     <section className="lsg" aria-label="ขั้นตอนการเชื่อมกลุ่ม LINE">
       <header className="lsg-head">
-        <b>เชื่อมกลุ่ม LINE ใน 5 ขั้นตอน</b>
-        <small>ใช้เวลาไม่ถึง 2 นาที ทำบนมือถือได้ทั้งหมด</small>
+        <b>เชื่อมกลุ่ม LINE ใน 6 ขั้นตอน</b>
+        <small>ใช้เวลาไม่กี่นาที ทำบนมือถือได้ทั้งหมด ไม่ต้องมีบัญชี EliteFlow ก็เป็นผู้อนุมัติได้</small>
       </header>
       <ol className="lsg-steps">
         <Step n={1} tone="green" icon={<MessageCirclePlus size={18} />} title="สร้างกลุ่ม LINE" text="ในแอป LINE แตะ แชท → ไอคอนสร้างแชท → สร้างกลุ่ม ใส่ชื่อกลุ่ม เช่น “ฝ่ายบัญชี” แล้วเลือกสมาชิกในทีม (ใช้กลุ่มเดิมที่มีอยู่แล้วก็ได้)">
@@ -70,7 +71,7 @@ export function LineSetupGuide({ botId }: { botId: string }) {
             <ArrowDown size={16} className="lsg-down" />
           </div>
         </Step>
-        <Step n={5} tone="pink" icon={<Send size={18} />} title="คัดลอกคำสั่ง ไปส่งในกลุ่ม" text="กดคัดลอกคำสั่ง แล้ววางส่งในกลุ่ม LINE ภายใน 10 นาที บอทจะตอบว่าเชื่อมสำเร็จ กลุ่มขึ้นในตารางทันที" last>
+        <Step n={5} tone="pink" icon={<Send size={18} />} title="คัดลอกคำสั่ง ไปส่งในกลุ่ม" text="กดคัดลอกคำสั่ง แล้ววางส่งในกลุ่ม LINE ภายใน 10 นาที บอทจะตอบว่าเชื่อมสำเร็จ กลุ่มขึ้นในตารางทันที">
           <Phone title="ฝ่ายบัญชี">
             <div className="lsg-bubble me">
               #connect 4F7K…
@@ -78,6 +79,29 @@ export function LineSetupGuide({ botId }: { botId: string }) {
             </div>
             <div className="lsg-bubble bot">
               <Bot size={11} /> เชื่อมกลุ่มกับ EliteFlow สำเร็จ ✅
+            </div>
+          </Phone>
+        </Step>
+        <Step
+          n={6}
+          tone="amber"
+          icon={<ShieldCheck size={18} />}
+          title="กำหนดผู้มีสิทธิ์อนุมัติ"
+          text="ในกลุ่ม พิมพ์ “@EliteFlow ให้ @ชื่อ อนุมัติได้” (แท็กได้หลายคน) บอทส่งการ์ดรายชื่อ ตรวจแล้วกด “บันทึก” มีผลทันที ผู้อนุมัติกดปุ่มอนุมัติในการ์ดขออนุมัติได้เลย แต่อนุมัติคำขอของตัวเองไม่ได้"
+          last
+        >
+          <Phone title="ฝ่ายบัญชี">
+            <div className="lsg-bubble me plain">
+              @EliteFlow ให้ <b>@พี่ศิริ</b> อนุมัติได้
+            </div>
+            <div className="lsg-card">
+              <b>
+                <ShieldCheck size={11} /> ผู้อนุมัติของแชทนี้
+              </b>
+              <span>
+                <i>+</i> พี่ศิริ <em>เพิ่มใหม่</em>
+              </span>
+              <span className="lsg-btn amber">บันทึก</span>
             </div>
           </Phone>
         </Step>
