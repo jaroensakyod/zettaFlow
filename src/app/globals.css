@@ -8227,3 +8227,17 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .lsg-card span:not(.lsg-btn) { display: flex; align-items: center; gap: 5px; color: #166534; font-weight: 700; }
 .lsg-card span i { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: #16a34a; color: #fff; font-style: normal; font-size: 10px; }
 .lsg-card em { margin-left: auto; font-style: normal; font-weight: 600; color: #6b7280; font-size: 9.5px; }
+
+/* The code to paste in LINE: big, readable, one copy button */
+.lp-code { display: grid; gap: 12px; margin-top: 14px; padding: 18px; border-radius: 18px; background: linear-gradient(160deg, #ecfdf3 0, #fff 70%); border: 2px solid #86efac; box-shadow: 0 12px 28px rgba(6, 199, 85, .16); }
+.lp-code-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lp-code-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 99px; background: #06c755; color: #fff; font-size: 13px; font-weight: 700; }
+.lp-code-head small { font-size: 12.5px; color: #b45309; font-weight: 600; }
+.lp-code-text { margin: 0; padding: 16px 18px; border-radius: 14px; background: #fff; border: 1.5px dashed #86efac; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 22px; font-weight: 700; line-height: 1.45; letter-spacing: .5px; color: #14532d; text-align: center; word-break: break-all; user-select: all; }
+.lp-code-copy { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; border: 0; border-radius: 14px; background: linear-gradient(135deg, #06c755, #16a34a); color: #fff; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 18px rgba(6, 199, 85, .3); transition: filter .15s, transform .15s; }
+.lp-code-copy:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.lp-code-copy.done { background: linear-gradient(135deg, #0f766e, #14b8a6); }
+.lp-code-copy:focus-visible { outline: 3px solid #86efac; outline-offset: 2px; }
+.lp-code-hint { margin: 0; text-align: center; font-size: 13px; color: #4b5563; }
+@media (max-width: 640px) { .lp-code-text { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { .lp-code-copy { transition: none; } .lp-code-copy:hover { transform: none; } }

@@ -4,6 +4,8 @@
 // One read (/line-page → src/lib/line-page.ts) feeds the page; a row opens the existing group detail (line-hub.tsx).
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Check,
+  Copy,
   Sparkles,
   ClipboardList,
   AlertTriangle,
@@ -1057,22 +1059,58 @@ function LinePairing({ ctx, forms, userOnly = false, full = false }: { ctx: Cont
           )}
         </>
       )}
-      {ctx.member.role !== "viewer" && (
+      {/* Linking one's own LINE lives in its own window (userOnly); this one only makes the group code. */}
+      {userOnly && ctx.member.role !== "viewer" && (
         <button className="secondary full" disabled={busy} onClick={() => pair("user")}>
           <UserCheck size={15} /> เชื่อมบัญชี LINE ของฉัน
         </button>
       )}
-      {command && (
-        <>
-          <p className="lp-note">พิมพ์คำสั่งนี้ในกลุ่มที่มีบอทภายใน 10 นาที คำสั่ง #user ต้องส่งจาก LINE ของคุณเอง</p>
-          <pre className="code-block">{command}</pre>
-        </>
-      )}
+      {command && <PairCode command={command} />}
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
+    </div>
+  );
+}
+
+/** The code to paste in LINE: large, easy to read, with one button that copies the whole command. */
+function PairCode({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+  const group = command.startsWith("#connect");
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(command);
+    } catch {
+      // Older browsers: select the text so the person can copy it by hand.
+      const r = document.createRange(), el = document.querySelector(".lp-code-text");
+      if (el) (r.selectNodeContents(el), window.getSelection()?.removeAllRanges(), window.getSelection()?.addRange(r));
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+  return (
+    <div className="lp-code" role="status">
+      <div className="lp-code-head">
+        <span className="lp-code-badge">
+          <Check size={14} /> สร้างรหัสแล้ว
+        </span>
+        <small>ใช้ได้ภายใน 10 นาที</small>
+      </div>
+      <p className="lp-code-text" translate="no">
+        {command}
+      </p>
+      <button type="button" className={"lp-code-copy" + (copied ? " done" : "")} onClick={copy}>
+        {copied ? <Check size={18} /> : <Copy size={18} />}
+        {copied ? "คัดลอกแล้ว" : "คัดลอกทั้งหมด"}
+      </button>
+      <p className="lp-code-hint">
+        {group
+          ? "วางคำสั่งนี้ส่งในกลุ่ม LINE ที่เชิญบอท EliteFlow ไว้แล้ว บอทจะตอบว่าเชื่อมสำเร็จ"
+          : "ส่งคำสั่งนี้ในแชท LINE กับบอท EliteFlow จาก LINE ของคุณเอง"}
+      </p>
     </div>
   );
 }
