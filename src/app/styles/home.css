@@ -1874,3 +1874,45 @@
 .hts-go:hover { transform: translateY(-2px); }
 .hts-step.done .hts-go { color: var(--c); background: #fff; border: 1.5px solid color-mix(in srgb, var(--c) 40%, transparent); box-shadow: none; }
 @media (max-width: 900px) { .hts-steps { grid-template-columns: 1fr; } .hts-step:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -13px; transform: translateX(-50%); } .hts-progress { margin-left: 0; flex-basis: 100%; } }
+
+/* ไดอารี่ editor: a date banner, a notebook-like note box and a colourful checklist with progress */
+.hd-editor { display: grid; gap: 14px; }
+.hd-ed-banner { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; color: #fff; background: radial-gradient(120% 160% at 0% 0%, #a78bfa 0, transparent 55%), linear-gradient(120deg, #6d3fe0, #9333ea 60%, #ec4899); box-shadow: 0 10px 24px rgba(109, 63, 224, .25); }
+.hd-ed-banner > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.hd-ed-banner > span:last-child b { font-size: 17px; }
+.hd-ed-banner small { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: rgba(255, 255, 255, .88); }
+.hd-ed-date { display: grid; place-items: center; flex: none; width: 56px; height: 60px; border-radius: 14px; background: #fff; color: #6d3fe0; line-height: 1; box-shadow: 0 4px 10px rgba(0, 0, 0, .12); }
+.hd-ed-date b { font-size: 24px; font-weight: 800; }
+.hd-ed-date small { color: #ec4899; font-size: 12px; font-weight: 700; }
+.hd-editor fieldset { gap: 16px; }
+.hd-ed-title { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; color: #2c2550; }
+.hd-ed-title > i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #fff; font-style: normal; }
+.hd-ed-title > i.t-amber { background: linear-gradient(135deg, #f59e0b, #f97316); }
+.hd-ed-title > i.t-green { background: linear-gradient(135deg, #16a34a, #4ade80); }
+.hd-ed-title > small { margin-left: auto; font-size: 12px; font-weight: 600; color: #8a86a3; }
+.hd-ed-title > small.hd-ed-count { padding: 2px 10px; border-radius: 99px; background: #dcfce7; color: #15803d; }
+/* Notes: lined paper */
+.hd-ed-note { display: grid; gap: 8px; margin: 0; font-weight: 400; }
+.hd-ed-note textarea { width: 100%; min-height: 118px; margin: 0; padding: 10px 14px; resize: vertical; border: 1px solid #fde68a; border-radius: 14px; font: inherit; font-size: 14px; line-height: 28px; color: #2c2550; background: #fffbeb repeating-linear-gradient(180deg, transparent 0 27px, #fde9b4 27px 28px); background-attachment: local; background-position: 0 9px; }
+.hd-ed-note textarea::placeholder { color: #b6a27a; }
+.hd-ed-note textarea:focus { outline: none; border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .18); }
+/* Checklist */
+.hd-editor-items { gap: 9px; }
+.hd-ed-progress { display: block; height: 7px; border-radius: 99px; background: #eef2f0; overflow: hidden; }
+.hd-ed-progress b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #16a34a, #4ade80); transition: width .25s; }
+.hd-editor-item { gap: 10px; padding: 5px 6px 5px 10px; border-radius: 14px; background: #fff; border: 1px solid #ece9f5; transition: border-color .15s, background .15s; }
+.hd-editor-item:focus-within { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167, 139, 250, .16); }
+.hd-editor-item.done { background: #f0fdf4; border-color: #bbf7d0; }
+.hd-editor-item input:not([type]) { border: 0; padding: 8px 4px; font-size: 14px; background: transparent; color: #2c2550; outline: none; }
+.hd-editor-item.done input:not([type]) { color: #6b7d70; text-decoration: line-through; }
+.hd-ed-check { position: relative; display: grid; place-items: center; width: 24px; height: 24px; margin: 0; border-radius: 8px; border: 2px solid #c4b5fd; background: #fff; color: transparent; cursor: pointer; transition: background .15s, border-color .15s; }
+.hd-ed-check input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.hd-ed-check:has(input:checked) { background: linear-gradient(135deg, #16a34a, #4ade80); border-color: transparent; color: #fff; }
+.hd-ed-check:has(input:focus-visible) { outline: 2px solid #7c3aed; outline-offset: 2px; }
+.hd-editor-item .hd-round { width: 30px; height: 30px; background: #f6f4fb; color: #8a86a3; }
+.hd-editor-item .hd-round:hover { background: #fff1f2; color: #e11d48; }
+.hd-ed-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 42px; border: 1.5px dashed #c4b5fd; border-radius: 14px; background: #faf8ff; color: #6d3fe0; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.hd-ed-add small { font-weight: 500; color: #9a92c0; }
+.hd-ed-add:hover { background: #f3eeff; border-color: #a78bfa; }
+.hd-editor .modal-footer .primary { background: linear-gradient(135deg, #7c3aed, #ec4899); border: 0; box-shadow: 0 8px 18px rgba(124, 58, 237, .28); }
+@media (prefers-reduced-motion: reduce) { .hd-ed-progress b, .hd-editor-item, .hd-ed-check { transition: none; } }

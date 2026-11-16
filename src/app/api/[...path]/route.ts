@@ -1370,4 +1370,5 @@ async function handle(req: NextRequest) {
     );
   }
 }
-export { handle as GET, handle as POST, handle as PATCH, handle as DELETE };
+// PUT: ไดอารี่ (/home/notes) and the monthly goal (/home/goal) save with PUT.
+export { handle as GET, handle as POST, handle as PUT, handle as PATCH, handle as DELETE };

@@ -46,6 +46,7 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import type { Context, Entity, HomeData } from "@/lib/types";
@@ -1034,19 +1035,57 @@ function NoteEditor({
       setBusy(false);
     }
   }
+  const filled = items.filter((i) => i.text.trim()),
+    doneCount = filled.filter((i) => i.done).length;
   return (
     <Modal title={"บันทึก " + thai(day, { weekday: "long", day: "numeric", month: "long" })} onClose={onClose}>
       <form onSubmit={submit} className="hd-editor">
+        <div className="hd-ed-banner">
+          <span className="hd-ed-date">
+            <b>{thai(day, { day: "numeric" })}</b>
+            <small>{thai(day, { month: "short" })}</small>
+          </span>
+          <span>
+            <b>{thai(day, { weekday: "long" })}</b>
+            <small>
+              <Lock size={12} /> จดเรื่องสำคัญและสิ่งที่ต้องทำของวันนี้ · เห็นเฉพาะคุณ
+            </small>
+          </span>
+        </div>
         <fieldset disabled={busy}>
-          <label>
-            บันทึก
-            <textarea rows={4} maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder="วันนี้มีอะไรสำคัญบ้าง…" />
+          <label className="hd-ed-note">
+            <span className="hd-ed-title">
+              <i className="t-amber">
+                <NotebookPen size={15} />
+              </i>
+              บันทึกของวันนี้
+              <small>{body.length}/4000</small>
+            </span>
+            <textarea rows={4} maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder="วันนี้มีอะไรสำคัญบ้าง… เช่น นัดลูกค้า เรื่องที่ต้องติดตาม" />
           </label>
           <div className="hd-editor-items">
-            <span>รายการที่ต้องทำ</span>
+            <span className="hd-ed-title">
+              <i className="t-green">
+                <ListChecks size={15} />
+              </i>
+              รายการที่ต้องทำ
+              {filled.length > 0 && (
+                <small className="hd-ed-count">
+                  เสร็จ {doneCount}/{filled.length}
+                </small>
+              )}
+            </span>
+            {filled.length > 0 && (
+              <i className="hd-ed-progress" aria-hidden>
+                <b style={{ width: (doneCount / filled.length) * 100 + "%" }} />
+              </i>
+            )}
             {items.map((it, i) => (
-              <div className="hd-editor-item" key={i}>
-                <input type="checkbox" checked={it.done} onChange={(e) => set(i, { done: e.target.checked })} aria-label="ทำเสร็จแล้ว" />
+              <div className={"hd-editor-item" + (it.done ? " done" : "")} key={i}>
+                <label className="hd-ed-check">
+                  <input type="checkbox" checked={it.done} onChange={(e) => set(i, { done: e.target.checked })} aria-label="ทำเสร็จแล้ว" />
+                  <Check size={13} />
+                </label>
                 <input
                   value={it.text}
                   maxLength={200}
@@ -1065,9 +1104,9 @@ function NoteEditor({
               </div>
             ))}
             {items.length < 30 && (
-              <button type="button" className="hd-link" onClick={() => setItems((s) => [...s, { text: "", done: false }])}>
-                <Plus size={13} />
-                เพิ่มรายการ
+              <button type="button" className="hd-ed-add" onClick={() => setItems((s) => [...s, { text: "", done: false }])}>
+                <Plus size={15} />
+                เพิ่มรายการ <small>(กด Enter ในช่องก็เพิ่มได้)</small>
               </button>
             )}
           </div>
