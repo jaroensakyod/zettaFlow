@@ -8126,3 +8126,37 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .net-logo { border-radius: 50% !important; aspect-ratio: 1 / 1; object-fit: cover; object-position: center; overflow: hidden; }
 :where(.pres:has(> .net-logo)) { border-radius: 50%; }
 :where(.pres:has(> .net-logo)) .pres-dot { right: 1px; bottom: 1px; }
+
+/* Department picker (dept-picker.tsx): coloured cards, one per department */
+.dpk { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 6px; }
+.dpk-item { --dc: #7c3aed; position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; padding: 9px 10px; border-radius: 14px; border: 1.5px solid color-mix(in srgb, var(--dc) 18%, #ece9f5); background: #fff; color: #2c2550; font: inherit; text-align: left; cursor: pointer; transition: transform .12s, border-color .12s, box-shadow .12s, background .12s; }
+.dpk-item:hover { border-color: color-mix(in srgb, var(--dc) 45%, transparent); background: color-mix(in srgb, var(--dc) 5%, #fff); transform: translateY(-1px); }
+.dpk-item.on { border-color: var(--dc); background: color-mix(in srgb, var(--dc) 10%, #fff); box-shadow: 0 6px 16px color-mix(in srgb, var(--dc) 22%, transparent); }
+.dpk-item:focus-visible { outline: 2px solid var(--dc); outline-offset: 2px; }
+.dpk-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 10px; color: var(--dc); background: color-mix(in srgb, var(--dc) 13%, #fff); }
+.dpk-item.on .dpk-icon { color: #fff; background: linear-gradient(135deg, var(--dc), color-mix(in srgb, var(--dc) 60%, #fff)); }
+.dpk-item.none { border-style: dashed; }
+.dpk-text { display: grid; min-width: 0; line-height: 1.25; }
+.dpk-text b { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dpk-text small { font-size: 11px; color: #8a86a3; font-weight: 500; }
+.dpk-check { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--dc); color: #fff; border: 2px solid #fff; font-style: normal; }
+/* LINE connect window: numbered pickers and the two ways of saving messages */
+.lp-pick { display: grid; gap: 8px; margin: 4px 0 14px; }
+.lp-pick-title { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; color: #2c2550; }
+.lp-pick-title b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #06c755, #22c55e); color: #fff; font-size: 12px; }
+.lp-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lp-mode-card { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; border: 1.5px solid #ece9f5; background: #fff; font: inherit; text-align: left; cursor: pointer; transition: border-color .12s, box-shadow .12s, background .12s; }
+.lp-mode-card > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.lp-mode-card b { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #2c2550; }
+.lp-mode-card b em { padding: 1px 8px; border-radius: 99px; background: #dcfce7; color: #15803d; font-size: 11px; font-style: normal; }
+.lp-mode-card small { font-size: 12px; color: #6b6585; line-height: 1.4; }
+.lp-mode-icon { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border-radius: 13px; color: #fff; }
+.lp-mode-card.ai .lp-mode-icon { background: linear-gradient(135deg, #7c3aed, #ec4899); }
+.lp-mode-card.form .lp-mode-icon { background: linear-gradient(135deg, #2563eb, #22d3ee); }
+.lp-mode-card:hover:not(:disabled) { border-color: #c4b5fd; }
+.lp-mode-card.on.ai { border-color: #a855f7; background: #faf5ff; box-shadow: 0 6px 18px rgba(168, 85, 247, .18); }
+.lp-mode-card.on.form { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 6px 18px rgba(59, 130, 246, .18); }
+.lp-mode-card:disabled { opacity: .55; cursor: default; }
+.lp-form-select { width: 100%; height: 42px; padding: 0 12px; border: 1.5px solid #bfdbfe; border-radius: 12px; background: #fff; font: inherit; font-size: 13.5px; }
+@media (max-width: 640px) { .lp-mode { grid-template-columns: minmax(0, 1fr); } .dpk { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .dpk-item, .lp-mode-card { transition: none; } .dpk-item:hover { transform: none; } }

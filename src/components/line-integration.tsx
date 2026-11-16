@@ -4,6 +4,8 @@
 // One read (/line-page → src/lib/line-page.ts) feeds the page; a row opens the existing group detail (line-hub.tsx).
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Sparkles,
+  ClipboardList,
   AlertTriangle,
   ArrowRight,
   Bot,
@@ -49,6 +51,7 @@ import {
 import { api, Empty, Loading, Modal } from "./shared";
 import { LineGroupDetail, type Form } from "./line-hub";
 import { deptThai } from "@/lib/line-message";
+import { DeptPicker } from "./dept-picker";
 import type { Context } from "@/lib/types";
 import type { Activity, Approver, LinePageData, PageGroup } from "@/lib/line-page";
 import { approverPortrait, lineSample } from "@/lib/mock/line";
@@ -1011,28 +1014,55 @@ function LinePairing({ ctx, forms, userOnly = false, full = false }: { ctx: Cont
           {full && <p className="form-error">เชื่อมกลุ่มครบตามแพ็กเกจแล้ว อัปเกรดแพ็กเกจที่หน้า “จัดการแพ็กเกจ” เพื่อเพิ่มกลุ่ม</p>}
           {owner && (
             <>
-              <label>
-                กลุ่มนี้เป็นของแผนก
-                <select value={department} onChange={(e) => setDepartment(e.target.value)}>
-                  <option value="">— ไม่ระบุ (เลือกทีหลังได้) —</option>
-                  {Object.entries(deptThai).map(([k, l]) => (
-                    <option key={k} value={k}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                วิธีบันทึกข้อความในกลุ่ม
-                <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-                  <option value="">🤖 AI แยกอัตโนมัติ: ส่งแต่ละข้อความเข้าหน้าที่ถูก (แนะนำ)</option>
-                  {forms.map((t) => (
-                    <option value={t.id} key={t.id}>
-                      📋 {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="lp-pick">
+                <span className="lp-pick-title">
+                  <b>1</b> กลุ่มนี้เป็นของแผนก
+                </span>
+                <DeptPicker value={department} onChange={setDepartment} />
+              </div>
+              <div className="lp-pick">
+                <span className="lp-pick-title">
+                  <b>2</b> วิธีบันทึกข้อความในกลุ่ม
+                </span>
+                <div className="lp-mode">
+                  <button type="button" role="radio" aria-checked={!templateId} className={"lp-mode-card ai" + (!templateId ? " on" : "")} onClick={() => setTemplateId("")}>
+                    <span className="lp-mode-icon">
+                      <Sparkles size={20} />
+                    </span>
+                    <span>
+                      <b>
+                        AI แยกอัตโนมัติ <em>แนะนำ</em>
+                      </b>
+                      <small>ส่งแต่ละข้อความเข้าหน้าที่ถูก เช่น ค่าใช้จ่าย ลูกค้า งาน</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!!templateId}
+                    className={"lp-mode-card form" + (templateId ? " on" : "")}
+                    disabled={!forms.length}
+                    onClick={() => setTemplateId(templateId || forms[0]?.id || "")}
+                  >
+                    <span className="lp-mode-icon">
+                      <ClipboardList size={20} />
+                    </span>
+                    <span>
+                      <b>ใช้ฟอร์มเดียว</b>
+                      <small>{forms.length ? "ทุกข้อความบันทึกลงฟอร์มที่เลือก" : "ยังไม่มีฟอร์ม สร้างได้ที่หน้าฟอร์ม"}</small>
+                    </span>
+                  </button>
+                </div>
+                {!!templateId && (
+                  <select className="lp-form-select" value={templateId} onChange={(e) => setTemplateId(e.target.value)} aria-label="ฟอร์มที่ใช้">
+                    {forms.map((t) => (
+                      <option value={t.id} key={t.id}>
+                        📋 {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <button className="primary full" disabled={busy}onClick={() => pair("group")}>
                 <Link2 size={15} /> สร้างรหัสเชื่อมกลุ่ม
               </button>

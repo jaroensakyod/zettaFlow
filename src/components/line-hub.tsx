@@ -9,6 +9,7 @@ import { api, displayDate, Empty, Loading } from "./shared";
 import type { Context } from "@/lib/types";
 import type { LineMessage } from "@/lib/line-hub";
 import { deptThai } from "@/lib/line-message";
+import { DeptPicker } from "./dept-picker";
 
 type Group = {
   group_id: string;
@@ -174,14 +175,7 @@ export function LineGroupDetail({
           </label>
           <label>
             กลุ่มนี้เป็นของแผนก
-            <select name="department" defaultValue={group.department ?? ""}>
-              <option value="">— ไม่ระบุ —</option>
-              {Object.entries(deptThai).map(([k, l]) => (
-                <option key={k} value={k}>
-                  {l}
-                </option>
-              ))}
-            </select>
+            <DeptPicker name="department" defaultValue={group.department ?? ""} noneHint="ไม่ผูกแผนก" />
             <small className="line-hub-help">คำขอจากกลุ่มอื่นที่ต้องให้แผนกนี้อนุมัติ (เช่น เบิกงบ → ฝ่ายบัญชี) จะถูกส่งมาที่กลุ่มนี้ ผู้จัดการกด Reply เพื่ออนุมัติ ไม่อนุมัติ หรือแก้ แล้วระบบแจ้งผลกลับกลุ่มที่ขอ</small>
           </label>
           <label>
