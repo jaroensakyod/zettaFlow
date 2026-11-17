@@ -7,6 +7,7 @@ import {
   ArrowLeftRight,
   ChevronRight,
   Settings2,
+  Settings,
   UserCircle2,
   Truck,
   UserRound,
@@ -83,6 +84,7 @@ import { ExpenseForm } from "./expense-form";
 import { ProductCatalog } from "./product-catalog";
 import { IncomeForm } from "./income-form";
 import { UpgradeDialog } from "./upgrade-dialog";
+import { AppSettings, savedLang } from "./app-settings";
 import { PlanTag } from "./plan-tag";
 import { planBadge, type PlanBadge } from "@/lib/plan-badge";
 import { departmentOf, sectionTone } from "@/lib/departments";
@@ -151,6 +153,11 @@ const extra: Record<
     label: "ปฏิทินธุรกิจ",
     icon: "CalendarDays",
     description: "กำหนดการโครงการ อีเวนต์ และวันครบกำหนด",
+  },
+  settings: {
+    label: "ตั้งค่า",
+    icon: "Settings",
+    description: "ภาษาและการใช้งานของคุณ",
   },
   profile: {
     label: "หน้าบริษัท",
@@ -266,6 +273,7 @@ const extra: Record<
 const details = (view: string) =>
   catalog[view] || extra[view] || extra.dashboard;
 const iconMap: Record<string, LucideIcon> = {
+  Settings,
   Users,
   Store,
   Truck,
@@ -444,6 +452,9 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
   const [myPlan, setMyPlan] = useState<PlanBadge | null>(null);
   const signedIn = !!data && !auth;
   useEffect(() => {
+    document.documentElement.lang = savedLang();
+  }, []);
+  useEffect(() => {
     if (!signedIn) return;
     api("/billing")
       .then((b: { subscription?: { plan: string; status: string; current_period_end: string | null; trial_ends_at: string | null } }) =>
@@ -470,7 +481,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
   }, [fullView]);
   // Pages opened from the top bar as a whole: the company profile, ลูกค้า, Supplier and พนักงาน — no department sidebar.
   // พนักงาน in the top menu is the company-wide page (no sidebar); opened from ฝ่ายบุคคล (employees?dept=hr) it is HR's first page.
-  const sideDept = ["company", "profile", "customers", "suppliers"].includes(view) || (view === "employees" && !fullView.includes("dept=hr")) ? undefined : departmentOf(fullView, preferredDept);
+  const sideDept = ["company", "profile", "customers", "suppliers", "settings"].includes(view) || (view === "employees" && !fullView.includes("dept=hr")) ? undefined : departmentOf(fullView, preferredDept);
   const navKey = view === "profile" ? "feed" : view;
   // Menu links like "content?channel=social" or "leaves?status=pending" narrow a record list.
   const listFilter = (() => {
@@ -720,6 +731,16 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                     >
                       <ArrowLeftRight size={17} /> สลับบริษัท
                     </button>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setAccount(false);
+                        navigate("settings");
+                      }}
+                    >
+                      <Settings size={17} /> ตั้งค่า
+                      <em className="account-menu-hint">ภาษา</em>
+                    </button>
                   </div>
                 </>
               )}
@@ -908,6 +929,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <AppShop ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "ads" ? (
             <AdStudio ctx={ctx} notify={notify} navigate={navigate} />
+          ) : view === "settings" ? (
+            <AppSettings notify={notify} />
           ) : view === "profile" ? (
             <CompanyProfilePage key={fullView} ctx={ctx} notify={notify} navigate={navigate} changed={load} />
           ) : view === "receipts" ? (

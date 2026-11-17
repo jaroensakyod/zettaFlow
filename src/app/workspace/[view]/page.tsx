@@ -33,6 +33,7 @@ const extra = [
   "assistant",
   "slips",
   "admin",
+  "settings",
 ];
 export default async function Page({
   params,
