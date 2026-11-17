@@ -638,15 +638,19 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                 className={"user-profile" + (account ? " open" : "")}
                 aria-haspopup="menu"
                 aria-expanded={account}
-                title={ctx.company.name}
+                title={ctx.company.name + " · " + ctx.user.email}
                 onClick={() => setAccount(!account)}
               >
                 <OnlineDot on round>
-                  <span className="avatar">{ctx.user.name[0]}</span>
+                  {ctx.company.profile.logo ? (
+                    <img className="avatar user-logo" src={String(ctx.company.profile.logo)} alt="" />
+                  ) : (
+                    <span className="avatar">{ctx.user.name[0]}</span>
+                  )}
                 </OnlineDot>
                 <span>
                   <strong>{ctx.user.name}</strong>
-                  <small>{ctx.company.name}</small>
+                  <small className="user-email">{ctx.user.email}</small>
                 </span>
               </button>
               {account && (
