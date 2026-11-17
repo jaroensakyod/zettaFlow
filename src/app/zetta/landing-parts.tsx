@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { freePlan, plans as billingPlans } from "@/lib/billing";
@@ -8,6 +8,7 @@ import { freePlan, plans as billingPlans } from "@/lib/billing";
 const forWho: Record<string, string> = { starter: "ร้านค้า / ทีมเล็ก", growth: "SME ที่กำลังโต", business: "บริษัทหลายแผนก", enterprise: "องค์กร / หลายบริษัท" };
 const num = (v: number | null, unit: string, none: string) => (v === null ? none : v.toLocaleString("th-TH") + unit);
 const free = {
+  id: "free",
   name: "Free",
   for: "เริ่มต้นใช้งานได้เลย",
   monthly: 0,
@@ -23,6 +24,7 @@ const free = {
   ],
 };
 const paid = billingPlans.map((p) => ({
+  id: p.id as string,
   name: p.name,
   for: forWho[p.id] || "",
   monthly: p.monthly,
@@ -43,6 +45,49 @@ const plans = [free, ...paid];
 
 export function PricingCards() {
   const [yearly, setYearly] = useState(false);
+  // Phones: the packages in one row to swipe; the one in the middle grows. Starts on the popular one.
+  const row = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(plans.findIndex((p) => p.popular));
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const swipe = () => window.matchMedia("(max-width: 860px)").matches;
+    const center = () => {
+      if (!swipe()) return;
+      const mid = el.scrollLeft + el.clientWidth / 2;
+      let best = 0,
+        gap = Infinity;
+      [...el.children].forEach((c, i) => {
+        const card = c as HTMLElement,
+          d = Math.abs(card.offsetLeft + card.offsetWidth / 2 - mid);
+        if (d < gap) (gap = d), (best = i);
+      });
+      setActive(best);
+    };
+    // The first time the row comes into view, open it on the popular package (once laid out as a swipe row).
+    let opened = false;
+    const io = new IntersectionObserver((e) => {
+      if (opened || !e[0]?.isIntersecting || !swipe() || el.scrollWidth <= el.clientWidth) return;
+      opened = true;
+      const start = el.children[plans.findIndex((p) => p.popular)] as HTMLElement | undefined;
+      if (start) el.scrollLeft = start.offsetLeft - (el.clientWidth - start.offsetWidth) / 2;
+      center();
+    }, { threshold: 0.3 });
+    io.observe(el);
+    center();
+    el.addEventListener("scroll", center, { passive: true });
+    window.addEventListener("resize", center);
+    return () => {
+      io.disconnect();
+      el.removeEventListener("scroll", center);
+      window.removeEventListener("resize", center);
+    };
+  }, []);
+  const go = (i: number) => {
+    const el = row.current,
+      card = el?.children[i] as HTMLElement | undefined;
+    if (el && card) el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2, behavior: "smooth" });
+  };
   return (
     <>
       <div className="lp-toggle" role="group" aria-label="รอบการชำระ">
@@ -53,10 +98,11 @@ export function PricingCards() {
           รายปี <em>ฟรี 2 เดือน</em>
         </button>
       </div>
-      <div className="lp-plans">
-        {plans.map((p) => (
-          <article key={p.name} className={p.popular ? "popular" : p.free ? "free" : ""}>
+      <div className="lp-plans" ref={row}>
+        {plans.map((p, i) => (
+          <article key={p.name} className={"pl-" + p.id + (p.popular ? " popular" : p.free ? " free" : "") + (i === active ? " active" : "")}>
             {p.popular && <span className="lp-badge">ยอดนิยม</span>}
+            <div className="lp-plan-band" aria-hidden />
             <h3>{p.name}</h3>
             <p className="lp-muted">{p.for}</p>
             <div className="lp-price">
@@ -70,10 +116,15 @@ export function PricingCards() {
                 </li>
               ))}
             </ul>
-            <Link href="/feed?signup=1" className={p.popular ? "lp-btn primary" : "lp-btn ghost"}>
+            <Link href="/feed?signup=1" className="lp-btn plan-btn">
               {p.free ? "เริ่มใช้ฟรีเลย" : "เริ่มใช้งาน"} <ArrowRight size={16} />
             </Link>
           </article>
+        ))}
+      </div>
+      <div className="lp-plan-dots" aria-hidden>
+        {plans.map((p, i) => (
+          <button key={p.name} type="button" tabIndex={-1} className={"pl-" + p.id + (i === active ? " on" : "")} onClick={() => go(i)} />
         ))}
       </div>
       <p className="lp-fine">ราคายังไม่รวม VAT 7% · ไม่ต้องใช้บัตรเครดิต · ยกเลิกได้ทุกเมื่อ · Setup &amp; Onboarding ครั้งเดียว ฿3,000–10,000</p>

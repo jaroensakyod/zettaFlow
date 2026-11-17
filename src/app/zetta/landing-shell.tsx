@@ -26,7 +26,6 @@ export function LandingHeader({ home = true }: { home?: boolean }) {
       <nav aria-label="เมนูหลัก">
         <a href={at("#live")}>สั่งงานผ่าน LINE</a>
         <a href={at("#product")}>Product</a>
-        <a href={at("#how")}>How it works</a>
         <a href={at("#solutions")}>Solutions</a>
         <Link href="/pricing">แพ็กเกจ</Link>
         <a href={at("#faq")}>FAQ</a>

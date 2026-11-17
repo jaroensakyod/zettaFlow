@@ -33,6 +33,8 @@ import "./landing.css";
 import "./promo-video.css";
 import { HeroVideo } from "./promo-video";
 import { LineLive } from "./line-live";
+import { BusinessShowcase } from "./business-showcase";
+import "./showcase.css";
 import "./line-live.css";
 
 const thai = IBM_Plex_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "500", "600", "700"], variable: "--lp-thai" });
@@ -157,21 +159,7 @@ function PhoneReport() {
   );
 }
 
-const steps = [
-  { icon: MessageCircle, title: "ทีมส่งงานใน LINE", body: "ข้อความ รูป สลิป ใบส่งของ PDF — ใช้ LINE แบบเดิม ไม่ต้องจำรหัสงาน" },
-  { icon: Sparkles, title: "AI สกัดและตรวจข้อมูล", body: "อ่านตามฟอร์มที่คุณออกแบบ ขาดอะไรบอททวงถามทันที" },
-  { icon: Workflow, title: "อนุมัติและแตกงาน", body: "ผู้จัดการพิมพ์ “อนุมัติ” ระบบส่งงานต่อให้ทุกแผนกอัตโนมัติ" },
-  { icon: ChartNoAxesCombined, title: "Dashboard Real-time", body: "CEO เห็นยอดขาย โครงการ และความเสี่ยงในหน้าเดียว" },
-];
 
-const features = [
-  { icon: LayoutGrid, title: "Dynamic Form Designer", body: "บอก AI ว่าอยากเก็บอะไร ระบบร่างฟอร์มให้ เพิ่มฟิลด์ได้ในนาทีเดียว ไม่ต้องจ้างโปรแกรมเมอร์" },
-  { icon: ChartNoAxesCombined, title: "Auto-Generated Dashboard", body: "ทุกฟิลด์กลายเป็นกราฟอัตโนมัติ ลากจัดวาง ซ่อน และกำหนดสิทธิ์รายกราฟ" },
-  { icon: Bot, title: "AI Chat Assistant", body: "ถามในแชทว่า “มีงานรออนุมัติกี่งาน?” ได้คำตอบจากข้อมูลจริงทันที" },
-  { icon: ReceiptText, title: "ตรวจสลิปอัตโนมัติ", body: "อ่าน QR บนสลิป ตรวจความถูกต้อง เทียบยอด และกันสลิปซ้ำ" },
-  { icon: Users, title: "Flexible Role Mapping", body: "Owner, Manager, Staff, Viewer แยกสิทธิ์ตามแผนก ผูก LINE กับตำแหน่งจริง" },
-  { icon: Link2, title: "Share Dashboard", body: "แชร์ให้พาร์ทเนอร์ด้วยลิงก์ที่มีรหัสผ่านและวันหมดอายุ" },
-];
 
 // What a paid package unlocks on top of the free บัญชีและการเงิน (see dept-menu.tsx), then App Shop for the rest.
 const departments = [
@@ -273,49 +261,13 @@ export default function LandingHome() {
           </div>
         </section>
 
-        <section id="how" className="lp-section">
-          <header className="lp-head">
-            <span className="lp-kicker">HOW IT WORKS</span>
-            <h2>จากแชท สู่การตัดสินใจ ใน 4 ขั้นตอน</h2>
-            <p>ไม่ต้องเปลี่ยนพฤติกรรมทีม เพิ่มแค่บอทหนึ่งตัวเข้าไปในกลุ่ม</p>
-          </header>
-          <div className="lp-how">
-            <div className="lp-steps">
-              {steps.map((s, i) => (
-                <article key={s.title}>
-                  <span className="lp-step-n">{i + 1}</span>
-                  <s.icon size={20} />
-                  <div><h3>{s.title}</h3><p>{s.body}</p></div>
-                </article>
-              ))}
-            </div>
-            <div className="lp-chat" aria-label="ตัวอย่างแชทในกลุ่ม LINE">
-              <div className="lp-chat-top"><MessageCircle size={16} /> [EliteFlow] คลังสินค้า · 6 คน</div>
-              <div className="msg"><i>W</i><p>ส่งของแล้ว: ป้ายราคา 100, ไม้แขวน 180, หุ่น 2<br />ซัพพลายเออร์: Siam Display</p></div>
-              <div className="msg bot"><i><Bot size={13} /></i><p>⚠️ ข้อมูลยังไม่ครบ กรุณาส่งเพิ่ม: <b>ยอดรวม</b></p></div>
-              <div className="msg"><i>W</i><p>ยอดรวม: 18,500</p></div>
-              <div className="msg bot"><i><Bot size={13} /></i><p>✅ บันทึกแล้ว รอผู้จัดการอนุมัติ</p></div>
-              <div className="msg me"><p>อนุมัติปล่อยของ</p></div>
-              <div className="msg bot"><i><Bot size={13} /></i><p>✅ อนุมัติแล้ว แจ้งงานต่อให้ทีม PC และ Marketing</p></div>
-            </div>
-          </div>
-        </section>
-
         <section id="product" className="lp-section">
           <header className="lp-head">
             <span className="lp-kicker">PRODUCT</span>
             <h2>AI ที่ปรับตัวเข้ากับทุกธุรกิจ</h2>
-            <p>One AI Platform. Unlimited Business Workflows.</p>
+            <p>หนึ่งแพลตฟอร์ม ทุกระบบงานของธุรกิจคุณ — One AI Platform. Unlimited Business Workflows.</p>
           </header>
-          <div className="lp-features">
-            {features.map((f) => (
-              <article key={f.title}>
-                <span className="lp-ficon"><f.icon size={20} /></span>
-                <h3>{f.title}</h3>
-                <p>{f.body}</p>
-              </article>
-            ))}
-          </div>
+          <BusinessShowcase />
         </section>
 
         <section id="solutions" className="lp-section">
