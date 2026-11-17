@@ -743,3 +743,17 @@
 /* Top-right account chip: the company's picture (round, like everywhere) and the sign-up email */
 .user-profile img.user-logo { display: block; object-fit: cover; background: #fff; border: 1px solid var(--line, #ece9f5); }
 .topnav-actions .user-profile small.user-email { max-width: 190px; font-size: 11px; white-space: nowrap; text-transform: none; }
+/* Signer card: a photo in the round avatar (tap to add / change) and one-tap position chips */
+.dsg-avatar { position: relative; width: 54px; height: 54px; cursor: pointer; overflow: visible; }
+.dsg-avatar.off { cursor: default; }
+.dsg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(234, 88, 12, .25); }
+.dsg-avatar i { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: #ea580c; border: 1.5px solid #fdba74; box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
+.dsg-avatar:hover:not(.off) i { background: #ea580c; color: #fff; }
+.dsg-avatar:has(input:focus-visible) { outline: 2px solid #ea580c; outline-offset: 2px; }
+.dsg-pos { display: flex; flex-wrap: wrap; gap: 5px; }
+.dsg-pos button { height: 26px; padding: 0 10px; border-radius: 99px; border: 1px solid #fed7aa; background: #fff; color: #9a3412; font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.dsg-pos button:hover:not(:disabled):not(.on) { background: #fff7ed; }
+.dsg-pos button.on { background: linear-gradient(135deg, #f97316, #fb923c); border-color: transparent; color: #fff; }
+.dsg-pos button.add { display: inline-flex; align-items: center; gap: 3px; border-style: dashed; color: #c2410c; }
+.dsg-pos button:disabled { opacity: .55; cursor: default; }
+.dsg-photo-x { justify-self: start; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: 99px; border: 1px solid #ece9f5; background: #fff; color: #6b6585; font: inherit; font-size: 11.5px; cursor: pointer; }

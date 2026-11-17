@@ -1,10 +1,11 @@
-// ผู้ลงนามบนเอกสาร: the people who sign the company's documents (name, position, signature image), kept in the
+// ผู้ลงนามบนเอกสาร: the people who sign the company's documents (name, position, signature image, optional photo), kept in the
 // company profile as JSON (`signers`), with the company stamp (`stamp`). The default issuer / approver are still
 // written to signerName / approverName (+ position) so everything that reads those keeps working.
-export type Signer = { id: string; name: string; position: string; sign: string };
+export type Signer = { id: string; name: string; position: string; sign: string; /** Small round photo of the person (optional). */ photo?: string };
 
 export const MAX_SIGNERS = 8;
 export const MAX_SIGN = 40000;
+export const MAX_PHOTO = 30000;
 export const MAX_STAMP = 60000;
 const IMAGE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 export const isImage = (v: unknown, max: number) => typeof v === "string" && v.length <= max && IMAGE.test(v);
@@ -27,6 +28,7 @@ export function parseSigners(v: unknown): Signer[] {
       name: String(x.name || "").trim().slice(0, 100),
       position: String(x.position || "").trim().slice(0, 100),
       sign: isImage(x.sign, MAX_SIGN) ? String(x.sign) : "",
+      photo: isImage(x.photo, MAX_PHOTO) ? String(x.photo) : "",
     }))
     .filter((x) => x.id && x.name)
     .slice(0, MAX_SIGNERS);
@@ -45,6 +47,7 @@ export function signersProblem(v: string): string | null {
     if (!x || typeof x !== "object" || typeof x.id !== "string" || typeof x.name !== "string" || !x.name.trim()) return "ใส่ชื่อผู้ลงนามให้ครบทุกคน";
     if (String(x.name).length > 100 || String(x.position || "").length > 100) return "ชื่อหรือตำแหน่งผู้ลงนามยาวเกินไป";
     if (x.sign && !isImage(x.sign, MAX_SIGN)) return "รูปลายเซ็นไม่ถูกต้องหรือใหญ่เกินไป";
+    if (x.photo && !isImage(x.photo, MAX_PHOTO)) return "รูปผู้ลงนามไม่ถูกต้องหรือใหญ่เกินไป";
   }
   return null;
 }

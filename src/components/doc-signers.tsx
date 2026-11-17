@@ -3,8 +3,11 @@
 // a position and a signature (drawn here with a finger / mouse, or uploaded). One is the usual issuer and one the
 // usual approver; with auto-signing on, their signatures and the stamp go on quotations, invoices and receipts.
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, Eraser, ImageUp, PenLine, Plus, Stamp, Trash2, UserRound, X } from "lucide-react";
-import { MAX_SIGN, MAX_SIGNERS, MAX_STAMP, parseSigners, type Signer } from "@/lib/signers";
+import { BadgeCheck, Camera, Eraser, ImageUp, PenLine, Plus, Stamp, Trash2, UserRound, X } from "lucide-react";
+import { MAX_PHOTO, MAX_SIGN, MAX_SIGNERS, MAX_STAMP, parseSigners, type Signer } from "@/lib/signers";
+
+/** Positions offered as one-tap chips on each signer card (plus any typed for another signer). */
+const POSITIONS = ["กรรมการผู้จัดการ", "CEO", "กรรมการ", "ผู้จัดการทั่วไป", "ผู้จัดการฝ่ายขาย", "ผู้จัดการฝ่ายบัญชี", "ผู้จัดการฝ่ายการเงิน", "หัวหน้าฝ่ายจัดซื้อ"];
 
 /** Scales an image or a drawn canvas down and keeps transparency (WebP, else PNG) within `max` characters. */
 async function toImage(src: File | HTMLCanvasElement, box: number, max: number) {
@@ -134,17 +137,36 @@ export function DocSigners({
         {signers.map((s) => (
           <article key={s.id} className={"dsg-card" + (issuer?.id === s.id || approver?.id === s.id ? " chosen" : "")}>
             <header>
-              <span className="dsg-avatar">
-                <UserRound size={18} />
-              </span>
+              <label className={"dsg-avatar" + (s.photo ? " has" : "") + (disabled ? " off" : "")} title={s.photo ? "เปลี่ยนรูป" : "ใส่รูป"}>
+                {s.photo ? <img src={s.photo} alt={"รูป " + s.name} /> : <UserRound size={24} />}
+                <i aria-hidden>
+                  <Camera size={12} />
+                </i>
+                <input type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={disabled} aria-label={"ใส่รูป " + (s.name || "ผู้ลงนาม")} onChange={(e) => (pickImage(e.target.files?.[0], (u) => update(s.id, { photo: u }), 160, MAX_PHOTO), (e.target.value = ""))} />
+              </label>
               <div className="dsg-fields">
                 <input aria-label="ชื่อผู้ลงนาม" placeholder="ชื่อ-นามสกุล" maxLength={100} value={s.name} disabled={disabled} onChange={(e) => update(s.id, { name: e.target.value })} />
-                <input aria-label="ตำแหน่ง" placeholder="ตำแหน่ง เช่น กรรมการผู้จัดการ" maxLength={100} value={s.position} disabled={disabled} onChange={(e) => update(s.id, { position: e.target.value })} />
+                <input aria-label="ตำแหน่ง" placeholder="พิมพ์ตำแหน่ง หรือแตะเลือกด้านล่าง" maxLength={100} value={s.position} disabled={disabled} onChange={(e) => update(s.id, { position: e.target.value })} />
               </div>
               <button type="button" className="dsg-icon" aria-label={"ลบ " + (s.name || "ผู้ลงนาม")} disabled={disabled} onClick={() => save(signers.filter((x) => x.id !== s.id))}>
                 <Trash2 size={16} />
               </button>
             </header>
+            <div className="dsg-pos" aria-label="เลือกตำแหน่ง">
+              {[...new Set([...POSITIONS, ...signers.map((x) => x.position.trim()).filter(Boolean)])].map((p) => (
+                <button key={p} type="button" className={s.position.trim() === p ? "on" : ""} disabled={disabled} onClick={() => update(s.id, { position: p })}>
+                  {p}
+                </button>
+              ))}
+              <button type="button" className="add" disabled={disabled} onClick={(e) => (e.currentTarget.closest(".dsg-card")?.querySelector<HTMLInputElement>("input[aria-label='ตำแหน่ง']")?.focus(), update(s.id, { position: "" }))}>
+                <Plus size={12} /> ตำแหน่งอื่น
+              </button>
+            </div>
+            {s.photo && (
+              <button type="button" className="dsg-photo-x" disabled={disabled} onClick={() => update(s.id, { photo: "" })}>
+                <X size={12} /> เอารูปออก
+              </button>
+            )}
             <div className={"dsg-sign" + (s.sign ? "" : " empty")}>
               {s.sign ? <img src={s.sign} alt={"ลายเซ็น " + s.name} /> : <span>ยังไม่มีลายเซ็น</span>}
             </div>
@@ -177,7 +199,7 @@ export function DocSigners({
             type="button"
             className="dsg-add"
             disabled={disabled}
-            onClick={() => save([...signers, { id: "p" + Date.now(), name: "ผู้ลงนามใหม่", position: "", sign: "" }])}
+            onClick={() => save([...signers, { id: "p" + Date.now(), name: "ผู้ลงนามใหม่", position: "", sign: "", photo: "" }])}
           >
             <Plus size={22} />
             <b>เพิ่มผู้ลงนาม</b>

@@ -19,6 +19,9 @@ test("signers: parsed safely, bad input rejected", () => {
   assert.match(signersProblem("{")!, /ไม่ถูกต้อง/);
   assert.match(signersProblem(JSON.stringify([{ id: "x", name: " " }]))!, /ชื่อ/);
   assert.match(signersProblem(JSON.stringify([{ id: "x", name: "ก", sign: "data:text/html;base64,AA==" }]))!, /ลายเซ็น/);
+  assert.equal(parseSigners(JSON.stringify([{ id: "x", name: "ก", photo: SIGN }]))[0].photo, SIGN);
+  assert.equal(parseSigners(JSON.stringify([{ id: "x", name: "ก", photo: "https://evil.example/p.png" }]))[0].photo, "");
+  assert.match(signersProblem(JSON.stringify([{ id: "x", name: "ก", photo: "data:text/html;base64,AA==" }]))!, /รูปผู้ลงนาม/);
   assert.match(signersProblem(JSON.stringify(Array.from({ length: 9 }, (_, i) => ({ id: "x" + i, name: "ก" + i }))))!, /ไม่เกิน/);
 });
 
