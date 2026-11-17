@@ -111,3 +111,18 @@
   .lp .lp-shop-tags::-webkit-scrollbar { display: none; }
   .lp .lp-shop-tags span { flex: none; }
 }
+
+/* The main systems, each in its own colour */
+.lp .lp-dept { --a: #7c5cff; --b: #c084fc; position: relative; overflow: hidden; background: linear-gradient(165deg, color-mix(in srgb, var(--a) 30%, #0d0d2e), #0d0d2e 75%); border: 1px solid color-mix(in srgb, var(--a) 55%, transparent); box-shadow: 0 12px 34px color-mix(in srgb, var(--a) 18%, transparent); }
+.lp .lp-dept::after { content: ""; position: absolute; right: -50px; bottom: -50px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--b) 40%, transparent), transparent 70%); pointer-events: none; transition: transform .5s; }
+.lp .lp-dept:hover { border-color: var(--a); transform: translateY(-4px); box-shadow: 0 20px 46px color-mix(in srgb, var(--a) 35%, transparent); }
+.lp .lp-dept:hover::after { transform: scale(1.4); }
+.lp .lp-dept.pink { --a: #ec4899; --b: #fb7185; }
+.lp .lp-dept.amber { --a: #f59e0b; --b: #fb923c; }
+.lp .lp-dept.violet { --a: #8b5cf6; --b: #c084fc; }
+.lp .lp-dept.blue { --a: #0ea5e9; --b: #38bdf8; }
+.lp .lp-dept h3 { color: #fff; }
+.lp .lp-dept p { color: color-mix(in srgb, var(--b) 25%, #d4d2ec); }
+.lp .lp-dept .lp-ficon { background: linear-gradient(135deg, var(--a), var(--b)); box-shadow: 0 10px 24px color-mix(in srgb, var(--a) 45%, transparent); }
+.lp .lp-dept .lp-unlock { color: #fff; background: color-mix(in srgb, var(--a) 35%, transparent); border-color: color-mix(in srgb, var(--a) 65%, transparent); }
+.lp .lp-dept .lp-more { color: color-mix(in srgb, var(--b) 70%, #fff); font-weight: 700; }
