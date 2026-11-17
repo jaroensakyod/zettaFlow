@@ -232,3 +232,6 @@
 .ep-head .secondary:hover, .ep-head .refresh-button:hover { background: rgba(255, 255, 255, .26); }
 .ep-head .primary { color: #1d4ed8; background: #fff; box-shadow: none; }
 .ep-head .primary:hover { background: #f5f8ff; }
+/* With the HR sidebar on the left, the blue band sits behind the page only (not the sidebar) and wins over the HR tint. */
+.dept-shell.with-side:has(.ep) { background: none; }
+.dept-shell.with-side > .main:has(.ep) { background: linear-gradient(180deg, #1d4ed8 0, #60a5fa 120px, rgba(96, 165, 250, .3) 190px, transparent 300px) no-repeat; }
