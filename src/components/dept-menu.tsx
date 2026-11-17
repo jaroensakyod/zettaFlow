@@ -13,13 +13,9 @@ import { departmentMenu, baseView } from "@/lib/departments";
 import { subscriptionActive, type Subscription } from "@/lib/billing";
 import { api } from "./shared";
 
-/**
- * แผนกของฉัน: บัญชีและการเงิน is free for every company. A paid package (Starter and up, active — not a trial) unlocks
- * การตลาด, เซลล์, จัดซื้อ (under งานทั่วไป / บริหารองค์กร), คลัง and HR. Event, IT and กฎหมาย stay locked.
- */
-export const FREE_DEPARTMENT = "accounting";
-export const PACKAGE_DEPARTMENTS = ["sales", "marketing", "warehouse", "hr", "admin"];
-export const departmentLocked = (id: string, paid: boolean) => id !== FREE_DEPARTMENT && !(paid && PACKAGE_DEPARTMENTS.includes(id));
+// Which departments a package opens lives in lib/departments (the LINE worker checks it too).
+import { departmentLocked, PACKAGE_DEPARTMENTS } from "@/lib/departments";
+export { FREE_DEPARTMENT, PACKAGE_DEPARTMENTS, departmentLocked } from "@/lib/departments";
 
 const icons: Record<string, LucideIcon> = {
   AppWindow, ArrowLeftRight, Award, BadgePercent, BookOpen, Building2, Calculator, CalendarClock, CalendarDays,

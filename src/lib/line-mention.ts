@@ -256,6 +256,19 @@ export function slipRequest(text: string): { code: string | null } | null {
 export const mentionPrompt =
   "สวัสดีค่ะ 👋 พิมพ์สิ่งที่ต้องการบันทึก หรือส่งรูป/ไฟล์ตามมาได้เลย (ภายใน 2 นาที)\nเช่น “ค่าน้ำมัน 500 บาท” แล้วน้องจะสรุปให้ตรวจก่อนบันทึกค่ะ";
 export const editPrompt = "✏️ พิมพ์สิ่งที่ต้องแก้ได้เลยค่ะ (ภายใน 10 นาที) เช่น “ยอด 450 บาท” หรือส่งรูปใหม่ แล้วน้องจะสรุปให้ใหม่";
+/**
+ * A free company asked to record something outside บัญชีและการเงิน: nothing is saved; the group is told to upgrade, with
+ * the link to the package page.
+ */
+export function upgradeText(kind: string | null | undefined, url: string) {
+  const what = (kind && catalog[kind]?.label) || "รายการนี้";
+  return (
+    `🔒 “${what}” ต้องใช้แพ็กเกจแบบชำระเงินค่ะ ยังไม่ได้บันทึกนะคะ\n` +
+    "แพ็กเกจฟรีใช้ได้เฉพาะระบบบัญชีและการเงิน (ค่าใช้จ่าย รับชำระ ใบแจ้งหนี้ ฯลฯ)\n\n" +
+    "⭐ อัปเกรดแพ็กเกจเพื่อใช้ทุกระบบ — ชำระแล้วปลดล็อกทันที แล้วส่งข้อความนี้ใหม่ได้เลยค่ะ" +
+    (url ? "\n👉 " + url : "")
+  );
+}
 export const nothingToSave = "🤔 ยังไม่เจอข้อมูลที่จะบันทึกค่ะ ลองพิมพ์รายละเอียดอีกนิด เช่น “ซื้อกระดาษ A4 450 บาท” หรือส่งรูปใบเสร็จ";
 
 /* ---------- approval chain (migration 0067) ---------- */

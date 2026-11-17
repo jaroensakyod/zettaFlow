@@ -150,3 +150,15 @@ test("a new employee tagged in LINE keeps that person's LINE; other pages and un
   assert.deepEqual(withTagged("leaves", pageTemplate("leaves"), { a: 1 }, [{ id: U, name: "x" }]).values, { a: 1 });
   assert.deepEqual(withTagged("employees", t, { a: 1 }, []).values, { a: 1 });
 });
+
+test("free package: only บัญชีและการเงิน is recorded from LINE; anything else gets the upgrade message with the package link", async () => {
+  const { freeKind } = await import("../src/lib/departments");
+  const { upgradeText } = await import("../src/lib/line-mention");
+  for (const k of ["expenses", "payments", "invoices", "bills"]) assert.equal(freeKind(k), true, k);
+  for (const k of ["employees", "leaves", "tasks", "sales", "stock_issues", "customers", "projects"]) assert.equal(freeKind(k), false, k);
+  const t = upgradeText("employees", "https://eliteflow-ai.com/workspace/pricing");
+  assert.match(t, /พนักงาน/);
+  assert.match(t, /อัปเกรด/);
+  assert.match(t, /https:\/\/eliteflow-ai\.com\/workspace\/pricing/);
+  assert.doesNotMatch(upgradeText("leaves", ""), /👉/);
+});

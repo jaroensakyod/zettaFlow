@@ -181,6 +181,18 @@ export const menuViews = ["tax", "transfers", "expiries"];
 export const baseView = (view: string) => view.split("?")[0];
 export const sidebarOf = (d: DepartmentMenu): SideItem[] => d.sidebar || d.items;
 const entries = (d: DepartmentMenu) => sidebarOf(d).flatMap((i) => [i, ...(i.children || [])]);
+/**
+ * แผนกของฉัน: บัญชีและการเงิน is free for every company. A paid package (Starter and up, active — not a trial) unlocks
+ * การตลาด, เซลล์, จัดซื้อ (under งานทั่วไป / บริหารองค์กร), คลัง and HR. Event, IT and กฎหมาย stay locked.
+ */
+export const FREE_DEPARTMENT = "accounting";
+export const PACKAGE_DEPARTMENTS = ["sales", "marketing", "warehouse", "hr", "admin"];
+export const departmentLocked = (id: string, paid: boolean) => id !== FREE_DEPARTMENT && !(paid && PACKAGE_DEPARTMENTS.includes(id));
+/** Without a paid package only บัญชีและการเงิน's pages may be recorded (ค่าใช้จ่าย, รับชำระ …), from the web or LINE. */
+export function freeKind(kind: string) {
+  const free = departmentMenu.find((d) => d.id === FREE_DEPARTMENT);
+  return !!free && entries(free).some((i) => baseView(i.view) === kind);
+}
 // App-wide pages: they only show a department sidebar when the user came from that department.
 const shared = new Set(["feed", "jobs", "dashboard", "calendar", "chat", "company", "team", "store", "ads", "departments", "pricing", "assistant", "admin", "integrations", "templates", "ai-inbox", "tasks", "documents", "reports", "profile"]);
 /** Full pages opened from a list sit under that list's menu entry (บันทึกรายรับ → รับชำระเงิน). */

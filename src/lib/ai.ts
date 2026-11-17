@@ -17,11 +17,13 @@ import type { Context, Template, Ingestion, Attachment } from "./types";
 import { templates, dbError } from "./data";
 import { supabaseServer } from "./supabase/server";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
-import { pdfPages, MAX_PDF_PAGES } from "./billing";
+import { pdfPages, MAX_PDF_PAGES, subscriptionActive, type Subscription } from "./billing";
+import { freeKind } from "./departments";
+import { catalog } from "./catalog";
 import { sortMessage, withTagged, type Tagged } from "./line-sort";
 import { lineGroup, lineReplyId, sentMessageId } from "./line";
 import { deptThai, lineNotice } from "./line-message";
-import { approvalCard, approvedCard, draftCard, nothingToSave, sentText, stepText, type ActResult, type ApprovalItem } from "./line-mention";
+import { approvalCard, approvedCard, draftCard, nothingToSave, upgradeText, sentText, stepText, type ActResult, type ApprovalItem } from "./line-mention";
 import type { Approval } from "./types";
 import { shareUrl } from "./share-link";
 import { aiEnabled, aiGenerate, aiProvider, forCompany, type AiPart } from "./llm";
@@ -322,6 +324,21 @@ export async function processJobs(id?: string) {
         const tagged = (job.template as { tagged?: Tagged[] }).tagged;
         const r1 = await linkedEmployee(sb, job, r0);
         const r = { ...r1, ...withTagged(r1.kind, r1.template, r1.values, tagged) };
+        // แพ็กเกจฟรี: only บัญชีและการเงิน is recorded; anything else is skipped and the group gets the upgrade link.
+        if (r.kind && (await needsUpgrade(sb, job.company_id, r.kind))) {
+          const { error: e } = await sb.rpc("complete_sorted_ingestion", {
+            p_id: job.id,
+            p_lease: job.lease_id,
+            p_kind: null,
+            p_template: null,
+            p_values: { note: "ต้องอัปเกรดแพ็กเกจ: " + (catalog[r.kind]?.label || r.kind) },
+            p_missing: [],
+            p_engine: r.engine,
+          });
+          dbError(e);
+          await tellUpgrade(sb, job, r.kind);
+          continue;
+        }
         const { error: e } = await sb.rpc("complete_sorted_ingestion", {
           p_id: job.id,
           p_lease: job.lease_id,
@@ -343,6 +360,24 @@ export async function processJobs(id?: string) {
           if (!r.missing.length) await approvalAsk(job.id);
         }
         continue;
+      }
+      // A form group whose form saves to a page outside บัญชีและการเงิน, on the free package: not read at all.
+      {
+        const target = (job.template as { target_kind?: string | null }).target_kind;
+        if (target && (await needsUpgrade(sb, job.company_id, target))) {
+          const { error: e } = await sb.rpc("complete_sorted_ingestion", {
+            p_id: job.id,
+            p_lease: job.lease_id,
+            p_kind: null,
+            p_template: null,
+            p_values: { note: "ต้องอัปเกรดแพ็กเกจ: " + (catalog[target]?.label || target) },
+            p_missing: [],
+            p_engine: "plan",
+          });
+          dbError(e);
+          await tellUpgrade(sb, job, target);
+          continue;
+        }
       }
       const { data: precise } = await sb.rpc("has_addon", {
         c: job.company_id,
@@ -406,6 +441,27 @@ export async function processJobs(id?: string) {
     }
   }
   return jobs?.length || 0;
+}
+/** Whether the company is on a paid package (active, not free, not a trial — same rule as แผนกของฉัน). */
+async function paidPackage(sb: ReturnType<typeof supabaseAdmin>, companyId: string) {
+  const { data } = await sb.from("subscriptions").select("*").eq("company_id", companyId).maybeSingle();
+  const s = data as Subscription | null;
+  return !!s && s.status === "active" && s.plan !== "free" && subscriptionActive(s);
+}
+/** A record on this page needs a paid package (only บัญชีและการเงิน is free). */
+async function needsUpgrade(sb: ReturnType<typeof supabaseAdmin>, companyId: string, kind: string) {
+  return !freeKind(kind) && !(await paidPackage(sb, companyId));
+}
+/** Tell the group the record needs a paid package, with the link to the package page. */
+async function tellUpgrade(sb: ReturnType<typeof supabaseAdmin>, job: Job, kind: string) {
+  const base = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  const text = upgradeText(kind, base ? base + "/workspace/pricing" : "");
+  if (job.reply_token && (await lineReplyId(job.reply_token, text)).ok) return;
+  if (job.group_id)
+    await sb
+      .from("notification_outbox")
+      .insert({ company_id: job.company_id, target: job.group_id, body: text, ingestion_id: job.id, role: "source" })
+      .then(() => {}, () => {});
 }
 /**
  * Finance "ฟอร์มตรวจสลิป": templates with a `slip_ref` field get the slip QR decoded and
