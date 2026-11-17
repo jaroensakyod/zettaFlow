@@ -100,3 +100,14 @@
 @media (prefers-reduced-motion: reduce) {
   .bs-track, .bs-card { animation: none; }
 }
+
+/* Phones: the main systems (ขาย · การตลาด · คลัง · HR) in one row to swipe */
+@media (max-width: 860px) {
+  .lp .lp-depts { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px 14px; }
+  .lp .lp-depts::-webkit-scrollbar { display: none; }
+  .lp .lp-depts .lp-dept { flex: 0 0 72vw; max-width: 300px; scroll-snap-align: start; }
+  .lp .lp-shop > div { width: 100%; min-width: 0; }
+  .lp .lp-shop-tags { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .lp .lp-shop-tags::-webkit-scrollbar { display: none; }
+  .lp .lp-shop-tags span { flex: none; }
+}
