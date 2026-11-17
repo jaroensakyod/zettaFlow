@@ -264,6 +264,8 @@ const cases: Case[] = [
   },
 ];
 
+/** The row's width as on a computer; smaller screens scale it down to fit. */
+const STAGE_W = 1200;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const clock = (i: number) => {
   const m = 30 + i;
@@ -284,6 +286,26 @@ export function LineLive() {
   const [shown, setShown] = useState(false);
   const chat = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
+  // Narrow screens see the whole row (chat · steps · website) as on a computer, scaled to fit the width.
+  const fit = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [fitHeight, setFitHeight] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const el = fit.current,
+      st = stageRef.current;
+    if (!el || !st) return;
+    const measure = () => {
+      const s = Math.min(1, el.clientWidth / STAGE_W);
+      setScale(s);
+      setFitHeight(s < 1 ? st.offsetHeight * s : undefined);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    ro.observe(st);
+    return () => ro.disconnect();
+  }, []);
   const playingRef = useRef(true);
   playingRef.current = playing;
   const msgsNow = useRef<Msg[]>([]);
@@ -400,7 +422,8 @@ export function LineLive() {
         ))}
       </div>
 
-      <div className="ll-stage">
+      <div className="ll-fit" ref={fit} style={{ height: fitHeight }}>
+      <div className={"ll-stage" + (scale < 1 ? " scaled" : "")} ref={stageRef} style={scale < 1 ? { width: STAGE_W, transform: `scale(${scale})` } : undefined}>
         {/* The phone: a LINE group chat */}
         <div className="ll-phone-wrap">
           <div className="ll-phone">
@@ -619,6 +642,7 @@ export function LineLive() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

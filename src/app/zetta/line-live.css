@@ -150,23 +150,14 @@
 .lp-what h3 { margin: 8px 0 4px; font-size: 16.5px; color: #fff; }
 .lp-what p { margin: 0; font-size: 13.5px; line-height: 1.6; color: #b9b7d8; }
 
-@media (max-width: 1180px) {
-  .ll-stage { grid-template-columns: 380px minmax(0, 1fr); }
-  .ll-web { grid-column: 1 / -1; transform: none; }
-  .ll-web.live { transform: none; }
-}
+/* Smaller screens: the same row, scaled to fit (line-live.tsx sets the scale). */
+.ll-fit { position: relative; }
+.ll-stage.scaled { transform-origin: top left; position: absolute; top: 0; left: 0; }
 @media (max-width: 760px) {
   .lp-live { padding: 54px 12px 64px; }
   .ll-tabs { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; margin: 0 -12px 22px; padding: 0 12px; }
   .ll-tabs button { flex: none; font-size: 13.5px; padding: 9px 13px; }
-  .ll-stage { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .ll-phone { width: min(340px, 92vw); height: 640px; border-radius: 46px; }
-  .ll-steps li.on { transform: none; }
-  .ll-web { order: 2; }
-  .ll-steps { order: 3; }
   .lp-what { grid-template-columns: minmax(0, 1fr); }
-  .ll-kpi b { font-size: 15px; }
-  .ll-table td:nth-child(2), .ll-table th:nth-child(2) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ll-phone, .ll-tab-bar, .ll-row.in, .ll-steps li.on .ll-step-n { animation: none; }
