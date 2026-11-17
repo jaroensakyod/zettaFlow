@@ -240,6 +240,33 @@ export async function requestPayment(ctx: Context, input: unknown) {
   return autoActivate(ctx, data as Payment, file, bytes);
 }
 
+/**
+ * อัปเกรดใน LINE: a member sends the transfer slip for the package picked on the bot's card. Same checks as the website
+ * (QR read, slip unused, amount / date / receiver), recorded for the group's company, opened at once when it matches.
+ */
+export async function linePayment(input: { companyId: string; plan: string; cycle: "monthly" | "yearly"; attachmentId: string; file: { mime: string; name: string }; bytes: Buffer }) {
+  let text: string | null = null;
+  try {
+    text = decodeQr(input.bytes, input.file.mime);
+  } catch {
+    text = null;
+  }
+  const qr = text ? parseSlipQr(text) : null;
+  if (!qr) return { auto: false, ok: false, message: "อ่าน QR บนสลิปไม่ได้ ส่งรูปสลิปเต็มใบ (ไม่ครอป) อีกครั้งได้เลยค่ะ" };
+  const price = planPrice(input.plan, input.cycle);
+  const sb = supabaseAdmin();
+  const { data: used } = await sb.from("billing_payments").select("id").eq("slip_ref", qr.transRef).maybeSingle();
+  if (used) return { auto: false, ok: false, message: "สลิปนี้ถูกใช้แล้วค่ะ" };
+  const { data, error } = await sb
+    .from("billing_payments")
+    .insert({ company_id: input.companyId, plan: input.plan, cycle: input.cycle, amount: price.total, attachment_id: input.attachmentId, slip: { transRef: qr.transRef, bank: qr.bankName, file: input.file.name, via: "LINE" }, slip_ref: qr.transRef })
+    .select("*")
+    .single();
+  if (error) return { auto: false, ok: false, message: error.code === "23505" ? "สลิปนี้ถูกใช้แล้วค่ะ" : "บันทึกการชำระไม่สำเร็จ ลองส่งใหม่อีกครั้งค่ะ" };
+  const r = await autoActivate({ demo: false } as Context, data as Payment, input.file, input.bytes);
+  return { auto: r.auto, ok: true, message: r.message };
+}
+
 const slipSchema = {
   type: "object",
   additionalProperties: false,

@@ -21,6 +21,7 @@ import { pdfPages, MAX_PDF_PAGES, subscriptionActive, type Subscription } from "
 import { freeKind } from "./departments";
 import { catalog } from "./catalog";
 import { sortMessage, withTagged, type Tagged } from "./line-sort";
+import { billingPrompt, plansCarousel } from "./line-billing";
 import { lineGroup, lineReplyId, sentMessageId } from "./line";
 import { deptThai, lineNotice } from "./line-message";
 import { approvalCard, approvedCard, draftCard, nothingToSave, upgradeText, sentText, stepText, type ActResult, type ApprovalItem } from "./line-mention";
@@ -455,7 +456,10 @@ async function needsUpgrade(sb: ReturnType<typeof supabaseAdmin>, companyId: str
 /** Tell the group the record needs a paid package, with the link to the package page. */
 async function tellUpgrade(sb: ReturnType<typeof supabaseAdmin>, job: Job, kind: string) {
   const base = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
-  const text = upgradeText(kind, base ? base + "/workspace/pricing" : "");
+  const pricing = base ? base + "/workspace/pricing" : "";
+  const text = upgradeText(kind, pricing);
+  // The packages as cards: tap a price, pay, send the slip here — opened at once.
+  if (job.reply_token && (await lineReplyId(job.reply_token, [{ type: "text", text: upgradeText(kind, "") + "\n\n" + billingPrompt }, plansCarousel(pricing)])).ok) return;
   if (job.reply_token && (await lineReplyId(job.reply_token, text)).ok) return;
   if (job.group_id)
     await sb

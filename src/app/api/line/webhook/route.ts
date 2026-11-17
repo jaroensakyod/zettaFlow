@@ -22,6 +22,8 @@ import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, lineReplyId, type QuickStats } from "@/lib/line";
 import { decidedText, deptThai, groupRejection, parseDecision } from "@/lib/line-message";
+import { appBase, billingAction, billingChoice, billingResult, BILLING_MS, payCard, payee, type BillingChoice } from "@/lib/line-billing";
+import { linePayment } from "@/lib/platform";
 import { classifyLineFile, LINE_MAX_BYTES, shrinkImage, VOICE_MAX_MS } from "@/lib/line-files";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -52,10 +54,30 @@ async function botName() {
   return botDisplayName;
 }
 /** Start (or move) listening to one member for a short while. */
-async function listen(sb: Admin, companyId: string, groupId: string, userId: string, mode: ListenRow["mode"], ingestionId: string | null, ms: number) {
+async function listen(sb: Admin, companyId: string, groupId: string, userId: string, mode: ListenRow["mode"], ingestionId: string | null, ms: number, meta?: Record<string, unknown>) {
   await sb
     .from("line_listen")
-    .upsert({ group_id: groupId, line_user: userId, company_id: companyId, mode, ingestion_id: ingestionId, until: new Date(Date.now() + ms).toISOString() });
+    .upsert({ group_id: groupId, line_user: userId, company_id: companyId, mode, ingestion_id: ingestionId, until: new Date(Date.now() + ms).toISOString(), ...(meta ? { meta } : {}) });
+}
+/** A price tapped on a package card: how to pay, then wait for this member's slip. */
+async function billingButton(sb: Admin, groupId: string, userId: string, data: string, replyToken: string | null) {
+  const a = billingAction(data);
+  if (!a) return false;
+  if (a.act === "cancel") {
+    await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId).eq("mode", "billing");
+    await lineReply(replyToken || undefined, "ยกเลิกแล้วค่ะ เลือกแพ็กเกจใหม่ได้ทุกเมื่อ");
+    return true;
+  }
+  const { data: g } = await sb.from("line_groups").select("company_id").eq("group_id", groupId).maybeSingle();
+  if (!g) {
+    await lineReply(replyToken || undefined, "กลุ่มนี้ยังไม่ได้เชื่อมกับ EliteFlow");
+    return true;
+  }
+  const choice = billingChoice(a.plan, a.cycle);
+  await listen(sb, g.company_id, groupId, userId, "billing", null, BILLING_MS, choice);
+  const base = appBase();
+  await lineReplyId(replyToken, payCard(choice, payee(), { qrUrl: base ? `${base}/api/pay-qr?a=${choice.amount}` : "", pricingUrl: base ? base + "/workspace/pricing" : "" }));
+  return true;
 }
 /** Read a draft (or an item still in review) again with a correction and/or a new file; the worker sends a new summary. */
 async function rereadDraft(sb: Admin, id: string, note: string, replyToken: string | null, attachmentId?: string | null) {
@@ -221,6 +243,7 @@ export async function POST(req: Request) {
           else await lineReplyId(event.replyToken, await approverCard(sb, event.source.groupId, apv.add, apv.remove));
           continue;
         }
+        if (event.source.userId && (await billingButton(sb, event.source.groupId, event.source.userId, String(event.postback?.data || ""), event.replyToken || null))) continue;
         const doc = /^doc=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
         const slip = /^slip=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
         const add = /^add=([0-9a-f-]{36})$/i.exec(String(event.postback?.data || ""));
@@ -449,7 +472,8 @@ export async function POST(req: Request) {
         tagged: { id: string; name: string }[] = [],
         editOf: string | null = null,
         slipFor: string | null = null,
-        evidenceFor: string | null = null;
+        evidenceFor: string | null = null,
+        billingFor: BillingChoice | null = null;
       if (mentionMode) {
         if (!userId) continue;
         const m = message.type === "text" ? mentionOf(message, await botName()) : { mentioned: false, text: "" };
@@ -522,9 +546,10 @@ export async function POST(req: Request) {
             if (last && (await rereadDraft(sb, last.id, fix, event.replyToken || null))) continue;
           }
         } else {
-          const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
+          const { data: row } = await sb.from("line_listen").select("*").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
           const plan = listenPlan(row as ListenRow | null, message.type);
           if (plan.act === "ignore") continue;
+          if (plan.act === "billing") billingFor = (row as { meta?: BillingChoice | null }).meta || null;
           if (plan.act === "edit") {
             if (message.type === "text") {
               await sb.from("line_listen").delete().eq("ingestion_id", plan.id).eq("mode", "edit");
@@ -539,8 +564,9 @@ export async function POST(req: Request) {
         }
       } else if (message.type !== "text" && userId) {
         // Groups that read every message: a photo right after "ส่งสลิป" is still that slip.
-        const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
+        const { data: row } = await sb.from("line_listen").select("*").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
         const plan = listenPlan(row as ListenRow | null, message.type);
+        if (plan.act === "billing") billingFor = (row as { meta?: BillingChoice | null }).meta || null;
         if (plan.act === "slip") slipFor = plan.id;
         if (plan.act === "evidence") evidenceFor = plan.id;
       }
@@ -571,6 +597,8 @@ export async function POST(req: Request) {
         : { data: { id: null, name: "AI แยกอัตโนมัติ", department: "Operations", fields: [], steps: [], mode: "sort" } };
       if (!template) continue;
       let attachmentId = null;
+      // The photo as sent (not shrunk), so a payment slip's QR still reads.
+      let slipFile: { mime: string; name: string; bytes: Buffer } | null = null;
       if (["image", "file", "audio"].includes(message.type)) {
         assert(
           process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -629,6 +657,7 @@ export async function POST(req: Request) {
         const stored =
           kind.kind === "image" ? await shrinkImage(bytes, kind.mime) : { bytes, mime: kind.mime, shrunk: false };
         const mime = stored.mime;
+        slipFile = { mime: kind.mime, name: fileName, bytes };
         attachmentId = randomUUID();
         const path = `${group.company_id}/${template.department}/${attachmentId}`;
         const { error } = await sb.storage
@@ -646,6 +675,14 @@ export async function POST(req: Request) {
         });
         dbError(e);
       } else if (message.type !== "text") continue;
+      if (billingFor && attachmentId && userId) {
+        await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId).eq("mode", "billing");
+        const r = await linePayment({ companyId: group.company_id, plan: billingFor.plan, cycle: billingFor.cycle, attachmentId, file: slipFile!, bytes: slipFile!.bytes });
+        // A slip that could not be read: keep waiting so a clearer photo can follow.
+        if (!r.ok) await listen(sb, group.company_id, groupId, userId, "billing", null, BILLING_MS, billingFor);
+        await lineReply(event.replyToken, r.ok ? billingResult({ ...r, plan: billingFor.plan }) : "⚠️ " + r.message);
+        continue;
+      }
       if (evidenceFor && attachmentId) {
         const { data: item } = await sb.from("ingestions").select("status, attachment_id").eq("id", evidenceFor).maybeSingle();
         const { data: added, error: e } = await sb.rpc("line_add_evidence", { p_group: groupId, p_user: userId, p_id: evidenceFor, p_attachment: attachmentId });

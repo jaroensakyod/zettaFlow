@@ -45,7 +45,7 @@ export function editText(text: string): string | null {
   return m ? m[1].trim() : null;
 }
 
-export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix" | "slip" | "evidence"; ingestion_id: string | null; until: string };
+export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix" | "slip" | "evidence" | "billing"; ingestion_id: string | null; until: string };
 export type ListenPlan =
   | { act: "ignore" }
   | { act: "new" }
@@ -53,7 +53,8 @@ export type ListenPlan =
   | { act: "edit"; id: string }
   | { act: "decide"; id: string; action: "reject" | "fix"; note?: never }
   | { act: "slip"; id: string }
-  | { act: "evidence"; id: string };
+  | { act: "evidence"; id: string }
+  | { act: "billing" };
 /**
  * A message that does not mention the bot, from a member the bot is listening to:
  * • "any" (after an empty mention): any message or file starts a draft;
@@ -72,6 +73,8 @@ export function listenPlan(row: ListenRow | null | undefined, messageType: strin
   if (row.mode === "slip" && row.ingestion_id) return file ? { act: "slip", id: row.ingestion_id } : { act: "ignore" };
   // After "📎 เพิ่มรูป/หลักฐาน": each photo / file is more evidence for that item.
   if (row.mode === "evidence" && row.ingestion_id) return file ? { act: "evidence", id: row.ingestion_id } : { act: "ignore" };
+  // After picking a package on the bot's card: the photo is the payment slip.
+  if (row.mode === "billing") return file ? { act: "billing" } : { act: "ignore" };
   if (row.mode === "any") return { act: "new" };
   if (row.mode === "edit" && row.ingestion_id) return { act: "edit", id: row.ingestion_id };
   if (row.mode === "files" && file) return row.ingestion_id ? { act: "attach", id: row.ingestion_id } : { act: "new" };
