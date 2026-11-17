@@ -27,6 +27,7 @@ import { LineFeedButton } from "./template-target";
 import { conversions } from "@/lib/dept-rules";
 import { SalesFields } from "./sales-form";
 import { ProductFields, syncStock } from "./product-form";
+import { AutoFields, autoFormClass } from "./auto-form";
 export type Option = { id: string; kind: string; name: string };
 // Shrinks a photo to a square-ish WebP (max 512px) before upload.
 export async function shrinkPhoto(file: File) {
@@ -285,7 +286,7 @@ export function EntityEditor({
     }
   }
   return (
-    <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose} className={groups ? "ge-modal ge-" + kind : undefined}>
+    <Modal title={(row ? "แก้ไข" : "เพิ่ม") + module.label} onClose={onClose} className={groups ? "ge-modal ge-" + kind : autoFormClass(kind)}>
       {row?.data.sourceVia === "LINE" && (
         <p className="source-banner">
           ที่มา: <SourceLine data={row.data} />
@@ -333,18 +334,7 @@ export function EntityEditor({
                 ))}
             </>
           ) : (
-          <div className="form-grid">
-            {module.fields.map((f) => (
-              <FieldControl
-                key={f.key}
-                field={f}
-                value={values[f.key]}
-                set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
-                options={options}
-                department={module.department}
-              />
-            ))}
-          </div>
+            <AutoFields kind={kind} values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} isNew={!row} />
           )}
         </fieldset>
         <p role="alert" className="form-error">
@@ -879,7 +869,7 @@ export function Records({
         <Modal
           title={(row ? "รายละเอียด / แก้ไข" : "เพิ่ม") + module.label}
           onClose={() => setModal(null)}
-          className={kind === "sales" ? "ge-modal sf-modal" : kind === "products" ? "ge-modal sf-modal pf-modal" : undefined}
+          className={kind === "sales" ? "ge-modal sf-modal" : kind === "products" ? "ge-modal sf-modal pf-modal" : autoFormClass(kind)}
         >
           <form onSubmit={save}>
             <fieldset
@@ -896,18 +886,7 @@ export function Records({
               ) : kind === "products" ? (
                 <ProductFields values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} categories={[...new Set(rows.map((r) => String(r.data.category || "").trim()).filter(Boolean))]} />
               ) : (
-              <div className="form-grid">
-                {module.fields.map((f) => (
-                  <FieldControl
-                    key={f.key}
-                    field={f}
-                    value={values[f.key]}
-                    set={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
-                    options={options}
-                    department={module.department}
-                  />
-                ))}
-              </div>
+                <AutoFields kind={kind} values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} isNew={!row} />
               )}
             </fieldset>
             {kind === "invoices" && row && (

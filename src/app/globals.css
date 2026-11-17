@@ -8455,3 +8455,37 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .pf-qty-box button { flex: none; width: 42px; height: 42px; margin: 0; padding: 0; border-radius: 12px; border: 1.5px solid color-mix(in srgb, var(--a, #3b82f6) 30%, #fff); background: var(--s, #eff6ff); color: var(--b, #1d4ed8); font-size: 20px; font-weight: 800; cursor: pointer; }
 .pf-qty-box button:hover { background: color-mix(in srgb, var(--a, #3b82f6) 15%, #fff); }
 .pf-qty-box em { flex: none; min-width: 44px; font-style: normal; font-weight: 700; color: #6b6585; font-size: 13px; }
+
+/* Auto form: every module's add / edit dialog in its department's colour (header, summary card, save button). */
+.af-modal { --h1: #7c3aed; --h2: #4f46e5; --h3: #0ea5e9; }
+.af-violet { --h1: #7c3aed; --h2: #9333ea; --h3: #db2777; }
+.af-pink { --h1: #db2777; --h2: #ec4899; --h3: #f97316; }
+.af-blue { --h1: #1d4ed8; --h2: #2563eb; --h3: #06b6d4; }
+.af-teal { --h1: #0f766e; --h2: #0d9488; --h3: #22c55e; }
+.af-green { --h1: #15803d; --h2: #16a34a; --h3: #0d9488; }
+.af-amber { --h1: #c2410c; --h2: #ea580c; --h3: #f59e0b; }
+.af-purple { --h1: #6d28d9; --h2: #7c3aed; --h3: #c026d3; }
+.af-orange { --h1: #c2410c; --h2: #f97316; --h3: #eab308; }
+.af-indigo { --h1: #3730a3; --h2: #4f46e5; --h3: #0ea5e9; }
+.af-slate { --h1: #334155; --h2: #475569; --h3: #6366f1; }
+.af-modal .modal-heading { background: radial-gradient(circle at 92% -40%, rgba(255, 255, 255, .35), transparent 50%), linear-gradient(120deg, var(--h1), var(--h2) 55%, var(--h3)); }
+.af-modal .modal-footer .primary { background: linear-gradient(120deg, var(--h1), var(--h2)); box-shadow: 0 8px 20px color-mix(in srgb, var(--h2) 35%, transparent); }
+.af-modal fieldset { padding-top: 16px; }
+.af-hero { display: grid; gap: 12px; padding: 18px; border-radius: 20px; color: #fff; background: radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, .22), transparent 55%), linear-gradient(125deg, var(--h1), var(--h2) 50%, var(--h3)); box-shadow: 0 14px 30px color-mix(in srgb, var(--h2) 28%, transparent); }
+.af-hero-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.af-hero-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 14px; background: rgba(255, 255, 255, .2); }
+.af-hero-top > div { display: grid; flex: 1; min-width: 0; line-height: 1.2; }
+.af-hero-top small { font-size: 12.5px; color: rgba(255, 255, 255, .85); font-weight: 600; }
+.af-hero-top b { font-size: 22px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.af-hero-amount { display: grid; flex: none; text-align: right; padding: 8px 14px; border-radius: 14px; background: rgba(255, 255, 255, .16); }
+.af-hero-amount b { font-size: 20px; }
+.af-status { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; border-radius: 14px; background: rgba(255, 255, 255, .16); }
+.af-status button { flex: 1 1 110px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; margin: 0; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.af-status button:hover:not(.on) { background: rgba(255, 255, 255, .14); }
+.af-status button.on { background: #fff; color: var(--h2); box-shadow: 0 4px 12px rgba(0, 0, 0, .12); }
+.af-modal .ge-section .lines-field { grid-column: 1 / -1; }
+@media (max-width: 560px) {
+  .af-hero-top { flex-wrap: wrap; }
+  .af-hero-amount { width: 100%; text-align: left; }
+  .af-hero-top b { white-space: normal; }
+}
