@@ -26,6 +26,7 @@ import { CategorySelect } from "./category-select";
 import { LineFeedButton } from "./template-target";
 import { conversions } from "@/lib/dept-rules";
 import { SalesFields } from "./sales-form";
+import { ProductFields } from "./product-form";
 export type Option = { id: string; kind: string; name: string };
 // Shrinks a photo to a square-ish WebP (max 512px) before upload.
 async function shrinkPhoto(file: File) {
@@ -876,7 +877,7 @@ export function Records({
         <Modal
           title={(row ? "รายละเอียด / แก้ไข" : "เพิ่ม") + module.label}
           onClose={() => setModal(null)}
-          className={kind === "sales" ? "ge-modal sf-modal" : undefined}
+          className={kind === "sales" ? "ge-modal sf-modal" : kind === "products" ? "ge-modal sf-modal pf-modal" : undefined}
         >
           <form onSubmit={save}>
             <fieldset
@@ -890,6 +891,8 @@ export function Records({
             >
               {kind === "sales" ? (
                 <SalesFields values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} />
+              ) : kind === "products" ? (
+                <ProductFields values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} />
               ) : (
               <div className="form-grid">
                 {module.fields.map((f) => (

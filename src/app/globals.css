@@ -8278,3 +8278,30 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .sf-modal .modal-footer .primary { background: linear-gradient(120deg, #7c3aed, #db2777); box-shadow: 0 8px 20px rgba(219, 39, 119, .3); }
 @media (max-width: 640px) { .sf-hero-top b { font-size: 26px; } .sf-channels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .sf-channels button { transition: none; } }
+
+/* เพิ่มสต็อกสินค้า (product-form.tsx): blue/teal summary card, unit chips, profit badge */
+.tone-green.ge-section { --a: #16a34a; --b: #15803d; --s: #f0fdf4; }
+.pf-modal .modal-heading { background: radial-gradient(circle at 92% -40%, rgba(255, 255, 255, .35), transparent 50%), linear-gradient(120deg, #2563eb, #0891b2 55%, #14b8a6); }
+.pf-modal .sf-hero, .pf-hero { display: grid; gap: 14px; padding: 18px; border-radius: 20px; color: #fff; background: radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, .22), transparent 55%), linear-gradient(125deg, #1d4ed8, #0891b2 55%, #14b8a6); box-shadow: 0 14px 30px rgba(8, 145, 178, .28); }
+.pf-hero-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pf-hero-icon { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 15px; background: rgba(255, 255, 255, .2); }
+.pf-hero-top > div { display: grid; gap: 3px; min-width: 0; }
+.pf-hero-top b { font-size: 22px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-hero-top small { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: rgba(255, 255, 255, .88); }
+.pf-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pf-stats > span { display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .25); min-width: 0; }
+.pf-stats small { font-size: 11.5px; color: rgba(255, 255, 255, .85); }
+.pf-stats b { font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+.pf-stats b em { margin-left: 4px; padding: 1px 7px; border-radius: 99px; background: #fff; color: #15803d; font-size: 11px; font-style: normal; vertical-align: 2px; }
+.pf-stats > span.loss b em { color: #dc2626; }
+.pf-stats > span:last-child { background: rgba(255, 255, 255, .26); }
+.sf-status.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pf-units { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.pf-units button { height: 32px; padding: 0 14px; border-radius: 99px; border: 1.5px solid #dbeafe; background: #fff; color: #1d4ed8; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.pf-units button:hover { background: #eff6ff; }
+.pf-units button.on { background: linear-gradient(135deg, #2563eb, #0891b2); border-color: transparent; color: #fff; }
+.ge-copy { display: inline-flex; align-items: center; gap: 5px; }
+.pf-margin { flex: none; padding: 5px 12px; border-radius: 99px; background: #dcfce7; color: #15803d; font-size: 12.5px; font-weight: 800; }
+.pf-margin.loss { background: #fee2e2; color: #dc2626; }
+.pf-modal .modal-footer .primary { background: linear-gradient(120deg, #2563eb, #0891b2); box-shadow: 0 8px 20px rgba(8, 145, 178, .3); }
+@media (max-width: 560px) { .pf-stats { grid-template-columns: minmax(0, 1fr); } }
