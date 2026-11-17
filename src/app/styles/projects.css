@@ -2043,3 +2043,25 @@
     flex: 1;
   }
 }
+
+/* ---------- colourful project form ---------- */
+.pj-modal .pj-hero { background-size: cover; background-position: center; }
+.pj-modal .pj-hero.has-cover { min-height: 210px; align-content: end; }
+.pj-modal .pj-hero .af-hero-top > div small + b { margin-top: 2px; }
+.pj-modal .pj-hero .af-hero-top { flex-wrap: wrap; }
+.pj-cover-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 0; }
+.pj-cover-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; margin: 0; padding: 0 14px; border-radius: 11px; border: 1px solid rgba(255, 255, 255, .45); background: rgba(255, 255, 255, .2); color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; backdrop-filter: blur(6px); }
+.pj-cover-btn:hover { background: rgba(255, 255, 255, .32); }
+.pj-cover-btn.ghost { background: transparent; }
+.pj-modal .pj-status button { flex: 1 1 120px; }
+.pj-priority { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pj-priority small { font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .85); margin-right: 4px; }
+.pj-priority button { display: inline-flex; align-items: center; gap: 5px; height: 32px; margin: 0; padding: 0 13px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, .4); background: transparent; color: #fff; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.pj-priority button:hover:not(.on) { background: rgba(255, 255, 255, .14); }
+.pj-priority button.on { background: #fff; color: #6d28d9; border-color: #fff; }
+.pj-priority button.p-high.on { color: #c2410c; }
+.pj-priority button.p-urgent.on { color: #dc2626; }
+.pj-modal .pj-team-pick { margin: 0; }
+.pj-modal .pj-team-pick > div { max-height: 220px; }
+.pj-modal .pj-team-pick button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 3px; font-size: 12.5px; font-weight: 600; }
+.pj-modal .pj-team-pick button.on { border-color: var(--a); background: var(--s); color: var(--b); }

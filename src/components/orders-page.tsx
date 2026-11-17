@@ -546,7 +546,7 @@ function CreateOrder({ data, onClose, onSaved }: { data: OrdersData; onClose: ()
     }
   }
   return (
-    <Modal title="สร้างคำสั่งซื้อ" onClose={onClose}>
+    <Modal title="สร้างคำสั่งซื้อ" onClose={onClose} className="ge-modal af-modal af-violet">
       <form className="op-create" onSubmit={save}>
         <div className="form-grid">
           <label>

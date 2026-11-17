@@ -8489,3 +8489,8 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
   .af-hero-amount { width: 100%; text-align: left; }
   .af-hero-top b { white-space: normal; }
 }
+/* Custom forms in the colourful dialog: their field grid sits on a white card. */
+.af-modal form > .form-grid, .af-modal form > fieldset > .form-grid:only-child { margin-top: 16px; padding: 18px; border-radius: 18px; background: #fff; border: 1px solid #ece9f5; box-shadow: 0 4px 14px rgba(40, 20, 90, .04); }
+.af-modal form > .form-grid :is(input, select, textarea) { border-radius: 12px; border-color: #e7e4f0; background: #fbfaff; }
+.af-modal form > .form-grid :is(input, select, textarea):focus { background: #fff; border-color: var(--h2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--h2) 18%, transparent); outline: none; }
+.af-modal form > .form-grid label { font-size: 12.5px; font-weight: 700; color: #3b3651; }

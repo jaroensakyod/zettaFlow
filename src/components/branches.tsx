@@ -147,7 +147,7 @@ export function BranchCards({ ctx, notify, changed }: { ctx: Context; notify: (s
         </div>
       )}
       {edit && (
-        <Modal title={edit.row ? "แก้ไขสาขา" : "เพิ่มสาขา"} onClose={() => setEdit(null)}>
+        <Modal title={edit.row ? "แก้ไขสาขา" : "เพิ่มสาขา"} onClose={() => setEdit(null)} className="ge-modal af-modal af-slate">
           <form
             onSubmit={(e) => {
               e.preventDefault();

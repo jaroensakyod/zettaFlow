@@ -46,6 +46,7 @@ import {
   TrendingUp,
   UserRound,
   Users,
+  NotebookPen,
   Wallet,
   Eye,
   Sparkles,
@@ -1097,18 +1098,23 @@ function ProjectForm({
     }
   }
   return (
-    <Modal title={project ? "แก้ไขโครงการ" : "เพิ่มโครงการ"} onClose={onClose}>
+    <Modal title={project ? "แก้ไขโครงการ" : "เพิ่มโครงการ"} onClose={onClose} className="ge-modal af-modal af-violet pj-modal">
       <form onSubmit={save} className="pj-form">
         <fieldset disabled={busy}>
-          <div className="pj-cover-pick">
-            {values.cover ? <img src={photoUrl(values.cover)} alt="รูปปกโครงการ" /> : <span className="pj-cover-empty"><Camera size={26} /></span>}
-            <div>
-              <b>รูปปกโครงการ</b>
-              <small>ภาพแนวนอน ระบบย่อเป็น WebP ให้อัตโนมัติ</small>
+          <section className={"af-hero pj-hero" + (values.cover ? " has-cover" : "")} style={values.cover ? { backgroundImage: "linear-gradient(180deg, rgba(30, 16, 70, .25), rgba(30, 16, 70, .82)), url(" + photoUrl(values.cover) + ")" } : undefined}>
+            <div className="af-hero-top">
+              <span className="af-hero-icon">
+                <FolderKanban size={22} />
+              </span>
+              <div>
+                <small>{project ? "แก้ไขโครงการ" : "โครงการใหม่"} · {text("code") || nextCode}</small>
+                <b>{text("name") || "ชื่อโครงการ"}</b>
+                {!!text("subtitle") && <small>{text("subtitle")}</small>}
+              </div>
               <span className="pj-cover-actions">
-                <label className="secondary as-button">
+                <label className="pj-cover-btn">
                   <Camera size={15} />
-                  {uploading ? "กำลังอัปโหลด…" : values.cover ? "เปลี่ยนรูป" : "เพิ่มรูป"}
+                  {uploading ? "กำลังอัปโหลด…" : values.cover ? "เปลี่ยนรูปปก" : "เพิ่มรูปปก"}
                   <input
                     type="file"
                     hidden
@@ -1131,48 +1137,86 @@ function ProjectForm({
                   />
                 </label>
                 {!!values.cover && (
-                  <button type="button" className="text-button" onClick={() => set("cover", "")}>
+                  <button type="button" className="pj-cover-btn ghost" onClick={() => set("cover", "")}>
                     เอารูปออก
                   </button>
                 )}
               </span>
             </div>
-          </div>
-          <div className="form-grid">
-            {input("name", "ชื่อโครงการ", "text", { required: true })}
-            {input("code", "รหัสโครงการ", "text", { placeholder: nextCode })}
-            {input("subtitle", "คำอธิบายสั้น (แสดงใต้ชื่อ)")}
-            {input("type", "ประเภทโครงการ", "text", { placeholder: "เช่น อสังหาริมทรัพย์ / อีเวนต์ / การตลาด" })}
-            <label htmlFor="pj-status">
-              สถานะ<span className="required"> *</span>
-              <select id="pj-status" value={text("status") || "planning"} onChange={(e) => set("status", e.target.value)}>
-                {statusOrder.map((s) => (
-                  <option key={s} value={s}>
-                    {statusOf(s).label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label htmlFor="pj-priority">
-              ความสำคัญ<span className="required"> *</span>
-              <select id="pj-priority" value={text("priority") || "normal"} onChange={(e) => set("priority", e.target.value)}>
-                {["normal", "high", "urgent"].map((s) => (
-                  <option key={s} value={s}>
-                    {statusLabels[s] || s}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {input("owner", "ผู้รับผิดชอบ", "text", { list: "pj-people" })}
-            {input("location", "สถานที่ / พื้นที่โครงการ")}
-            {input("startDate", "วันเริ่ม", "date")}
-            {input("endDate", "วันสิ้นสุด", "date")}
-            {input("area", "ขนาดพื้นที่", "text", { placeholder: "เช่น 2 ไร่ / 500 ตร.ม." })}
-            {input("budget", "งบประมาณ (บาท)", "number")}
-            {input("salesTarget", "เป้าการขาย (บาท)", "number")}
-            {input("customerTarget", "เป้าจำนวนลูกค้า", "number")}
-            {input("description", "รายละเอียด", "textarea")}
-          </div>
+            <div className="af-status pj-status" role="radiogroup" aria-label="สถานะ">
+              {statusOrder.map((st) => {
+                const o = statusOf(st),
+                  on = (text("status") || "planning") === st;
+                return (
+                  <button key={st} type="button" role="radio" aria-checked={on} className={on ? "on" : ""} onClick={() => set("status", st)}>
+                    <o.icon size={14} /> {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="pj-priority" role="radiogroup" aria-label="ความสำคัญ">
+              <small>ความสำคัญ</small>
+              {(["normal", "high", "urgent"] as const).map((pr) => {
+                const on = (text("priority") || "normal") === pr;
+                return (
+                  <button key={pr} type="button" role="radio" aria-checked={on} className={"p-" + pr + (on ? " on" : "")} onClick={() => set("priority", pr)}>
+                    {pr === "urgent" ? <Sparkles size={13} /> : pr === "high" ? <Star size={13} /> : <Check size={13} />} {statusLabels[pr] || pr}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+          <section className="ge-section tone-blue">
+            <header>
+              <span className="ge-icon">
+                <ClipboardList size={17} />
+              </span>
+              <div>
+                <h3>ข้อมูลโครงการ</h3>
+                <small>ชื่อ รหัส ประเภท ผู้รับผิดชอบ และสถานที่</small>
+              </div>
+            </header>
+            <div className="form-grid">
+              {input("name", "ชื่อโครงการ", "text", { required: true })}
+              {input("code", "รหัสโครงการ", "text", { placeholder: nextCode })}
+              {input("subtitle", "คำอธิบายสั้น (แสดงใต้ชื่อ)")}
+              {input("type", "ประเภทโครงการ", "text", { placeholder: "เช่น อสังหาริมทรัพย์ / อีเวนต์ / การตลาด" })}
+              {input("owner", "ผู้รับผิดชอบ", "text", { list: "pj-people" })}
+              {input("location", "สถานที่ / พื้นที่โครงการ")}
+            </div>
+          </section>
+          <section className="ge-section tone-orange">
+            <header>
+              <span className="ge-icon">
+                <CalendarRange size={17} />
+              </span>
+              <div>
+                <h3>ระยะเวลาและพื้นที่</h3>
+                <small>วันเริ่ม วันสิ้นสุด และขนาดพื้นที่</small>
+              </div>
+            </header>
+            <div className="form-grid">
+              {input("startDate", "วันเริ่ม", "date")}
+              {input("endDate", "วันสิ้นสุด", "date")}
+              {input("area", "ขนาดพื้นที่", "text", { placeholder: "เช่น 2 ไร่ / 500 ตร.ม." })}
+            </div>
+          </section>
+          <section className="ge-section tone-green">
+            <header>
+              <span className="ge-icon">
+                <Target size={17} />
+              </span>
+              <div>
+                <h3>งบประมาณและเป้าหมาย</h3>
+                <small>ใช้เทียบกับยอดจริงในหน้าภาพรวมโครงการ</small>
+              </div>
+            </header>
+            <div className="form-grid">
+              {input("budget", "งบประมาณ (บาท)", "number")}
+              {input("salesTarget", "เป้าการขาย (บาท)", "number")}
+              {input("customerTarget", "เป้าจำนวนลูกค้า", "number")}
+            </div>
+          </section>
           <datalist id="pj-people">
             {people.map((p) => (
               <option key={p.id || p.name} value={p.name}>
@@ -1180,35 +1224,55 @@ function ProjectForm({
               </option>
             ))}
           </datalist>
-          <div className="pj-team-pick">
-            <b>
-              ทีมงาน <small>({team.length} คน)</small>
-            </b>
-            {people.length ? (
+          <section className="ge-section tone-teal">
+            <header>
+              <span className="ge-icon">
+                <Users size={17} />
+              </span>
               <div>
-                {people
-                  .filter((p) => p.id)
-                  .map((p) => {
-                    const on = team.includes(p.id!);
-                    return (
-                      <button
-                        type="button"
-                        key={p.id}
-                        className={on ? "on" : ""}
-                        aria-pressed={on}
-                        onClick={() => set("team", (on ? team.filter((x) => x !== p.id) : [...team, p.id!]).join(", "))}
-                      >
-                        <Avatar person={p} size={22} />
-                        {p.nickname || p.name}
-                        {on && <Check size={13} />}
-                      </button>
-                    );
-                  })}
+                <h3>ทีมงาน</h3>
+                <small>แตะชื่อเพื่อเพิ่มหรือเอาออก · เลือกแล้ว {team.length} คน</small>
               </div>
-            ) : (
-              <small className="pj-muted">ไม่มีรายชื่อพนักงานที่บัญชีนี้ดูได้ — ทีมงานจะคิดจากผู้รับผิดชอบงานในโครงการ</small>
-            )}
-          </div>
+            </header>
+            <div className="pj-team-pick">
+              {people.length ? (
+                <div>
+                  {people
+                    .filter((p) => p.id)
+                    .map((p) => {
+                      const on = team.includes(p.id!);
+                      return (
+                        <button
+                          type="button"
+                          key={p.id}
+                          className={on ? "on" : ""}
+                          aria-pressed={on}
+                          onClick={() => set("team", (on ? team.filter((x) => x !== p.id) : [...team, p.id!]).join(", "))}
+                        >
+                          <Avatar person={p} size={22} />
+                          {p.nickname || p.name}
+                          {on && <Check size={13} />}
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : (
+                <small className="pj-muted">ไม่มีรายชื่อพนักงานที่บัญชีนี้ดูได้ — ทีมงานจะคิดจากผู้รับผิดชอบงานในโครงการ</small>
+              )}
+            </div>
+          </section>
+          <section className="ge-section tone-slate">
+            <header>
+              <span className="ge-icon">
+                <NotebookPen size={17} />
+              </span>
+              <div>
+                <h3>รายละเอียด</h3>
+                <small>เป้าหมาย ขอบเขตงาน และข้อมูลอื่นของโครงการ</small>
+              </div>
+            </header>
+            <div className="form-grid">{input("description", "รายละเอียด", "textarea")}</div>
+          </section>
         </fieldset>
         <p role="alert" className="form-error">
           {error}

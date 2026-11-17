@@ -137,7 +137,7 @@ export function StockTransfers({
         <p className="muted">ยังไม่ได้จัดสินค้าไปยังโครงการ</p>
       )}
       {modal && (
-        <Modal title="โอนย้ายสินค้า" onClose={() => setModal(false)}>
+        <Modal title="โอนย้ายสินค้า" onClose={() => setModal(false)} className="ge-modal af-modal af-blue">
           <form
             onSubmit={async (e) => {
               e.preventDefault();
