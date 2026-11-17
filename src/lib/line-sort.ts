@@ -16,13 +16,21 @@ export const sortPages: { kind: string; hint: string }[] = [
   { kind: "stock_issues", hint: "เบิกสินค้า/ของออกจากคลัง ขอเบิก" },
   { kind: "purchases", hint: "ของเข้า รับสินค้าเข้าคลังจากซัพพลายเออร์ตามใบสั่งซื้อที่ออกไปแล้ว (คำขอซื้อของพนักงาน → expenses ไม่ใช่ที่นี่)" },
   { kind: "tickets", hint: "แจ้งปัญหา IT คอม เน็ต เครื่องเสีย ลูกค้าร้องเรียน" },
-  { kind: "employees", hint: "พนักงานใหม่เริ่มงาน" },
+  { kind: "employees", hint: "เพิ่มพนักงานใหม่ รับเข้าทำงาน พนักงานเริ่มงาน (ฝ่าย ตำแหน่ง ประจำ/พาร์ตไทม์ เงินเดือน) มักแท็ก @ชื่อคนนั้น" },
   { kind: "services", hint: "งานบริการทั่วไป ซ่อมบำรุง แม่บ้าน ขอใช้รถ ขอห้องประชุม" },
   { kind: "payments", hint: "ลูกค้าโอนเงินแล้ว รับชำระ จ่ายชำระหนี้" },
+  { kind: "customers", hint: "เพิ่มลูกค้าใหม่ บันทึกข้อมูลติดต่อลูกค้า บริษัทลูกค้า" },
+  { kind: "suppliers", hint: "เพิ่มซัพพลายเออร์ ผู้ขาย ร้านค้าที่เราซื้อของ พร้อมข้อมูลติดต่อ" },
+  { kind: "projects", hint: "เปิดโครงการใหม่ งบ ระยะเวลา ผู้รับผิดชอบโครงการ" },
+  { kind: "events", hint: "จัดงานอีเวนต์ สัมมนา งานเปิดตัว วันจัดงาน สถานที่" },
+  { kind: "assets", hint: "ลงทะเบียนทรัพย์สิน/อุปกรณ์ใหม่ คอมพิวเตอร์ โน้ตบุ๊ก มือถือ เครื่องใช้สำนักงาน" },
+  { kind: "contracts", hint: "สัญญาใหม่ คู่สัญญา มูลค่าสัญญา วันเริ่ม/สิ้นสุดสัญญา" },
+  { kind: "recruitment", hint: "ผู้สมัครงาน นัดสัมภาษณ์ ตำแหน่งที่เปิดรับ (ยังไม่ได้รับเข้าทำงาน)" },
+  { kind: "campaigns", hint: "แคมเปญการตลาด โปรโมทสินค้า ยิงแอด งบแคมเปญ" },
 ];
 
 // Bookkeeping fields nobody types into a chat.
-const skipKeys = new Set(["status", "aiNotes", "aiUncertain", "reviewStatus", "accountCode", "costCenter", "code", "checklist", "approvals", "history", "cover", "photo", "color"]);
+const skipKeys = new Set(["lineUserId", "status", "aiNotes", "aiUncertain", "reviewStatus", "accountCode", "costCenter", "code", "checklist", "approvals", "history", "cover", "photo", "color"]);
 
 /** Pages whose item lines are read from chat (each item with its own quantity), even when the web form hides them. */
 const readLines = new Set(["expenses", "purchases"]);
@@ -32,13 +40,14 @@ export function pageTemplate(kind: string): Template {
   if (!page) throw Error("ไม่พบหน้า " + kind);
   const fields = (page.fields as Field[])
     // Item lines are read only where the page shows them (a PO's items); hidden ones (a receipt's) are not asked for.
-    .filter((f) => f.type !== "image" && !(f.type === "lines" && f.hidden && !readLines.has(kind)) && !skipKeys.has(f.key))
+    .filter((f) => f.type !== "image" && f.type !== "people" && !(f.type === "lines" && f.hidden && !readLines.has(kind)) && !skipKeys.has(f.key))
     .map((f) => {
       const type: Template["fields"][number]["type"] =
         f.type === "lines" ? "lines" : f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "select" && f.options?.length ? "choice" : "text";
       return {
         key: f.key,
-        label: f.type === "relation" ? f.label + " (ชื่อ)" : f.label,
+        // An event's start / end time is saved as HH:MM.
+        label: f.type === "relation" ? f.label + " (ชื่อ)" : /Time$/.test(f.key) ? f.label + " (HH:MM เช่น 09:30)" : f.label,
         type,
         // ชื่อ/วันที่/แผนก/dropdowns get defaults on approval or below, so the group is not nagged for them.
         required: !!f.required && type !== "choice" && !["name", "date", "department"].includes(f.key),
@@ -46,6 +55,28 @@ export function pageTemplate(kind: string): Template {
       };
     });
   return { id: null as unknown as string, company_id: "", name: page.label, department: page.department, fields, steps: [], version: 1 };
+}
+
+export type Tagged = { id: string; name: string };
+/**
+ * "@EliteFlow เพิ่ม @สมชาย เป็นพนักงานฝ่ายขาย": a new employee keeps the LINE of the person tagged, so their leave and
+ * expense requests from LINE are theirs from the start. The template keeps the tag for a later re-read (แก้ไข).
+ */
+export function withTagged<T extends { fields: { key: string; label: string; type: string; required: boolean }[] }>(
+  kind: string | null,
+  template: T | null,
+  values: Record<string, unknown>,
+  tagged: Tagged[] | undefined,
+): { template: T | null; values: Record<string, unknown> } {
+  const person = tagged?.[0];
+  if (kind !== "employees" || !template || !person) return { template, values };
+  const fields = template.fields.some((f) => f.key === "lineUserId")
+    ? template.fields
+    : [...template.fields, { key: "lineUserId", label: "LINE ของพนักงาน", type: "text", required: false }];
+  return {
+    template: { ...template, fields, tagged },
+    values: { ...values, lineUserId: person.id, name: values.name || person.name || null },
+  };
 }
 
 export type SortInput = {

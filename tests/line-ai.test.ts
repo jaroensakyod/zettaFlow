@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { catalog } from "../src/lib/catalog";
-import { isSmallTalk, pageTemplate, sortPages } from "../src/lib/line-sort";
+import { isSmallTalk, pageTemplate, sortPages, withTagged } from "../src/lib/line-sort";
 import { mapToTarget, templateForPage } from "../src/lib/line-target";
 import { explicitExtract, validateEntity, validateValues } from "../src/lib/domain";
 
@@ -55,6 +55,7 @@ function sampleValue(kind: string, key: string) {
   if (f.type === "email") return "staff@example.com";
   if (f.type === "url") return "https://example.com";
   if (f.type === "tel") return "0812345678";
+  if (/Time$/.test(key)) return "09:30";
   return "ทดสอบจาก LINE";
 }
 
@@ -131,4 +132,21 @@ test("a department typed in Thai or English is stored as its key", async () => {
   const t = mapToTarget({ ...template, target_kind: "tasks", field_map: map }, { name: "ประชุม", [dept]: "การตลาด" }, AT)!;
   assert.equal(t.data.department, "Marketing");
   assert.doesNotThrow(() => validateEntity("tasks", t.data));
+});
+
+test("a new employee tagged in LINE keeps that person's LINE; other pages and untagged messages are unchanged", () => {
+  const U = "U" + "1".repeat(32);
+  const t = pageTemplate("employees");
+  assert.ok(!t.fields.some((f) => f.key === "lineUserId"), "the AI is never asked for a LINE id");
+  const r = withTagged("employees", t, { position: "เซลล์" }, [{ id: U, name: "สมชาย" }]);
+  assert.equal(r.values.lineUserId, U);
+  assert.equal(r.values.name, "สมชาย");
+  assert.ok(r.template!.fields.some((f) => f.key === "lineUserId"));
+  assert.deepEqual((r.template as { tagged?: unknown }).tagged, [{ id: U, name: "สมชาย" }]);
+  // the name typed in the message wins over the LINE display name
+  assert.equal(withTagged("employees", t, { name: "สมชาย ใจดี" }, [{ id: U, name: "chai" }]).values.name, "สมชาย ใจดี");
+  // a re-read keeps one lineUserId field
+  assert.equal(withTagged("employees", r.template, {}, [{ id: U, name: "" }]).template!.fields.filter((f) => f.key === "lineUserId").length, 1);
+  assert.deepEqual(withTagged("leaves", pageTemplate("leaves"), { a: 1 }, [{ id: U, name: "x" }]).values, { a: 1 });
+  assert.deepEqual(withTagged("employees", t, { a: 1 }, []).values, { a: 1 });
 });

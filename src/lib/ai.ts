@@ -18,7 +18,7 @@ import { templates, dbError } from "./data";
 import { supabaseServer } from "./supabase/server";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES } from "./billing";
-import { sortMessage } from "./line-sort";
+import { sortMessage, withTagged, type Tagged } from "./line-sort";
 import { lineGroup, lineReplyId, sentMessageId } from "./line";
 import { deptThai, lineNotice } from "./line-message";
 import { approvalCard, approvedCard, draftCard, nothingToSave, sentText, stepText, type ActResult, type ApprovalItem } from "./line-mention";
@@ -319,7 +319,9 @@ export async function processJobs(id?: string) {
           earlier: await earlierMessages(sb, job),
           attachment,
         });
-        const r = await linkedEmployee(sb, job, r0);
+        const tagged = (job.template as { tagged?: Tagged[] }).tagged;
+        const r1 = await linkedEmployee(sb, job, r0);
+        const r = { ...r1, ...withTagged(r1.kind, r1.template, r1.values, tagged) };
         const { error: e } = await sb.rpc("complete_sorted_ingestion", {
           p_id: job.id,
           p_lease: job.lease_id,
@@ -360,6 +362,11 @@ export async function processJobs(id?: string) {
         (job.template as Template).fields.some((f) => f.key === "slip_ref")
       )
         await verifySlipJob(sb, job as Job & { attachment_id: string }, attachment, result);
+      // A re-read (แก้ไข) of a new employee keeps the LINE of the person tagged.
+      {
+        const t0 = job.template as Template & { target_kind?: string | null; tagged?: Tagged[] };
+        result.values = withTagged(t0.target_kind || null, t0, result.values, t0.tagged).values;
+      }
       const { error: e } = await sb.rpc("complete_ingestion", {
         p_id: job.id,
         p_lease: job.lease_id,

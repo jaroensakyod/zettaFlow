@@ -141,6 +141,10 @@ test("plain words about who approves, never a request", async () => {
   assert.equal(approverIntent("เอา @A ออกจากผู้อนุมัติ", 1), "remove");
   assert.equal(approverIntent("ไม่ให้ @A อนุมัติแล้ว", 1), "remove");
   assert.equal(approverIntent("ขอเป็นผู้อนุมัติ", 0), "self");
+  for (const t of ["เพิ่มตัวเองเป็นผู้อนุมัติ", "แอดฉันเป็นผู้อนุมัติ", "แอดตัวเองให้กดอนุมัติได้", "ขอสิทธิ์อนุมัติ", "ตั้งฉันเป็นผู้อนุมัติ", "ให้หนูอนุมัติได้"])
+    assert.equal(approverIntent(t, 0), "self", t);
+  assert.equal(approverIntent("ช่วยอนุมัติให้ผมด้วยครับ", 0), null);
+  assert.equal(approverIntent("ผมขออนุมัติซื้อคอม 30,000", 0), null);
   assert.equal(approverIntent("กำหนดผู้อนุมัติ", 0), "show");
   assert.equal(approverIntent("ใครอนุมัติได้บ้าง", 0), "show");
   assert.equal(approverIntent("ผู้อนุมัติ", 0), "show");

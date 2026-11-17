@@ -92,6 +92,7 @@ const skip = new Set(["status", "aiNotes", "aiUncertain", "reviewStatus", "appro
 /** One readable value for the card ("฿1,250", "ใช่", "a, b"), empty when there is nothing to show. */
 export function shownValue(key: string, value: unknown, currency?: unknown): string {
   if (value === null || value === undefined || value === "") return "";
+  if (key === "lineUserId") return "✓ ผูกกับ LINE ของคนที่แท็กแล้ว";
   if (typeof value === "boolean") return value ? "ใช่" : "ไม่ใช่";
   if (typeof value === "number") {
     if (/amount|total|price|cost|budget|salary|wage|value|sales|vat|wht/i.test(key))
@@ -606,7 +607,13 @@ export function approverIntent(text: string, tagged: number): "add" | "remove" |
   if (!/อนุมัติ|สิทธิ/.test(t)) return null;
   // A request (ขออนุมัติซื้อ… / ขอเบิก…) is never about who approves.
   if (/ขอ\s*อนุมัติ|ขอ\s*เบิก|ขอ\s*ซื้อ|ขอ\s*ลา|ขออนุญาต/.test(t) && !/ขอ\s*(เป็น|มี)\s*(ผู้อนุมัติ|สิทธิ)/.test(t)) return null;
-  if (/ขอ\s*(เป็น|มี)\s*(ผู้อนุมัติ|สิทธิ์?\s*(การ)?อนุมัติ)|ให้(ฉัน|ผม|หนู|เรา|ตัวเอง)\s*(เป็นผู้)?อนุมัติ/.test(t) && !tagged) return "self";
+  // "ขอเป็นผู้อนุมัติ" / "ขอสิทธิ์อนุมัติ" / "แอดตัวเองให้กดอนุมัติได้" / "ตั้งฉันเป็นผู้อนุมัติ" (nobody tagged) = the person typing.
+  if (
+    !tagged &&
+    (/ขอ\s*(เป็น|มี)?\s*(ผู้อนุมัติ|คนอนุมัติ|สิทธิ์?\s*(การ)?\s*อนุมัติ)/.test(t) ||
+      (/ฉัน|ผม|หนู|ตัวเอง|ดิฉัน|เรา/.test(t) && /(ผู้|คน|กด|สิทธิ์?\s*(การ)?\s*)อนุมัติ|อนุมัติได้/.test(t)))
+  )
+    return "self";
   const about = /ผู้อนุมัติ|อนุมัติได้|สิทธิ์?\s*(การ)?\s*อนุมัติ|เป็นคนอนุมัติ|ให้.{0,40}อนุมัติ/.test(t);
   if (tagged && about) return /ลบ|เอา.*ออก|ถอด|ยกเลิกสิทธิ|ไม่ให้|ห้าม|เลิกให้|ไม่ต้องให้/.test(t) ? "remove" : "add";
   if (

@@ -74,7 +74,7 @@ export function templateForPage(kind: string) {
   const map: Record<string, string> = {};
   for (const f of page.fields) {
     // status is set by the approval; color is picked on the calendar, never typed into a chat.
-    if (["lines", "image"].includes(f.type || "text") || f.key === "status" || f.key === "color" || fields.length >= 20) continue;
+    if (["lines", "image", "people"].includes(f.type || "text") || f.key === "status" || f.key === "color" || fields.length >= 20) continue;
     const key = snake(f.key);
     const choice = f.type === "select" && (f.options?.length || 0) >= 2 && (f.options?.length || 0) <= 20;
     fields.push({

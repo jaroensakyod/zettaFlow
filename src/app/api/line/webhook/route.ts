@@ -446,6 +446,7 @@ export async function POST(req: Request) {
       let raw = message.type === "text" ? String(message.text || "") : "",
         mentioned = false,
         attachTo: string | null = null,
+        tagged: { id: string; name: string }[] = [],
         editOf: string | null = null,
         slipFor: string | null = null,
         evidenceFor: string | null = null;
@@ -472,6 +473,7 @@ export async function POST(req: Request) {
           // "@EliteFlow ให้พี่ศิริอนุมัติได้ @พี่ศิริ" / "เอา @A ออกจากผู้อนุมัติ" / "ขอเป็นผู้อนุมัติ" / "กำหนดผู้อนุมัติ":
           // a card with the changes; nothing is saved before its บันทึก.
           const people = taggedPeople(message);
+          tagged = people;
           const intent = approverIntent(raw, people.length + untaggedNames(message).length);
           if (intent) {
             const ids = people.map((p) => p.id);
@@ -692,7 +694,8 @@ export async function POST(req: Request) {
       }
       const { data: added, error } = await sb.from("ingestions").insert({
         company_id: group.company_id,
-        template,
+        // People tagged with the mention ride on the item's template (a new employee keeps their LINE).
+        template: tagged.length ? { ...template, tagged } : template,
         department: template.department,
         confirm: mentionMode,
         raw,
