@@ -454,7 +454,8 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     } catch {}
   }, [fullView]);
   // Pages opened from the top bar as a whole: the company profile, ลูกค้า, Supplier and พนักงาน — no department sidebar.
-  const sideDept = ["company", "profile", "customers", "suppliers"].includes(view) ? undefined : departmentOf(fullView, preferredDept);
+  // พนักงาน in the top menu is the company-wide page (no sidebar); opened from ฝ่ายบุคคล (employees?dept=hr) it is HR's first page.
+  const sideDept = ["company", "profile", "customers", "suppliers"].includes(view) || (view === "employees" && !fullView.includes("dept=hr")) ? undefined : departmentOf(fullView, preferredDept);
   const navKey = view === "profile" ? "feed" : view;
   // Menu links like "content?channel=social" or "leaves?status=pending" narrow a record list.
   const listFilter = (() => {

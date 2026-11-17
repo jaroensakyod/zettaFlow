@@ -111,9 +111,9 @@ export const departmentMenu: DepartmentMenu[] = [
     tagline: ["จัดการการเงิน", "ได้อย่างเป็นระบบ โปร่งใส ตรวจสอบได้"],
   },
   {
-    id: "hr", title: "บุคคล", en: "HR", subtitle: "บริหารบุคลากรและองค์กร", icon: "Users", tone: "amber", overview: "employees",
+    id: "hr", title: "บุคคล", en: "HR", subtitle: "บริหารบุคลากรและองค์กร", icon: "Users", tone: "amber", overview: "employees?dept=hr",
     items: [
-      { label: "ข้อมูลพนักงาน", view: "employees", icon: "UserRound" },
+      { label: "ข้อมูลพนักงาน", view: "employees?dept=hr", icon: "UserRound" },
       { label: "สรรหา & รับพนักงาน", view: "recruitment", icon: "UserPlus" },
       { label: "เงินเดือน & สวัสดิการ", view: "payroll", icon: "Wallet" },
       { label: "เวลาเข้า-ออกงาน", view: "attendance", icon: "Clock" },
@@ -121,7 +121,7 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "ประเมินผลงาน (KPI/OKR)", view: "kpi", icon: "Gauge" },
     ],
     sidebar: [
-      { label: "ข้อมูลพนักงาน", view: "employees", icon: "UserRound" },
+      { label: "ข้อมูลพนักงาน", view: "employees?dept=hr", icon: "UserRound" },
       { label: "สรรหา & รับพนักงาน", view: "recruitment", icon: "UserPlus" },
       { label: "เติบโต & สวัสดิการ", view: "payroll", icon: "Wallet" },
       { label: "เวลาเข้า-ออกงาน", view: "attendance", icon: "Clock" },

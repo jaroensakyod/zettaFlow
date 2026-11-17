@@ -208,7 +208,7 @@ export function EmployeesPage({
         navigate={navigate}
         onBack={() => {
           setProfile("");
-          history.replaceState(null, "", location.pathname);
+          history.replaceState(null, "", location.pathname + (location.search.includes("dept=hr") ? "?dept=hr" : ""));
           load();
         }}
       />
@@ -457,7 +457,7 @@ export function EmployeesPage({
                 onOpen={() => {
                   if (sample) return notify("นี่คือข้อมูลตัวอย่าง — เพิ่มพนักงานจริงเพื่อดูโปรไฟล์เต็ม");
                   setProfile(selected.id);
-                  history.replaceState(null, "", location.pathname + "?profile=" + selected.id);
+                  history.replaceState(null, "", location.pathname + "?" + (location.search.includes("dept=hr") ? "dept=hr&" : "") + "profile=" + selected.id);
                 }}
               />
             )}
