@@ -2,7 +2,7 @@
 // ลูกค้า / Supplier / พนักงาน: stat cards, searchable list on the left, details on the right.
 // Codes CUS-67-0001 / SUP-67-0001 are issued by the database when the code field is left blank.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound, Users, Building2, Sparkles, Hash, Truck, FileWarning, Wallet, CalendarClock, Briefcase, MapPin, Landmark, Package, CreditCard, FileClock, Tag, Crown, type LucideIcon } from "lucide-react";
+import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound, Users, Building2, Sparkles, Hash, Truck, FileWarning, Wallet, CalendarClock, Briefcase, MapPin, Landmark, Package, CreditCard, FileClock, Tag, type LucideIcon } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels, approvalRights } from "@/lib/catalog";
 import type { PartyStats } from "@/lib/directory";
@@ -12,16 +12,7 @@ import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory } from "./employee-profile";
 import { EntityFiles } from "./entity-files";
 import { planBadge, type CustomerPlan, type PlanBadge } from "@/lib/plan-badge";
-
-/** The customer's current EliteFlow package, as a small coloured pill. */
-function PlanTag({ badge }: { badge: PlanBadge | null | undefined }) {
-  if (!badge) return null;
-  return (
-    <em className={"plan-tag pt-" + badge.tone} title={badge.hint}>
-      <Crown size={12} /> {badge.label}
-    </em>
-  );
-}
+import { PlanTag } from "./plan-tag";
 
 type Kind = "customers" | "suppliers" | "employees";
 type Data = { rows: Entity[]; stats: Record<string, PartyStats>; nextCode: string };

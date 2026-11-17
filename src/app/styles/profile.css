@@ -781,3 +781,6 @@
 .dsg-role.on.green { background: linear-gradient(135deg, #16a34a, #4ade80); color: #fff; box-shadow: 0 4px 10px rgba(22, 163, 74, .25); }
 .dsg-add { min-height: 380px !important; border-radius: 20px !important; }
 @media (prefers-reduced-motion: reduce) { .dsg-card, .dsg-avatar i { transition: none; } }
+/* The company's package under the email on the account chip */
+.topnav-actions .user-profile .user-plan { align-self: flex-start; margin-top: 3px; padding: 2px 8px; font-size: 10.5px; text-transform: none; letter-spacing: 0; }
+.topnav-actions .user-profile .user-plan svg { width: 11px; height: 11px; }

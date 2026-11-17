@@ -83,6 +83,8 @@ import { ExpenseForm } from "./expense-form";
 import { ProductCatalog } from "./product-catalog";
 import { IncomeForm } from "./income-form";
 import { UpgradeDialog } from "./upgrade-dialog";
+import { PlanTag } from "./plan-tag";
+import { planBadge, type PlanBadge } from "@/lib/plan-badge";
 import { departmentOf, sectionTone } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
@@ -438,6 +440,17 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     return () => clearInterval(timer);
   }, [data, auth, load]);
   usePresencePing(!!data && !auth);
+  // The company's own package, shown on the account chip (refreshed when the workspace reloads, e.g. after paying).
+  const [myPlan, setMyPlan] = useState<PlanBadge | null>(null);
+  const signedIn = !!data && !auth;
+  useEffect(() => {
+    if (!signedIn) return;
+    api("/billing")
+      .then((b: { subscription?: { plan: string; status: string; current_period_end: string | null; trial_ends_at: string | null } }) =>
+        setMyPlan(b.subscription ? planBadge({ plan: b.subscription.plan, status: b.subscription.status, end: b.subscription.current_period_end, trialEnd: b.subscription.trial_ends_at }) : null),
+      )
+      .catch(() => setMyPlan(null));
+  }, [signedIn]);
   const navigate = useCallback(
     (next: string) => {
       setMenu(false);
@@ -654,6 +667,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                 <span>
                   <strong>{ctx.user.name}</strong>
                   <small className="user-email">{ctx.user.email}</small>
+                  <PlanTag badge={myPlan} className="user-plan" />
                 </span>
               </button>
               {account && (
