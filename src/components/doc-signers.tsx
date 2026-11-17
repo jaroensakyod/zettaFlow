@@ -3,7 +3,7 @@
 // a position and a signature (drawn here with a finger / mouse, or uploaded). One is the usual issuer and one the
 // usual approver; with auto-signing on, their signatures and the stamp go on quotations, invoices and receipts.
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, Camera, Eraser, ImageUp, PenLine, Plus, Stamp, Trash2, UserRound, X } from "lucide-react";
+import { BadgeCheck, Camera, Check, ChevronDown, Eraser, FileText, ImageUp, PenLine, Plus, ShieldCheck, Stamp, Trash2, UserRound, X } from "lucide-react";
 import { MAX_PHOTO, MAX_SIGN, MAX_SIGNERS, MAX_STAMP, parseSigners, type Signer } from "@/lib/signers";
 
 /** Positions offered as one-tap chips on each signer card (plus any typed for another signer). */
@@ -58,6 +58,7 @@ export function DocSigners({
   const text = (k: string) => String(values[k] ?? "");
   const signers = parseSigners(values.signers);
   const [drawing, setDrawing] = useState<string | null>(null),
+    [picking, setPicking] = useState<string | null>(null),
     [error, setError] = useState("");
   // First time: people already typed as issuer / approver become signers (no signature yet).
   useEffect(() => {
@@ -136,60 +137,73 @@ export function DocSigners({
       <div className="dsg-list">
         {signers.map((s) => (
           <article key={s.id} className={"dsg-card" + (issuer?.id === s.id || approver?.id === s.id ? " chosen" : "")}>
-            <header>
+            {/* Cover strip with the round photo over it, like a profile card */}
+            <div className="dsg-cover">
+              {(issuer?.id === s.id || approver?.id === s.id) && (
+                <span className="dsg-badges">
+                  {issuer?.id === s.id && <em className="violet">ผู้ออกเอกสาร</em>}
+                  {approver?.id === s.id && <em className="green">ผู้อนุมัติ</em>}
+                </span>
+              )}
+              <button type="button" className="dsg-del" aria-label={"ลบ " + (s.name || "ผู้ลงนาม")} title="ลบผู้ลงนาม" disabled={disabled} onClick={() => save(signers.filter((x) => x.id !== s.id))}>
+                <Trash2 size={15} />
+              </button>
+            </div>
+            <div className="dsg-who">
               <label className={"dsg-avatar" + (s.photo ? " has" : "") + (disabled ? " off" : "")} title={s.photo ? "เปลี่ยนรูป" : "ใส่รูป"}>
-                {s.photo ? <img src={s.photo} alt={"รูป " + s.name} /> : <UserRound size={24} />}
+                {s.photo ? <img src={s.photo} alt={"รูป " + s.name} /> : <UserRound size={30} />}
                 <i aria-hidden>
-                  <Camera size={12} />
+                  <Camera size={13} />
                 </i>
                 <input type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={disabled} aria-label={"ใส่รูป " + (s.name || "ผู้ลงนาม")} onChange={(e) => (pickImage(e.target.files?.[0], (u) => update(s.id, { photo: u }), 160, MAX_PHOTO), (e.target.value = ""))} />
               </label>
-              <div className="dsg-fields">
-                <input aria-label="ชื่อผู้ลงนาม" placeholder="ชื่อ-นามสกุล" maxLength={100} value={s.name} disabled={disabled} onChange={(e) => update(s.id, { name: e.target.value })} />
-                <input aria-label="ตำแหน่ง" placeholder="พิมพ์ตำแหน่ง หรือแตะเลือกด้านล่าง" maxLength={100} value={s.position} disabled={disabled} onChange={(e) => update(s.id, { position: e.target.value })} />
-              </div>
-              <button type="button" className="dsg-icon" aria-label={"ลบ " + (s.name || "ผู้ลงนาม")} disabled={disabled} onClick={() => save(signers.filter((x) => x.id !== s.id))}>
-                <Trash2 size={16} />
-              </button>
-            </header>
-            <div className="dsg-pos" aria-label="เลือกตำแหน่ง">
-              {[...new Set([...POSITIONS, ...signers.map((x) => x.position.trim()).filter(Boolean)])].map((p) => (
-                <button key={p} type="button" className={s.position.trim() === p ? "on" : ""} disabled={disabled} onClick={() => update(s.id, { position: p })}>
-                  {p}
+              {s.photo && (
+                <button type="button" className="dsg-photo-x" disabled={disabled} onClick={() => update(s.id, { photo: "" })}>
+                  เอารูปออก
                 </button>
-              ))}
-              <button type="button" className="add" disabled={disabled} onClick={(e) => (e.currentTarget.closest(".dsg-card")?.querySelector<HTMLInputElement>("input[aria-label='ตำแหน่ง']")?.focus(), update(s.id, { position: "" }))}>
-                <Plus size={12} /> ตำแหน่งอื่น
-              </button>
+              )}
+              <input className="dsg-name" aria-label="ชื่อผู้ลงนาม" placeholder="ชื่อ-นามสกุล" maxLength={100} value={s.name} disabled={disabled} onChange={(e) => update(s.id, { name: e.target.value })} />
+              <div className="dsg-posbox">
+                <input aria-label="ตำแหน่ง" placeholder="ตำแหน่ง" maxLength={100} value={s.position} disabled={disabled} onFocus={() => setPicking(s.id)} onChange={(e) => update(s.id, { position: e.target.value })} />
+                <button type="button" aria-label="เลือกตำแหน่ง" aria-expanded={picking === s.id} disabled={disabled} onClick={() => setPicking(picking === s.id ? null : s.id)}>
+                  <ChevronDown size={15} />
+                </button>
+              </div>
+              {picking === s.id && (
+                <div className="dsg-pos" aria-label="เลือกตำแหน่ง">
+                  {[...new Set([...POSITIONS, ...signers.map((x) => x.position.trim()).filter(Boolean)])].map((p) => (
+                    <button key={p} type="button" className={s.position.trim() === p ? "on" : ""} disabled={disabled} onClick={() => (update(s.id, { position: p }), setPicking(null))}>
+                      {s.position.trim() === p && <Check size={12} />} {p}
+                    </button>
+                  ))}
+                  <small>หรือพิมพ์ตำแหน่งอื่นในช่องด้านบน</small>
+                </div>
+              )}
             </div>
-            {s.photo && (
-              <button type="button" className="dsg-photo-x" disabled={disabled} onClick={() => update(s.id, { photo: "" })}>
-                <X size={12} /> เอารูปออก
-              </button>
-            )}
             <div className={"dsg-sign" + (s.sign ? "" : " empty")}>
               {s.sign ? <img src={s.sign} alt={"ลายเซ็น " + s.name} /> : <span>ยังไม่มีลายเซ็น</span>}
+              <i aria-hidden>ลงชื่อ</i>
             </div>
-            <div className="dsg-row">
-              <button type="button" className="dsg-btn" disabled={disabled} onClick={() => setDrawing(s.id)}>
+            <div className="dsg-tools">
+              <button type="button" className="main" disabled={disabled} onClick={() => setDrawing(s.id)}>
                 <PenLine size={15} /> {s.sign ? "เซ็นใหม่" : "เซ็นบนจอ"}
               </button>
-              <label className={"dsg-btn ghost" + (disabled ? " off" : "")}>
-                <ImageUp size={15} /> อัปโหลดรูป
+              <label className={disabled ? "off" : ""}>
+                <ImageUp size={15} /> อัปโหลด
                 <input type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={disabled} onChange={(e) => (pickImage(e.target.files?.[0], (u) => update(s.id, { sign: u }), 600, MAX_SIGN), (e.target.value = ""))} />
               </label>
               {s.sign && (
-                <button type="button" className="dsg-btn ghost" disabled={disabled} onClick={() => update(s.id, { sign: "" })}>
-                  <Eraser size={15} /> ลบลายเซ็น
+                <button type="button" aria-label="ลบลายเซ็น" title="ลบลายเซ็น" className="icon" disabled={disabled} onClick={() => update(s.id, { sign: "" })}>
+                  <Eraser size={15} />
                 </button>
               )}
             </div>
             <footer>
               <button type="button" className={"dsg-role" + (issuer?.id === s.id ? " on violet" : "")} disabled={disabled || !s.name.trim()} onClick={() => choose("signer", s)}>
-                {issuer?.id === s.id && <BadgeCheck size={14} />} ผู้ออกเอกสาร
+                {issuer?.id === s.id ? <BadgeCheck size={14} /> : <FileText size={14} />} ผู้ออกเอกสาร
               </button>
               <button type="button" className={"dsg-role" + (approver?.id === s.id ? " on green" : "")} disabled={disabled || !s.name.trim()} onClick={() => choose("approver", s)}>
-                {approver?.id === s.id && <BadgeCheck size={14} />} ผู้อนุมัติ
+                {approver?.id === s.id ? <BadgeCheck size={14} /> : <ShieldCheck size={14} />} ผู้อนุมัติ
               </button>
             </footer>
           </article>

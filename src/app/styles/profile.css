@@ -707,23 +707,7 @@
 .dsg-auto b { font-size: 13.5px; color: #14532d; }
 .dsg-auto small { font-size: 11.5px; color: #4b5563; line-height: 1.4; }
 /* Signer cards */
-.dsg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-.dsg-card { display: grid; gap: 10px; padding: 14px; border-radius: 16px; background: #fff; border: 1px solid #ece9f5; box-shadow: 0 4px 14px rgba(60, 40, 140, .05); }
-.dsg-card.chosen { border-color: #fdba74; box-shadow: 0 6px 18px rgba(234, 88, 12, .12); }
-.dsg-card header { display: flex; align-items: flex-start; gap: 10px; }
-.dsg-avatar { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #fb923c, #f472b6); color: #fff; }
-.dsg-fields { flex: 1; display: grid; gap: 6px; min-width: 0; }
-.dsg-fields input { width: 100%; height: 34px; margin: 0; padding: 0 10px; border: 1px solid #ece9f5; border-radius: 9px; font: inherit; font-size: 13px; }
-.dsg-fields input:first-child { font-weight: 700; color: #2c2550; }
-.dsg-sign { display: grid; place-items: center; height: 92px; border-radius: 12px; background: linear-gradient(180deg, #fff 0 70%, #fafaff 70%); border: 1px solid #ece9f5; border-bottom: 2px solid #c4b5fd; }
-.dsg-sign.empty { color: #a19db4; font-size: 12.5px; border-style: dashed; }
-.dsg-sign img { max-width: 92%; max-height: 80px; object-fit: contain; }
-.dsg-card footer { display: flex; gap: 8px; }
-.dsg-role { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 32px; border-radius: 99px; border: 1px solid #e5e2f0; background: #fff; color: #5b5675; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
-.dsg-role:hover:not(:disabled) { border-color: #c4b5fd; }
-.dsg-role:disabled { opacity: .5; cursor: default; }
-.dsg-role.on.violet { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff; border-color: transparent; }
-.dsg-role.on.green { background: linear-gradient(135deg, #16a34a, #4ade80); color: #fff; border-color: transparent; }
+.dsg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; align-items: start; }
 .dsg-add { display: grid; place-items: center; align-content: center; gap: 4px; min-height: 220px; border-radius: 16px; border: 2px dashed #fdba74; background: #fffaf5; color: #c2410c; font: inherit; cursor: pointer; text-align: center; padding: 14px; }
 .dsg-add:hover:not(:disabled) { background: #fff3e6; }
 .dsg-add b { font-size: 14.5px; }
@@ -743,17 +727,57 @@
 /* Top-right account chip: the company's picture (round, like everywhere) and the sign-up email */
 .user-profile img.user-logo { display: block; object-fit: cover; background: #fff; border: 1px solid var(--line, #ece9f5); }
 .topnav-actions .user-profile small.user-email { max-width: 190px; font-size: 11px; white-space: nowrap; text-transform: none; }
-/* Signer card: a photo in the round avatar (tap to add / change) and one-tap position chips */
-.dsg-avatar { position: relative; width: 54px; height: 54px; cursor: pointer; overflow: visible; }
+
+/* Signer card: a profile-style card — gradient cover, round photo over it, name and position centred, a paper
+   signature line, one row of tools, and the two roles as toggles. */
+.dsg-card { position: relative; display: grid; gap: 12px; padding: 0 16px 16px; border-radius: 20px; background: #fff; border: 1px solid #f1ece6; box-shadow: 0 10px 28px rgba(80, 40, 20, .07); overflow: hidden; transition: box-shadow .15s, border-color .15s; }
+.dsg-card:hover { box-shadow: 0 14px 34px rgba(80, 40, 20, .11); }
+.dsg-card.chosen { border-color: #fdba74; }
+.dsg-cover { position: relative; height: 74px; margin: 0 -16px; background: radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, .35), transparent 55%), linear-gradient(120deg, #f97316, #fb7185 55%, #c084fc); }
+.dsg-del { margin: 0; position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, .22); color: #fff; cursor: pointer; backdrop-filter: blur(4px); }
+.dsg-del:hover:not(:disabled) { background: #fff; color: #e11d48; }
+.dsg-badges { position: absolute; top: 12px; left: 12px; display: flex; gap: 5px; }
+.dsg-badges em { padding: 3px 9px; border-radius: 99px; background: #fff; font-size: 11px; font-weight: 800; font-style: normal; }
+.dsg-badges em.violet { color: #6d28d9; }
+.dsg-badges em.green { color: #15803d; }
+.dsg-who { display: grid; justify-items: center; gap: 6px; margin-top: -48px; text-align: center; }
+.dsg-avatar { position: relative; display: grid; place-items: center; width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, #fed7aa, #fbcfe8); color: #fff; border: 4px solid #fff; box-shadow: 0 8px 20px rgba(234, 88, 12, .22); cursor: pointer; }
 .dsg-avatar.off { cursor: default; }
-.dsg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(234, 88, 12, .25); }
-.dsg-avatar i { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: #ea580c; border: 1.5px solid #fdba74; box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
-.dsg-avatar:hover:not(.off) i { background: #ea580c; color: #fff; }
-.dsg-avatar:has(input:focus-visible) { outline: 2px solid #ea580c; outline-offset: 2px; }
-.dsg-pos { display: flex; flex-wrap: wrap; gap: 5px; }
-.dsg-pos button { height: 26px; padding: 0 10px; border-radius: 99px; border: 1px solid #fed7aa; background: #fff; color: #9a3412; font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
-.dsg-pos button:hover:not(:disabled):not(.on) { background: #fff7ed; }
+.dsg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.dsg-avatar i { position: absolute; right: -2px; bottom: 2px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #f97316, #ec4899); color: #fff; border: 3px solid #fff; }
+.dsg-avatar:hover:not(.off) i { transform: scale(1.08); }
+.dsg-avatar:has(input:focus-visible) { outline: 2px solid #ea580c; outline-offset: 3px; }
+.dsg-photo-x { margin-top: -2px; padding: 0; border: 0; background: none; color: #9a8f86; font: inherit; font-size: 11.5px; text-decoration: underline; cursor: pointer; }
+.dsg-name { width: 100%; height: 36px; margin: 2px 0 0; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; font: inherit; font-size: 16px; font-weight: 800; color: #1f1b33; text-align: center; }
+.dsg-name:hover, .dsg-name:focus { background: #faf8f6; border-color: #f1ece6; outline: none; }
+.dsg-posbox { display: flex; align-items: center; width: min(240px, 100%); height: 34px; border-radius: 99px; background: #fff7ed; border: 1px solid #fed7aa; overflow: hidden; }
+.dsg-posbox:focus-within { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, .15); }
+.dsg-posbox input { flex: 1; min-width: 0; height: 100%; margin: 0; padding: 0 4px 0 16px; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 700; color: #9a3412; text-align: center; outline: none; }
+.dsg-posbox input::placeholder { color: #d6a47f; font-weight: 600; }
+.dsg-posbox button { display: grid; place-items: center; width: 34px; height: 100%; border: 0; border-left: 1px solid #fed7aa; background: transparent; color: #c2410c; cursor: pointer; }
+.dsg-posbox button[aria-expanded="true"] svg { transform: rotate(180deg); }
+.dsg-pos { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; width: 100%; padding: 10px; border-radius: 14px; background: #fffaf5; border: 1px solid #fde5cf; }
+.dsg-pos button { display: inline-flex; align-items: center; gap: 3px; height: 28px; padding: 0 11px; border-radius: 99px; border: 1px solid #fed7aa; background: #fff; color: #9a3412; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.dsg-pos button:hover:not(:disabled):not(.on) { background: #fff7ed; border-color: #fdba74; }
 .dsg-pos button.on { background: linear-gradient(135deg, #f97316, #fb923c); border-color: transparent; color: #fff; }
-.dsg-pos button.add { display: inline-flex; align-items: center; gap: 3px; border-style: dashed; color: #c2410c; }
-.dsg-pos button:disabled { opacity: .55; cursor: default; }
-.dsg-photo-x { justify-self: start; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: 99px; border: 1px solid #ece9f5; background: #fff; color: #6b6585; font: inherit; font-size: 11.5px; cursor: pointer; }
+.dsg-pos small { flex-basis: 100%; font-size: 11px; color: #a8998c; }
+.dsg-sign { position: relative; display: grid; place-items: center; height: 104px; border-radius: 14px; background: #fcfbff; border: 1px solid #eeeaf7; }
+.dsg-sign::after { content: ""; position: absolute; left: 44px; right: 16px; bottom: 26px; border-bottom: 1.5px dashed #c4b5fd; }
+.dsg-sign i { position: absolute; left: 12px; bottom: 18px; font-size: 11px; font-style: normal; font-weight: 700; color: #a78bfa; }
+.dsg-sign img { position: relative; z-index: 1; max-width: 78%; max-height: 82px; object-fit: contain; }
+.dsg-sign.empty span { position: relative; z-index: 1; margin-bottom: 14px; color: #a19db4; font-size: 12.5px; }
+.dsg-tools { display: flex; gap: 6px; }
+.dsg-tools > * { margin: 0; box-sizing: border-box; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border-radius: 12px; border: 1px solid #ece9f5; background: #fff; color: #4b4566; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.dsg-tools > *:hover:not(:disabled):not(.off) { border-color: #fdba74; color: #c2410c; }
+.dsg-tools > .main { background: linear-gradient(135deg, #f97316, #ec4899); border-color: transparent; color: #fff; box-shadow: 0 6px 14px rgba(236, 72, 153, .25); }
+.dsg-tools > .main:hover:not(:disabled) { color: #fff; filter: brightness(1.05); }
+.dsg-tools > .icon { flex: none; width: 38px; }
+.dsg-tools > .off { opacity: .55; cursor: default; }
+.dsg-card footer { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 14px; background: #f6f4fb; }
+.dsg-role { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 34px; border: 0; border-radius: 10px; background: transparent; color: #6b6585; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.dsg-role:hover:not(:disabled):not(.on) { background: #fff; color: #2c2550; }
+.dsg-role:disabled { opacity: .5; cursor: default; }
+.dsg-role.on.violet { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff; box-shadow: 0 4px 10px rgba(124, 58, 237, .25); }
+.dsg-role.on.green { background: linear-gradient(135deg, #16a34a, #4ade80); color: #fff; box-shadow: 0 4px 10px rgba(22, 163, 74, .25); }
+.dsg-add { min-height: 380px !important; border-radius: 20px !important; }
+@media (prefers-reduced-motion: reduce) { .dsg-card, .dsg-avatar i { transition: none; } }
