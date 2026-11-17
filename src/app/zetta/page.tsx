@@ -27,7 +27,7 @@ import {
   FolderKanban,
   MoreHorizontal,
 } from "lucide-react";
-import { PricingCards, Faq, PromoStrip } from "./landing-parts";
+import { PricingCards, Faq, PromoStrip, AutoRow } from "./landing-parts";
 import { Logo, LandingHeader, LandingFooter, SIGNUP } from "./landing-shell";
 import "./landing.css";
 import "./promo-video.css";
@@ -284,17 +284,18 @@ export default function LandingHome() {
             </div>
             <em>ฟรีตลอด</em>
           </div>
-          <div className="lp-depts">
+          <AutoRow className="lp-depts">
             {departments.map((d) => (
               <a key={d.name} href="#pricing" className={"lp-dept " + d.tone}>
+                <i className="lp-dept-orb" aria-hidden />
                 <span className="lp-unlock"><Lock size={12} /> ปลดล็อกเมื่อซื้อแพ็กเกจ</span>
-                <span className="lp-ficon"><d.icon size={20} /></span>
+                <span className="lp-ficon"><d.icon size={22} /></span>
                 <h3>{d.name}</h3>
                 <p>{d.note}</p>
                 <span className="lp-more">ดูแพ็กเกจ <ArrowRight size={14} /></span>
               </a>
             ))}
-          </div>
+          </AutoRow>
           <div className="lp-shop">
             <span className="lp-shop-icon"><Store size={26} /></span>
             <div>

@@ -195,3 +195,73 @@ export function PromoStrip() {
     </div>
   );
 }
+
+/**
+ * A row of cards that scrolls itself when it does not fit (phones): one card at a time every few seconds, back to
+ * the start at the end; the card in the middle is marked active. Stops while touched or hovered, resumes after.
+ */
+export function AutoRow({ className, children, every = 3200 }: { className: string; children: React.ReactNode; every?: number }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    let held = false,
+      resume = 0;
+    const cards = () => [...el.children] as HTMLElement[];
+    const middle = () => {
+      const mid = el.scrollLeft + el.clientWidth / 2;
+      let best = 0,
+        gap = Infinity;
+      cards().forEach((c, i) => {
+        const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+        if (d < gap) (gap = d), (best = i);
+      });
+      setActive(best);
+      return best;
+    };
+    const hold = () => {
+      held = true;
+      window.clearTimeout(resume);
+    };
+    const release = () => {
+      window.clearTimeout(resume);
+      resume = window.setTimeout(() => (held = false), 4000);
+    };
+    const tick = window.setInterval(() => {
+      if (held || el.scrollWidth <= el.clientWidth + 4 || document.hidden) return;
+      const list = cards(),
+        next = (middle() + 1) % list.length,
+        c = list[next];
+      el.scrollTo({ left: next === 0 ? 0 : c.offsetLeft - (el.clientWidth - c.offsetWidth) / 2, behavior: "smooth" });
+    }, every);
+    el.addEventListener("scroll", middle, { passive: true });
+    el.addEventListener("pointerdown", hold);
+    el.addEventListener("pointerup", release);
+    el.addEventListener("pointerleave", release);
+    el.addEventListener("touchstart", hold, { passive: true });
+    el.addEventListener("touchend", release);
+    middle();
+    return () => {
+      window.clearInterval(tick);
+      window.clearTimeout(resume);
+      el.removeEventListener("scroll", middle);
+      el.removeEventListener("pointerdown", hold);
+      el.removeEventListener("pointerup", release);
+      el.removeEventListener("pointerleave", release);
+      el.removeEventListener("touchstart", hold);
+      el.removeEventListener("touchend", release);
+    };
+  }, [every]);
+  return (
+    <div className={className} ref={row} data-active={active}>
+      {Array.isArray(children)
+        ? children.map((c, i) => (
+            <div key={i} className={"auto-item" + (i === active ? " on" : "")}>
+              {c}
+            </div>
+          ))
+        : children}
+    </div>
+  );
+}
