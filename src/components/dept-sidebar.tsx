@@ -1,9 +1,8 @@
 "use client";
-// Left sidebar on every department page: department name (back / switch), its pages with icons, groups with
+// Left sidebar on every department page: department name (back to all departments), its pages with icons, groups with
 // indented sub-pages, the current page highlighted, and an illustration card at the bottom.
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { activeEntry, departmentMenu, sidebarOf, type DepartmentMenu } from "@/lib/departments";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { activeEntry, sidebarOf, type DepartmentMenu } from "@/lib/departments";
 import { MenuIcon, rememberDept } from "./dept-menu";
 
 export function DepartmentSidebar({
@@ -16,49 +15,21 @@ export function DepartmentSidebar({
   view: string;
   navigate: (view: string) => void;
 }) {
-  const [switching, setSwitching] = useState(false),
-    ref = useRef<HTMLDivElement>(null);
   const current = activeEntry(dept, view);
-  useEffect(() => {
-    if (!switching) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setSwitching(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [switching]);
   const go = (to: string) => {
     rememberDept(dept.id);
     navigate(to);
   };
   return (
     <aside className={"dept-side tone-" + dept.tone} aria-label={"เมนู" + dept.title}>
-      <div className="dept-side-head" ref={ref}>
+      <div className="dept-side-head">
         <button className="dept-side-back" aria-label="กลับไปหน้าแผนกทั้งหมด" onClick={() => navigate("departments")}>
           <ChevronLeft size={18} />
         </button>
-        <button className="dept-side-title" aria-expanded={switching} onClick={() => setSwitching(!switching)}>
+        {/* Each department stands alone: no switching to another one from here (the ‹ goes back to all departments). */}
+        <button className="dept-side-title" onClick={() => go(dept.overview)}>
           <span>{dept.title}</span>
-          <ChevronDown size={17} />
         </button>
-        {switching && (
-          <ul className="dept-side-switch" role="menu">
-            {departmentMenu.map((d) => (
-              <li key={d.id}>
-                <button
-                  role="menuitem"
-                  className={d.id === dept.id ? "active" : ""}
-                  onClick={() => {
-                    setSwitching(false);
-                    rememberDept(d.id);
-                    navigate(d.overview);
-                  }}
-                >
-                  <MenuIcon name={d.icon} size={16} />
-                  {d.title}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
       <nav className="dept-side-nav">
         {sidebarOf(dept).map((item) => {
