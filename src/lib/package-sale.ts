@@ -104,9 +104,10 @@ export async function recordPackageSale(paymentId: string): Promise<SaleRecords 
     try {
       const owner = await ownerOf(sb, platform);
       if (!owner) throw new Error("ไม่พบเจ้าของบริษัท EliteFlow");
-      const { data: found } = await sb.from("entities").select("id").eq("company_id", platform).eq("kind", "customers").is("archived_at", null).eq("data->>name", buyerName).limit(1).maybeSingle();
+      // The customer EliteFlow added when this company signed up (0078); made now if it is missing.
+      const { data: linked } = await sb.rpc("add_platform_customer", { p_company: p.company_id });
       rec.customerId =
-        (found?.id as string | undefined) ||
+        (linked as string | null) ||
         (
           await saveAs(sb, owner, platform, "customers", {
             name: buyerName,

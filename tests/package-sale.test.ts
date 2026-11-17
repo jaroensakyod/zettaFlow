@@ -106,3 +106,57 @@ test("the buyer's expense uses a category the database accepts", async () => {
   const last = schema.lastIndexOf("('expenses','Finance'");
   assert.ok(schema.slice(last, last + 20000).includes(`"${category}"`), category);
 });
+
+test("migration 0078: every company that signs up (free too) becomes a customer in EliteFlow's own workspace", async () => {
+  const platformOwner = "10000000-0000-4000-8000-000000000001",
+    newUser = "10000000-0000-4000-8000-000000000003";
+  const db = new PGlite();
+  try {
+    await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create schema storage;
+    create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}',email_confirmed_at timestamptz);
+    create function auth.uid()returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+    create function auth.jwt()returns jsonb language sql stable as $$select jsonb_build_object('email',current_setting('request.jwt.claim.email',true))$$;
+    create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+    create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;
+    create function storage.foldername(text)returns text[]language sql immutable as $$select string_to_array($1,'/')$$;
+    grant usage on schema public,auth,storage to authenticated,anon,service_role;grant execute on all functions in schema auth to authenticated,anon,service_role;
+    insert into auth.users(id,email,raw_user_meta_data,email_confirmed_at)values('${platformOwner}','eliteflowofficials@test.local','{}',now()),('${newUser}','somchai@test.local','{"name":"สมชาย"}',now());`);
+    for (const file of (await readdir("supabase/migrations")).sort())
+      await db.exec((await readFile("supabase/migrations/" + file, "utf8")).replace("create extension if not exists pgcrypto;", ""));
+    const one = async <T>(sql: string, params: unknown[] = []) => Object.values((await db.query<Record<string, T>>(sql, params)).rows[0])[0] as T;
+    const as = async (user: string) => {
+      await db.exec("reset role;");
+      await db.query(`select set_config('request.jwt.claim.sub',$1,false)`, [user]);
+      await db.exec("set role authenticated;");
+    };
+    await as(platformOwner);
+    const platform = await one<string>("select create_company('ELITEFLOW')");
+    await db.exec("reset role;");
+    await db.exec(`create or replace function public.platform_company()returns uuid language sql immutable as $$select '${platform}'::uuid$$;`);
+
+    await as(newUser);
+    const shop = await one<string>("select create_company('ร้านสมชาย')");
+    await db.exec("reset role;");
+    const rows = (await db.query<{ data: Record<string, string>; company_id: string }>("select data, company_id from entities where kind='customers' and company_id=$1", [platform])).rows;
+    assert.equal(rows.length, 1, "one customer in EliteFlow's list");
+    const d = rows[0].data;
+    assert.equal(d.name, "ร้านสมชาย");
+    assert.equal(d.email, "somchai@test.local");
+    assert.equal(d.contact, "สมชาย");
+    assert.equal(d.status, "active");
+    assert.match(d.code, /^CUS-/);
+    assert.match(d.notes, /สมัครใช้งาน EliteFlow เมื่อ .* · แพ็กเกจ/);
+    assert.equal(await one<string>("select customer_id::text from platform_customers where company_id=$1", [shop]), await one<string>("select id::text from entities where kind='customers' and company_id=$1", [platform]));
+    // once only, and EliteFlow is not its own customer
+    await db.exec("set role service_role;");
+    await one("select add_platform_customer($1)", [shop]);
+    await one("select add_platform_customer($1)", [platform]);
+    await db.exec("reset role;");
+    assert.equal(await one<number>("select count(*)::int from entities where kind='customers' and company_id=$1", [platform]), 1);
+    // nobody signed in can read the link table or call the function
+    await as(newUser);
+    await assert.rejects(db.query("select add_platform_customer($1)", [shop]), /permission denied/);
+  } finally {
+    await db.close();
+  }
+});
