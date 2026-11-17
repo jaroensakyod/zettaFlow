@@ -26,7 +26,7 @@ import { CategorySelect } from "./category-select";
 import { LineFeedButton } from "./template-target";
 import { conversions } from "@/lib/dept-rules";
 import { SalesFields } from "./sales-form";
-import { ProductFields } from "./product-form";
+import { ProductFields, syncStock } from "./product-form";
 export type Option = { id: string; kind: string; name: string };
 // Shrinks a photo to a square-ish WebP (max 512px) before upload.
 export async function shrinkPhoto(file: File) {
@@ -494,10 +494,12 @@ export function Records({
         let data = values;
         if (row?.kind === "deals" && row.data.status === "approved")
           data = { ...values, status: "approved" };
-        await api("/entities/" + kind + (row ? "/" + row.id : ""), {
+        const saved: Entity = await api("/entities/" + kind + (row ? "/" + row.id : ""), {
           method: row ? "PATCH" : "POST",
           body: { data, version: row?.version },
         });
+        if (kind === "products" && (values.type || "product") === "product")
+          await syncStock(saved?.id || row!.id, Number(row?.data.stock) || 0, values.stock);
         await done("บันทึก" + module.label + "แล้ว");
       }
     } catch (e) {

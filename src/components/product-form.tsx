@@ -8,6 +8,7 @@ import { catalog, statusLabels } from "@/lib/catalog";
 import { discountPercent, itemType, promoActive, type ItemType } from "@/lib/product-catalog";
 import { FieldControl, photoUrl, shrinkPhoto, type Option } from "./records";
 import { uploadFile } from "./platform";
+import { api } from "./shared";
 
 export const typeLook: Record<ItemType, [string, React.ComponentType<{ size?: number }>, string]> = {
   product: ["สินค้า", Package, "blue"],
@@ -22,6 +23,25 @@ const unitsFor: Record<ItemType, string[]> = {
 const used = ["name", "sku", "category", "unit", "cost", "price", "reorderLevel", "location", "status", "type", "image", "gallery", "description", "includes", "promoPrice", "promoLabel", "promoEnds"];
 const fmt = (n: number) => n.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 export const MAX_PHOTOS = 10;
+/**
+ * จำนวนคงเหลือ typed in the form: stock only changes through รับเข้า / เบิกออก, so the difference is saved as one
+ * movement and the warehouse history stays right.
+ */
+export async function syncStock(productId: string, before: number, after: unknown) {
+  if (after === "" || after === undefined || after === null) return;
+  const diff = Math.round(Number(after)) - Math.round(before);
+  if (!Number.isFinite(diff) || diff === 0) return;
+  await api("/stock", {
+    method: "POST",
+    body: {
+      productId,
+      type: diff > 0 ? "in" : "out",
+      quantity: Math.abs(diff),
+      // A reference is used once per product, so each adjustment gets its own time stamp.
+      reference: (before ? "ปรับยอดจากหน้าสินค้า " : "ยอดตั้งต้น ") + new Date().toLocaleString("th-TH", { dateStyle: "short", timeStyle: "medium" }),
+    },
+  });
+}
 /** Every photo of an item, cover first ("image", then the comma-separated "gallery"). */
 export const photosOf = (d: Record<string, unknown>) =>
   [String(d.image || ""), ...String(d.gallery || "").split(",")].map((x) => x.trim()).filter(Boolean);
@@ -132,6 +152,7 @@ export function ProductFields({
   const status = String(values.status || "active");
   const unit = String(values.unit || "");
   const category = String(values.category || "");
+  const [unitOpen, setUnitOpen] = useState(false);
   const sku = () => {
     const d = new Date();
     const ymd = String(d.getFullYear()).slice(2) + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
@@ -222,18 +243,39 @@ export function ProductFields({
           {control("category")}
           <label htmlFor="field-unit">
             หน่วย<span className="required"> *</span>
-            <span className="pf-select">
-              <select id="field-unit" name="unit" required value={unit} onChange={(e) => set("unit", e.target.value)}>
-                <option value="">เลือกหน่วย</option>
-                {[...unitsFor[type], ...(unit && !unitsFor[type].includes(unit) ? [unit] : [])].map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={16} />
+            <span className={"pf-select" + (unitOpen ? " open" : "")}>
+              <input id="field-unit" name="unit" required autoComplete="off" placeholder="เลือกหรือพิมพ์หน่วยเอง" value={unit} onChange={(e) => set("unit", e.target.value)} onFocus={() => setUnitOpen(true)} onBlur={() => setTimeout(() => setUnitOpen(false), 150)} />
+              <button type="button" className="pf-select-toggle" aria-label="เลือกหน่วย" aria-expanded={unitOpen} onClick={() => setUnitOpen((v) => !v)}>
+                <ChevronDown size={16} />
+              </button>
+              {unitOpen && (
+                <span className="pf-select-menu" role="listbox">
+                  {unitsFor[type].map((u) => (
+                    <button key={u} type="button" role="option" aria-selected={unit === u} className={unit === u ? "on" : ""} onMouseDown={(e) => e.preventDefault()} onClick={() => (set("unit", u), setUnitOpen(false))}>
+                      {u}
+                    </button>
+                  ))}
+                  <small>หรือพิมพ์หน่วยอื่นในช่องได้เลย</small>
+                </span>
+              )}
             </span>
           </label>
+          {type === "product" && (
+            <label htmlFor="field-stock" className="pf-qty">
+              จำนวนคงเหลือ
+              <span className="pf-qty-box">
+                <button type="button" aria-label="ลดจำนวน" onClick={() => set("stock", Math.max(0, (Number(values.stock) || 0) - 1))}>
+                  −
+                </button>
+                <input id="field-stock" type="number" min={0} step={1} inputMode="numeric" placeholder="0" value={values.stock === undefined || values.stock === null ? "" : String(values.stock)} onChange={(e) => set("stock", e.target.value === "" ? "" : Math.max(0, Math.round(Number(e.target.value))))} />
+                <button type="button" aria-label="เพิ่มจำนวน" onClick={() => set("stock", (Number(values.stock) || 0) + 1)}>
+                  +
+                </button>
+                <em>{unit || "หน่วย"}</em>
+              </span>
+              <small>แก้ตัวเลขได้เลย ระบบบันทึกเป็นรายการรับเข้า / เบิกออกให้อัตโนมัติ</small>
+            </label>
+          )}
         </div>
         {categories.length > 0 && (
           <div className="pf-chips" aria-label="หมวดหมู่ที่มีอยู่">

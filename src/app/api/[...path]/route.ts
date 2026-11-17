@@ -741,7 +741,7 @@ async function handle(req: NextRequest) {
           notes: z.string().max(2000).optional(),
         })
         .parse(await body(req));
-      return response(await movement(ctx, input), 201);
+      return response((await movement(ctx, input)) ?? { ok: true }, 201);
     }
     if (path[0] === "purchase") {
       const input = await body(req);

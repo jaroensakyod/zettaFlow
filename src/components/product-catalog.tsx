@@ -9,7 +9,7 @@ import { discountPercent, itemType, promoActive, stockState, type ItemType } fro
 import { catalog } from "@/lib/catalog";
 import { api, Loading, Modal, money, displayDate } from "./shared";
 import { photoUrl, Records, type Option } from "./records";
-import { photosOf, ProductFields, typeLook } from "./product-form";
+import { photosOf, ProductFields, syncStock, typeLook } from "./product-form";
 
 type Tab = "all" | ItemType | "promo" | "low";
 const newSku = (type: ItemType) => {
@@ -86,7 +86,8 @@ export function ProductCatalog({ ctx, mode, notify, changed }: { ctx: Context; m
       const data: Record<string, unknown> = { ...values, sku: String(values.sku || "").trim() || newSku(type) };
       if (type !== "product") data.reorderLevel = 0;
       const row = editing === "new" ? undefined : editing!;
-      await api("/entities/products" + (row ? "/" + row.id : ""), { method: row ? "PATCH" : "POST", body: { data, version: row?.version } });
+      const saved: Entity = await api("/entities/products" + (row ? "/" + row.id : ""), { method: row ? "PATCH" : "POST", body: { data, version: row?.version } });
+      if (type === "product") await syncStock(saved?.id || row!.id, Number(row?.data.stock) || 0, values.stock);
       notify((row ? "บันทึก" : "เพิ่ม") + typeLook[type][0] + "แล้ว" + (mode === "warehouse" ? " ฝ่ายขายเห็นทันที" : " คลังสินค้าเห็นทันที"));
       setEditing(null);
       await load();
