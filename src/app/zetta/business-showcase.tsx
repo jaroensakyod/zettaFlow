@@ -1,15 +1,7 @@
 // หน้าแรก › PRODUCT: what the platform can do, and proof it fits any business — each card a kind of business, the
 // records it keeps in EliteFlow, and a real line someone would type in its LINE group.
-import { Bot, ChartNoAxesCombined, LayoutGrid, Link2, ReceiptText, Users } from "lucide-react";
+import { FeatureSpotlight } from "./feature-spotlight";
 
-const features = [
-  { icon: LayoutGrid, tone: "violet", title: "สร้างระบบเองได้ ไม่ต้องเขียนโค้ด", body: "บอก AI ว่าอยากเก็บข้อมูลอะไร ระบบร่างฟอร์มและหน้าจอให้ เพิ่มช่องได้ในนาทีเดียว" },
-  { icon: ChartNoAxesCombined, tone: "blue", title: "Dashboard สร้างให้อัตโนมัติ", body: "ทุกข้อมูลกลายเป็นกราฟและตัวเลขสรุป ผู้บริหารเห็นภาพรวมแบบเรียลไทม์" },
-  { icon: Bot, tone: "pink", title: "ถาม AI ได้ในแชท", body: "“มีงานรออนุมัติกี่งาน?” “ยอดขายวันนี้เท่าไหร่?” ตอบจากข้อมูลจริงทันที" },
-  { icon: ReceiptText, tone: "green", title: "ตรวจสลิปและใบเสร็จอัตโนมัติ", body: "อ่าน QR สลิป เทียบยอด กันสลิปซ้ำ อ่านใบเสร็จและใบกำกับภาษีให้เอง" },
-  { icon: Users, tone: "amber", title: "สิทธิ์ตามตำแหน่งจริง", body: "เจ้าของ ผู้จัดการ พนักงาน แยกสิทธิ์รายแผนก ผูก LINE กับตัวพนักงาน" },
-  { icon: Link2, tone: "teal", title: "แชร์ข้อมูลให้พาร์ตเนอร์", body: "ส่งลิงก์ Dashboard หรือเอกสาร ตั้งรหัสผ่านและวันหมดอายุได้" },
-];
 
 const businesses = [
   { emoji: "🏢", name: "อสังหาริมทรัพย์", tone: "c1", keeps: ["ลูกค้าเข้าชมโครงการ", "จองยูนิต · มัดจำ", "ค่าคอมเซลล์"], line: "@EliteFlow ลูกค้าคุณเอ จองห้อง A-1203 มัดจำ 50,000" },
@@ -30,17 +22,7 @@ const marquee = ["สปา", "ฟิตเนส", "ร้านทอง", "�
 export function BusinessShowcase() {
   return (
     <>
-      <div className="bs-features">
-        {features.map((f) => (
-          <article key={f.title} className={"bs-feature t-" + f.tone}>
-            <span className="bs-ficon">
-              <f.icon size={22} />
-            </span>
-            <h3>{f.title}</h3>
-            <p>{f.body}</p>
-          </article>
-        ))}
-      </div>
+      <FeatureSpotlight />
 
       <header className="lp-head bs-head">
         <span className="lp-kicker">ใช้ได้กับทุกธุรกิจ</span>

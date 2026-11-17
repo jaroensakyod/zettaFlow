@@ -140,3 +140,32 @@
 @media (prefers-reduced-motion: reduce) {
   .lp .lp-dept::after, .lp-dept-orb { animation: none; }
 }
+
+/* ---------- PRODUCT cards: one at a time comes forward, its title read word by word ---------- */
+.bs-features.spot .bs-feature { cursor: pointer; transition: transform .5s cubic-bezier(.2, .9, .3, 1.2), box-shadow .5s, opacity .5s, border-color .5s; }
+.bs-features.spot.seen .bs-feature:not(.on) { opacity: .62; transform: scale(.97); }
+.bs-features.spot .bs-feature.on { z-index: 2; opacity: 1; transform: scale(1.05); border-color: var(--a); box-shadow: 0 24px 60px color-mix(in srgb, var(--a) 45%, transparent), 0 0 0 1px color-mix(in srgb, var(--a) 60%, transparent); }
+.bs-features.spot .bs-feature.on .bs-ficon { animation: spotIcon 1.2s ease-in-out infinite; }
+@keyframes spotIcon { 50% { transform: translateY(-4px) rotate(-6deg); box-shadow: 0 16px 30px color-mix(in srgb, var(--a) 60%, transparent); } }
+.bs-feature h3 span { display: inline; }
+.bs-feature h3.reading span { color: rgba(255, 255, 255, .35); animation: spotWord .5s ease forwards; }
+@keyframes spotWord {
+  0% { color: rgba(255, 255, 255, .35); text-shadow: none; }
+  60% { color: #fff; text-shadow: 0 0 18px color-mix(in srgb, var(--b) 90%, transparent); }
+  100% { color: #fff; text-shadow: 0 0 10px color-mix(in srgb, var(--b) 45%, transparent); }
+}
+.bs-features.spot .bs-feature.on p { color: #e6e4f7; }
+.bs-read-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, var(--a), var(--b)); transform-origin: left; animation: spotBar linear forwards; }
+@keyframes spotBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 680px) {
+  .lp .bs-features { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .bs-feature { padding: 14px; border-radius: 18px; }
+  .bs-ficon { width: 38px; height: 38px; border-radius: 12px; }
+  .bs-ficon svg { width: 18px; height: 18px; }
+  .bs-feature h3 { margin: 10px 0 4px; font-size: 14px; line-height: 1.35; }
+  .bs-feature p { font-size: 12px; line-height: 1.55; }
+  .bs-features.spot .bs-feature.on { transform: scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bs-feature h3.reading span, .bs-features.spot .bs-feature.on .bs-ficon, .bs-read-bar { animation: none; color: #fff; }
+}
