@@ -42,6 +42,7 @@ import type { Context } from "@/lib/types";
 import { api, money, displayDate, Empty, Modal } from "./shared";
 import { uploadFile } from "./platform";
 import { promptPayPayload, qrMatrix, qrSvgPath } from "@/lib/promptpay";
+import { billingPayee } from "@/lib/payee";
 
 type StoreModule = { id: string; department: string; name: string; description: string; price_coins: number; features: string[]; view: string; owned: boolean };
 type Topup = { id: string; coins: number; amount: number; slip_ref: string; status: string; created_at: string; company?: string };
@@ -88,12 +89,7 @@ export function CoinBadge({ ctx }: { ctx: Context }) {
 }
 
 // Platform payee for top-ups (all optional; without them the dialog asks the owner to get the account from Admin in chat).
-const payee = {
-  promptPay: process.env.NEXT_PUBLIC_TOPUP_PROMPTPAY_ID || "",
-  name: process.env.NEXT_PUBLIC_TOPUP_ACCOUNT_NAME || "",
-  bank: process.env.NEXT_PUBLIC_TOPUP_BANK_NAME || "",
-  account: process.env.NEXT_PUBLIC_TOPUP_BANK_ACCOUNT || "",
-};
+const payee = billingPayee();
 const QR_MINUTES = 15;
 type PayMethod = "qr" | "bank" | "card";
 const methodLabel: Record<PayMethod, string> = { qr: "สแกน QR PromptPay", bank: "โอนเงินผ่านธนาคาร", card: "บัตรเครดิต/เดบิต" };

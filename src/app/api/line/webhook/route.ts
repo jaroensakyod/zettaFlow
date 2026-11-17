@@ -22,7 +22,7 @@ import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, lineReplyId, type QuickStats } from "@/lib/line";
 import { decidedText, deptThai, groupRejection, parseDecision } from "@/lib/line-message";
-import { appBase, billingAction, billingChoice, billingResult, BILLING_MS, payCard, payee, type BillingChoice } from "@/lib/line-billing";
+import { appBase, billingAction, billingChoice, billingResult, BILLING_MS, payCard, payee, saleDocsCard, type BillingChoice } from "@/lib/line-billing";
 import { linePayment } from "@/lib/platform";
 import { classifyLineFile, LINE_MAX_BYTES, shrinkImage, VOICE_MAX_MS } from "@/lib/line-files";
 export const runtime = "nodejs";
@@ -76,7 +76,15 @@ async function billingButton(sb: Admin, groupId: string, userId: string, data: s
   const choice = billingChoice(a.plan, a.cycle);
   await listen(sb, g.company_id, groupId, userId, "billing", null, BILLING_MS, choice);
   const base = appBase();
-  await lineReplyId(replyToken, payCard(choice, payee(), { qrUrl: base ? `${base}/api/pay-qr?a=${choice.amount}` : "", pricingUrl: base ? base + "/workspace/pricing" : "" }));
+  const qrUrl = base && payee().promptPay ? `${base}/api/pay-qr?a=${choice.amount}` : "";
+  const card = payCard(choice, payee(), { qrUrl, pricingUrl: base ? base + "/workspace/pricing" : "" });
+  // The QR also as a plain photo: tap and hold → save, then in the bank app สแกน → เลือกรูป (the amount is filled in).
+  await lineReplyId(
+    replyToken,
+    qrUrl
+      ? [card, { type: "image", originalContentUrl: qrUrl, previewImageUrl: qrUrl }, { type: "text", text: "📲 จ่ายผ่านมือถือเครื่องนี้: กดค้างที่รูป QR → บันทึก แล้วเปิดแอปธนาคาร → สแกน → เลือกรูปจากอัลบั้ม ยอดจะขึ้นให้อัตโนมัติ\nโอนแล้วส่งรูปสลิปในแชทนี้ได้เลยค่ะ" }]
+      : card,
+  );
   return true;
 }
 /** Read a draft (or an item still in review) again with a correction and/or a new file; the worker sends a new summary. */
@@ -680,7 +688,12 @@ export async function POST(req: Request) {
         const r = await linePayment({ companyId: group.company_id, plan: billingFor.plan, cycle: billingFor.cycle, attachmentId, file: slipFile!, bytes: slipFile!.bytes });
         // A slip that could not be read: keep waiting so a clearer photo can follow.
         if (!r.ok) await listen(sb, group.company_id, groupId, userId, "billing", null, BILLING_MS, billingFor);
-        await lineReply(event.replyToken, r.ok ? billingResult({ ...r, plan: billingFor.plan }) : "⚠️ " + r.message);
+        if (!r.ok) await lineReply(event.replyToken, "⚠️ " + r.message);
+        else {
+          const text = { type: "text", text: billingResult({ ...r, plan: billingFor.plan }) };
+          // Opened: the invoice and receipt follow (the expense is already in the company's books).
+          await lineReplyId(event.replyToken, "docs" in r && r.docs?.receipt && r.records ? [text, saleDocsCard(r.docs, r.records)] : text);
+        }
         continue;
       }
       if (evidenceFor && attachmentId) {

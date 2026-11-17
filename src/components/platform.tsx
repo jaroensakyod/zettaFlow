@@ -19,6 +19,8 @@ import { PlanCards, PlanAdBanner } from "./plans-page";
 import type { Context, Role } from "@/lib/types";
 import type { Widget, Layout } from "@/lib/platform";
 import { addons, planPrice, type Plan, type Subscription, type Usage } from "@/lib/billing";
+import { billingPayee } from "@/lib/payee";
+import { promptPayPayload, qrMatrix, qrSvgPath } from "@/lib/promptpay";
 
 const roleNames: Record<Role, string> = {
   owner: "Owner",
@@ -572,8 +574,9 @@ export function SubscriptionPanel({
                 </>
               );
             })()}
+            <PayQr amount={planPrice(pay.plan, pay.cycle, { addons: chosen, extraUsers }).total} />
             <p className="note">
-              โอนเข้าบัญชีบริษัท ZettaFlow AI ยอด ฿{money(planPrice(pay.plan, pay.cycle, { addons: chosen, extraUsers }).total)} แล้วอัปโหลดรูปสลิป (PNG/JPEG ไม่ครอป QR) ระบบตรวจสลิปและยอดอัตโนมัติ ถ้าตรง เปิดใช้แพ็กเกจทันที
+              สแกน QR ด้วยแอปธนาคาร (ยอด ฿{money(planPrice(pay.plan, pay.cycle, { addons: chosen, extraUsers }).total)} ขึ้นให้อัตโนมัติ) แล้วอัปโหลดรูปสลิป (PNG/JPEG ไม่ครอป QR) ระบบตรวจสลิปและยอดอัตโนมัติ ถ้าตรง เปิดใช้แพ็กเกจทันที พร้อมออกใบแจ้งหนี้ ใบเสร็จ และบันทึกเป็นค่าใช้จ่ายให้
             </p>
             <label>
               รูปสลิป
@@ -689,3 +692,27 @@ export function SlipChecker() {
   );
 }
 
+/** PromptPay QR for the exact amount to pay EliteFlow (the account in lib/payee). */
+function PayQr({ amount }: { amount: number }) {
+  const payee = billingPayee();
+  if (!payee.promptPay || !(amount > 0)) return null;
+  let m: boolean[][];
+  try {
+    m = qrMatrix(promptPayPayload(payee.promptPay, amount));
+  } catch {
+    return null;
+  }
+  const size = m.length + 8;
+  return (
+    <div className="pay-qr">
+      <svg viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" role="img" aria-label={`QR พร้อมเพย์ ${money(amount)} บาท`}>
+        <rect width={size} height={size} fill="#fff" />
+        <path d={qrSvgPath(m)} fill="#19182b" />
+      </svg>
+      <div>
+        <b>พร้อมเพย์ ฿{money(amount)}</b>
+        {payee.name && <small>{payee.name}</small>}
+      </div>
+    </div>
+  );
+}

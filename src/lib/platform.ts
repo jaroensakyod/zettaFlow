@@ -12,6 +12,8 @@ import { hashPassword, shareHash, shareToken, verifyPassword, shareState, type S
 import { overage, planById, planPrice, plans, subscriptionActive, hasAddon, addons, type AddonId, type Subscription, type Usage } from "./billing";
 import type { Context, Role, Template } from "./types";
 import { aiEnabled, aiGenerate } from "./llm";
+import { billingReceivers } from "./payee";
+import { recordPackageSale, saleDocLinks } from "./package-sale";
 
 // ---------- Dashboard widgets ----------
 export type Widget = {
@@ -237,7 +239,9 @@ export async function requestPayment(ctx: Context, input: unknown) {
     p_extra_users: extraUsers,
   });
   dbError(error);
-  return autoActivate(ctx, data as Payment, file, bytes);
+  const r = await autoActivate(ctx, data as Payment, file, bytes);
+  if (r.auto) await recordPackageSale(r.id).catch(() => null);
+  return r;
 }
 
 /**
@@ -264,7 +268,8 @@ export async function linePayment(input: { companyId: string; plan: string; cycl
     .single();
   if (error) return { auto: false, ok: false, message: error.code === "23505" ? "สลิปนี้ถูกใช้แล้วค่ะ" : "บันทึกการชำระไม่สำเร็จ ลองส่งใหม่อีกครั้งค่ะ" };
   const r = await autoActivate({ demo: false } as Context, data as Payment, input.file, input.bytes);
-  return { auto: r.auto, ok: true, message: r.message };
+  const records = r.auto ? await recordPackageSale(r.id).catch(() => null) : null;
+  return { auto: r.auto, ok: true, message: r.message, paymentId: r.id, records, docs: records ? saleDocLinks(r.id) : null };
 }
 
 const slipSchema = {
@@ -304,8 +309,8 @@ async function autoActivate(ctx: Context, p: Payment, file: { mime: string; name
   if (!(Math.abs(amount - Number(p.amount)) < 0.01)) return pending(`(ยอดในสลิป ${v.amount ?? "อ่านไม่ได้"} ไม่ตรงกับ ${p.amount})`);
   const day = v.date && /^\d{4}-\d{2}-\d{2}$/.test(v.date) ? Date.parse(v.date) : NaN;
   if (!(day > Date.now() - 7 * 86400000 && day < Date.now() + 86400000)) return pending("(วันที่บนสลิปเก่าเกิน 7 วันหรืออ่านไม่ได้)");
-  const receiver = process.env.BILLING_RECEIVER;
-  if (receiver && !receiver.split(",").some((r) => squash(r) && squash(v.receiver).includes(squash(r)))) return pending("(ชื่อบัญชีผู้รับไม่ตรง)");
+  const receivers = billingReceivers();
+  if (receivers.length && !receivers.some((r) => squash(r) && squash(v.receiver).includes(squash(r)))) return pending("(ชื่อบัญชีผู้รับไม่ตรง)");
   const note = `ยืนยันอัตโนมัติ · ยอด ${amount} · ${v.date}`;
   if (ctx.demo)
     await demoMutate((s: DemoState & DemoBilling) => {
@@ -353,6 +358,7 @@ export async function confirmPayment(ctx: Context, id: string, status: "verified
     });
   const { error } = await supabaseAdmin().rpc("confirm_payment", { p_id: id, p_status: status, p_note: note || null });
   dbError(error);
+  if (status === "verified") await recordPackageSale(id).catch(() => null);
 }
 
 // ---------- Slip check (finance tool in the web) ----------

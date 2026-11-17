@@ -5,7 +5,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export type ShareTarget =
   | { k: "sub"; id: string }
-  | { k: "sum"; c: string; from: string; to: string };
+  | { k: "sum"; c: string; from: string; to: string }
+  | { k: "pay"; id: string; d: "inv" | "rc" };
 type Signed = ShareTarget & { exp: number };
 
 const DAY = 86_400_000;
@@ -33,6 +34,7 @@ export function readShare(token: string, now = Date.now(), key?: string): ShareT
     const v = JSON.parse(Buffer.from(body, "base64url").toString()) as Signed;
     if (!v || typeof v.exp !== "number" || v.exp < now) return null;
     if (v.k === "sub" && /^[0-9a-f-]{36}$/i.test(v.id)) return { k: "sub", id: v.id };
+    if (v.k === "pay" && /^[0-9a-f-]{36}$/i.test(v.id) && (v.d === "inv" || v.d === "rc")) return { k: "pay", id: v.id, d: v.d };
     if (v.k === "sum" && /^[0-9a-f-]{36}$/i.test(v.c) && /^\d{4}-\d{2}-\d{2}$/.test(v.from) && /^\d{4}-\d{2}-\d{2}$/.test(v.to))
       return { k: "sum", c: v.c, from: v.from, to: v.to };
   } catch {

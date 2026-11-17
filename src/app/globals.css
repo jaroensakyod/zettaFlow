@@ -8505,3 +8505,11 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .upg li svg { flex: none; margin-top: 2px; color: #16a34a; }
 .upg li:first-child svg { color: #7c3aed; }
 .upg-modal .upg-go { background: linear-gradient(120deg, #f59e0b, #ec4899 55%, #7c3aed); border: 0; box-shadow: 0 8px 20px rgba(236, 72, 153, .3); }
+
+/* PromptPay QR in the package payment dialog */
+.pay-qr { display: flex; align-items: center; gap: 14px; margin: 10px 0; padding: 12px; border-radius: 14px; background: #f5f3ff; border: 1px solid #e9e3ff; }
+.pay-qr svg { width: 150px; height: 150px; flex: none; border-radius: 10px; background: #fff; }
+.pay-qr div { display: grid; gap: 2px; }
+.pay-qr b { font-size: 18px; color: #4c1d95; }
+.pay-qr small { color: #6b6585; }
+@media (max-width: 480px) { .pay-qr { flex-direction: column; text-align: center; } .pay-qr svg { width: 200px; height: 200px; } }

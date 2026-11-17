@@ -2,6 +2,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { readShare } from "@/lib/share-link";
 import { renderSubstitute, substituteModel } from "@/lib/substitute-receipt";
 import { expenseCsv, type ExpenseRow } from "@/lib/expense-summary";
+import { party, renderPackageDoc } from "@/lib/package-docs";
+import { platformCompanyId, type SaleRecords } from "@/lib/package-sale";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +48,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
       files: count || 0,
     });
     return new Response(renderSubstitute(model), { headers: html });
+  }
+  // A package bought from EliteFlow: the buyer's invoice / receipt.
+  if (t.k === "pay") {
+    const { data: p } = await sb.from("billing_payments").select("*").eq("id", t.id).maybeSingle();
+    const records = p?.records as SaleRecords | null;
+    if (!p || p.status !== "verified" || !records?.invoiceNo) return notFound("ไม่พบเอกสารการชำระนี้");
+    const [{ data: issuer }, { data: buyer }] = await Promise.all([
+      sb.from("companies").select("name, profile").eq("id", platformCompanyId()).maybeSingle(),
+      sb.from("companies").select("name, profile").eq("id", p.company_id).maybeSingle(),
+    ]);
+    const doc = renderPackageDoc({ kind: t.d, issuer: party(issuer), customer: party(buyer), plan: p.plan, cycle: p.cycle, amount: Number(p.amount), ref: p.slip_ref, records });
+    return new Response(doc, { headers: html });
   }
   // The summary file
   const { data: company } = await sb.from("companies").select("name").eq("id", t.c).maybeSingle();

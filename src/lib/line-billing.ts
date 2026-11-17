@@ -3,6 +3,7 @@
 // for the slip in the chat. The slip is checked like on the website and, when it matches, the package opens at once.
 // Pure helpers here (tested in tests/line-billing.test.ts); the webhook does the rest.
 import { planById, planPrice, plans } from "./billing";
+import { billingPayee, type Payee } from "./payee";
 
 /** How long the bot waits for the slip after a package was picked. */
 export const BILLING_MS = 30 * 60_000;
@@ -88,7 +89,7 @@ export function plansCarousel(pricingUrl: string) {
   return { type: "flex", altText: "เลือกแพ็กเกจ EliteFlow เพื่อปลดล็อกทุกระบบ", contents: { type: "carousel", contents: bubbles } };
 }
 
-export type Payee = { promptPay: string; bank: string; account: string; name: string };
+export type { Payee };
 /** Where to pay: PromptPay QR for the exact amount (when a PromptPay ID is set), else the bank account, else the website. */
 export function payCard(choice: BillingChoice, payee: Payee, links: { qrUrl: string; pricingUrl: string }) {
   const p = planById(choice.plan),
@@ -145,15 +146,31 @@ export function billingResult(r: { auto: boolean; message: string; plan: string 
     ? `🎉 ชำระเงินสำเร็จ เปิดใช้แพ็กเกจ ${name} แล้วค่ะ\nปลดล็อกทุกระบบทันที ส่งข้อความเดิมใหม่ได้เลยนะคะ`
     : `🧾 ${r.message}\n(แพ็กเกจ ${name})`;
 }
+/** After a package is opened: the invoice and receipt, one tap each. */
+export function saleDocsCard(docs: { invoice: string; receipt: string }, nos: { invoiceNo: string; receiptNo: string }) {
+  const btn = (label: string, uri: string, primary: boolean) => ({ type: "button", style: primary ? "primary" : "secondary", color: primary ? "#7c3aed" : undefined, height: "sm", action: { type: "uri", label, uri } });
+  return {
+    type: "flex",
+    altText: `ใบแจ้งหนี้ ${nos.invoiceNo} และใบเสร็จรับเงิน ${nos.receiptNo}`,
+    contents: {
+      type: "bubble",
+      size: "kilo",
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        contents: [
+          txt("🧾 เอกสารการชำระเงิน", { weight: "bold", size: "md", color: "#2c2550" }),
+          txt(`ใบแจ้งหนี้ ${nos.invoiceNo}\nใบเสร็จรับเงิน ${nos.receiptNo}`, { size: "sm", color: "#3b3651" }),
+          txt("บันทึกเป็นค่าใช้จ่ายในระบบบัญชีของบริษัทคุณให้แล้ว", { size: "xs", color: "#16a34a" }),
+        ],
+      },
+      footer: { type: "box", layout: "vertical", spacing: "sm", contents: [btn("ใบเสร็จรับเงิน", docs.receipt, true), btn("ใบแจ้งหนี้", docs.invoice, false)] },
+    },
+  };
+}
 export const billingPrompt = "เลือกแพ็กเกจที่ต้องการได้เลยค่ะ 👇 กดราคา แล้วส่งสลิปในแชทนี้ ปลดล็อกทันที";
 /** The website's address without a trailing slash ("" when not set). */
 export const appBase = () => (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
 /** The platform's payee (same settings as เติมเหรียญ). */
-export function payee(): Payee {
-  return {
-    promptPay: process.env.TOPUP_PROMPTPAY_ID || process.env.NEXT_PUBLIC_TOPUP_PROMPTPAY_ID || "",
-    bank: process.env.NEXT_PUBLIC_TOPUP_BANK_NAME || "",
-    account: process.env.NEXT_PUBLIC_TOPUP_BANK_ACCOUNT || "",
-    name: process.env.NEXT_PUBLIC_TOPUP_ACCOUNT_NAME || "",
-  };
-}
+export const payee = billingPayee;
