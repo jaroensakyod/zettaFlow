@@ -7,6 +7,10 @@ import { Bot, Check, FileText, MessageCircle, Pause, Play, ScanLine, Smartphone,
 
 const VIDEO_URL = process.env.NEXT_PUBLIC_PROMO_VIDEO_URL || "";
 const SCENE_MS = 4200;
+/** The hero as laid out on a computer; below HERO_SCALE_BELOW it is shown at this size, scaled down to fit. */
+const HERO_W = 1280,
+  HERO_H = 760,
+  HERO_SCALE_BELOW = 960;
 const scenes = [
   { icon: MessageCircle, title: "พนักงานสั่งงานผ่าน LINE", caption: "ทีมพิมพ์ ส่งรูป ส่งไฟล์ ในกลุ่ม LINE ที่ใช้อยู่แล้ว ไม่ต้องเปิดแอปใหม่" },
   { icon: ScanLine, title: "AI ดึงข้อมูลให้อัตโนมัติ", caption: "AI อ่านข้อความ รูปใบเสร็จ และเอกสาร แยกเป็นข้อมูลธุรกิจอย่างแม่นยำ" },
@@ -46,8 +50,26 @@ export function PromoVideo() {
  */
 export function HeroVideo({ children }: { children: ReactNode }) {
   const yt = VIDEO_URL ? youtubeId(VIDEO_URL) : "";
+  // Narrow screens see the hero as on a computer (headline beside the animation), scaled to fit the width.
+  const fit = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = fit.current;
+    if (!el) return;
+    const measure = () => setScale(el.clientWidth < HERO_SCALE_BELOW ? el.clientWidth / HERO_W : 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const scaled = scale < 1;
   return (
-    <section className={"hv" + (VIDEO_URL ? " has-clip" : "")} aria-label="EliteFlow">
+    <div className="hv-fit" ref={fit} style={scaled ? { height: HERO_H * scale } : undefined}>
+    <section
+      className={"hv" + (VIDEO_URL ? " has-clip" : "") + (scaled ? " scaled" : "")}
+      aria-label="EliteFlow"
+      style={scaled ? { width: HERO_W, height: HERO_H, transform: `scale(${scale})` } : undefined}
+    >
       <div className="hv-media">
         {VIDEO_URL ? (
           yt ? (
@@ -67,6 +89,7 @@ export function HeroVideo({ children }: { children: ReactNode }) {
       <div className="hv-shade" aria-hidden />
       <div className="hv-copy">{children}</div>
     </section>
+    </div>
   );
 }
 
