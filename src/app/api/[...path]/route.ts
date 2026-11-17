@@ -126,6 +126,7 @@ import { sendFeedback,
   promoMediaUpload,
 } from "@/lib/engage";
 import { presence } from "@/lib/presence";
+import { customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
 import { isImage, MAX_STAMP, signersProblem } from "@/lib/signers";
 export const runtime = "nodejs";
@@ -587,6 +588,8 @@ async function handle(req: NextRequest) {
     if (path[0] === "entities" && path[2] === "next-code" && method === "GET")
       return response(await nextCode(ctx, path[1]));
     if (path[0] === "directory" && method === "GET") return response(await directory(ctx, z.string().max(40).parse(path[1])));
+    // EliteFlow's own workspace: the current package of each customer (a signed-up company).
+    if (path[0] === "customer-plans" && method === "GET") return response(ctx.demo ? {} : await customerPlans(ctx.company.id));
     if (path[0] === "presence" && method === "POST") return response(await presence(ctx, await body(req)));
     if (path[0] === "support") {
       if (method === "GET") {

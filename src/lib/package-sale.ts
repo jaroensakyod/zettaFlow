@@ -8,6 +8,7 @@ import { supabaseAdmin } from "./supabase/server";
 import { planById } from "./billing";
 import { shareUrl } from "./share-link";
 import { validateEntity } from "./domain";
+import type { CustomerPlan } from "./plan-badge";
 
 /** EliteFlow's own company (eliteflowofficials@gmail.com), where sales are booked. */
 export const platformCompanyId = () => process.env.PLATFORM_COMPANY_ID || "c6990704-26d6-4b1e-8c1c-6a5c5dff083d";
@@ -171,4 +172,28 @@ export async function recordPackageSale(paymentId: string): Promise<SaleRecords 
   if (!rec.errors!.length) delete rec.errors;
   await sb.from("billing_payments").update({ records: rec }).eq("id", p.id);
   return rec;
+}
+
+/**
+ * ลูกค้า in EliteFlow's own workspace: each signed-up company's current package, keyed by its customer record.
+ * Empty for every other company (their customers are not EliteFlow users).
+ */
+export async function customerPlans(companyId: string): Promise<Record<string, CustomerPlan>> {
+  if (companyId !== platformCompanyId()) return {};
+  const sb = supabaseAdmin();
+  const { data: links } = await sb.from("platform_customers").select("company_id, customer_id");
+  if (!links?.length) return {};
+  const { data: subs } = await sb
+    .from("subscriptions")
+    .select("company_id, plan, status, current_period_end, trial_ends_at")
+    .in("company_id", links.map((l) => l.company_id));
+  const by = new Map((subs || []).map((s) => [s.company_id as string, s]));
+  return Object.fromEntries(
+    links
+      .filter((l) => by.has(l.company_id as string))
+      .map((l) => {
+        const s = by.get(l.company_id as string)!;
+        return [l.customer_id as string, { plan: String(s.plan), status: String(s.status), end: (s.current_period_end as string | null) || null, trialEnd: (s.trial_ends_at as string | null) || null }];
+      }),
+  );
 }

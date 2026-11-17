@@ -2,7 +2,7 @@
 // ลูกค้า / Supplier / พนักงาน: stat cards, searchable list on the left, details on the right.
 // Codes CUS-67-0001 / SUP-67-0001 are issued by the database when the code field is left blank.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound, Users, Building2, Sparkles, Hash, Truck, FileWarning, Wallet, CalendarClock, Briefcase, MapPin, Landmark, Package, CreditCard, FileClock, Tag, type LucideIcon } from "lucide-react";
+import { Search, Plus, Download, Upload, Phone, Mail, Pencil, MessageCircle, Star, Archive, UserRound, Users, Building2, Sparkles, Hash, Truck, FileWarning, Wallet, CalendarClock, Briefcase, MapPin, Landmark, Package, CreditCard, FileClock, Tag, Crown, type LucideIcon } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels, approvalRights } from "@/lib/catalog";
 import type { PartyStats } from "@/lib/directory";
@@ -11,6 +11,17 @@ import { EntityEditor, photoUrl, type EditorGroup } from "./records";
 import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory } from "./employee-profile";
 import { EntityFiles } from "./entity-files";
+import { planBadge, type CustomerPlan, type PlanBadge } from "@/lib/plan-badge";
+
+/** The customer's current EliteFlow package, as a small coloured pill. */
+function PlanTag({ badge }: { badge: PlanBadge | null | undefined }) {
+  if (!badge) return null;
+  return (
+    <em className={"plan-tag pt-" + badge.tone} title={badge.hint}>
+      <Crown size={12} /> {badge.label}
+    </em>
+  );
+}
 
 type Kind = "customers" | "suppliers" | "employees";
 type Data = { rows: Entity[]; stats: Record<string, PartyStats>; nextCode: string };
@@ -54,6 +65,8 @@ export function Directory({
     [selectedId, setSelectedId] = useState(""),
     [editing, setEditing] = useState<Entity | "new" | null>(null),
     [profile, setProfile] = useState(""),
+    // EliteFlow's own workspace: each customer's current package (empty elsewhere).
+    [plans, setPlans] = useState<Record<string, CustomerPlan>>({}),
     [error, setError] = useState(""),
     [importing, setImporting] = useState(false),
     importRef = useRef<HTMLInputElement>(null);
@@ -72,6 +85,7 @@ export function Directory({
   useEffect(() => {
     load();
     api("/options").then(setOptions).catch(() => {});
+    if (kind === "customers") api("/customer-plans").then(setPlans).catch(() => {});
     const p = new URLSearchParams(location.search).get("profile");
     if (kind === "employees" && p) setProfile(p);
   }, [load, kind]);
@@ -288,7 +302,10 @@ export function Directory({
                           {s?.onLeave && <em className="tag warn">ลาวันนี้</em>}
                         </span>
                       ) : (
-                        !!e.data.code && <span className="dir-code">{String(e.data.code)}</span>
+                        <span className="dir-side">
+                          <PlanTag badge={planBadge(plans[e.id])} />
+                          {!!e.data.code && <span className="dir-code">{String(e.data.code)}</span>}
+                        </span>
                       )}
                     </button>
                   </li>
@@ -326,6 +343,7 @@ export function Directory({
             kind={kind}
             e={selected}
             stats={data.stats[selected.id]}
+            plan={planBadge(plans[selected.id])}
             nameOf={nameOf}
             writable={writable}
             approver={approver}
@@ -492,6 +510,7 @@ function PartyPanel({
   kind,
   e,
   stats,
+  plan,
   nameOf,
   writable,
   approver,
@@ -501,6 +520,7 @@ function PartyPanel({
   kind: "customers" | "suppliers";
   e: Entity;
   stats?: PartyStats;
+  plan?: PlanBadge | null;
   nameOf: (id: unknown) => unknown;
   writable: boolean;
   approver: boolean;
@@ -527,6 +547,7 @@ function PartyPanel({
         <div>
           <div className="dir-chips">
             {!!d.code && <em className="tag code">{String(d.code)}</em>}
+            <PlanTag badge={plan} />
             {!!d.type && <em className="tag">{String(d.type)}</em>}
             {d.segment === "vip" && <em className="tag vip">VIP</em>}
             {d.tier === "หลัก" && <em className="tag ok">Supplier หลัก</em>}
