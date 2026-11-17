@@ -2,10 +2,12 @@
 // เพิ่มสินค้า / บริการ / แพ็กเกจ: one form for the shared catalog (คลังสินค้า and ฝ่ายขาย). A summary card on top
 // (type, name, price, promotion, status), then details with category and unit chips, the picture, price and profit,
 // the promotion, what a package includes, and — for สินค้า only — where the stock is kept.
-import { Barcode, Boxes, CheckCircle2, Gift, ListChecks, MapPin, Package, PauseCircle, Percent, Tag, TrendingUp, Wand2, Wrench } from "lucide-react";
+import { useState } from "react";
+import { Barcode, Boxes, Camera, CheckCircle2, ChevronDown, Gift, ImagePlus, ListChecks, MapPin, Package, PauseCircle, Percent, Star, Tag, TrendingUp, Wand2, Wrench, X } from "lucide-react";
 import { catalog, statusLabels } from "@/lib/catalog";
 import { discountPercent, itemType, promoActive, type ItemType } from "@/lib/product-catalog";
-import { FieldControl, type Option } from "./records";
+import { FieldControl, photoUrl, shrinkPhoto, type Option } from "./records";
+import { uploadFile } from "./platform";
 
 export const typeLook: Record<ItemType, [string, React.ComponentType<{ size?: number }>, string]> = {
   product: ["สินค้า", Package, "blue"],
@@ -17,8 +19,90 @@ const unitsFor: Record<ItemType, string[]> = {
   service: ["ครั้ง", "ชั่วโมง", "วัน", "เดือน", "งาน", "โปรเจกต์"],
   package: ["แพ็กเกจ", "ชุด", "เดือน", "ปี"],
 };
-const used = ["name", "sku", "category", "unit", "cost", "price", "reorderLevel", "location", "status", "type", "image", "description", "includes", "promoPrice", "promoLabel", "promoEnds"];
+const used = ["name", "sku", "category", "unit", "cost", "price", "reorderLevel", "location", "status", "type", "image", "gallery", "description", "includes", "promoPrice", "promoLabel", "promoEnds"];
 const fmt = (n: number) => n.toLocaleString("th-TH", { maximumFractionDigits: 2 });
+export const MAX_PHOTOS = 10;
+/** Every photo of an item, cover first ("image", then the comma-separated "gallery"). */
+export const photosOf = (d: Record<string, unknown>) =>
+  [String(d.image || ""), ...String(d.gallery || "").split(",")].map((x) => x.trim()).filter(Boolean);
+
+/** รูปสินค้า: up to ten photos. The first is the cover the catalog shows; tap ★ to make another the cover. */
+function PhotoGallery({ values, set }: { values: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+  const photos = photosOf(values);
+  const [busy, setBusy] = useState(0),
+    [error, setError] = useState("");
+  const save = (list: string[]) => {
+    set("image", list[0] || "");
+    set("gallery", list.slice(1).join(","));
+  };
+  const add = async (files: File[]) => {
+    const room = MAX_PHOTOS - photos.length;
+    if (files.length > room) setError("ใส่ได้สูงสุด " + MAX_PHOTOS + " รูป");
+    else setError("");
+    const pick = files.slice(0, Math.max(0, room));
+    if (!pick.length) return;
+    setBusy(pick.length);
+    const ids: string[] = [];
+    for (const f of pick) {
+      try {
+        ids.push(await uploadFile(await shrinkPhoto(f), "Warehouse"));
+      } catch (err) {
+        setError((err as Error).message);
+      }
+      setBusy((n) => n - 1);
+    }
+    if (ids.length) save([...photos, ...ids].slice(0, MAX_PHOTOS));
+  };
+  return (
+    <div className="pf-gallery">
+      <div className="pf-gallery-head">
+        <b>
+          <Camera size={15} /> รูปสินค้า
+        </b>
+        <small>
+          {photos.length}/{MAX_PHOTOS} รูป · รูปแรกคือรูปปก
+        </small>
+      </div>
+      <div className="pf-gallery-grid">
+        {photos.map((id, i) => (
+          <figure key={id} className={i === 0 ? "cover" : ""}>
+            <img src={photoUrl(id)} alt={"รูปที่ " + (i + 1)} />
+            {i === 0 ? (
+              <em>รูปปก</em>
+            ) : (
+              <button type="button" className="star" aria-label={"ตั้งรูปที่ " + (i + 1) + " เป็นรูปปก"} title="ตั้งเป็นรูปปก" onClick={() => save([id, ...photos.filter((x) => x !== id)])}>
+                <Star size={13} />
+              </button>
+            )}
+            <button type="button" className="del" aria-label={"ลบรูปที่ " + (i + 1)} onClick={() => save(photos.filter((x) => x !== id))}>
+              <X size={13} />
+            </button>
+          </figure>
+        ))}
+        {photos.length < MAX_PHOTOS && (
+          <label className={"pf-gallery-add" + (photos.length ? "" : " first")}>
+            <ImagePlus size={photos.length ? 22 : 28} />
+            <span>{busy ? "กำลังอัปโหลด " + busy + " รูป…" : photos.length ? "เพิ่มรูป" : "เพิ่มรูปสินค้า"}</span>
+            {!photos.length && !busy && <small>เลือกได้หลายรูปพร้อมกัน · PNG, JPG, WebP</small>}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              className="sr-only"
+              disabled={!!busy}
+              onChange={(e) => {
+                const files = [...(e.target.files || [])];
+                e.target.value = "";
+                add(files);
+              }}
+            />
+          </label>
+        )}
+      </div>
+      {error && <p className="form-error">{error}</p>}
+    </div>
+  );
+}
 
 export function ProductFields({
   values,
@@ -125,17 +209,31 @@ export function ProductFields({
           </span>
           <div>
             <h3>ข้อมูล{typeName}</h3>
-            <small>ชื่อ รหัส หมวดหมู่ หน่วย รูป และรายละเอียด</small>
+            <small>รูป ชื่อ รหัส หมวดหมู่ หน่วย และรายละเอียด</small>
           </div>
           <button type="button" className="ge-copy" onClick={sku}>
             <Wand2 size={13} /> สร้างรหัส
           </button>
         </header>
+        <PhotoGallery values={values} set={set} />
         <div className="form-grid">
           {control("name")}
           {control("sku")}
           {control("category")}
-          {control("unit")}
+          <label htmlFor="field-unit">
+            หน่วย<span className="required"> *</span>
+            <span className="pf-select">
+              <select id="field-unit" name="unit" required value={unit} onChange={(e) => set("unit", e.target.value)}>
+                <option value="">เลือกหน่วย</option>
+                {[...unitsFor[type], ...(unit && !unitsFor[type].includes(unit) ? [unit] : [])].map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} />
+            </span>
+          </label>
         </div>
         {categories.length > 0 && (
           <div className="pf-chips" aria-label="หมวดหมู่ที่มีอยู่">
@@ -147,18 +245,7 @@ export function ProductFields({
             ))}
           </div>
         )}
-        <div className="pf-chips" aria-label="หน่วยที่ใช้บ่อย">
-          <small>หน่วย:</small>
-          {unitsFor[type].map((u) => (
-            <button key={u} type="button" className={unit === u ? "on" : ""} onClick={() => set("unit", u)}>
-              {u}
-            </button>
-          ))}
-        </div>
-        <div className="form-grid pf-media">
-          {control("image")}
-          {control("description")}
-        </div>
+        <div className="form-grid">{control("description")}</div>
       </section>
 
       {type === "package" && (

@@ -3,13 +3,13 @@
 // a stock table) and ฝ่ายขาย (mode "sales": what the company sells, prices and promotions). Both read and write the
 // same `products` records, so whatever the warehouse adds is ready to sell at once.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Boxes, Check, CheckCircle2, Flame, LayoutGrid, Package, Plus, Search, Sparkles, Table2, Tag, TriangleAlert } from "lucide-react";
+import { Boxes, Check, CheckCircle2, Flame, Images, LayoutGrid, Package, Plus, Search, Sparkles, Table2, Tag, TriangleAlert } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { discountPercent, itemType, promoActive, stockState, type ItemType } from "@/lib/product-catalog";
 import { catalog } from "@/lib/catalog";
 import { api, Loading, Modal, money, displayDate } from "./shared";
 import { photoUrl, Records, type Option } from "./records";
-import { ProductFields, typeLook } from "./product-form";
+import { photosOf, ProductFields, typeLook } from "./product-form";
 
 type Tab = "all" | ItemType | "promo" | "low";
 const newSku = (type: ItemType) => {
@@ -271,6 +271,11 @@ function Card({ e, mode, onOpen }: { e: Entity; mode: "warehouse" | "sales"; onO
           </em>
         )}
         {off && <em className="pc-offtag">หยุดขาย</em>}
+        {photosOf(d).length > 1 && (
+          <em className="pc-photos">
+            <Images size={12} /> {photosOf(d).length}
+          </em>
+        )}
       </span>
       <span className="pc-body">
         {!!d.category && <small className="pc-cat">{String(d.category)}</small>}

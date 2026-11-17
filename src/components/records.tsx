@@ -29,7 +29,7 @@ import { SalesFields } from "./sales-form";
 import { ProductFields } from "./product-form";
 export type Option = { id: string; kind: string; name: string };
 // Shrinks a photo to a square-ish WebP (max 512px) before upload.
-async function shrinkPhoto(file: File) {
+export async function shrinkPhoto(file: File) {
   const bitmap = await createImageBitmap(file),
     scale = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height)),
     canvas = document.createElement("canvas");

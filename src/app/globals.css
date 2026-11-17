@@ -8411,3 +8411,29 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .pc-empty .pc-add { margin-top: 8px; justify-content: center; }
 @media (max-width: 640px) { .pc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .pc-stats button { min-width: 0; flex: 1; } .pc-add { width: 100%; } .pc-add button { flex: 1; justify-content: center; padding: 0 8px; } .pc-price b { font-size: 16px; } }
 @media (prefers-reduced-motion: reduce) { .pc-card { transition: none; } .pc-card:hover { transform: none; } }
+
+/* Product photos (0075): a gallery on top of the item form, cover first. */
+.pf-gallery { margin-bottom: 14px; padding: 12px; border-radius: 16px; background: var(--s, #eff6ff); border: 1px dashed color-mix(in srgb, var(--a, #3b82f6) 35%, transparent); }
+.pf-gallery-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.pf-gallery-head b { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--b, #1d4ed8); }
+.pf-gallery-head small { font-size: 12px; color: #6b6585; font-weight: 600; }
+.pf-gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.pf-gallery-grid figure { position: relative; margin: 0; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
+.pf-gallery-grid figure.cover { grid-column: span 2; grid-row: span 2; box-shadow: 0 0 0 3px var(--a, #3b82f6), 0 8px 18px rgba(15, 23, 42, .12); }
+.pf-gallery-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-gallery-grid figure em { position: absolute; left: 8px; bottom: 8px; padding: 3px 9px; border-radius: 99px; background: linear-gradient(135deg, var(--a, #3b82f6), var(--b, #1d4ed8)); color: #fff; font-size: 11px; font-weight: 800; font-style: normal; }
+.pf-gallery-grid figure button { position: absolute; top: 6px; display: grid; place-items: center; width: 26px; height: 26px; margin: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(15, 23, 42, .6); color: #fff; cursor: pointer; opacity: .9; }
+.pf-gallery-grid figure button:hover { opacity: 1; background: rgba(15, 23, 42, .85); }
+.pf-gallery-grid figure .del { right: 6px; }
+.pf-gallery-grid figure .star { left: 6px; }
+.pf-gallery-grid figure .star:hover { background: #f59e0b; }
+.pf-gallery-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; aspect-ratio: 1; margin: 0; padding: 8px; border-radius: 14px; border: 2px dashed color-mix(in srgb, var(--a, #3b82f6) 45%, transparent); background: #fff; color: var(--b, #1d4ed8); font-size: 12.5px; font-weight: 700; text-align: center; cursor: pointer; transition: background .15s, transform .15s; }
+.pf-gallery-add:hover { background: color-mix(in srgb, var(--a, #3b82f6) 8%, #fff); transform: translateY(-1px); }
+.pf-gallery-add.first { grid-column: 1 / -1; aspect-ratio: auto; min-height: 150px; }
+.pf-gallery-add small { font-size: 11.5px; font-weight: 600; color: #6b6585; }
+.pf-gallery .form-error { margin: 8px 0 0; }
+.pf-select { position: relative; display: block; }
+.pf-select select { width: 100%; appearance: none; -webkit-appearance: none; padding-right: 38px; cursor: pointer; }
+.pf-select svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--b, #1d4ed8); }
+.pc-photos { bottom: 10px; right: 10px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; background: rgba(15, 23, 42, .65); color: #fff; font-size: 11px; font-style: normal; font-weight: 700; }
+@media (max-width: 520px) { .pf-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

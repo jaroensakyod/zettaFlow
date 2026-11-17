@@ -425,6 +425,8 @@ export const modules: Module[] = [
       // สินค้า · บริการ · แพ็กเกจ in one list (0074): the sales team sells from here too.
       f("type", "ประเภท", "select", false, { options: ["product", "service", "package"] }),
       f("image", "รูปสินค้า", "image"),
+      // More photos (0075): attachment ids, comma separated; "image" stays the cover.
+      f("gallery", "รูปเพิ่มเติม", "text", false, { hidden: true }),
       f("description", "รายละเอียด", "textarea"),
       f("includes", "สิ่งที่รวมในแพ็กเกจ", "textarea"),
       f("promoPrice", "ราคาโปรโมชัน", "number", false, { min: 0 }),
