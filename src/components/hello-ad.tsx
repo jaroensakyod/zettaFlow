@@ -21,6 +21,12 @@ const snoozedUntil = () => {
     return 0;
   }
 };
+/** EliteFlow's own ads, shown when no company has bought an ad and the team has set no feed promotion. */
+const houseAds: FeedAd[] = [
+  { id: "house-ads", title: "ลงโฆษณาบริษัทคุณตรงนี้", body: "ให้ทุกบริษัทในเครือข่าย EliteFlow เห็นสินค้าและบริการของคุณ เริ่มได้ด้วยเหรียญ", cta_label: "สร้างโฆษณา", cta_url: "/workspace/ads", tone: "violet" },
+  { id: "house-plans", title: "อัปเกรดแพ็กเกจ ปลดล็อกทุกแผนก", body: "การตลาด · เซลล์ · จัดซื้อ · คลัง · HR ทำงานร่วมกับบัญชีได้ทันที จ่ายรายปีฟรี 2 เดือน", cta_label: "ดูแพ็กเกจ", cta_url: "/workspace/pricing", tone: "pink" },
+  { id: "house-line", title: "ส่งเอกสารในกลุ่ม LINE ให้ AI บันทึกให้", body: "เชื่อมกลุ่ม LINE ของแต่ละแผนก ส่งรูปใบเสร็จหรือสลิป ระบบอ่านและบันทึกเข้าระบบอัตโนมัติ", cta_label: "เชื่อม LINE", cta_url: "/workspace/integrations", tone: "green" },
+];
 const initials = (name: string) => name.replace(/^(บริษัท|หจก\.?|ห้างหุ้นส่วน)\s*/, "").trim().slice(0, 2).toUpperCase() || "AD";
 
 export function HelloAd({ demo }: { demo: boolean }) {
@@ -41,7 +47,8 @@ export function HelloAd({ demo }: { demo: boolean }) {
         .catch(() => [] as Promo[]),
     ]).then(([bought, promos]: [FeedAd[], Promo[]]) => {
       if (!live) return;
-      setAds([...bought, ...promos.map((x) => ({ id: x.id, title: x.title, body: x.body, cta_label: x.cta_label, cta_url: x.cta_url, tone: x.tone }))]);
+      const all = [...bought, ...promos.map((x) => ({ id: x.id, title: x.title, body: x.body, cta_label: x.cta_label, cta_url: x.cta_url, tone: x.tone }))];
+      setAds(all.length ? all : houseAds);
     });
     return () => {
       live = false;
