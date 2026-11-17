@@ -747,10 +747,11 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         )}
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
-        <main className={"main" + (sectionTone(sideDept, fullView) ? " top-" + sectionTone(sideDept, fullView) : "")} key={ctx.company.id}>
+        {/* Every department's pages: a tint in the department's colour at the top (รายรับ / ค่าใช้จ่าย keep their own). */}
+        <main className={"main" + ((sectionTone(sideDept, fullView) || sideDept?.tone) ? " top-" + (sectionTone(sideDept, fullView) || sideDept?.tone) : "")} key={ctx.company.id}>
           {!["feed", "jobs", "dashboard", "company", "expense-new", "income-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat"].includes(view) && (
-          // Accounting pages carry their own period picker and tabs: a one-line heading keeps the numbers near the top.
-          <div className={"page-heading" + (sideDept?.id === "accounting" ? " compact" : "")}>
+          // Department pages: a one-line heading keeps the work near the top (as on the accounting pages).
+          <div className={"page-heading" + (sideDept ? " compact" : "")}>
             <div>
               <div className="eyebrow">YOUR BUSINESS, CONNECTED</div>
               <h1>{meta.label}</h1>
