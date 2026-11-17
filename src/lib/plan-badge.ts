@@ -1,7 +1,17 @@
 // The package badge on EliteFlow's own customer list: which package each signed-up company is on right now.
 import { planById } from "./billing";
 
-export type CustomerPlan = { plan: string; status: string; end: string | null; trialEnd: string | null };
+export type CustomerPlan = {
+  plan: string;
+  status: string;
+  end: string | null;
+  trialEnd: string | null;
+  /** The signed-up company, and whether it has a logo (shown as the customer's picture). */
+  company?: string;
+  logo?: boolean;
+};
+/** Where a customer company's logo is served (EliteFlow's own workspace only). */
+export const customerLogoUrl = (company: string) => "/api/customer-plans/logo/" + company;
 export type PlanBadge = { label: string; tone: string; hint: string };
 
 const short = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit", timeZone: "Asia/Bangkok" });

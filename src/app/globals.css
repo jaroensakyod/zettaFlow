@@ -8525,3 +8525,5 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .plan-tag.pt-business { background: linear-gradient(135deg, #f472b6, #db2777); }
 .plan-tag.pt-enterprise { background: linear-gradient(135deg, #fbbf24, #f59e0b 45%, #b45309); }
 .plan-tag.pt-expired { background: #fee2e2; color: #b91c1c; box-shadow: none; border: 1px solid #fecaca; }
+/* A signed-up company's logo as the customer's picture */
+img.dir-avatar.logo { object-fit: cover; background: #fff; border: 1px solid #ece9f5; }

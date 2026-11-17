@@ -188,12 +188,34 @@ export async function customerPlans(companyId: string): Promise<Record<string, C
     .select("company_id, plan, status, current_period_end, trial_ends_at")
     .in("company_id", links.map((l) => l.company_id));
   const by = new Map((subs || []).map((s) => [s.company_id as string, s]));
+  const { data: companies } = await sb
+    .from("companies")
+    .select("id, logo:profile->>logo")
+    .in("id", links.map((l) => l.company_id));
+  const withLogo = new Set((companies || []).filter((c) => typeof c.logo === "string" && c.logo.length > 0).map((c) => c.id as string));
   return Object.fromEntries(
     links
       .filter((l) => by.has(l.company_id as string))
       .map((l) => {
         const s = by.get(l.company_id as string)!;
-        return [l.customer_id as string, { plan: String(s.plan), status: String(s.status), end: (s.current_period_end as string | null) || null, trialEnd: (s.trial_ends_at as string | null) || null }];
+        return [
+          l.customer_id as string,
+          { plan: String(s.plan), status: String(s.status), end: (s.current_period_end as string | null) || null, trialEnd: (s.trial_ends_at as string | null) || null, company: l.company_id as string, logo: withLogo.has(l.company_id as string) },
+        ];
       }),
   );
+}
+
+/** A signed-up company's logo, for EliteFlow's own customer list (null for anyone else or a company without one). */
+export async function customerLogo(viewerCompany: string, company: string): Promise<{ mime: string; bytes: Buffer } | { redirect: string } | null> {
+  if (viewerCompany !== platformCompanyId() || !/^[0-9a-f-]{36}$/i.test(company)) return null;
+  const sb = supabaseAdmin();
+  const { data: link } = await sb.from("platform_customers").select("company_id").eq("company_id", company).maybeSingle();
+  if (!link) return null;
+  const { data } = await sb.from("companies").select("logo:profile->>logo").eq("id", company).maybeSingle();
+  const logo = String((data as { logo?: string } | null)?.logo || "");
+  const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(logo);
+  if (m) return { mime: m[1], bytes: Buffer.from(m[2], "base64") };
+  if (/^https:\/\/\S+$/.test(logo)) return { redirect: logo };
+  return null;
 }

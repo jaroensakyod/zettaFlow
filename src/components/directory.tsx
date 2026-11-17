@@ -11,8 +11,15 @@ import { EntityEditor, photoUrl, type EditorGroup } from "./records";
 import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory } from "./employee-profile";
 import { EntityFiles } from "./entity-files";
-import { planBadge, type CustomerPlan, type PlanBadge } from "@/lib/plan-badge";
+import { customerLogoUrl, planBadge, type CustomerPlan, type PlanBadge } from "@/lib/plan-badge";
 import { PlanTag } from "./plan-tag";
+
+/** A customer's picture: on EliteFlow's own list, the signed-up company's logo; else the usual avatar. */
+function PartyAvatar({ e, plan, size = 38 }: { e: Entity; plan?: CustomerPlan; size?: number }) {
+  if (plan?.logo && plan.company)
+    return <img className="dir-avatar logo" src={customerLogoUrl(plan.company)} alt="" style={{ width: size, height: size }} />;
+  return <Avatar e={e} size={size} />;
+}
 
 type Kind = "customers" | "suppliers" | "employees";
 type Data = { rows: Entity[]; stats: Record<string, PartyStats>; nextCode: string };
@@ -269,7 +276,7 @@ export function Directory({
                 return (
                   <li key={e.id}>
                     <button className={selectedId === e.id ? "active" : ""} onClick={() => setSelectedId(e.id)}>
-                      <Avatar e={e} />
+                      <PartyAvatar e={e} plan={plans[e.id]} />
                       <span className="dir-main">
                         <b>
                           {String(e.data.name)}
@@ -335,6 +342,7 @@ export function Directory({
             e={selected}
             stats={data.stats[selected.id]}
             plan={planBadge(plans[selected.id])}
+            logo={plans[selected.id]}
             nameOf={nameOf}
             writable={writable}
             approver={approver}
@@ -502,6 +510,7 @@ function PartyPanel({
   e,
   stats,
   plan,
+  logo,
   nameOf,
   writable,
   approver,
@@ -512,6 +521,7 @@ function PartyPanel({
   e: Entity;
   stats?: PartyStats;
   plan?: PlanBadge | null;
+  logo?: CustomerPlan;
   nameOf: (id: unknown) => unknown;
   writable: boolean;
   approver: boolean;
@@ -534,7 +544,7 @@ function PartyPanel({
   return (
     <section className={"card dir-detail party pt-" + tone}>
       <header className="dir-head">
-        <Avatar e={e} size={64} />
+        <PartyAvatar e={e} plan={logo} size={64} />
         <div>
           <div className="dir-chips">
             {!!d.code && <em className="tag code">{String(d.code)}</em>}

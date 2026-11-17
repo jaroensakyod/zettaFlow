@@ -126,7 +126,7 @@ import { sendFeedback,
   promoMediaUpload,
 } from "@/lib/engage";
 import { presence } from "@/lib/presence";
-import { customerPlans } from "@/lib/package-sale";
+import { customerLogo, customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
 import { isImage, MAX_STAMP, signersProblem } from "@/lib/signers";
 export const runtime = "nodejs";
@@ -589,6 +589,12 @@ async function handle(req: NextRequest) {
       return response(await nextCode(ctx, path[1]));
     if (path[0] === "directory" && method === "GET") return response(await directory(ctx, z.string().max(40).parse(path[1])));
     // EliteFlow's own workspace: the current package of each customer (a signed-up company).
+    if (path[0] === "customer-plans" && method === "GET" && path[1] === "logo") {
+      const media = ctx.demo ? null : await customerLogo(ctx.company.id, String(path[2] || ""));
+      if (!media) return new Response(null, { status: 404 });
+      if ("redirect" in media) return NextResponse.redirect(media.redirect);
+      return new Response(new Uint8Array(media.bytes), { headers: { "Content-Type": media.mime, "Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff" } });
+    }
     if (path[0] === "customer-plans" && method === "GET") return response(ctx.demo ? {} : await customerPlans(ctx.company.id));
     if (path[0] === "presence" && method === "POST") return response(await presence(ctx, await body(req)));
     if (path[0] === "support") {
