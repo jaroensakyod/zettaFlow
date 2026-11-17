@@ -24,6 +24,7 @@ export function LandingHeader({ home = true }: { home?: boolean }) {
         <Logo />
       </Link>
       <nav aria-label="เมนูหลัก">
+        <a href={at("#live")}>สั่งงานผ่าน LINE</a>
         <a href={at("#product")}>Product</a>
         <a href={at("#how")}>How it works</a>
         <a href={at("#solutions")}>Solutions</a>

@@ -32,6 +32,8 @@ import { Logo, LandingHeader, LandingFooter, SIGNUP } from "./landing-shell";
 import "./landing.css";
 import "./promo-video.css";
 import { HeroVideo } from "./promo-video";
+import { LineLive } from "./line-live";
+import "./line-live.css";
 
 const thai = IBM_Plex_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "500", "600", "700"], variable: "--lp-thai" });
 const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["500", "700", "800"], variable: "--lp-display" });
@@ -189,19 +191,20 @@ export default function LandingHome() {
         <PromoStrip />
         <HeroVideo>
           <div className="lp-hero-copy">
-            <span className="lp-chip"><Sparkles size={14} /> AI-Powered Executive Dashboard</span>
+            <span className="lp-chip"><Sparkles size={14} /> ระบบบริหารธุรกิจ ที่สั่งงานผ่าน LINE ได้ทั้งหมด</span>
             <h1>
-              CEO <span>Command Center</span>
+              สั่งงานใน LINE <span>ระบบบันทึกให้เอง</span>
             </h1>
             <p className="lp-lead">
-              เปลี่ยนทุกบทสนทนาใน LINE ให้กลายเป็นข้อมูลธุรกิจ Workflow และ Dashboard แบบ Real-time
-              — ทีมทำงานแบบเดิม ผู้บริหารตัดสินใจได้เร็วกว่าเดิม
+              EliteFlow คือผู้ช่วย AI ในกลุ่ม LINE ของทีมคุณ — แค่แท็ก <b>@EliteFlow</b> แล้วพิมพ์ หรือถ่ายรูปใบเสร็จ
+              AI จะสรุปให้ตรวจ ขออนุมัติ แล้วบันทึกเข้า<b> บัญชี · HR · สต็อก · ยอดขาย · งาน</b> อัตโนมัติ
+              พร้อม Dashboard ผู้บริหารแบบเรียลไทม์
             </p>
             <div className="lp-hero-actions">
               <Link href={SIGNUP} className="lp-btn primary">
                 ใช้งานฟรีได้เลย <ArrowRight size={18} />
               </Link>
-              <a href="/demo" className="lp-btn ghost">ดูระบบตัวอย่าง</a>
+              <a href="#live" className="lp-btn ghost">ดูการสั่งงานใน LINE ▶</a>
             </div>
             <ul className="lp-proof">
               <li><CircleCheck size={16} /> ฟรีตลอด · LINE 1 กลุ่ม + บัญชีและการเงิน</li>
@@ -210,6 +213,40 @@ export default function LandingHome() {
             </ul>
           </div>
         </HeroVideo>
+
+        <section id="live" className="lp-live">
+          <header className="lp-head">
+            <span className="lp-kicker">เข้าใจ EliteFlow ใน 5 นาที</span>
+            <h2>
+              พิมพ์ในกลุ่ม LINE แบบนี้ <span>แล้วระบบทำให้ทั้งหมด</span>
+            </h2>
+            <p>ดูตัวอย่างจริง: เบิกเงิน ขอลา แจ้งยอดขาย เบิกของ สั่งงาน เพิ่มพนักงาน และถาม AI — กดเลือกเคสด้านล่างได้เลย</p>
+          </header>
+          <div className="lp-what">
+            <article>
+              <span>💬</span>
+              <h3>EliteFlow คืออะไร</h3>
+              <p>ระบบบริหารธุรกิจครบวงจร (บัญชี HR สต็อก ขาย โปรเจกต์) ที่ทีมใช้งานผ่านกลุ่ม LINE เดิม ไม่ต้องลงแอปใหม่ ไม่ต้องสอนใช้โปรแกรม</p>
+            </article>
+            <article>
+              <span>🤖</span>
+              <h3>ใช้งานยังไง</h3>
+              <p>เพิ่มบอท EliteFlow เข้ากลุ่ม แท็ก @EliteFlow แล้วพิมพ์ภาษาพูดหรือส่งรูป AI สรุปเป็นการ์ด กดบันทึก / อนุมัติได้ในแชท</p>
+            </article>
+            <article>
+              <span>📊</span>
+              <h3>ได้อะไร</h3>
+              <p>ทุกเรื่องในแชทกลายเป็นข้อมูลในระบบที่ถูกต้อง มีเลขเอกสาร ผู้อนุมัติ หลักฐาน และ Dashboard ให้ผู้บริหารเห็นธุรกิจทั้งหมดเรียลไทม์</p>
+            </article>
+          </div>
+          <LineLive />
+          <div className="lp-hero-actions center" style={{ marginTop: 36 }}>
+            <Link href={SIGNUP} className="lp-btn primary">
+              เริ่มใช้ฟรี เชื่อม LINE ใน 5 นาที <ArrowRight size={18} />
+            </Link>
+            <a href="/demo" className="lp-btn ghost">ลองระบบตัวอย่าง</a>
+          </div>
+        </section>
 
         <section className="lp-hero lp-mobile-show">
           <div className="lp-hero-copy">
