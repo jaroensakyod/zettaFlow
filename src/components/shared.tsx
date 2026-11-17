@@ -43,7 +43,9 @@ export async function api(
     cache: "no-store",
   });
   const data = await r.json();
-  if (!r.ok) throw Object.assign(new Error(data.error), { status: r.status });
+  // A save that needs a paid package: the workspace opens the upgrade dialog.
+  if (r.status === 402 && data.upgrade && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("ef-upgrade", { detail: data.error }));
+  if (!r.ok) throw Object.assign(new Error(data.error), { status: r.status, upgrade: !!data.upgrade });
   return data;
 }
 export const money = (n: unknown) =>

@@ -9,6 +9,13 @@ export class AppError extends Error {
     super(message);
   }
 }
+/** A save that needs a paid package: the web shows the upgrade dialog with the package page. */
+export class UpgradeError extends AppError {
+  upgrade = true;
+  constructor(message: string) {
+    super(message, 402);
+  }
+}
 export function assert(ok: unknown, message: string, status = 400): asserts ok {
   if (!ok) throw new AppError(message, status);
 }

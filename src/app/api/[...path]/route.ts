@@ -1368,6 +1368,7 @@ async function handle(req: NextRequest) {
           e instanceof AppError
             ? e.message
             : "ระบบไม่พร้อม กรุณาตรวจการตั้งค่าและลองใหม่",
+        ...(e instanceof AppError && (e as AppError & { upgrade?: boolean }).upgrade ? { upgrade: true } : {}),
       },
       e instanceof AppError ? e.status : 500,
     );

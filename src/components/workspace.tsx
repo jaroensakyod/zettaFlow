@@ -82,6 +82,7 @@ import { SampleDataCard } from "./sample-data-card";
 import { ExpenseForm } from "./expense-form";
 import { ProductCatalog } from "./product-catalog";
 import { IncomeForm } from "./income-form";
+import { UpgradeDialog } from "./upgrade-dialog";
 import { departmentOf, sectionTone } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
@@ -1043,6 +1044,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           </div>
         </Modal>
       )}
+      <UpgradeDialog />
       {searchOpen && (
         <Modal title="ไปยังเครื่องมือ" onClose={() => setSearchOpen(false)}>
           <div className="search-box command-search">

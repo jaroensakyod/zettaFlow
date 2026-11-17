@@ -17,6 +17,7 @@ import { derive, needsApprover, stockEffect, stockLocked, convertData, conversio
 import {
   assert,
   AppError,
+  UpgradeError,
   canRead,
   canWrite,
   validateEntity,
@@ -30,6 +31,8 @@ import {
   formatCode,
 } from "./domain";
 import { catalog } from "./catalog";
+import { freeKind } from "./departments";
+import { subscriptionActive, type Subscription } from "./billing";
 import { applyFx } from "./fx";
 import type { Context, Entity, Template, Ingestion, HomeData } from "./types";
 export function dbError(error: { message: string; code?: string } | null) {
@@ -180,7 +183,28 @@ export async function entityOptions(ctx: Context) {
     name: String(e.data.name || e.data.sku || e.id),
   }));
 }
+/** Contacts every plan keeps: an invoice needs its customer, an expense its supplier. */
+const freeContacts = new Set(["customers", "suppliers"]);
+/** Whether the company is on a paid package (active, not free, not a trial). The demo is open unless its plan was changed. */
+export async function paidPackage(ctx: Context) {
+  if (ctx.demo) {
+    const s = ((await demoRead()) as { subscription?: Subscription }).subscription;
+    return !s || (s.status === "active" && s.plan !== "free" && subscriptionActive(s));
+  }
+  const sb = await supabaseServer();
+  const { data } = await sb.from("subscriptions").select("*").eq("company_id", ctx.company.id).maybeSingle();
+  const s = data as Subscription | null;
+  return !!s && s.status === "active" && s.plan !== "free" && subscriptionActive(s);
+}
+/** แพ็กเกจฟรี: only บัญชีและการเงิน (and its customers / suppliers) is saved; anything else asks for an upgrade. */
+export async function assertPlanAllows(ctx: Context, kind: string) {
+  if (freeKind(kind) || freeContacts.has(kind) || (await paidPackage(ctx))) return;
+  throw new UpgradeError(
+    `“${catalog[kind]?.label || kind}” ต้องใช้แพ็กเกจแบบชำระเงิน · แพ็กเกจฟรีใช้ได้เฉพาะระบบบัญชีและการเงิน อัปเกรดแล้วปลดล็อกทุกระบบทันที`,
+  );
+}
 export async function saveEntity(ctx: Context, kind: string, input: unknown, id?: string, version?: number) {
+  await assertPlanAllows(ctx, kind);
   const record = await saveEntityCore(ctx, kind, input, id, version);
   // A quotation the customer accepted becomes a project named by its code, so costs and income can be filed to it.
   if (kind === "quotations" && record?.data?.status === "ตอบรับ") await quoteProject(ctx, record).catch(() => null);

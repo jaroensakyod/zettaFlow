@@ -8494,3 +8494,14 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .af-modal form > .form-grid :is(input, select, textarea) { border-radius: 12px; border-color: #e7e4f0; background: #fbfaff; }
 .af-modal form > .form-grid :is(input, select, textarea):focus { background: #fff; border-color: var(--h2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--h2) 18%, transparent); outline: none; }
 .af-modal form > .form-grid label { font-size: 12.5px; font-weight: 700; color: #3b3651; }
+
+/* Upgrade dialog (free package saving outside บัญชีและการเงิน) */
+.modal.upg-modal { width: min(520px, 94vw); }
+.upg { display: grid; justify-items: center; gap: 12px; padding: 6px 4px 4px; text-align: center; }
+.upg-icon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #f59e0b, #ec4899 60%, #7c3aed); box-shadow: 0 12px 26px rgba(236, 72, 153, .3); }
+.upg-msg { margin: 0; font-size: 15px; font-weight: 700; color: #2c2550; line-height: 1.55; }
+.upg ul { display: grid; gap: 8px; width: 100%; margin: 4px 0 0; padding: 12px 14px; list-style: none; text-align: left; border-radius: 14px; background: #f7f6fc; }
+.upg li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: #3b3651; }
+.upg li svg { flex: none; margin-top: 2px; color: #16a34a; }
+.upg li:first-child svg { color: #7c3aed; }
+.upg-modal .upg-go { background: linear-gradient(120deg, #f59e0b, #ec4899 55%, #7c3aed); border: 0; box-shadow: 0 8px 20px rgba(236, 72, 153, .3); }
