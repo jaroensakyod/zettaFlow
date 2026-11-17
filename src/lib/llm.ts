@@ -28,6 +28,7 @@ export const aiCost = (u: AiUsage) => {
 type TrialMeter = { used: number; limit: number | null };
 /** Trial or Free plan: stop before the call when the company has used its AI allowance. Paid plans are not limited here. */
 async function checkTrial(company: string, feature: string, hasFile: boolean) {
+  if (feature === "billing") return; // reading a package payment slip never counts against (or is blocked by) the free quota
   const { data } = await supabaseAdmin().rpc("trial_usage", { c: company });
   const t = data as (Record<string, TrialMeter> & { kind?: string }) | null;
   if (!t) return;

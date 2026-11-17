@@ -519,13 +519,15 @@ export function SubscriptionPanel({
               setError("");
               try {
                 const attachmentId = await uploadFile(file, "Finance");
-                await api("/billing", {
+                const r: { auto?: boolean; message?: string } = await api("/billing", {
                   method: "POST",
                   body: { ...pay, attachmentId, addons: chosen, extraUsers },
                 });
                 setPay(null);
                 await load();
-                notify("ส่งสลิปแล้ว ระบบจะเปิดใช้งานเมื่อทีมงานยืนยันยอด");
+                notify(r.message || "ส่งสลิปแล้ว ระบบจะเปิดใช้งานเมื่อทีมงานยืนยันยอด");
+                // A package bought just now unlocks every department: reload so the menu picks it up.
+                if (r.auto) setTimeout(() => window.location.reload(), 1500);
               } catch (err) {
                 setError((err as Error).message);
               } finally {
@@ -571,7 +573,7 @@ export function SubscriptionPanel({
               );
             })()}
             <p className="note">
-              โอนเข้าบัญชีบริษัท ZettaFlow AI แล้วอัปโหลดรูปสลิป (PNG/JPEG ไม่ครอป QR) ระบบตรวจ QR และกันสลิปซ้ำอัตโนมัติ
+              โอนเข้าบัญชีบริษัท ZettaFlow AI ยอด ฿{money(planPrice(pay.plan, pay.cycle, { addons: chosen, extraUsers }).total)} แล้วอัปโหลดรูปสลิป (PNG/JPEG ไม่ครอป QR) ระบบตรวจสลิปและยอดอัตโนมัติ ถ้าตรง เปิดใช้แพ็กเกจทันที
             </p>
             <label>
               รูปสลิป
