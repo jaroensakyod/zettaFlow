@@ -892,7 +892,7 @@ export function Records({
               {kind === "sales" ? (
                 <SalesFields values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} />
               ) : kind === "products" ? (
-                <ProductFields values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} />
+                <ProductFields values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} options={options} categories={[...new Set(rows.map((r) => String(r.data.category || "").trim()).filter(Boolean))]} />
               ) : (
               <div className="form-grid">
                 {module.fields.map((f) => (

@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   context,
   listEntities,
+  allEntities,
   nextCode,
   entityOptions,
   saveEntity,
@@ -677,6 +678,8 @@ async function handle(req: NextRequest) {
       );
     if (path[0] === "projects" && method === "GET")
       return response(path[1] ? await projectDetail(ctx, z.uuid().parse(path[1])) : await projectsOverview(ctx));
+    // สินค้า · บริการ · แพ็กเกจ: the whole catalog at once (คลังสินค้า and ฝ่ายขาย show the same list).
+    if (path[0] === "catalog" && method === "GET") return response({ items: await allEntities(ctx, "products", 2000) });
     if (path[0] === "entities") {
       if (method === "GET")
         return response(

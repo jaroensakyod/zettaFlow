@@ -422,6 +422,14 @@ export const modules: Module[] = [
       f("reorderLevel", "จุดแจ้งเตือนสต็อก", "number", true, { min: 0 }),
       f("location", "ตำแหน่งจัดเก็บ"),
       status(["active", "inactive"]),
+      // สินค้า · บริการ · แพ็กเกจ in one list (0074): the sales team sells from here too.
+      f("type", "ประเภท", "select", false, { options: ["product", "service", "package"] }),
+      f("image", "รูปสินค้า", "image"),
+      f("description", "รายละเอียด", "textarea"),
+      f("includes", "สิ่งที่รวมในแพ็กเกจ", "textarea"),
+      f("promoPrice", "ราคาโปรโมชัน", "number", false, { min: 0 }),
+      f("promoLabel", "ชื่อโปรโมชัน"),
+      f("promoEnds", "โปรโมชันถึงวันที่", "date"),
     ],
   },
   {
@@ -922,6 +930,9 @@ export const departmentNames = [
   "Admin",
 ];
 export const statusLabels: Record<string, string> = {
+  product: "สินค้า",
+  service: "บริการ",
+  package: "แพ็กเกจ",
   active: "ใช้งาน",
   inactive: "หยุดใช้งาน",
   available: "พร้อมใช้งาน",

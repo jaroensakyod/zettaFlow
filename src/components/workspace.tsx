@@ -80,6 +80,7 @@ import { DepartmentMegaMenu, DEPT_KEY } from "./dept-menu";
 import { DepartmentSidebar } from "./dept-sidebar";
 import { SampleDataCard } from "./sample-data-card";
 import { ExpenseForm } from "./expense-form";
+import { ProductCatalog } from "./product-catalog";
 import { IncomeForm } from "./income-form";
 import { departmentOf, sectionTone } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
@@ -843,6 +844,12 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <>
               <LinePending key={"line:" + view} kind={view} ctx={ctx} notify={notify} changed={load} />
               <Directory key={view} kind={view} ctx={ctx} notify={notify} changed={load} navigate={navigate} />
+            </>
+          ) : (view === "products" || view === "sales_packages") && !listFilter ? (
+            // One catalog (สินค้า · บริการ · แพ็กเกจ): คลังสินค้า manages it, ฝ่ายขาย sells from the same list.
+            <>
+              {view === "products" && <LinePending key="line:products" kind="products" ctx={ctx} notify={notify} changed={load} />}
+              <ProductCatalog key={view} ctx={ctx} mode={view === "products" ? "warehouse" : "sales"} notify={notify} changed={load} />
             </>
           ) : catalog[view] ? (
             <>
