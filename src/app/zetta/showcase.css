@@ -169,3 +169,44 @@
 @media (prefers-reduced-motion: reduce) {
   .bs-feature h3.reading span, .bs-features.spot .bs-feature.on .bs-ficon, .bs-read-bar { animation: none; color: #fff; }
 }
+
+/* ---- Business cards with a photo (2 columns, scene on the right fading into the card's colour) ---- */
+.bs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.bs-card.c13 { --a: #2563eb; --b: #93c5fd; }
+.bs-card.c14 { --a: #7c3aed; --b: #c4b5fd; }
+.bs-card.c15 { --a: #ea580c; --b: #fde047; }
+.bs-card.c16 { --a: #db2777; --b: #c084fc; }
+.bs-card { overflow: hidden; min-height: 232px; padding: 0; gap: 0; border-radius: 24px; background: linear-gradient(120deg, color-mix(in srgb, var(--a) 34%, #0b0b26) 0%, #0d0d2e 58%); border: 1.5px solid color-mix(in srgb, var(--b) 55%, transparent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 0 0 1px color-mix(in srgb, var(--a) 18%, transparent), 0 14px 40px color-mix(in srgb, var(--a) 18%, transparent); }
+.bs-card:hover { transform: translateY(-5px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 0 0 1px color-mix(in srgb, var(--b) 50%, transparent), 0 24px 60px color-mix(in srgb, var(--a) 38%, transparent); }
+.bs-photo { position: absolute; inset: 0 0 0 auto; width: 56%; z-index: 0; }
+.bs-photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .8s cubic-bezier(.2, .8, .2, 1); -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 38%); mask-image: linear-gradient(90deg, transparent 0%, #000 38%); }
+.bs-card:hover .bs-photo img { transform: scale(1.06); }
+.bs-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, color-mix(in srgb, var(--a) 30%, transparent)); pointer-events: none; }
+.bs-photo-none { display: grid; place-items: center; background: radial-gradient(circle at 65% 45%, color-mix(in srgb, var(--b) 45%, transparent), transparent 60%); -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 45%); mask-image: linear-gradient(90deg, transparent 0%, #000 45%); }
+.bs-photo-none span { font-size: 96px; opacity: .5; filter: drop-shadow(0 10px 30px color-mix(in srgb, var(--a) 60%, transparent)); }
+.bs-body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; width: 64%; min-height: 100%; padding: 20px 0 20px 22px; }
+.bs-top b { font-size: 21px; font-weight: 800; letter-spacing: -.01em; text-shadow: 0 2px 12px rgba(0, 0, 0, .45); }
+.bs-emoji { width: 50px; height: 50px; font-size: 26px; border-radius: 15px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 8px 22px color-mix(in srgb, var(--a) 45%, transparent); }
+.bs-card ul { gap: 7px; }
+.bs-card li { font-size: 12.5px; padding: 4px 11px; background: color-mix(in srgb, var(--a) 30%, rgba(10, 10, 35, .55)); border-color: color-mix(in srgb, var(--b) 55%, transparent); backdrop-filter: blur(4px); }
+.bs-line { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: rgba(12, 12, 40, .62); border: 1px solid color-mix(in srgb, var(--b) 40%, transparent); backdrop-filter: blur(6px); }
+.bs-line-tag { flex: none; padding: 5px 12px; border-radius: 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(6, 199, 85, .35); }
+.bs-line p { font-size: 13.5px; line-height: 1.45; }
+@media (max-width: 1100px) {
+  .bs-body { width: 70%; }
+  .bs-photo { width: 52%; }
+}
+@media (max-width: 760px) {
+  .bs-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .bs-card { min-height: 0; padding: 0; border-radius: 20px; }
+  .bs-photo { width: 62%; }
+  .bs-photo img { -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, .55) 45%, #000 80%); mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, .55) 45%, #000 80%); }
+  .bs-body { width: 78%; padding: 16px 0 16px 16px; gap: 10px; }
+  .bs-top b { font-size: 17px; }
+  .bs-emoji { width: 42px; height: 42px; font-size: 22px; }
+  .bs-card li { font-size: 11px; padding: 3px 9px; }
+  .bs-line { padding: 8px 10px; gap: 8px; }
+  .bs-line-tag { padding: 3px 9px; font-size: 10.5px; }
+  .bs-line p { font-size: 12px; }
+  .bs-photo-none span { font-size: 64px; }
+}
