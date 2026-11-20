@@ -9,8 +9,14 @@ import { supabaseAdmin } from "./supabase/server";
  * checked against the free-trial ceiling and logged in ai_usage with tokens and an estimated cost.
  */
 export const aiScope = new AsyncLocalStorage<{ company: string }>();
+/** For loops that switch company per item (the LINE job worker). Requests use aiScope.run instead. */
 export const forCompany = (company: string | null | undefined) => {
-  if (company) aiScope.enterWith({ company });
+  if (!company) return;
+  try {
+    aiScope.enterWith({ company });
+  } catch {
+    // Cloudflare Workers has no enterWith: the call still runs, only its ai_usage row lacks the company.
+  }
 };
 /** USD per 1M tokens (input, output incl. thinking). Unknown models are logged without a cost. */
 const prices: Record<string, [number, number]> = {

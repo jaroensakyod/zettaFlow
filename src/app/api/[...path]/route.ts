@@ -1,5 +1,5 @@
 import { currencies, thbRate } from "@/lib/fx";
-import { forCompany } from "@/lib/llm";
+import { aiScope } from "@/lib/llm";
 import { adStudio, buyAd, liveAds, setAdStatus, trackAd } from "@/lib/ads";
 import { lineGroupMessages, lineGroupsOverview } from "@/lib/line-hub";
 import { NextResponse, after, type NextRequest } from "next/server";
@@ -328,8 +328,8 @@ async function handle(req: NextRequest) {
     // ดูในมุมมองลูกค้า is read-only: nothing may change while an admin looks (leaving the view is the one exception).
     if (ctx.support && method !== "GET" && !(path[0] === "admin" && path[1] === "view"))
       throw new AppError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว) แก้ไขหรือบันทึกไม่ได้", 403);
-    // AI calls in this request count against this company's trial and are logged per company.
-    if (!ctx.demo) forCompany(ctx.company.id);
+    // AI calls in this request count against this company (run, not enterWith: Cloudflare Workers has only run).
+    return await aiScope.run(ctx.demo ? (undefined as unknown as { company: string }) : { company: ctx.company.id }, async () => {
     // Public showcase is read-only: only reads and side-effect-free helpers.
     if (
       ctx.demo &&
@@ -1409,6 +1409,7 @@ async function handle(req: NextRequest) {
       });
     }
     throw new AppError("ไม่พบ API", 404);
+    });
   } catch (e) {
     if (e instanceof z.ZodError)
       return response(
