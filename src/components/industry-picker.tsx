@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import {
   Building2, Check, ChevronDown, Search, Sprout, UtensilsCrossed, ShoppingBag, Factory, HardHat, Wrench, Megaphone, Cpu, Landmark,
-  HeartPulse, GraduationCap, Plane, Truck, Car, Leaf, Shapes, X, Sparkles, type LucideIcon,
+  HeartPulse, GraduationCap, Plane, Truck, Car, Leaf, Shapes, X, Sparkles, ChevronLeft, ChevronRight, type LucideIcon,
 } from "lucide-react";
 import { businessGroupOf, businessTypeGroups } from "@/lib/catalog";
 
@@ -70,7 +70,9 @@ export function IndustryPicker({
   const [open, setOpen] = useState(false),
     [q, setQ] = useState(""),
     [group, setGroup] = useState(businessGroupOf(value) || (value.startsWith("group:") ? value.slice(6) : businessTypeGroups[0][0])),
-    [cursor, setCursor] = useState(0);
+    [cursor, setCursor] = useState(0),
+    // Phones: a bottom sheet in two steps — every group as a tile, then the types of the tapped group.
+    [step, setStep] = useState<"groups" | "types">("groups");
   const box = useRef<HTMLDivElement>(null),
     input = useRef<HTMLInputElement>(null);
   const query = q.trim().toLowerCase();
@@ -90,10 +92,17 @@ export function IndustryPicker({
     if (!open) return;
     const g = value.startsWith("group:") ? value.slice(6) : businessGroupOf(value);
     if (g) setGroup(g);
-    input.current?.focus();
+    const phone = window.matchMedia("(max-width: 760px)").matches;
+    setStep(phone && g ? "types" : "groups");
+    // On phones the keyboard would cover the sheet, so the search box waits for a tap.
+    if (!phone) input.current?.focus();
+    else document.body.classList.add("ip-lock");
     const away = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
     document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.body.classList.remove("ip-lock");
+    };
   }, [open]);
   const pick = (v: string) => {
     onChange(v);
@@ -123,7 +132,16 @@ export function IndustryPicker({
         <ChevronDown size={14} className={open ? "flip" : ""} />
       </button>
       {open && (
-        <div className="ip-pop" role="dialog" aria-label="เลือกประเภทธุรกิจ">
+        <>
+        <div className="ip-scrim" onClick={() => setOpen(false)} aria-hidden="true" />
+        <div className={"ip-pop step-" + step} role="dialog" aria-label="เลือกประเภทธุรกิจ">
+          <div className="ip-sheet-head">
+            <i aria-hidden="true" />
+            <b>เลือกประเภทธุรกิจ</b>
+            <button type="button" onClick={() => setOpen(false)} aria-label="ปิด">
+              <X size={18} />
+            </button>
+          </div>
           <label className="ip-search">
             <Search size={15} />
             <input
@@ -189,16 +207,24 @@ export function IndustryPicker({
                       key={g}
                       className={"ip-group" + (g === group ? " on" : "")}
                       style={{ "--ic": gc } as CSSProperties}
-                      onPointerEnter={() => setGroup(g)}
+                      onPointerEnter={(e) => e.pointerType === "mouse" && setGroup(g)}
                       onFocus={() => setGroup(g)}
-                      onClick={() => setGroup(g)}
+                      onClick={() => (setGroup(g), setStep("types"))}
                     >
-                      <GI size={15} /> {g}
+                      <span className="ip-gicon">
+                        <GI size={15} />
+                      </span>
+                      <span className="ip-gname">{g}</span>
+                      <small className="ip-gcount">{businessTypeGroups.find(([x]) => x === g)?.[1].length} ประเภท</small>
+                      <ChevronRight size={15} className="ip-gnext" />
                     </button>
                   );
                 })}
               </div>
               <div className="ip-types" style={{ "--ic": look(group)[1] } as CSSProperties} key={group}>
+                <button type="button" className="ip-back" onClick={() => setStep("groups")}>
+                  <ChevronLeft size={16} /> ทุกหมวดธุรกิจ
+                </button>
                 <h4>
                   {(() => {
                     const GI = look(group)[0];
@@ -222,6 +248,7 @@ export function IndustryPicker({
             </div>
           )}
         </div>
+        </>
       )}
     </div>
   );
