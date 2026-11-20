@@ -11,7 +11,9 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "cf:build": "node scripts/patch-opennext.mjs && opennextjs-cloudflare build",
+    "cf:deploy": "npm run cf:build && wrangler deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
