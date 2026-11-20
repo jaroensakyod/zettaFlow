@@ -122,3 +122,18 @@ test("nothing outside src/lib/d1 uses the raw database driver", async () => {
     .filter((f) => /from ["'][^"']*d1\/driver["']|d1Driver\(|sqliteDriver\(/.test(readFileSync(f, "utf8")));
   assert.deepEqual(offenders, []);
 });
+
+test("a guarded batch aborts when what was read changed meanwhile (stand-in for row locks)", async () => {
+  const { sql, ownerOfA } = setup();
+  const { ConflictError } = await import("../src/lib/d1/tenant");
+  const a = new Tenant(sql, ownerOfA);
+  const [row] = await a.select<{ id: string; version: number }>("entities", { where: { kind: "customers" } });
+  // Someone else saves first.
+  await a.update("entities", { id: row.id }, { version: row.version + 1 });
+  const before = await a.count("audit_events");
+  await assert.rejects(a.atomic([a.guardStmt("entities", { id: row.id, version: row.version }), a.insertStmt("audit_events", { action: "x", target: row.id })]), ConflictError);
+  assert.equal(await a.count("audit_events"), before, "nothing from the aborted batch was kept");
+  // With the current version it goes through.
+  await a.atomic([a.guardStmt("entities", { id: row.id, version: row.version + 1 }), a.insertStmt("audit_events", { action: "x", target: row.id })]);
+  assert.equal(await a.count("audit_events"), before + 1);
+});

@@ -144,9 +144,56 @@ export class Tenant {
     const s = this.deleteStmt(table, where);
     return (await this.sql.all<Row>(s.sql, s.params)).map((r) => decode<T>(meta(table), r));
   }
-  /** Several writes as one: all or none. */
+  /** Several writes as one: all or none. A failed guardStmt aborts the batch with a ConflictError. */
   async atomic(stmts: Stmt[]) {
     if (this.viewer.support) throw new AccessError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว)");
-    return this.sql.batch(stmts);
+    try {
+      return await this.sql.batch(stmts);
+    } catch (e) {
+      if (/malformed JSON/i.test(String((e as Error).message))) throw new ConflictError();
+      throw e;
+    }
+  }
+
+  // ---------- for checked functions (the old SECURITY DEFINER functions) ----------
+  /**
+   * Reads inside this company without the per-person read rule — what a Postgres SECURITY DEFINER function saw (e.g.
+   * the record being saved even if it sits in a department the person cannot list). Still pinned to the company, so
+   * only tables with company_id.
+   */
+  async selectInternal<T = Row>(table: string, q: Query = {}): Promise<T[]> {
+    const m = meta(table);
+    if (!m.company) throw new AccessError(`${table} does not belong to one company`);
+    const f = this.filters(table, m, q.where);
+    const order = q.order?.length ? ` ORDER BY ${q.order.map(([c, d]) => `${col(m, table, c)} ${d === "desc" ? "DESC" : "ASC"}`).join(", ")}` : "";
+    const limit = q.limit !== undefined ? ` LIMIT ${Math.max(0, Math.floor(q.limit))}` : "";
+    const rows = await this.sql.all<Row>(`SELECT t.* FROM "${table}" t WHERE t.company_id = ? AND (${f.sql})${order}${limit}`, [this.viewer.companyId, ...f.params]);
+    return rows.map((row) => decode<T>(m, row));
+  }
+  /**
+   * A batch step that aborts the whole batch unless a row matching `where` still exists in this company — the
+   * stand-in for Postgres row locks: read, decide, then write only if what was read has not changed meanwhile.
+   */
+  guardStmt(table: string, where: Record<string, Cond>): Stmt {
+    const m = meta(table);
+    if (!m.company) throw new AccessError(`${table} does not belong to one company`);
+    const f = this.filters(table, m, where);
+    return { sql: `SELECT CASE WHEN EXISTS (SELECT 1 FROM "${table}" t WHERE t.company_id = ? AND (${f.sql})) THEN 1 ELSE json('changed') END`, params: [this.viewer.companyId, ...f.params] };
+  }
+  /** Next running number for a document prefix (next_number): atomic, never reused. */
+  async nextNumber(prefix: string, year: number): Promise<number> {
+    if (this.viewer.support) throw new AccessError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว)");
+    const [r] = await this.sql.all<{ last: number }>(
+      `INSERT INTO doc_counters (company_id, prefix, year, last) VALUES (?, ?, ?, 1) ON CONFLICT (company_id, prefix, year) DO UPDATE SET last = last + 1 RETURNING last`,
+      [this.viewer.companyId, prefix, year],
+    );
+    return Number(r.last);
+  }
+}
+/** What was read changed before the write: nothing was saved, the person should reload and try again. */
+export class ConflictError extends Error {
+  status = 409;
+  constructor() {
+    super("ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่");
   }
 }
