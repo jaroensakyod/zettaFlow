@@ -24,6 +24,7 @@ import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { UserOnline } from "./presence";
 import { FieldControl } from "./records";
 import { IndustryPicker } from "./industry-picker";
+import { CoverPositioner } from "./cover-positioner";
 import { BranchCards } from "./branches";
 import { companyFields, departmentNames, businessTypes, businessTypeGroups } from "@/lib/catalog";
 import { companyMissing, requiredFieldKeys } from "@/lib/company-required";
@@ -125,6 +126,7 @@ export function CompanySettings({
       return companyTabs.find(([k]) => k === s)?.[0] || "main";
     }),
     [uploading, setUploading] = useState<"" | "logo" | "cover">(""),
+    [placing, setPlacing] = useState<File | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [showMissing, setShowMissing] = useState(false);
@@ -166,7 +168,9 @@ export function CompanySettings({
         className="sr-only"
         disabled={!!uploading}
         onChange={(e) => {
-          pick(kind, e.target.files?.[0]);
+          const f = e.target.files?.[0];
+          if (kind === "cover") f && setPlacing(f);
+          else pick(kind, f);
           e.target.value = "";
         }}
       />
@@ -259,7 +263,17 @@ export function CompanySettings({
               : undefined
           }
         >
-          {owner && (
+          {placing && (
+            <CoverPositioner
+              file={placing}
+              onCancel={() => setPlacing(null)}
+              onSave={(f) => {
+                setPlacing(null);
+                pick("cover", f);
+              }}
+            />
+          )}
+          {owner && !placing && (
             <label className="secondary cover-button">
               <Camera size={15} />
               {uploading === "cover" ? "กำลังอัปโหลด…" : text("cover") ? "เปลี่ยนรูปปก" : "เพิ่มรูปปก"}

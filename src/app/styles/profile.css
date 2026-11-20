@@ -821,3 +821,28 @@
 .as-flag.f-ja { background: linear-gradient(135deg, #f43f5e, #be123c); }
 .as-flag.f-lo { background: linear-gradient(135deg, #1e40af, #dc2626); }
 .as-flag.f-my { background: linear-gradient(135deg, #f59e0b, #16a34a); }
+
+/* Placing a new cover before saving (cover-positioner.tsx): the photo fills the frame and follows the finger/mouse. */
+.cover-pos { position: absolute; inset: 0; z-index: 3; overflow: hidden; cursor: grab; touch-action: none; user-select: none; background: #1d1638; outline: none; }
+.cover-pos:active { cursor: grabbing; }
+.cover-pos img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; }
+.cover-pos::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 2px rgb(255 255 255 / .55);
+  background: linear-gradient(to right, transparent 33.2%, rgb(255 255 255 / .25) 33.3%, transparent 33.5%, transparent 66.5%, rgb(255 255 255 / .25) 66.6%, transparent 66.8%),
+    linear-gradient(to bottom, transparent 33.2%, rgb(255 255 255 / .25) 33.3%, transparent 33.5%, transparent 66.5%, rgb(255 255 255 / .25) 66.6%, transparent 66.8%); }
+.cover-pos-hint { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 1; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+  border-radius: 99px; background: rgb(15 12 30 / .62); color: #fff; font-size: 13px; font-weight: 700; backdrop-filter: blur(6px); pointer-events: none; white-space: nowrap; }
+.cover-pos-bar { position: absolute; right: 14px; bottom: 14px; z-index: 1; display: flex; align-items: center; gap: 8px; cursor: default; }
+.cover-pos-bar button, .cover-pos-zoom { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 99px; border: 0;
+  font-size: 13px; font-weight: 700; backdrop-filter: blur(6px); cursor: pointer; }
+.cover-pos-zoom { background: rgb(15 12 30 / .62); color: #fff; cursor: default; }
+.cover-pos-zoom input { width: 110px; accent-color: #a78bfa; margin: 0; padding: 0; height: auto; border: 0; background: none; box-shadow: none; }
+.cover-pos-cancel { background: rgb(255 255 255 / .9); color: #3b3651; }
+.cover-pos-save { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; box-shadow: 0 6px 18px rgb(76 29 149 / .4); }
+.cover-pos-bar button:disabled { opacity: .7; cursor: default; }
+@media (max-width: 600px) {
+  .cover-pos-hint { top: 10px; font-size: 12px; padding: 6px 12px; }
+  .cover-pos-bar { left: 10px; right: 10px; bottom: 10px; gap: 6px; }
+  .cover-pos-zoom { flex: 1; min-width: 0; padding: 0 10px; }
+  .cover-pos-zoom input { width: 100%; min-width: 0; }
+  .cover-pos-bar button { padding: 0 11px; }
+}

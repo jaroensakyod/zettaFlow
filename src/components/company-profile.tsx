@@ -4,6 +4,7 @@
 // page the full editable company form with public/private switches). Also the บริษัท page of the top menu.
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
+import { CoverPositioner } from "./cover-positioner";
 import {
   ArrowLeft,
   Check,
@@ -72,7 +73,9 @@ export function CompanyProfilePage({
     [error, setError] = useState(""),
     [uploading, setUploading] = useState<"" | "logo" | "cover">(""),
     // New pictures show at once (the logo/cover URLs are cached by the browser for a few minutes).
-    [fresh, setFresh] = useState<{ logo?: string; cover?: string }>({});
+    [fresh, setFresh] = useState<{ logo?: string; cover?: string }>({}),
+    // A newly chosen cover waits here while the owner drags it into place.
+    [placing, setPlacing] = useState<File | null>(null);
   const load = useCallback(() => {
     api("/feed/profile/" + id)
       .then((p: CompanyProfile) => {
@@ -118,7 +121,9 @@ export function CompanyProfilePage({
       accept="image/png,image/jpeg,image/webp"
       className="sr-only"
       onChange={(e) => {
-        changeImage(kind, e.target.files?.[0]);
+        const f = e.target.files?.[0];
+        if (kind === "cover") f && setPlacing(f);
+        else changeImage(kind, f);
         e.target.value = "";
       }}
     />
@@ -141,7 +146,17 @@ export function CompanyProfilePage({
       )}
       <section className="card cp-hero">
         <div className={"cp-cover" + (coverSrc ? "" : " empty")} style={coverSrc ? { backgroundImage: `url("${coverSrc}")` } : undefined}>
-          {canEdit && (
+          {placing && (
+            <CoverPositioner
+              file={placing}
+              onCancel={() => setPlacing(null)}
+              onSave={(f) => {
+                setPlacing(null);
+                changeImage("cover", f);
+              }}
+            />
+          )}
+          {canEdit && !placing && (
             <label className={"cp-cover-edit" + (uploading === "cover" ? " busy" : "")}>
               <Camera size={16} /> {uploading === "cover" ? "กำลังอัปโหลด…" : coverSrc ? "เปลี่ยนรูปปก" : "เพิ่มรูปปก"}
               {picker("cover")}
