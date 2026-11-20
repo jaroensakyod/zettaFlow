@@ -547,7 +547,25 @@ export async function feedPropose(ctx: Context, postId: string, input: unknown) 
   const sb = await supabaseServer();
   const { error } = await sb.rpc("feed_propose", { p_company: ctx.company.id, p_post: id, p_message: message, p_contact: contact });
   dbError(error);
-  return { ok: true };
+  // The offer also goes to the B2B chat with the posting company, quoting the post, so the two can talk it through there
+  // (the poster's alert opens that chat). The proposal itself is saved either way.
+  let thread: string | null = null;
+  try {
+    const card = await sb.rpc("b2b_post", { p_company: ctx.company.id, p_post: id });
+    dbError(card.error);
+    const target = (card.data as { company?: { id: string } } | null)?.company?.id;
+    if (target) {
+      const open = await sb.rpc("b2b_open", { p_company: ctx.company.id, p_target: target, p_post: id });
+      dbError(open.error);
+      thread = String(open.data);
+      const body = (message + (contact ? "\n\nติดต่อ: " + contact : "")).slice(0, 4000);
+      const sent = await sb.rpc("b2b_send", { p_company: ctx.company.id, p_thread: thread, p_body: body, p_post: id });
+      dbError(sent.error);
+    }
+  } catch (e) {
+    console.error("feedPropose: chat", e);
+  }
+  return { ok: true, thread };
 }
 export async function feedProposalStatus(ctx: Context, proposalId: string, input: unknown) {
   const id = z.uuid().parse(proposalId),

@@ -403,10 +403,14 @@ function Detail({
             e.preventDefault();
             setBusy(true);
             try {
-              await api(`/feed/${p.id}/propose`, { method: "POST", body: { message, contact } });
-              notify("ส่งข้อเสนอแล้ว");
+              const r: { thread?: string | null } = await api(`/feed/${p.id}/propose`, { method: "POST", body: { message, contact } });
               onPatch({ proposed: true });
               onChanged();
+              // The offer is now a message in the chat with the posting company: continue there.
+              if (r.thread) {
+                notify("ส่งข้อเสนอแล้ว คุยต่อในแชทได้เลย");
+                navigate("chat?b2b=" + r.thread);
+              } else notify("ส่งข้อเสนอแล้ว");
             } catch (err) {
               notify((err as Error).message);
             } finally {
