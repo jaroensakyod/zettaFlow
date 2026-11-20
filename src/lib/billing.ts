@@ -37,6 +37,27 @@ export const addons: { id: AddonId; name: string; price: number; unit: string; d
   { id: "custom_workflow", name: "AI Custom Workflow", price: 3000, unit: "เดือน", detail: "ทีมงานออกแบบ Workflow อัตโนมัติเฉพาะธุรกิจ" },
   { id: "custom_form", name: "AI Custom Form Designer", price: 2500, unit: "เดือน", detail: "ให้ AI ร่างฟอร์มจากคำอธิบาย และ Template เฉพาะธุรกิจ" },
 ];
+/** Defaults as shipped, before the platform admin's edits (หลังบ้าน → ตั้งค่าแพลตฟอร์ม). */
+export const defaultPlans: Plan[] = [freePlan, ...plans].map((p) => ({ ...p }));
+export const defaultAddons = addons.map((a) => ({ ...a }));
+export type PlanNumbers = Pick<Plan, "monthly" | "yearly" | "workflows" | "documents" | "line_groups" | "users" | "voice_minutes" | "storage_gb">;
+/**
+ * Applies the current prices and limits (the plans and addons tables, edited by the platform admin) to the objects
+ * above, in place, so every planById / planPrice reads them. The server does this from platform-settings.ts; pages that work
+ * out a price in the browser call it with what the API sent.
+ */
+export function applyCatalog(c: { plans?: (Partial<PlanNumbers> & { id: string })[]; addons?: { id: string; price: number }[] }) {
+  for (const row of c.plans || []) {
+    const p = row.id === "free" ? freePlan : plans.find((x) => x.id === row.id);
+    if (!p) continue;
+    for (const k of ["monthly", "yearly", "workflows", "documents", "line_groups", "users", "voice_minutes", "storage_gb"] as const)
+      if (k in row && row[k] !== undefined) (p as Record<string, unknown>)[k] = row[k] === null ? null : Number(row[k]);
+  }
+  for (const row of c.addons || []) {
+    const a = addons.find((x) => x.id === row.id);
+    if (a && Number.isFinite(Number(row.price))) a.price = Number(row.price);
+  }
+}
 /** Trial and Enterprise include the AI add-ons so prospects can evaluate them. */
 export function hasAddon(s: Pick<Subscription, "status" | "plan" | "addons"> | null | undefined, id: AddonId) {
   if (!s) return false;
@@ -91,7 +112,7 @@ export function planPrice(
       .filter((a) => a.id !== "extra_user" && extras.addons?.includes(a.id))
       .reduce((s, a) => s + a.price, 0) *
       months +
-    150 * (extras.extraUsers || 0) * months;
+    (addons.find((a) => a.id === "extra_user")?.price ?? 150) * (extras.extraUsers || 0) * months;
   return { base, vat: round(base * VAT), total: round(base * (1 + VAT)) };
 }
 const round = (n: number) => Math.round(n * 100) / 100;

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { IBM_Plex_Sans_Thai, Plus_Jakarta_Sans } from "next/font/google";
 import { ArrowRight, Check, Minus, ShieldCheck } from "lucide-react";
-import { plans } from "@/lib/billing";
+import { freePlan, plans } from "@/lib/billing";
+import { loadCatalog } from "@/lib/platform-settings";
 import { PricingCards } from "../zetta/landing-parts";
 import { LandingHeader, LandingFooter, SIGNUP } from "../zetta/landing-shell";
 import "../zetta/landing.css";
@@ -18,7 +19,9 @@ export const metadata = {
 const count = (n: number | null, unit = "") => (n === null ? "ไม่จำกัด" : n.toLocaleString("th-TH") + unit);
 type Cell = string | boolean;
 const each = (f: (p: (typeof plans)[number]) => Cell) => plans.map(f);
-const rows: { group: string; items: [string, ...Cell[]][] }[] = [
+// Prices and limits as the platform admin set them; the page is rebuilt every 5 minutes (and right after a change).
+export const revalidate = 300;
+const buildRows = (): { group: string; items: [string, ...Cell[]][] }[] => [
   {
     group: "โควตาการใช้งาน",
     items: [
@@ -69,7 +72,10 @@ function Value({ v }: { v: Cell }) {
   return <span>{v}</span>;
 }
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  await loadCatalog();
+  const rows = buildRows(),
+    prices = { plans: plans.map((p) => ({ ...p })), free: { ...freePlan } };
   return (
     <div className={`lp ${thai.variable} ${display.variable}`}>
       <LandingHeader home={false} />
@@ -80,7 +86,7 @@ export default function PricingPage() {
             <h1>แพ็กเกจ EliteFlow</h1>
             <p>ใช้งานฟรีได้เลย LINE 1 กลุ่ม + ระบบบัญชีและการเงิน ไม่ต้องใช้บัตรเครดิต แล้วอัปเกรดเมื่อพร้อม</p>
           </header>
-          <PricingCards />
+          <PricingCards prices={prices} />
         </section>
 
         <section className="lp-section" aria-labelledby="compare">

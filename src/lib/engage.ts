@@ -1,4 +1,5 @@
 // Platform engagement: promotions, announcements and customer ↔ ZettaFlow support chat.
+import { sendAdminAlert } from "./admin-log";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin, configured } from "./supabase/server";
@@ -114,6 +115,8 @@ export async function supportSend(ctx: Context, input: unknown) {
   const sb = await supabaseServer();
   const { data, error } = await sb.rpc("support_send", { p_company: ctx.company.id, p_body: body });
   dbError(error);
+  await sendAdminAlert("support", `💬 ข้อความใหม่จาก ${ctx.company.name} (${ctx.user.name})
+${body.slice(0, 300)}`);
   return data as SupportMessage;
 }
 
@@ -150,6 +153,8 @@ export async function sendFeedback(ctx: Context, input: unknown) {
     .from("support_threads")
     .upsert({ company_id: ctx.company.id, unread_admin: Number(thread?.unread_admin || 0) + 1, status: "open", updated_at: now() }, { onConflict: "company_id" });
   dbError(e2);
+  await sendAdminAlert("support", `${kind === "bug" ? "🐞 แจ้งปัญหา" : "💡 ข้อเสนอแนะ"} จาก ${ctx.company.name}
+${text.slice(0, 300)}`);
   return { ok: true };
 }
 

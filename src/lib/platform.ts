@@ -1,5 +1,7 @@
 // Platform features: subscription & billing, dashboard layout + per-widget visibility,
 // shared dashboard links, slip checks and AI form drafting. Works in demo mode and on Supabase.
+import { sendAdminAlert } from "./admin-log";
+import { adminRoleOf, type AdminRole } from "./admin-team";
 import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "./supabase/server";
@@ -289,7 +291,13 @@ const squash = (s: unknown) => String(s || "").toLowerCase().replace(/[\s.()]/g,
  * activated on the spot. Anything doubtful stays "รอตรวจสอบ" for the platform team, as before.
  */
 async function autoActivate(ctx: Context, p: Payment, file: { mime: string; name: string }, bytes: Buffer): Promise<Payment & { auto: boolean; message: string }> {
-  const pending = (why: string) => ({ ...p, auto: false, message: "ส่งสลิปแล้ว " + why + " ทีมงานจะตรวจและเปิดใช้งานให้" });
+  const pending = async (why: string) => {
+    if (!ctx.demo) await sendAdminAlert("payment", `🧾 สลิปรอตรวจ ${ctx.company.name}
+แพ็กเกจ ${p.plan} (${p.cycle === "yearly" ? "รายปี" : "รายเดือน"}) ฿${Number(p.amount).toLocaleString("th-TH")}
+${why}
+เปิดหลังบ้าน → การเงิน เพื่อตรวจ`);
+    return { ...p, auto: false, message: "ส่งสลิปแล้ว " + why + " ทีมงานจะตรวจและเปิดใช้งานให้" };
+  };
   if (!aiEnabled()) return pending("(ตรวจอัตโนมัติไม่ได้)");
   let v: { amount: number | null; receiver: string | null; date: string | null };
   try {
@@ -320,14 +328,23 @@ async function autoActivate(ctx: Context, p: Payment, file: { mime: string; name
   else {
     const { error } = await supabaseAdmin().rpc("confirm_payment", { p_id: p.id, p_status: "verified", p_note: note });
     if (error) return pending("(เปิดใช้งานอัตโนมัติไม่สำเร็จ)");
+    await sendAdminAlert("payment", `💰 ชำระเงินสำเร็จ ${ctx.company.name}
+แพ็กเกจ ${p.plan} (${p.cycle === "yearly" ? "รายปี" : "รายเดือน"}) ฿${amount.toLocaleString("th-TH")} · ยืนยันอัตโนมัติ`);
   }
   return { ...p, status: "verified", auto: true, message: "ชำระเงินสำเร็จ เปิดใช้แพ็กเกจแล้ว" };
 }
-/** Platform operators (PLATFORM_ADMIN_EMAILS) confirm transfers and activate plans. */
-export function platformAdmin(ctx: Context) {
-  const admins = (process.env.PLATFORM_ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return ctx.demo ? demoEnabled() && ctx.member.role === "owner" : admins.includes(ctx.user.email.toLowerCase());
+/** The signed-in user's place on the platform team (admin-team.ts); demo: the demo owner is the owner. */
+export function platformRole(ctx: Context): AdminRole | null {
+  if (ctx.demo) return demoEnabled() && ctx.member.role === "owner" ? "owner" : null;
+  return adminRoleOf(ctx.user.email);
 }
+/** Platform operators who may change things: confirm transfers, activate plans, edit prices (owners and admins). */
+export function platformAdmin(ctx: Context) {
+  const r = platformRole(ctx);
+  return r === "owner" || r === "admin";
+}
+/** Anyone on the platform team, view-only members included: may open หลังบ้าน and read it. */
+export const platformViewer = (ctx: Context) => platformRole(ctx) !== null;
 export async function pendingPayments(ctx: Context) {
   assert(platformAdmin(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);
   if (ctx.demo) return ((await demoRead()) as DemoState & DemoBilling).payments?.filter((p) => p.status === "pending") || [];

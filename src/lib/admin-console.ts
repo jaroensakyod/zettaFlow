@@ -8,7 +8,7 @@ import { supabaseAdmin } from "./supabase/server";
 import { demoMutate, demoRead, type DemoState } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
-import { platformAdmin } from "./platform";
+import { platformAdmin, platformViewer } from "./platform";
 import { freePlan, plans, type PlanId } from "./billing";
 import type { Context } from "./types";
 
@@ -67,7 +67,13 @@ export type Overview = {
   feed: FeedItem[];
 };
 
-export const requireAdmin = (ctx: Context) => assert(platformAdmin(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);
+/** Read access to หลังบ้าน (view-only team members included). */
+export const requireAdmin = (ctx: Context) => assert(platformViewer(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);
+/** Changing anything: owners and admins, not view-only members. */
+export const requireAdminWrite = (ctx: Context) => {
+  requireAdmin(ctx);
+  assert(platformAdmin(ctx), "บัญชีนี้ดูได้อย่างเดียว แก้ไขไม่ได้", 403);
+};
 export const DAY = 86400000;
 export const planOf = (id: string) => plans.find((p) => p.id === id) || freePlan;
 /** Bangkok calendar day (YYYY-MM-DD) of a timestamp. */
@@ -393,7 +399,7 @@ const grantInput = z.object({
   reason: z.string().trim().min(1, "ใส่เหตุผลที่มอบแพ็กเกจ").max(500),
 });
 export async function grantPlan(ctx: Context, input: unknown) {
-  requireAdmin(ctx);
+  requireAdminWrite(ctx);
   const g = grantInput.parse(input),
     by = ctx.user.email;
   if (ctx.demo)
@@ -429,7 +435,7 @@ export async function grantPlan(ctx: Context, input: unknown) {
   return data as AdminGrant;
 }
 export async function revokeGrant(ctx: Context, id: string) {
-  requireAdmin(ctx);
+  requireAdminWrite(ctx);
   const gid = z.string().min(1).max(64).parse(id),
     by = ctx.user.email;
   if (ctx.demo)

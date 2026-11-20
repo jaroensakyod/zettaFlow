@@ -18,7 +18,7 @@ import { Donut } from "./dashboard-charts";
 import { PlanCards, PlanAdBanner } from "./plans-page";
 import type { Context, Role } from "@/lib/types";
 import type { Widget, Layout } from "@/lib/platform";
-import { addons, planPrice, type Plan, type Subscription, type Usage } from "@/lib/billing";
+import { addons, applyCatalog, planPrice, type Plan, type Subscription, type Usage } from "@/lib/billing";
 import { billingPayee } from "@/lib/payee";
 import { promptPayPayload, qrMatrix, qrSvgPath } from "@/lib/promptpay";
 
@@ -431,6 +431,8 @@ export function SubscriptionPanel({
     () =>
       api("/billing")
         .then((d) => {
+          // Prices as the platform admin set them, so the amount and QR here match what the server charges.
+          applyCatalog({ plans: d.plans, addons: d.addons });
           setData(d);
           setError("");
         })

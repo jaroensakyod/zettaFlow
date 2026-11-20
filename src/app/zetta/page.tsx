@@ -28,6 +28,8 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { PricingCards, Faq, PromoStrip, AutoRow } from "./landing-parts";
+import { freePlan, plans } from "@/lib/billing";
+import { loadCatalog } from "@/lib/platform-settings";
 import { Logo, LandingHeader, LandingFooter, SIGNUP } from "./landing-shell";
 import "./landing.css";
 import "./promo-video.css";
@@ -170,7 +172,11 @@ const departments = [
 ];
 const shopExamples = ["คอนโด / ปล่อยเช่า", "คลินิกความงาม", "ร้านอาหาร & คาเฟ่", "คลินิกการแพทย์", "อสังหาริมทรัพย์", "ธีม & ผู้ช่วย AI"];
 
-export default function LandingHome() {
+// Package prices as the platform admin set them; rebuilt every 5 minutes (and right after a change).
+export const revalidate = 300;
+export default async function LandingHome() {
+  await loadCatalog();
+  const prices = { plans: plans.map((p) => ({ ...p })), free: { ...freePlan } };
   return (
     <div className={`lp ${thai.variable} ${display.variable}`}>
       <LandingHeader />
@@ -324,7 +330,7 @@ export default function LandingHome() {
             <h2>แพ็กเกจที่โตไปพร้อมธุรกิจ</h2>
             <p>ใช้งานฟรีได้เลย LINE 1 กลุ่ม + ระบบบัญชีและการเงิน · อัปเกรดเมื่อพร้อม</p>
           </header>
-          <PricingCards />
+          <PricingCards prices={prices} />
           <p className="lp-fine">
             <Link href="/pricing">เปรียบเทียบแพ็กเกจแบบละเอียด <ArrowRight size={14} /></Link>
           </p>

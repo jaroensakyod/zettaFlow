@@ -1,5 +1,6 @@
 // Coins (เหรียญ): top up by transfer slip → platform operator confirms → buy department modules once.
 // Works in demo mode (JSON store) and on Supabase (RPCs in 0020_coins_modules.sql).
+import { sendAdminAlert } from "./admin-log";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "./supabase/server";
@@ -99,6 +100,9 @@ export async function requestTopup(ctx: Context, input: unknown) {
     });
   const sb = await supabaseServer();
   const { data, error } = await sb.rpc("request_topup", { p_company: ctx.company.id, p_coins: coins, p_attachment: attachmentId, p_slip: slip, p_ref: qr.transRef });
+  if (!error) await sendAdminAlert("topup", `🪙 เติมเหรียญรอตรวจ ${ctx.company.name}
+${coins} เหรียญ ฿${pack.price.toLocaleString("th-TH")}
+เปิดหลังบ้าน → การเงิน เพื่อยืนยัน`);
   dbError(error);
   return data;
 }

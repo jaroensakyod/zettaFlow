@@ -1,5 +1,6 @@
 import { processJobs, processNotifications } from "@/lib/ai";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { sendAdminAlert } from "@/lib/admin-log";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -19,6 +20,17 @@ export async function GET(req: Request) {
     if (voicePaths.length) await sb.storage.from("eliteflow-files").remove(voicePaths);
     const jobs = await processJobs(),
       notifications = await processNotifications();
+    // Daily health note to the platform team (ตั้งค่าแพลตฟอร์ม → แจ้งเตือน "ระบบมีปัญหา"), only when something failed.
+    const since = new Date(Date.now() - 86400000).toISOString();
+    const [failed, stuck] = await Promise.all([
+      sb.from("ingestions").select("id", { count: "exact", head: true }).eq("status", "failed").gte("created_at", since),
+      sb.from("notification_outbox").select("id", { count: "exact", head: true }).neq("status", "sent").gte("attempts", 5),
+    ]);
+    if ((failed.count || 0) + (stuck.count || 0) > 0)
+      await sendAdminAlert("health", `⚠️ สรุปสุขภาพระบบ 24 ชม.
+งาน AI ล้มเหลว ${failed.count || 0} รายการ
+แจ้งเตือน LINE ส่งไม่สำเร็จ ${stuck.count || 0} รายการ
+ดูรายละเอียดที่หลังบ้าน → สุขภาพระบบ`);
     return Response.json({ jobs, notifications, nudges, expired });
   } catch {
     return Response.json({ error: "Queue processing failed" }, { status: 500 });

@@ -1,12 +1,13 @@
 // Admin console phase 3: App Shop prices (systems, characters, themes, modules) and ads in เครือข่ายธุรกิจ
 // (ad package prices, every company's ads with views and clicks, pause / remove). Platform admins only; writes go
 // through the service role to the price tables that purchases charge from (modules, shop_items, ad_packages).
+import { demoAdminLog, type DemoAdminLog } from "./admin-log";
 import { z } from "zod";
 import { supabaseAdmin } from "./supabase/server";
 import { demoMutate, demoRead } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
-import { DAY, rawDemo, requireAdmin, type DemoAdmin } from "./admin-console";
+import { DAY, rawDemo, requireAdmin, requireAdminWrite, type DemoAdmin } from "./admin-console";
 import { shopCatalog, type ShopKind } from "./app-shop";
 import { moduleCatalog } from "./coins";
 import { adPackages } from "./ads";
@@ -98,11 +99,12 @@ const priceInput = z.object({
   name: z.string().trim().min(1).max(40).optional(),
 });
 export async function saveShopPrice(ctx: Context, input: unknown) {
-  requireAdmin(ctx);
+  requireAdminWrite(ctx);
   const v = priceInput.parse(input);
   assert(v.kind !== "adpack" || v.price > 0, "ราคาแพ็กโฆษณาต้องมากกว่า 0 เหรียญ");
   if (ctx.demo)
-    return demoMutate((s: DemoPrices) => {
+    return demoMutate((s: DemoPrices & DemoAdminLog) => {
+      demoAdminLog(s, ctx, "price", `${v.kind}:${v.id} ${v.price}${v.active ? "" : " off"}`);
       const bucket = v.kind === "module" ? "module" : v.kind === "adpack" ? "adpack" : "item",
         known = v.kind === "module" ? moduleCatalog.some((m) => m.id === v.id) : v.kind === "adpack" ? adPackages.some((a) => a.id === v.id) : shopCatalog.some((x) => x.id === v.id);
       assert(known, "ไม่พบรายการ", 404);
@@ -221,10 +223,11 @@ export async function adminAds(ctx: Context): Promise<AdminAds> {
 }
 
 export async function setAdminAdStatus(ctx: Context, id: string, input: unknown) {
-  requireAdmin(ctx);
+  requireAdminWrite(ctx);
   const { status } = z.object({ status: z.enum(["active", "paused", "removed"]) }).parse(input);
   if (ctx.demo)
-    return demoMutate((s: DemoAds) => {
+    return demoMutate((s: DemoAds & DemoAdminLog) => {
+      demoAdminLog(s, ctx, "ad_" + status, id);
       (s.adminAdStatus ??= {})[z.string().min(1).max(64).parse(id)] = status;
       return { ok: true };
     });

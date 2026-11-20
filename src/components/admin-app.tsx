@@ -15,6 +15,7 @@ import { AdminTopups } from "./coins";
 import { PlatformPayments } from "./platform";
 import { AiPage, HealthPage, LinePage } from "./admin-monitor";
 import { AdsPage, ShopPage } from "./admin-shop";
+import { SecurityPage, SettingsPage } from "./admin-settings";
 import type { AdminCompany, AdminGrant, AdminUser, FeedItem, GrantKind, Overview, Via } from "@/lib/admin-console";
 
 type Section = "home" | "companies" | "users" | "packages" | "finance" | "support" | "promos" | "announcements" | "line" | "ai" | "health" | "security" | "shop" | "ads" | "settings";
@@ -50,14 +51,14 @@ const menu: { group: string; items: Item[] }[] = [
       { key: "line", label: "LINE Bot", icon: MessagesSquare, c: ["#4ade80", "#06c755"] },
       { key: "ai", label: "AI · ต้นทุน", icon: Bot, c: ["#c084fc", "#7c3aed"] },
       { key: "health", label: "สุขภาพระบบ", icon: Activity, c: ["#fb7185", "#e11d48"] },
-      { key: "security", label: "ความปลอดภัย", icon: Lock, c: ["#94a3b8", "#475569"], soon: "เข้าสู่ระบบผิดซ้ำ ลิงก์แชร์ที่ถูกเดารหัส และประวัติการกระทำของแอดมิน" },
+      { key: "security", label: "ความปลอดภัย", icon: Lock, c: ["#94a3b8", "#475569"] },
     ],
   },
   {
     group: "ดูแล",
     items: [
       { key: "support", label: "ซัพพอร์ต", icon: MessageCircle, c: ["#60a5fa", "#4f46e5"] },
-      { key: "settings", label: "ตั้งค่าแพลตฟอร์ม", icon: Settings, c: ["#a1a1aa", "#52525b"], soon: "ราคาแพ็กเกจ ลิมิตแพ็กเกจฟรี แพ็กเหรียญ และสิทธิ์ของทีมแอดมิน" },
+      { key: "settings", label: "ตั้งค่าแพลตฟอร์ม", icon: Settings, c: ["#a1a1aa", "#52525b"] },
     ],
   },
 ];
@@ -283,6 +284,8 @@ export function AdminApp({ notify }: { notify: (s: string) => void }) {
           </div>
         )}
         {section === "shop" && <ShopPage tick={tick} notify={notify} />}
+        {section === "security" && <SecurityPage tick={tick} open={setOpenCompany} go={(s) => go(s as Section)} />}
+        {section === "settings" && <SettingsPage tick={tick} notify={notify} />}
         {section === "ads" && <AdsPage tick={tick} notify={notify} open={setOpenCompany} />}
         {section === "ai" && <AiPage range={range} tick={tick} open={setOpenCompany} />}
         {section === "line" && <LinePage range={range} tick={tick} open={setOpenCompany} />}

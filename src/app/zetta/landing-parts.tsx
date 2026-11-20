@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
-import { freePlan, plans as billingPlans } from "@/lib/billing";
+import { freePlan, plans as billingPlans, type Plan } from "@/lib/billing";
 
 // The packages from billing.ts, written as the poster lists them.
 const forWho: Record<string, string> = { starter: "ร้านค้า / ทีมเล็ก", growth: "SME ที่กำลังโต", business: "บริษัทหลายแผนก", enterprise: "องค์กร / หลายบริษัท" };
 const num = (v: number | null, unit: string, none: string) => (v === null ? none : v.toLocaleString("th-TH") + unit);
+// Built from the packages as priced now (the pages pass what the platform admin set; otherwise the shipped numbers).
+const cards = (paidPlans: Plan[], freeP: Plan) => {
 const free = {
   id: "free",
   name: "Free",
@@ -18,12 +20,12 @@ const free = {
   rows: [
     "LINE 1 กลุ่ม",
     "ระบบบัญชีและการเงิน ครบทุกเมนู",
-    "AI ประมวลผล " + num(freePlan.documents, " รายการ/เดือน", "ไม่จำกัด"),
-    "ผู้ใช้ " + num(freePlan.users, " คน", "ไม่จำกัด"),
+    "AI ประมวลผล " + num(freeP.documents, " รายการ/เดือน", "ไม่จำกัด"),
+    "ผู้ใช้ " + num(freeP.users, " คน", "ไม่จำกัด"),
     "ใช้ได้ตลอด ไม่มีวันหมดอายุ",
   ],
 };
-const paid = billingPlans.map((p) => ({
+const paid = paidPlans.map((p) => ({
   id: p.id as string,
   name: p.name,
   for: forWho[p.id] || "",
@@ -41,9 +43,11 @@ const paid = billingPlans.map((p) => ({
   ],
   free: false,
 }));
-const plans = [free, ...paid];
+return [free, ...paid];
+};
 
-export function PricingCards() {
+export function PricingCards({ prices }: { prices?: { plans: Plan[]; free: Plan } }) {
+  const plans = useMemo(() => cards(prices?.plans || billingPlans, prices?.free || freePlan), [prices]);
   const [yearly, setYearly] = useState(false);
   // Phones: the packages in one row to swipe; the one in the middle grows. Starts on the popular one.
   const row = useRef<HTMLDivElement>(null);
@@ -82,7 +86,7 @@ export function PricingCards() {
       el.removeEventListener("scroll", center);
       window.removeEventListener("resize", center);
     };
-  }, []);
+  }, [plans]);
   const go = (i: number) => {
     const el = row.current,
       card = el?.children[i] as HTMLElement | undefined;

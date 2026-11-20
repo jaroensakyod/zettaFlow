@@ -104,6 +104,8 @@ import {
   pendingPayments,
   confirmPayment,
   platformAdmin,
+  platformViewer,
+  platformRole,
   checkSlip,
   listShares,
   createShare,
@@ -128,6 +130,9 @@ import { sendFeedback,
 import { adminCompanies, adminCompany, adminGrants, adminOverview, adminUsers, grantPlan, revokeGrant } from "@/lib/admin-console";
 import { adminAi, adminHealth, adminLine } from "@/lib/admin-monitor";
 import { adminAds, adminShop, saveShopPrice, setAdminAdStatus } from "@/lib/admin-shop";
+import { adminSecurity, adminSettings, recordLoginFailure, saveSetting } from "@/lib/admin-settings";
+import { loadCatalog } from "@/lib/platform-settings";
+import { sendAdminAlert } from "@/lib/admin-log";
 import { presence } from "@/lib/presence";
 import { customerLogo, customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
@@ -167,6 +172,8 @@ async function handle(req: NextRequest) {
         403,
       );
     }
+    // Prices, limits and the admin team as set in หลังบ้าน (cached for a minute).
+    await loadCatalog();
     if (path[0] === "fx" && method === "GET") {
       // Baht per 1 unit of a document currency on its date, for the expense form.
       const q = req.nextUrl.searchParams;
@@ -268,6 +275,12 @@ async function handle(req: NextRequest) {
       }
       assert(action === "login", "คำสั่งไม่ถูกต้อง");
       const { error } = await sb.auth.signInWithPassword(credentials);
+      if (error)
+        await recordLoginFailure(
+          String(credentials.email),
+          (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("x-real-ip") || "",
+          error.message,
+        );
       dbError(error);
       return response({ ok: true });
     }
@@ -282,6 +295,8 @@ async function handle(req: NextRequest) {
       const name = z.string().trim().min(1).max(200).parse(input.name);
       const { data, error } = await sb.rpc("create_company", { p_name: name });
       dbError(error);
+      await sendAdminAlert("signup", `🎉 บริษัทใหม่สมัคร: ${name}
+โดย ${user.email || ""}`);
       (await cookies()).set("ef_company", data, {
         httpOnly: true,
         sameSite: "lax",
@@ -365,7 +380,8 @@ async function handle(req: NextRequest) {
         context: ctx,
         ...result,
         summary: { ...result.summary, widgets },
-        platformAdmin: platformAdmin(ctx),
+        platformAdmin: platformViewer(ctx),
+        adminRole: platformRole(ctx),
       });
     }
     if (path[0] === "home") {
@@ -616,6 +632,8 @@ async function handle(req: NextRequest) {
       if (path[1] === "ai") return response(await adminAi(ctx, req.nextUrl.searchParams.get("range")));
       if (path[1] === "line") return response(await adminLine(ctx, req.nextUrl.searchParams.get("range")));
       if (path[1] === "health") return response(await adminHealth(ctx));
+      if (path[1] === "settings") return response(method === "GET" ? await adminSettings(ctx) : await saveSetting(ctx, await body(req)));
+      if (path[1] === "security") return response(await adminSecurity(ctx));
       if (path[1] === "shop") return response(method === "GET" ? await adminShop(ctx) : await saveShopPrice(ctx, await body(req)));
       if (path[1] === "ads") return response(path[2] ? await setAdminAdStatus(ctx, path[2], await body(req)) : await adminAds(ctx));
       if (path[1] === "grants") {
