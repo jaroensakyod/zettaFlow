@@ -8527,3 +8527,45 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .plan-tag.pt-expired { background: #fee2e2; color: #b91c1c; box-shadow: none; border: 1px solid #fecaca; }
 /* A signed-up company's logo as the customer's picture */
 img.dir-avatar.logo { object-fit: cover; background: #fff; border: 1px solid #ece9f5; }
+
+/* เครือข่ายธุรกิจ on phones/tablets: the side columns become drawers that slide in from each edge, opened by the
+   two tabs on the screen edges (left: notifications & tools, right: opportunities & suggested companies). */
+.li-edge, .li-scrim, .li-drawer-head { display: none; }
+@media (max-width: 1240px) {
+  .li-edge.right { display: flex; }
+  .li .li-right { display: grid; position: fixed; top: 0; bottom: 0; right: 0; z-index: 70; width: min(360px, 88vw); max-height: none;
+    margin: 0; padding: 0 14px 24px; overflow-y: auto; overscroll-behavior: contain; align-content: start;
+    background: var(--th-bg, #f6f5fb); box-shadow: -18px 0 40px rgba(30, 20, 60, .18); transform: translateX(105%); visibility: hidden;
+    transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
+  .li.drawer-right .li-right { transform: none; visibility: visible; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  .li-right .li-drawer-head { display: flex; }
+  .li-scrim { display: block; position: fixed; inset: 0; z-index: 69; background: rgba(20, 12, 45, .38); backdrop-filter: blur(2px); animation: li-fade .2s ease; }
+}
+@media (max-width: 860px) {
+  .li-edge.left { display: flex; }
+  .li .li-left { display: grid; position: fixed; top: 0; bottom: 0; left: 0; z-index: 70; width: min(320px, 86vw); max-height: none;
+    margin: 0; padding: 0 14px 24px; overflow-y: auto; overscroll-behavior: contain; align-content: start;
+    background: var(--th-bg, #f6f5fb); box-shadow: 18px 0 40px rgba(30, 20, 60, .18); transform: translateX(-105%); visibility: hidden;
+    transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
+  .li.drawer-left .li-left { transform: none; visibility: visible; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  .li-left .li-drawer-head { display: flex; }
+  .li .li-left .li-nav { display: grid; }
+  .li .li-left .li-profile { display: block; }
+}
+.li-drawer-head { position: sticky; top: 0; z-index: 1; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 -14px 2px; padding: 16px 14px 12px; background: var(--th-bg, #f6f5fb); border-bottom: 1px solid var(--th-line, #e4e2ec); }
+.li-drawer-head b { font-size: 16px; color: var(--th-ink, #1d1638); }
+.li-drawer-head button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--th-line, #e4e2ec); background: #fff; display: grid; place-items: center; color: #4b4470; cursor: pointer; }
+.li-edge { position: fixed; top: 46%; z-index: 45; flex-direction: column; align-items: center; gap: 4px; padding: 12px 7px;
+  border: 0; color: #fff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 22px rgba(76, 29, 149, .32); }
+.li-edge span { writing-mode: vertical-rl; letter-spacing: .5px; }
+.li-edge.left { left: 0; border-radius: 0 14px 14px 0; background: linear-gradient(160deg, #7c3aed, #4f46e5); }
+.li-edge.right { right: 0; border-radius: 14px 0 0 14px; background: linear-gradient(160deg, #ec4899, #8b5cf6); }
+.li-edge b { position: absolute; top: -7px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px;
+  background: #ef4444; color: #fff; font-size: 11px; line-height: 19px; border: 2px solid #fff; }
+.li-edge.right b { right: auto; left: -5px; }
+.li-edge:active { filter: brightness(.92); }
+body.li-drawer-lock { overflow: hidden; }
+@media (max-width: 1240px) { .li .li-right { display: flex; flex-direction: column; gap: 12px; } .li .li-right > * { flex-shrink: 0; } }
+@media (max-width: 860px) { .li .li-left { display: flex; flex-direction: column; gap: 12px; } .li .li-left > * { flex-shrink: 0; } }
+@keyframes li-fade { from { opacity: 0; } }

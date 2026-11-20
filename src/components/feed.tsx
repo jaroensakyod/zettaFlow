@@ -214,8 +214,23 @@ export function Feed({
     [showAll, setShowAll] = useState(false),
     [promos, setPromos] = useState<Promo[]>([]),
     [alertsOpen, setAlertsOpen] = useState<AlertGroup | null>(null),
+    // Phones/tablets: the side columns slide in from the screen edges.
+    [drawer, setDrawer] = useState<"left" | "right" | null>(null),
     [seen, setSeen] = useState<Record<string, string>>({}),
     [error, setError] = useState("");
+  useEffect(() => {
+    if (!drawer) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(null);
+    const wide = () => window.innerWidth > (drawer === "left" ? 860 : 1240) && setDrawer(null);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("resize", wide);
+    document.body.classList.add("li-drawer-lock");
+    return () => {
+      document.removeEventListener("keydown", esc);
+      window.removeEventListener("resize", wide);
+      document.body.classList.remove("li-drawer-lock");
+    };
+  }, [drawer]);
   const seenKey = "feed-seen:" + ctx.company.id + ":" + ctx.user.id;
   useEffect(() => {
     try {
@@ -339,8 +354,27 @@ export function Feed({
     // Sample posts, ads and suggestions only in the public demo; real companies see the real network only.
     samples = ctx.demo && !q && ["all", "post", "job", "partner"].includes(tab) ? samplePosts.filter((x) => (tab === "all" || x.kind === tab) && inScope(x.meta.split(" · ")[0])) : [];
   return (
-    <div className="li">
-      <aside className="li-left">
+    <div className={"li" + (drawer ? " drawer-" + drawer : "")}>
+      <button className="li-edge left" onClick={() => setDrawer("left")} aria-label="เปิดเมนูการแจ้งเตือนและเครื่องมือ" aria-expanded={drawer === "left"}>
+        <Bell size={18} />
+        <span>เมนู</span>
+        {unseen("all") > 0 && <b>{unseen("all")}</b>}
+      </button>
+      <button className="li-edge right" onClick={() => setDrawer("right")} aria-label="เปิดโอกาสและบริษัทแนะนำ" aria-expanded={drawer === "right"}>
+        <Sparkles size={18} />
+        <span>แนะนำ</span>
+      </button>
+      {drawer && <div className="li-scrim" onClick={() => setDrawer(null)} aria-hidden="true" />}
+      <aside
+        className="li-left"
+        onClick={(e) => (e.target as HTMLElement).closest("button") && setDrawer(null)}
+      >
+        <div className="li-drawer-head">
+          <b>เมนูเครือข่าย</b>
+          <button onClick={() => setDrawer(null)} aria-label="ปิด">
+            <X size={18} />
+          </button>
+        </div>
         <section className="card li-alerts" aria-label="การแจ้งเตือน">
           <h2>
             <Bell size={18} />
@@ -557,6 +591,12 @@ export function Feed({
       </section>
 
       <aside className="li-right">
+        <div className="li-drawer-head">
+          <b>โอกาส &amp; บริษัทแนะนำ</b>
+          <button onClick={() => setDrawer(null)} aria-label="ปิด">
+            <X size={18} />
+          </button>
+        </div>
         {ads.length > 0 ? (
           <AdCard ad={ads[ads.length > 1 ? 1 : 0]} compact onClick={adClick(ads[ads.length > 1 ? 1 : 0])} />
         ) : (
