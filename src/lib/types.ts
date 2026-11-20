@@ -63,6 +63,8 @@ export type FeedAlert = {
   post_id?: string;
   /** B2B chat message: the conversation to open. */
   thread_id?: string;
+  /** The first chat message about our job / partner post (kind "interest" with thread_id). */
+  body?: string;
   status?: "shortlisted" | "declined";
 };
 export type FeedProposal = {

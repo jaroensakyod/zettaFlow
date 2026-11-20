@@ -73,8 +73,12 @@ test("b2b chat: one conversation per company pair, unread, privacy", async () =>
     // Alice sees it unread, in the feed notifications too, and reading clears it.
     await login(alice);
     assert.equal(Number(await val("select b2b_unread($1)", [a])), 1);
-    const alerts = await val<{ kind: string; thread_id?: string }[]>("select feed_alerts($1)", [a]);
-    assert.ok(alerts.some((x) => x.kind === "message" && x.thread_id === t));
+    // Bob's first message about Alice's partner post is a "ผู้สนใจติดต่อ" alert that opens the conversation.
+    const alerts = await val<{ kind: string; thread_id?: string; title: string; body?: string; post_id?: string }[]>("select feed_alerts($1)", [a]);
+    assert.deepEqual(
+      alerts.filter((x) => x.thread_id === t).map((x) => [x.kind, x.title, x.body, x.post_id]),
+      [["interest", "หาซัพพลายเออร์", "สนใจเป็นซัพพลายเออร์ครับ", post]],
+    );
     const msgs = await val<{ body: string; mine: boolean; company_name: string; post: Card | null }[]>("select b2b_read($1,$2)", [a, t]);
     assert.deepEqual(msgs.map((m) => [m.company_name, m.mine]), [["Bob Co", false]]);
     assert.deepEqual(msgs[0].post, card);
@@ -84,6 +88,18 @@ test("b2b chat: one conversation per company pair, unread, privacy", async () =>
     assert.equal(Number(await val("select b2b_unread($1)", [b])), 1);
     const bobMsgs = await val<{ post: Card | null }[]>("select b2b_read($1,$2)", [b, t]);
     assert.deepEqual(bobMsgs.map((m) => m.post?.id ?? null), [post, null]);
+    // Bob's later messages are plain "ข้อความใหม่" for Alice; Alice's reply is one for Bob (not about Bob's post).
+    await db.query("select b2b_send($1,$2,'ส่งให้แล้วครับ')", [b, t]);
+    assert.deepEqual(
+      (await val<{ kind: string; thread_id?: string }[]>("select feed_alerts($1)", [b])).filter((x) => x.thread_id === t).map((x) => x.kind),
+      ["message"],
+    );
+    await login(alice);
+    assert.deepEqual(
+      (await val<{ kind: string; thread_id?: string }[]>("select feed_alerts($1)", [a])).filter((x) => x.thread_id === t).map((x) => x.kind).sort(),
+      ["interest", "message"],
+    );
+    await login(bob);
 
     // A third company cannot read or write the conversation; the tables are closed to direct access.
     await login(stranger);
