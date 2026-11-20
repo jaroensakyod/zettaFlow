@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./zetta/zetta.css";
 import "./zetta/departments.css";
@@ -18,6 +18,13 @@ import "./styles/themes.css";
 export const metadata: Metadata = {
   title: "EliteFlow — Business Workspace",
   description: "ระบบจัดการธุรกิจ ลูกค้า บุคลากร โครงการ สต็อก และ ZettaFlow AI",
+};
+// Phones: no zooming in when a field is tapped (iOS zooms into inputs); the page always fits the screen.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 export default function RootLayout({
   children,

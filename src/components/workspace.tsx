@@ -353,6 +353,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
   const router = useRouter();
   const requestEpoch = useRef(0);
   const navRef = useRef<HTMLElement>(null);
+  const [navEl, setNavEl] = useState<HTMLElement | null>(null);
   const [companyModal, setCompanyModal] = useState(false),
     [companyChoices, setCompanyChoices] = useState<
       { id: string; name: string; role: string }[]
@@ -413,6 +414,38 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
     setView(initialView);
     setMenu(false);
   }, [initialView]);
+  // Phones: the top bar slides away while scrolling down and comes back on the way up, so it never sits over the
+  // page. --nav-vis is how much of it is on screen; sticky bars and scroll targets in the pages sit below that.
+  useEffect(() => {
+    const nav = navEl;
+    if (!nav) return;
+    const root = document.documentElement,
+      phone = window.matchMedia("(max-width: 720px)");
+    let last = window.scrollY,
+      hidden = false;
+    const apply = () => {
+      const h = nav.offsetHeight,
+        y = window.scrollY;
+      if (!phone.matches || menu || y < h) hidden = false;
+      else if (y > last + 4) hidden = true;
+      else if (y < last - 4) hidden = false;
+      last = y;
+      nav.classList.toggle("nav-hidden", hidden);
+      root.style.setProperty("--nav-h", h + "px");
+      root.style.setProperty("--nav-vis", (hidden ? 0 : h) + "px");
+    };
+    const onScroll = apply;
+    const ro = new ResizeObserver(onScroll);
+    ro.observe(nav);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    phone.addEventListener("change", onScroll);
+    apply();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      phone.removeEventListener("change", onScroll);
+    };
+  }, [menu, navEl]);
   useEffect(() => {
     if (!menu) return;
     const close = (e: Event) => {
@@ -580,7 +613,13 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       className={"workspace top-layout theme-" + theme}
     >
       <div className="workspace-body">
-        <header className="topnav" ref={navRef}>
+        <header
+          className="topnav"
+          ref={(el) => {
+            navRef.current = el;
+            setNavEl(el);
+          }}
+        >
           <button
             className="topnav-brand"
             onClick={() => navigate("dashboard")}

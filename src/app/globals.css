@@ -8569,3 +8569,17 @@ body.li-drawer-lock { overflow: hidden; }
 @media (max-width: 1240px) { .li .li-right { display: flex; flex-direction: column; gap: 12px; } .li .li-right > * { flex-shrink: 0; } }
 @media (max-width: 860px) { .li .li-left { display: flex; flex-direction: column; gap: 12px; } .li .li-left > * { flex-shrink: 0; } }
 @keyframes li-fade { from { opacity: 0; } }
+
+/* Phones feel like an app: no zoom on tap, no double-tap delay, and the top bar never covers a page heading. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: calc(var(--nav-vis, 64px) + 12px); }
+a, button, input, select, textarea, label, [role="button"], [role="tab"] { touch-action: manipulation; }
+* { -webkit-tap-highlight-color: transparent; }
+.topnav { transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .2s; }
+@media (max-width: 720px) {
+  .topnav.nav-hidden { transform: translateY(-100%); box-shadow: none; }
+  .topnav:not(.nav-hidden) { box-shadow: 0 6px 18px rgba(30, 20, 60, .06); }
+  /* Sticky parts of pages sit under whatever is showing of the top bar. */
+  .dept-side, .ge-nav, .ads-preview { top: var(--nav-vis, 64px) !important; transition: top .28s cubic-bezier(.2,.8,.2,1); }
+  .dept-menu { top: var(--nav-h, 64px) !important; max-height: calc(100vh - var(--nav-h, 64px)) !important; }
+  .ge-section, .ep-detail, .company-profile, h1, h2, [id] { scroll-margin-top: calc(var(--nav-vis, 64px) + 12px) !important; }
+}
