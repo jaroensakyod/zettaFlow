@@ -2,8 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X, Send, Megaphone, Trash2, Plus, Save } from "lucide-react";
 import { api, Modal, Empty, displayDate } from "./shared";
-import { PlatformPayments } from "./platform";
-import { AdminTopups } from "./coins";
 import type { Context } from "@/lib/types";
 import type { Announcement, Promo, SupportMessage } from "@/lib/engage";
 
@@ -142,39 +140,7 @@ export function SupportChat({ ctx }: { ctx: Context }) {
 }
 
 type Thread = { company_id: string; unread_admin: number; status: string; updated_at: string; companies?: { name: string } };
-/** Operator console: support inbox, promotions, announcements, payment confirmations. */
-export function AdminConsole({ notify }: { notify: (s: string) => void }) {
-  const [tab, setTab] = useState<"support" | "promos" | "announcements" | "payments">("support");
-  return (
-    <>
-      <div className="row-actions admin-tabs">
-        {(
-          [
-            ["support", "แชทลูกค้า"],
-            ["promos", "โปรโมชัน"],
-            ["announcements", "ประกาศ"],
-            ["payments", "ยืนยันการชำระ"],
-          ] as const
-        ).map(([k, l]) => (
-          <button key={k} className={tab === k ? "primary" : "secondary"} onClick={() => setTab(k)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      {tab === "support" && <SupportInbox notify={notify} />}
-      {tab === "promos" && <ContentEditor kind="promos" notify={notify} />}
-      {tab === "announcements" && <ContentEditor kind="announcements" notify={notify} />}
-      {tab === "payments" && (
-        <>
-          <AdminTopups notify={notify} />
-          <PlatformPayments notify={notify} changed={() => {}} />
-        </>
-      )}
-    </>
-  );
-}
-
-function SupportInbox({ notify }: { notify: (s: string) => void }) {
+export function SupportInbox({ notify }: { notify: (s: string) => void }) {
   const [threads, setThreads] = useState<Thread[]>([]),
     [current, setCurrent] = useState<Thread | null>(null),
     [messages, setMessages] = useState<SupportMessage[]>([]),
@@ -316,7 +282,7 @@ function PromoMedia({ initial }: { initial: Row }) {
     </div>
   );
 }
-function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; notify: (s: string) => void }) {
+export function ContentEditor({ kind, notify }: { kind: "promos" | "announcements"; notify: (s: string) => void }) {
   const [rows, setRows] = useState<Row[]>([]),
     [edit, setEdit] = useState<Row | null>(null),
     [error, setError] = useState("");

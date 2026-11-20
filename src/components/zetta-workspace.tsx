@@ -41,7 +41,8 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-import { AnnouncementPopup, SupportChat, AdminConsole } from "./engage";
+import { AnnouncementPopup, SupportChat } from "./engage";
+import { AdminApp } from "./admin-app";
 import type { Context, Entity, Attachment } from "@/lib/types";
 import { catalog } from "@/lib/catalog";
 import { api, Loading, Empty, Modal, money } from "./shared";
@@ -738,13 +739,7 @@ export function ZettaWorkspace({
                 </>
               )}
               {view === "admin" && operator && (
-                <>
-                  <PageHeading
-                    title="Admin Console"
-                    subtitle="แชทลูกค้า · โปรโมชัน · ประกาศ · ยืนยันการชำระเงิน"
-                  />
-                  <AdminConsole notify={notify} />
-                </>
+                <AdminApp notify={notify} />
               )}
               {view === "pricing" && (
                 <>

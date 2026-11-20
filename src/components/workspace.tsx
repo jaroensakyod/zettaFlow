@@ -66,7 +66,8 @@ import { Feed } from "./feed";
 import { Jobs } from "./jobs";
 import { FlowAssistant } from "./flow-assistant";
 import { SubscriptionPanel, SlipChecker } from "./platform";
-import { SupportChat, AdminConsole } from "./engage";
+import { SupportChat } from "./engage";
+import { AdminApp } from "./admin-app";
 import { OnlineDot, usePresencePing } from "./presence";
 import { AiWorkspace } from "./ai-workspace";
 import { LinePending } from "./line-review";
@@ -826,7 +827,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
         {/* Every department's pages: a tint in the department's colour at the top (รายรับ / ค่าใช้จ่าย keep their own). */}
         <main className={"main" + ((sectionTone(sideDept, fullView) || sideDept?.tone) ? " top-" + (sectionTone(sideDept, fullView) || sideDept?.tone) : "")} key={ctx.company.id}>
-          {!["feed", "jobs", "dashboard", "company", "expense-new", "income-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat"].includes(view) && (
+          {!["feed", "jobs", "dashboard", "company", "expense-new", "income-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat", "admin"].includes(view) && (
           // Department pages: a one-line heading keeps the work near the top (as on the accounting pages).
           <div className={"page-heading" + (sideDept ? " compact" : "")}>
             <div>
@@ -991,9 +992,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               <SlipChecker />
             </div>
           ) : view === "admin" && data.platformAdmin ? (
-            <div className="elite-zone">
-              <AdminConsole notify={notify} />
-            </div>
+            <AdminApp notify={notify} />
           ) : view === "assistant" ? (
             <Assistant />
           ) : (

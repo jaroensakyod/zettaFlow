@@ -125,6 +125,7 @@ import { sendFeedback,
   adminDelete,
   promoMediaUpload,
 } from "@/lib/engage";
+import { adminCompanies, adminCompany, adminGrants, adminOverview, adminUsers, grantPlan, revokeGrant } from "@/lib/admin-console";
 import { presence } from "@/lib/presence";
 import { customerLogo, customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
@@ -606,6 +607,15 @@ async function handle(req: NextRequest) {
       return response(await supportSend(ctx, await body(req)), 201);
     }
     if (path[0] === "admin") {
+      // หลังบ้าน (admin-console.ts): overview, companies, users, package grants.
+      if (path[1] === "overview") return response(await adminOverview(ctx, req.nextUrl.searchParams.get("range")));
+      if (path[1] === "companies") return response(path[2] ? await adminCompany(ctx, path[2]) : await adminCompanies(ctx));
+      if (path[1] === "users") return response(await adminUsers(ctx));
+      if (path[1] === "grants") {
+        if (method === "GET") return response(await adminGrants(ctx));
+        if (method === "DELETE") return response(await revokeGrant(ctx, String(path[2] || "")));
+        return response(await grantPlan(ctx, await body(req)), 201);
+      }
       if (path[1] === "support") {
         if (!path[2]) return response(await adminInbox(ctx));
         if (method === "GET") return response(await adminThread(ctx, path[2]));

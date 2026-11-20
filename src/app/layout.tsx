@@ -15,6 +15,7 @@ import "./styles/chat.css";
 import "./styles/profile.css";
 import "./styles/auth-future.css";
 import "./styles/themes.css";
+import "./styles/admin.css";
 export const metadata: Metadata = {
   title: "EliteFlow — Business Workspace",
   description: "ระบบจัดการธุรกิจ ลูกค้า บุคลากร โครงการ สต็อก และ ZettaFlow AI",
