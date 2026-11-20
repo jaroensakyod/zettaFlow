@@ -13,6 +13,7 @@ import { api, Modal, Loading, Empty } from "./shared";
 import { SupportInbox, ContentEditor } from "./engage";
 import { AdminTopups } from "./coins";
 import { PlatformPayments } from "./platform";
+import { AiPage, HealthPage, LinePage } from "./admin-monitor";
 import type { AdminCompany, AdminGrant, AdminUser, FeedItem, GrantKind, Overview, Via } from "@/lib/admin-console";
 
 type Section = "home" | "companies" | "users" | "packages" | "finance" | "support" | "promos" | "announcements" | "line" | "ai" | "health" | "security" | "shop" | "ads" | "settings";
@@ -45,9 +46,9 @@ const menu: { group: string; items: Item[] }[] = [
   {
     group: "ระบบ",
     items: [
-      { key: "line", label: "LINE Bot", icon: MessagesSquare, c: ["#4ade80", "#06c755"], soon: "กลุ่มที่เชื่อม ข้อความต่อวัน อัตราที่ AI แยกประเภทถูก และข้อความที่ส่งไม่ออก" },
-      { key: "ai", label: "AI · ต้นทุน", icon: Bot, c: ["#c084fc", "#7c3aed"], soon: "token และค่าใช้จ่ายแยกตามบริษัท ฟีเจอร์ โมเดล และต้นทุนเทียบรายได้" },
-      { key: "health", label: "สุขภาพระบบ", icon: Activity, c: ["#fb7185", "#e11d48"], soon: "คิวงานที่ค้าง/ล้มเหลว error log และสถานะการเชื่อมต่อ" },
+      { key: "line", label: "LINE Bot", icon: MessagesSquare, c: ["#4ade80", "#06c755"] },
+      { key: "ai", label: "AI · ต้นทุน", icon: Bot, c: ["#c084fc", "#7c3aed"] },
+      { key: "health", label: "สุขภาพระบบ", icon: Activity, c: ["#fb7185", "#e11d48"] },
       { key: "security", label: "ความปลอดภัย", icon: Lock, c: ["#94a3b8", "#475569"], soon: "เข้าสู่ระบบผิดซ้ำ ลิงก์แชร์ที่ถูกเดารหัส และประวัติการกระทำของแอดมิน" },
     ],
   },
@@ -280,6 +281,9 @@ export function AdminApp({ notify }: { notify: (s: string) => void }) {
             <AdminTopups notify={notify} />
           </div>
         )}
+        {section === "ai" && <AiPage range={range} tick={tick} open={setOpenCompany} />}
+        {section === "line" && <LinePage range={range} tick={tick} open={setOpenCompany} />}
+        {section === "health" && <HealthPage tick={tick} open={setOpenCompany} />}
         {section === "support" && <SupportInbox notify={notify} />}
         {section === "promos" && <ContentEditor kind="promos" notify={notify} />}
         {section === "announcements" && <ContentEditor kind="announcements" notify={notify} />}

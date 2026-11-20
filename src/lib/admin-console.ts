@@ -67,16 +67,16 @@ export type Overview = {
   feed: FeedItem[];
 };
 
-const requireAdmin = (ctx: Context) => assert(platformAdmin(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);
-const DAY = 86400000;
-const planOf = (id: string) => plans.find((p) => p.id === id) || freePlan;
+export const requireAdmin = (ctx: Context) => assert(platformAdmin(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);
+export const DAY = 86400000;
+export const planOf = (id: string) => plans.find((p) => p.id === id) || freePlan;
 /** Bangkok calendar day (YYYY-MM-DD) of a timestamp. */
-const bkkDay = (t: string | number) => new Date(new Date(t).getTime() + 7 * 3600000).toISOString().slice(0, 10);
+export const bkkDay = (t: string | number) => new Date(new Date(t).getTime() + 7 * 3600000).toISOString().slice(0, 10);
 const bkkStartOfToday = () => Date.parse(bkkDay(Date.now()) + "T00:00:00+07:00");
 
 type Sub = { company_id: string; plan: string; cycle: "monthly" | "yearly"; status: string; trial_ends_at: string | null; current_period_end: string | null; extra_users: number };
 type Member = { company_id: string; user_id: string; email: string; name: string; role: string; disabled: boolean };
-type Raw = {
+export type Raw = {
   companies: { id: string; name: string; created_at: string; industry: string | null; province: string | null }[];
   subs: Sub[];
   members: Member[];
@@ -97,7 +97,7 @@ function subActive(s: Sub | undefined, now = Date.now()) {
   return !s.current_period_end || Date.parse(s.current_period_end) > now - 3 * DAY;
 }
 
-function shapeCompanies(r: Raw): AdminCompany[] {
+export function shapeCompanies(r: Raw): AdminCompany[] {
   const subs = new Map(r.subs.map((s) => [s.company_id, s]));
   const now = Date.now();
   return r.companies.map((c) => {
@@ -261,7 +261,7 @@ async function rawLive(): Promise<Raw> {
 }
 
 // Demo: the demo company plus sample companies, so every screen can be tried without a database.
-type DemoAdmin = DemoState & { adminGrants?: AdminGrant[] };
+export type DemoAdmin = DemoState & { adminGrants?: AdminGrant[] };
 const sampleNames = [
   ["ร้านมะลิ คาเฟ่", "ร้านอาหารและคาเฟ่", "เชียงใหม่", "growth", "paid"],
   ["สยามพิวรรณ จำกัด", "ค้าปลีก", "กรุงเทพมหานคร", "business", "paid"],
@@ -276,7 +276,7 @@ const sampleNames = [
   ["เอเชียทีค อีเวนต์", "อีเวนต์และออแกไนซ์", "กรุงเทพมหานคร", "growth", "paid"],
   ["โรงเรียนกวดวิชาเก่ง", "สถาบันกวดวิชา", "พิษณุโลก", "free", "free"],
 ] as const;
-function rawDemo(s: DemoAdmin): Raw {
+export function rawDemo(s: DemoAdmin): Raw {
   const now = Date.now(),
     iso = (ms: number) => new Date(ms).toISOString(),
     id = (i: number) => `20000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`;
@@ -335,7 +335,7 @@ function rawDemo(s: DemoAdmin): Raw {
     support: [{ company_id: id(1), created_at: iso(now - 0.1 * DAY), body: "สอบถามการเพิ่มผู้ใช้เกินแพ็กเกจค่ะ" }],
   };
 }
-const raw = async (ctx: Context) => (ctx.demo ? rawDemo((await demoRead()) as DemoAdmin) : rawLive());
+export const raw = async (ctx: Context) => (ctx.demo ? rawDemo((await demoRead()) as DemoAdmin) : rawLive());
 
 // ---------- API ----------
 export async function adminOverview(ctx: Context, range: unknown) {

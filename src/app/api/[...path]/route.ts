@@ -126,6 +126,7 @@ import { sendFeedback,
   promoMediaUpload,
 } from "@/lib/engage";
 import { adminCompanies, adminCompany, adminGrants, adminOverview, adminUsers, grantPlan, revokeGrant } from "@/lib/admin-console";
+import { adminAi, adminHealth, adminLine } from "@/lib/admin-monitor";
 import { presence } from "@/lib/presence";
 import { customerLogo, customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
@@ -611,6 +612,9 @@ async function handle(req: NextRequest) {
       if (path[1] === "overview") return response(await adminOverview(ctx, req.nextUrl.searchParams.get("range")));
       if (path[1] === "companies") return response(path[2] ? await adminCompany(ctx, path[2]) : await adminCompanies(ctx));
       if (path[1] === "users") return response(await adminUsers(ctx));
+      if (path[1] === "ai") return response(await adminAi(ctx, req.nextUrl.searchParams.get("range")));
+      if (path[1] === "line") return response(await adminLine(ctx, req.nextUrl.searchParams.get("range")));
+      if (path[1] === "health") return response(await adminHealth(ctx));
       if (path[1] === "grants") {
         if (method === "GET") return response(await adminGrants(ctx));
         if (method === "DELETE") return response(await revokeGrant(ctx, String(path[2] || "")));
