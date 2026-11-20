@@ -409,21 +409,19 @@ export async function feedComment(ctx: Context, postId: string, input: unknown):
   const sb = await supabaseServer();
   const { data, error } = await sb.rpc("feed_comment", { p_company: ctx.company.id, p_post: id, p_body: body });
   dbError(error);
-  await offerToChat(sb, ctx, id, body, true);
   return { ...(data as FeedComment), company_name: ctx.company.name };
 }
 /**
- * Job / partner posts: what another company sends about the post (an offer, or a comment under it) is also a message in
- * the B2B chat between the two companies, with the post card, so the whole exchange stays in that chat for good.
+ * Job / partner posts: an offer (เสนอตัว / สมัคร) is also a message in the B2B chat between the two companies, with the
+ * post card, so the exchange stays in that chat for good. Comments under the post stay comments only.
  * Never fails the action itself; returns the conversation, or null.
  */
-async function offerToChat(sb: Awaited<ReturnType<typeof supabaseServer>>, ctx: Context, post: string, body: string, offersOnly: boolean) {
+async function offerToChat(sb: Awaited<ReturnType<typeof supabaseServer>>, ctx: Context, post: string, body: string) {
   try {
     const card = await sb.rpc("b2b_post", { p_company: ctx.company.id, p_post: post });
     dbError(card.error);
-    const c = card.data as { kind?: string; company?: { id: string } } | null,
-      target = c?.company?.id;
-    if (!target || target === ctx.company.id || (offersOnly && c?.kind === "post")) return null;
+    const target = (card.data as { company?: { id: string } } | null)?.company?.id;
+    if (!target || target === ctx.company.id) return null;
     const open = await sb.rpc("b2b_open", { p_company: ctx.company.id, p_target: target, p_post: post });
     dbError(open.error);
     const thread = String(open.data);
@@ -572,7 +570,7 @@ export async function feedPropose(ctx: Context, postId: string, input: unknown) 
   const { error } = await sb.rpc("feed_propose", { p_company: ctx.company.id, p_post: id, p_message: message, p_contact: contact });
   dbError(error);
   // The offer also goes to the chat with the posting company (the poster's alert opens it); the proposal is saved either way.
-  const thread = await offerToChat(sb, ctx, id, message + (contact ? "\n\nติดต่อ: " + contact : ""), false);
+  const thread = await offerToChat(sb, ctx, id, message + (contact ? "\n\nติดต่อ: " + contact : ""));
   return { ok: true, thread };
 }
 export async function feedProposalStatus(ctx: Context, proposalId: string, input: unknown) {
