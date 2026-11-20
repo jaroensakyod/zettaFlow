@@ -10,6 +10,7 @@ import { download } from "./files";
 import { decodeQr, parseSlipQr } from "./slip";
 import { platformAdmin } from "./platform";
 import type { Context } from "./types";
+import { demoPrices, priced, type DemoPrices } from "./shop-prices";
 
 export const coinPacks = [
   { coins: 50, price: 500 },
@@ -40,11 +41,15 @@ const demoCoins = (s: DemoState & DemoCoins) => (s.coins ??= { balance: 150, own
 /** Wallet, store and (for owners) recent top-ups in one call. */
 export async function coinStore(ctx: Context) {
   if (ctx.demo) {
-    const w = demoCoins((await demoRead()) as DemoState & DemoCoins);
+    const s = (await demoRead()) as DemoState & DemoCoins & DemoPrices,
+      w = demoCoins(s);
     return {
       balance: w.balance,
       packs: coinPacks,
-      modules: moduleCatalog.map((m) => ({ ...m, owned: w.owned.includes(m.id) })),
+      modules: moduleCatalog
+        .map((m) => priced(m, demoPrices(s).modules))
+        .filter((m) => m.on_sale || w.owned.includes(m.id))
+        .map((m) => ({ ...m, owned: w.owned.includes(m.id) })),
       topups: ctx.member.role === "owner" ? w.topups.slice(0, 10) : [],
     };
   }
@@ -131,11 +136,14 @@ export async function confirmTopup(ctx: Context, id: string, status: "verified" 
 /** Owner buys a module once; coins are deducted atomically. */
 export async function buyModule(ctx: Context, moduleId: string) {
   requireOwner(ctx);
-  const m = moduleCatalog.find((x) => x.id === moduleId);
+  let m = moduleCatalog.find((x) => x.id === moduleId)!;
   assert(m, "ไม่พบโมดูล", 404);
   if (ctx.demo)
-    return demoMutate((s: DemoState & DemoCoins) => {
-      const w = demoCoins(s);
+    return demoMutate((s: DemoState & DemoCoins & DemoPrices) => {
+      const w = demoCoins(s),
+        cur = priced(m, demoPrices(s).modules);
+      assert(cur.on_sale, "ระบบนี้ปิดการขายแล้ว");
+      m = { ...m, price_coins: cur.price_coins };
       assert(!w.owned.includes(m.id), "ซื้อระบบนี้แล้ว");
       assert(w.balance >= m.price_coins, "เหรียญไม่พอ กรุณาเติมเหรียญ");
       w.balance -= m.price_coins;

@@ -127,6 +127,7 @@ import { sendFeedback,
 } from "@/lib/engage";
 import { adminCompanies, adminCompany, adminGrants, adminOverview, adminUsers, grantPlan, revokeGrant } from "@/lib/admin-console";
 import { adminAi, adminHealth, adminLine } from "@/lib/admin-monitor";
+import { adminAds, adminShop, saveShopPrice, setAdminAdStatus } from "@/lib/admin-shop";
 import { presence } from "@/lib/presence";
 import { customerLogo, customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
@@ -615,6 +616,8 @@ async function handle(req: NextRequest) {
       if (path[1] === "ai") return response(await adminAi(ctx, req.nextUrl.searchParams.get("range")));
       if (path[1] === "line") return response(await adminLine(ctx, req.nextUrl.searchParams.get("range")));
       if (path[1] === "health") return response(await adminHealth(ctx));
+      if (path[1] === "shop") return response(method === "GET" ? await adminShop(ctx) : await saveShopPrice(ctx, await body(req)));
+      if (path[1] === "ads") return response(path[2] ? await setAdminAdStatus(ctx, path[2], await body(req)) : await adminAds(ctx));
       if (path[1] === "grants") {
         if (method === "GET") return response(await adminGrants(ctx));
         if (method === "DELETE") return response(await revokeGrant(ctx, String(path[2] || "")));

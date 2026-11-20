@@ -14,6 +14,7 @@ import { SupportInbox, ContentEditor } from "./engage";
 import { AdminTopups } from "./coins";
 import { PlatformPayments } from "./platform";
 import { AiPage, HealthPage, LinePage } from "./admin-monitor";
+import { AdsPage, ShopPage } from "./admin-shop";
 import type { AdminCompany, AdminGrant, AdminUser, FeedItem, GrantKind, Overview, Via } from "@/lib/admin-console";
 
 type Section = "home" | "companies" | "users" | "packages" | "finance" | "support" | "promos" | "announcements" | "line" | "ai" | "health" | "security" | "shop" | "ads" | "settings";
@@ -37,8 +38,8 @@ const menu: { group: string; items: Item[] }[] = [
   {
     group: "ร้านค้า · โฆษณา",
     items: [
-      { key: "shop", label: "App Shop · ราคา", icon: ShoppingBag, c: ["#34d399", "#059669"], soon: "ตั้งราคาแอปเสริม โปรโมชัน เปิด/ปิดการขาย และดูว่ามีกี่บริษัทใช้" },
-      { key: "ads", label: "ตำแหน่งโฆษณา", icon: Megaphone, c: ["#fb923c", "#db2777"], soon: "จำนวนช่องและราคาของแต่ละตำแหน่ง อนุมัติ/หยุดโฆษณา ดูยอดเห็นและคลิก" },
+      { key: "shop", label: "App Shop · ราคา", icon: ShoppingBag, c: ["#34d399", "#059669"] },
+      { key: "ads", label: "ตำแหน่งโฆษณา", icon: Megaphone, c: ["#fb923c", "#db2777"] },
       { key: "promos", label: "โปรโมชัน", icon: Sparkles, c: ["#c084fc", "#9333ea"] },
       { key: "announcements", label: "ประกาศป๊อปอัป", icon: Bell, c: ["#818cf8", "#4f46e5"] },
     ],
@@ -281,6 +282,8 @@ export function AdminApp({ notify }: { notify: (s: string) => void }) {
             <AdminTopups notify={notify} />
           </div>
         )}
+        {section === "shop" && <ShopPage tick={tick} notify={notify} />}
+        {section === "ads" && <AdsPage tick={tick} notify={notify} open={setOpenCompany} />}
         {section === "ai" && <AiPage range={range} tick={tick} open={setOpenCompany} />}
         {section === "line" && <LinePage range={range} tick={tick} open={setOpenCompany} />}
         {section === "health" && <HealthPage tick={tick} open={setOpenCompany} />}

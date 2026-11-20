@@ -6,6 +6,7 @@ import { demoRead, demoMutate, demoAudit, type DemoState } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
 import { coinStore, moduleCatalog } from "./coins";
+import { currentPrices, priced } from "./shop-prices";
 import type { Context } from "./types";
 
 export type ShopKind = "character" | "theme" | "system";
@@ -111,6 +112,7 @@ export async function shopState(ctx: Context) {
     history = (l.data || []) as Ledger[];
   }
   const active = await shopActive(ctx);
+  const prices = await currentPrices(ctx);
   const now = Date.now();
   const byId = new Map(owned.map((o) => [o.item_id, o]));
   return {
@@ -120,7 +122,10 @@ export async function shopState(ctx: Context) {
     canBuyModules: ctx.member.role === "owner",
     modules: store.modules,
     active,
-    items: shopCatalog.map((i) => {
+    items: shopCatalog
+      .map((x) => priced(x, prices.items, prices.itemsComplete))
+      .filter((x) => x.on_sale || x.price_coins === 0 || byId.has(x.id))
+      .map((i) => {
       const o = byId.get(i.id);
       const live = i.price_coins === 0 || (!!o && (!o.expires_at || new Date(o.expires_at).getTime() > now));
       return { ...i, owned: live, bought_at: o?.bought_at || null, expires_at: o?.expires_at || null, active: active.theme === i.id || active.character === i.id };
@@ -132,8 +137,11 @@ export async function shopState(ctx: Context) {
 /** Owner/manager buys an item; coins are deducted atomically. Monthly systems renew for 30 more days. */
 export async function shopBuy(ctx: Context, itemId: string) {
   assert(canBuy(ctx), "เฉพาะเจ้าของหรือผู้จัดการ", 403);
-  const i = shopCatalog.find((x) => x.id === itemId);
-  assert(i, "ไม่พบสินค้า", 404);
+  const base = shopCatalog.find((x) => x.id === itemId);
+  assert(base, "ไม่พบสินค้า", 404);
+  const prices = await currentPrices(ctx),
+    i = priced(base, prices.items, prices.itemsComplete);
+  assert(i.on_sale, "รายการนี้ปิดการขายแล้ว");
   assert(i.price_coins > 0, "รายการนี้ใช้ได้ฟรีอยู่แล้ว");
   if (ctx.demo)
     return demoMutate((s: DemoState & DemoShop) => {

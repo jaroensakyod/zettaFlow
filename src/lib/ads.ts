@@ -4,6 +4,7 @@ import { supabaseServer } from "./supabase/server";
 import { assert, requireOwner } from "./domain";
 import { dbError } from "./data";
 import type { Context } from "./types";
+import { currentPrices } from "./shop-prices";
 
 export type AdTone = "violet" | "pink" | "blue" | "green";
 export type AdPackage = { id: string; name: string; days: number; coins: number };
@@ -55,7 +56,7 @@ const adInput = z.object({
 });
 
 export async function adStudio(ctx: Context) {
-  if (ctx.demo) return { packages: adPackages, ads: [] as MyAd[], balance: 0, posts: [] as { id: string; title: string }[] };
+  if (ctx.demo) return { packages: (await currentPrices(ctx)).adPackages, ads: [] as MyAd[], balance: 0, posts: [] as { id: string; title: string }[] };
   const sb = await supabaseServer();
   const [ads, wallet, posts] = await Promise.all([
     sb.rpc("my_feed_ads", { p_company: ctx.company.id }),
@@ -66,7 +67,7 @@ export async function adStudio(ctx: Context) {
   dbError(wallet.error);
   dbError(posts.error);
   return {
-    packages: adPackages,
+    packages: (await currentPrices(ctx)).adPackages,
     ads: (ads.data || []) as MyAd[],
     balance: Number(wallet.data?.balance || 0),
     posts: (posts.data || []).map((p) => ({
