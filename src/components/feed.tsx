@@ -1026,8 +1026,8 @@ export function PostCard({
       .then((r: { shares: number }) => onChange({ shares: r.shares }))
       .catch(() => {});
   };
-  // Job / partner posts have no comments: asking and offering open a chat with the posting company, quoting the post.
-  const chat = (intent = "") => navigate(`chat?with=${p.company_id}&post=${p.id}` + (intent ? "&intent=" + intent : ""));
+  // เสนอตัว / สมัคร on a job or partner post opens a chat with the posting company, quoting the post (comments stay comments).
+  const offerChat = () => navigate(`chat?with=${p.company_id}&post=${p.id}&intent=offer`);
   const offer = p.kind !== "post",
     text = offer ? p.body : excerpt(p),
     long = text.length > 280 || text.split("\n").length > 4,
@@ -1165,7 +1165,7 @@ export function PostCard({
             </span>
           </span>
           {!p.mine && (
-            <button className="li-offer-cta" onClick={() => (p.proposed ? navigate("jobs") : chat("offer"))}>
+            <button className="li-offer-cta" onClick={() => (p.proposed ? navigate("jobs") : offerChat())}>
               {p.proposed ? "ดูข้อเสนอ" : p.kind === "job" ? "สมัคร" : "เสนอตัว"}
             </button>
           )}
@@ -1180,11 +1180,9 @@ export function PostCard({
         <span className="li-stat like">
           <Heart size={14} /> {p.likes.toLocaleString()}
         </span>
-        {!offer && (
-          <button className="li-stat" onClick={() => setOpen(!open)}>
-            <MessageSquare size={14} /> {p.comment_count.toLocaleString()}
-          </button>
-        )}
+        <button className="li-stat" onClick={() => setOpen(!open)}>
+          <MessageSquare size={14} /> {p.comment_count.toLocaleString()}
+        </button>
         <span className="li-stat">
           <Share2 size={14} /> {(p.shares || 0).toLocaleString()}
         </span>
@@ -1197,22 +1195,10 @@ export function PostCard({
           <Heart size={18} />
           ถูกใจ
         </button>
-        {!offer ? (
-          <button aria-expanded={open} onClick={ask}>
-            <MessageSquare size={18} />
-            แสดงความคิดเห็น
-          </button>
-        ) : p.mine ? (
-          <button onClick={() => navigate("chat?b2b=")}>
-            <MessageCircle size={18} />
-            ข้อความที่ทักมา
-          </button>
-        ) : (
-          <button onClick={() => chat()}>
-            <MessageCircle size={18} />
-            ทักถามรายละเอียด
-          </button>
-        )}
+        <button aria-expanded={open} onClick={ask}>
+          <MessageSquare size={18} />
+          แสดงความคิดเห็น
+        </button>
         <button onClick={share}>
           <Share2 size={18} />
           แชร์
@@ -1222,7 +1208,7 @@ export function PostCard({
           {p.saved ? "บันทึกแล้ว" : "บันทึก"}
         </button>
       </div>
-      {open && !offer && (
+      {open && (
         <div className="li-thread">
           {ctx.member.role !== "viewer" && (
             <form
