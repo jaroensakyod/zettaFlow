@@ -409,7 +409,31 @@ export async function feedComment(ctx: Context, postId: string, input: unknown):
   const sb = await supabaseServer();
   const { data, error } = await sb.rpc("feed_comment", { p_company: ctx.company.id, p_post: id, p_body: body });
   dbError(error);
+  await offerToChat(sb, ctx, id, body, true);
   return { ...(data as FeedComment), company_name: ctx.company.name };
+}
+/**
+ * Job / partner posts: what another company sends about the post (an offer, or a comment under it) is also a message in
+ * the B2B chat between the two companies, with the post card, so the whole exchange stays in that chat for good.
+ * Never fails the action itself; returns the conversation, or null.
+ */
+async function offerToChat(sb: Awaited<ReturnType<typeof supabaseServer>>, ctx: Context, post: string, body: string, offersOnly: boolean) {
+  try {
+    const card = await sb.rpc("b2b_post", { p_company: ctx.company.id, p_post: post });
+    dbError(card.error);
+    const c = card.data as { kind?: string; company?: { id: string } } | null,
+      target = c?.company?.id;
+    if (!target || target === ctx.company.id || (offersOnly && c?.kind === "post")) return null;
+    const open = await sb.rpc("b2b_open", { p_company: ctx.company.id, p_target: target, p_post: post });
+    dbError(open.error);
+    const thread = String(open.data);
+    const sent = await sb.rpc("b2b_send", { p_company: ctx.company.id, p_thread: thread, p_body: body.slice(0, 4000), p_post: post });
+    dbError(sent.error);
+    return thread;
+  } catch (e) {
+    console.error("offerToChat", e);
+    return null;
+  }
 }
 export async function feedFollow(ctx: Context, target: string): Promise<boolean> {
   const id = z.uuid().parse(target);
@@ -547,24 +571,8 @@ export async function feedPropose(ctx: Context, postId: string, input: unknown) 
   const sb = await supabaseServer();
   const { error } = await sb.rpc("feed_propose", { p_company: ctx.company.id, p_post: id, p_message: message, p_contact: contact });
   dbError(error);
-  // The offer also goes to the B2B chat with the posting company, quoting the post, so the two can talk it through there
-  // (the poster's alert opens that chat). The proposal itself is saved either way.
-  let thread: string | null = null;
-  try {
-    const card = await sb.rpc("b2b_post", { p_company: ctx.company.id, p_post: id });
-    dbError(card.error);
-    const target = (card.data as { company?: { id: string } } | null)?.company?.id;
-    if (target) {
-      const open = await sb.rpc("b2b_open", { p_company: ctx.company.id, p_target: target, p_post: id });
-      dbError(open.error);
-      thread = String(open.data);
-      const body = (message + (contact ? "\n\nติดต่อ: " + contact : "")).slice(0, 4000);
-      const sent = await sb.rpc("b2b_send", { p_company: ctx.company.id, p_thread: thread, p_body: body, p_post: id });
-      dbError(sent.error);
-    }
-  } catch (e) {
-    console.error("feedPropose: chat", e);
-  }
+  // The offer also goes to the chat with the posting company (the poster's alert opens it); the proposal is saved either way.
+  const thread = await offerToChat(sb, ctx, id, message + (contact ? "\n\nติดต่อ: " + contact : ""), false);
   return { ok: true, thread };
 }
 export async function feedProposalStatus(ctx: Context, proposalId: string, input: unknown) {

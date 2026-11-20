@@ -245,9 +245,19 @@ export function Feed({
   }, [seenKey]);
   // Alerts the person has not opened yet, per group.
   const alertItems: AlertItem[] = [
-    // An offer sent from งาน & ข้อเสนอ is both a proposal and a chat message: show only the chat one (it opens the chat).
+    // An offer from งาน & ข้อเสนอ, or a comment on a job / partner post, is also a chat message: show only the chat alert
+    // (it opens the chat).
     ...alerts
-      .filter((a) => !(a.kind === "interest" && !a.thread_id && alerts.some((b) => b.kind === "interest" && b.thread_id && b.post_id === a.post_id && b.who === a.who)))
+      .filter(
+        (a) =>
+          a.thread_id ||
+          !alerts.some(
+            (b) =>
+              b.thread_id &&
+              b.who === a.who &&
+              ((a.kind === "interest" && b.kind === "interest" && b.post_id === a.post_id) || (a.kind === "message" && (b.title === a.title || b.body === a.title))),
+          ),
+      )
       .map((a) => ({ group: a.kind as AlertGroup, key: a.kind + a.id + a.at, at: a.at, who: a.who, title: a.title, status: a.status, thread: a.thread_id, body: a.body })),
     ...promos.map((x) => ({ group: "system" as AlertGroup, key: "system" + x.id, at: x.starts_at || "", who: "EliteFlow", title: x.title, url: x.cta_url })),
   ];
