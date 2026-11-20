@@ -114,6 +114,8 @@ export type Context = {
   member: Member;
   company: Company;
   demo: boolean;
+  /** A platform admin looking at this company read-only (support-view.ts). */
+  support?: { id: string; company_id: string; reason: string; expires_at: string; admin_email: string };
 };
 export type Template = {
   id: string;

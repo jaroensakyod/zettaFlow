@@ -250,6 +250,8 @@ export const sensitiveActions: Record<string, string> = {
   line_group_unlinked: "ยกเลิกเชื่อมกลุ่ม LINE",
   line_approver_removed: "นำผู้อนุมัติ LINE ออก",
   company_updated: "แก้ข้อมูลบริษัท",
+  support_view_started: "ทีมงานเปิดดูในมุมมองลูกค้า",
+  support_access_ended: "ลูกค้าหยุดการเข้าดูของทีมงาน",
 };
 const FLAG = 5;
 const actorOf = (target: string) => {

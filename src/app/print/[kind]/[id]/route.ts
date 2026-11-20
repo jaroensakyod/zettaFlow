@@ -46,7 +46,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     const origin = req.headers.get("origin");
     if (origin && origin !== req.nextUrl.origin) throw new AppError("คำขอไม่ถูกต้อง", 403);
     const { kind, id } = await target(params);
-    await issueDocument(await context(), kind, id);
+    const ctx = await context();
+    if (ctx.support) throw new AppError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว) ออกเลขเอกสารไม่ได้", 403);
+    await issueDocument(ctx, kind, id);
     return new Response(null, { status: 303, headers: { Location: docUrl(kind, id), "Cache-Control": "no-store" } });
   } catch (e) {
     return errorPage(e);

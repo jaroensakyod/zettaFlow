@@ -31,6 +31,7 @@ import {
   formatCode,
 } from "./domain";
 import { catalog } from "./catalog";
+import { supportContext } from "./support-view";
 import { freeKind } from "./departments";
 import { subscriptionActive, type Subscription } from "./billing";
 import { applyFx } from "./fx";
@@ -57,8 +58,10 @@ export async function context(opts: { fileId?: string } = {}): Promise<Context> 
     demoEnabled() ||
     (publicDemoAllowed() &&
       (await cookies()).get(PUBLIC_DEMO_COOKIE)?.value === "1")
-  )
-    return demoContext();
+  ) {
+    const d = await demoContext();
+    return (await supportContext(d.user, true)) || d;
+  }
   assert(configured(), "ตั้งค่า Supabase ก่อนใช้งาน", 503);
   const sb = await supabaseServer();
   const {
@@ -66,6 +69,9 @@ export async function context(opts: { fileId?: string } = {}): Promise<Context> 
     error,
   } = await sb.auth.getUser();
   assert(user && !error, "กรุณาเข้าสู่ระบบ", 401);
+  // A platform admin with an open read-only view of a customer company (ดูในมุมมองลูกค้า).
+  const view = await supportContext({ id: user.id, email: user.email || "", name: user.user_metadata.name || user.email || "" });
+  if (view) return view;
   const { error: inviteError } = await sb.rpc("accept_invitations");
   dbError(inviteError);
   const { data: members, error: memberError } = await sb

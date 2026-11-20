@@ -4,7 +4,7 @@
 // uses which package, give / revoke a package), plus the earlier tools (การเงิน, ซัพพอร์ต, โปรโมชัน, ประกาศ).
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
-  Activity, BadgeDollarSign, Bell, Bot, Building2, CalendarClock, ChevronRight, Coins, Crown, Gift, House, Lock,
+  Activity, BadgeDollarSign, Eye, Bell, Bot, Building2, CalendarClock, ChevronRight, Coins, Crown, Gift, House, Lock,
   Megaphone, MessageCircle, MessagesSquare, RefreshCw, Search, Settings, ShoppingBag, Sparkles, TriangleAlert, Undo2, Users, X,
   ReceiptText, CircleAlert, UserPlus, type LucideIcon,
 } from "lucide-react";
@@ -16,6 +16,7 @@ import { PlatformPayments } from "./platform";
 import { AiPage, HealthPage, LinePage } from "./admin-monitor";
 import { AdsPage, ShopPage } from "./admin-shop";
 import { SecurityPage, SettingsPage } from "./admin-settings";
+import { OpenViewDialog } from "./support-view";
 import type { AdminCompany, AdminGrant, AdminUser, FeedItem, GrantKind, Overview, Via } from "@/lib/admin-console";
 
 type Section = "home" | "companies" | "users" | "packages" | "finance" | "support" | "promos" | "announcements" | "line" | "ai" | "health" | "security" | "shop" | "ads" | "settings";
@@ -1089,6 +1090,7 @@ function CompanyDrawer({
     }
   };
   const c = data?.company;
+  const [viewing, setViewing] = useState(false);
   const roles: Record<string, string> = { owner: "เจ้าของ", manager: "ผู้จัดการ", staff: "พนักงาน", viewer: "ผู้ชม" };
   // On <body>: the workspace's animated page would otherwise trap position: fixed.
   return createPortal(
@@ -1121,9 +1123,15 @@ function CompanyDrawer({
               <Info label="ผู้ใช้" value={<Seats c={c} />} />
               <Info label="สมัครเมื่อ" value={thDate(c.created_at)} sub={ago(c.created_at) + "ที่แล้ว"} />
             </div>
-            <button className="ad-btn primary wide" onClick={() => grant(c)}>
-              <Gift size={15} /> มอบแพ็กเกจให้บริษัทนี้
-            </button>
+            <div className="sv-drawer-acts">
+              <button className="ad-btn primary" onClick={() => grant(c)}>
+                <Gift size={15} /> มอบแพ็กเกจให้บริษัทนี้
+              </button>
+              <button className="ad-btn ghost" onClick={() => setViewing(true)} title="อ่านอย่างเดียว ต้องใส่เหตุผล และลูกค้าเห็นว่าคุณเข้ามาดู">
+                <Eye size={15} /> ดูในมุมมองลูกค้า
+              </button>
+            </div>
+            {viewing && <OpenViewDialog company={c} close={() => setViewing(false)} notify={notify} />}
 
             <h3 className="ad-h small">
               <Users size={16} /> สมาชิก ({data.members.length})

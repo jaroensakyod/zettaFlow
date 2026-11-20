@@ -105,10 +105,13 @@ const actionLabel: Record<string, [string, string]> = {
   line_group_unlinked: ["ยกเลิกเชื่อมกลุ่ม LINE", "#dc2626"],
   line_approver_removed: ["นำผู้อนุมัติ LINE ออก", "#d97706"],
   company_updated: ["แก้ข้อมูลบริษัท", "#0891b2"],
+  support_view_started: ["ทีมงานเปิดดูในมุมมองลูกค้า", "#ea580c"],
+  support_access_ended: ["ลูกค้าหยุดการเข้าดูของทีมงาน", "#64748b"],
 };
 const adminAction = (a: string): [string, string, typeof Lock] => {
   if (a === "grant") return ["มอบแพ็กเกจ", "#16a34a", Package];
   if (a === "revoke") return ["ยกเลิกแพ็กเกจ", "#dc2626", Package];
+  if (a === "support_view") return ["ดูในมุมมองลูกค้า", "#ea580c", Eye];
   if (a === "price") return ["ราคา App Shop", "#059669", Coins];
   if (a.startsWith("ad_")) return ["โฆษณา", "#ea580c", Bell];
   if (a.startsWith("setting_team")) return ["ทีมแอดมิน", "#7c3aed", UserCog];

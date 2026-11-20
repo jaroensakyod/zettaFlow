@@ -133,6 +133,7 @@ import { adminAds, adminShop, saveShopPrice, setAdminAdStatus } from "@/lib/admi
 import { adminSecurity, adminSettings, recordLoginFailure, saveSetting } from "@/lib/admin-settings";
 import { loadCatalog } from "@/lib/platform-settings";
 import { sendAdminAlert } from "@/lib/admin-log";
+import { activeSupport, closeSupportView, endSupportAccess, openSupportView, supportAccessList } from "@/lib/support-view";
 import { presence } from "@/lib/presence";
 import { customerLogo, customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
@@ -324,6 +325,9 @@ async function handle(req: NextRequest) {
     const fileId =
       method === "GET" && path[0] === "files" && /^[0-9a-f-]{36}$/i.test(path[1] || "") ? path[1] : undefined;
     const ctx = await context({ fileId });
+    // ดูในมุมมองลูกค้า is read-only: nothing may change while an admin looks (leaving the view is the one exception).
+    if (ctx.support && method !== "GET" && !(path[0] === "admin" && path[1] === "view"))
+      throw new AppError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว) แก้ไขหรือบันทึกไม่ได้", 403);
     // AI calls in this request count against this company's trial and are logged per company.
     if (!ctx.demo) forCompany(ctx.company.id);
     // Public showcase is read-only: only reads and side-effect-free helpers.
@@ -382,8 +386,12 @@ async function handle(req: NextRequest) {
         summary: { ...result.summary, widgets },
         platformAdmin: platformViewer(ctx),
         adminRole: platformRole(ctx),
+        support: ctx.support || null,
+        supportWatch: ctx.support ? [] : await activeSupport(ctx),
       });
     }
+    if (path[0] === "support-access")
+      return response(method === "GET" ? await supportAccessList(ctx) : await endSupportAccess(ctx, z.string().max(64).parse(path[1])));
     if (path[0] === "home") {
       if (path[1] === "extra" && method === "GET") return response(await homeExtra(ctx));
       if (path[1] === "notes" && method === "PUT") return response(await saveNote(ctx, await body(req)));
@@ -634,6 +642,7 @@ async function handle(req: NextRequest) {
       if (path[1] === "health") return response(await adminHealth(ctx));
       if (path[1] === "settings") return response(method === "GET" ? await adminSettings(ctx) : await saveSetting(ctx, await body(req)));
       if (path[1] === "security") return response(await adminSecurity(ctx));
+      if (path[1] === "view") return response(method === "DELETE" ? await closeSupportView(ctx) : await openSupportView(ctx, await body(req), platformViewer(ctx)));
       if (path[1] === "shop") return response(method === "GET" ? await adminShop(ctx) : await saveShopPrice(ctx, await body(req)));
       if (path[1] === "ads") return response(path[2] ? await setAdminAdStatus(ctx, path[2], await body(req)) : await adminAds(ctx));
       if (path[1] === "grants") {
