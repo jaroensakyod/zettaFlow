@@ -111,7 +111,10 @@ export async function shrinkImage(bytes: Buffer, mime: string): Promise<{ bytes:
   // PNG = screenshots (bank slips, app screens): kept as sent so a QR code is never at risk. Camera photos are JPEG.
   if (!["image/jpeg", "image/webp"].includes(mime) || bytes.length <= SHRINK_FROM_BYTES) return keep;
   try {
-    const sharp = (await import("sharp")).default;
+    // Loaded at run time, not bundled: present on Node / Vercel; on Cloudflare Workers it is missing and the photo is
+    // kept as sent (catch below) until the Workers build shrinks with Cloudflare Images.
+    const lib = "sharp";
+    const sharp = ((await import(/* turbopackIgnore: true */ /* webpackIgnore: true */ lib)) as typeof import("sharp")).default;
     const out = await sharp(bytes, { failOn: "none" })
       .rotate() // honour the phone's EXIF orientation before it is dropped
       .resize({ width: SHRINK_MAX_SIDE, height: SHRINK_MAX_SIDE, fit: "inside", withoutEnlargement: true })

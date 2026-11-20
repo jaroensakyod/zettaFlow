@@ -13,3 +13,8 @@ next-env.d.ts
 .vercel
 .env*
 supabase/.temp/
+
+# Cloudflare trial
+.open-next/
+.wrangler/
+.dev.vars*

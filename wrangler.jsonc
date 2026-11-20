@@ -1,0 +1,14 @@
+// Cloudflare Workers trial (branch cloudflare-trial): the Next.js app built by OpenNext and run with `wrangler dev`.
+// Nothing here is deployed yet; caching (R2), images and the D1 / Queues bindings come in later phases.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "eliteflow",
+	"compatibility_date": "2026-11-15",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "eliteflow" }]
+}

@@ -256,10 +256,12 @@ export function seedDemo(makeId: () => string = uid): DemoState {
     invites: [],
   };
 }
+// Folder of the demo store: ./.data, or DEMO_DATA_DIR (the Cloudflare Workers trial points it at /tmp, the only
+// writable place there; it lives in memory, so that demo starts fresh whenever the worker restarts).
+const dataDir = () => process.env.DEMO_DATA_DIR || join(process.cwd(), ".data");
 const file = () =>
   join(
-    process.cwd(),
-    ".data",
+    dataDir(),
     (process.env.DEMO_DATA_FILE || "eliteflow-demo.json").replace(
       /[^a-zA-Z0-9_.-]/g,
       "_",
@@ -284,7 +286,7 @@ export async function demoRead(): Promise<DemoState> {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
     if (!initializing)
       initializing = (async () => {
-        await mkdir(resolve(".data"), { recursive: true });
+        await mkdir(resolve(dataDir()), { recursive: true });
         await saveFile(seedDemo());
       })().finally(() => {
         initializing = null;

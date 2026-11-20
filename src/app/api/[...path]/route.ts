@@ -1415,6 +1415,8 @@ async function handle(req: NextRequest) {
         { error: e.issues.map((i) => i.message).join(" · ") },
         400,
       );
+    // Unexpected failures reach the server log (the person sees only a generic message).
+    if (!(e instanceof AppError)) console.error("[api]", req.method, req.nextUrl.pathname, e);
     return response(
       {
         error:
