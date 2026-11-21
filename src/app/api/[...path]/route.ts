@@ -3,6 +3,7 @@ import { forCompany } from "@/lib/llm";
 import { adStudio, buyAd, liveAds, setAdStatus, trackAd } from "@/lib/ads";
 import { lineGroupMessages, lineGroupsOverview } from "@/lib/line-hub";
 import { NextResponse, after, type NextRequest } from "next/server";
+import { joinEmail, mailConfigured, sendMail } from "@/lib/mailer";
 import { cookies } from "next/headers";
 import { randomUUID, randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -159,7 +160,12 @@ async function body(req: NextRequest) {
   }
 }
 /** Email an invitation through Supabase Auth (service role). Never fails the invite itself. */
-async function emailInvite(email: string, name?: string, resend = false): Promise<{ emailed: boolean; existing?: boolean; reset?: boolean }> {
+async function emailInvite(
+  email: string,
+  name?: string,
+  resend = false,
+  company?: { name: string; position?: string; by?: string },
+): Promise<{ emailed: boolean; existing?: boolean; reset?: boolean }> {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { emailed: false };
   const site = process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com";
   try {
@@ -169,6 +175,12 @@ async function emailInvite(email: string, name?: string, resend = false): Promis
     });
     if (!error) return { emailed: true };
     if (/already|registered|exists/i.test(error.message)) {
+      // They have an account: with the mail service set up, the invitation itself (company, position, sign in with
+      // their own password); the company is added when they sign in.
+      if (company && mailConfigured()) {
+        await sendMail({ to: email.trim().toLowerCase(), ...joinEmail({ company: company.name, email, name, position: company.position, from: company.by }) });
+        return { emailed: true, existing: true };
+      }
       // Asked to send again to someone who already has an account (or opened an earlier invite but never set a
       // password): a link to set their password — they land signed in, and the company is added on sign-in.
       if (!resend) return { emailed: false, existing: true };
@@ -1023,7 +1035,24 @@ async function handle(req: NextRequest) {
         assert(!inv.accepted_at, "อีเมลนี้เข้าร่วมบริษัทแล้ว");
         const { error } = await sb.rpc("invite_member", { p_company: ctx.company.id, p_email: email, p_role: inv.role, p_departments: inv.departments });
         dbError(error);
-        return response({ ok: true, ...(await emailInvite(email, undefined, true)) });
+        return response({ ok: true, ...(await emailInvite(email, undefined, true, { name: ctx.company.name, by: ctx.user.name })) });
+      }
+      // Invitation email to a member (company, position, a button to sign in with their own password):
+      // POST /team/<member>/invite-email {name?, position?}
+      if (path[1] && path[2] === "invite-email" && method === "POST") {
+        requireOwner(ctx);
+        const input = z.object({ name: z.string().trim().max(200).optional(), position: z.string().trim().max(200).optional() }).parse(await body(req).catch(() => ({})));
+        if (ctx.demo) return response({ ok: true, demo: true });
+        const sb = await supabaseServer();
+        const { data: m, error: e } = await sb.from("memberships").select("email,name").eq("company_id", ctx.company.id).eq("id", z.uuid().parse(path[1])).maybeSingle();
+        dbError(e);
+        assert(m?.email, "ไม่พบสมาชิก", 404);
+        await sendMail({
+          to: String(m.email).trim().toLowerCase(),
+          replyTo: ctx.user.email || undefined,
+          ...joinEmail({ company: ctx.company.name, email: String(m.email), name: input.name || m.name || undefined, position: input.position, from: ctx.user.name }),
+        });
+        return response({ ok: true, emailed: true });
       }
       // A member who can't get in: POST /team/<member>/login-link emails them a link to set a password and sign in.
       if (path[1] && path[2] === "login-link" && method === "POST") {
@@ -1082,8 +1111,9 @@ async function handle(req: NextRequest) {
           departments: z.array(z.string().min(1).max(100)).max(20),
           read_departments: z.array(z.string().min(1).max(100)).max(20).optional(),
           disabled: z.boolean().optional(),
-          /** The invited person's name (employee page), used in the invite email. */
+          /** The invited person's name and position (employee page), used in the invite email. */
           name: z.string().trim().max(200).optional(),
+          position: z.string().trim().max(200).optional(),
         })
         .parse(await body(req));
       // An invite needs a ใช้งาน department; an edit may leave only ดู ones.
@@ -1133,7 +1163,7 @@ async function handle(req: NextRequest) {
         // A new invitation: email it. Someone without an account gets Supabase's invite email (template "invite":
         // /auth/confirm?type=invite → set a password → into the company). Someone who already has an account
         // gets no email (they only need to sign in again); the screen shows a message to send them instead.
-        if (!path[1]) return response({ ok: true, ...(await emailInvite(String(input.email), input.name)) });
+        if (!path[1]) return response({ ok: true, ...(await emailInvite(String(input.email), input.name, false, { name: ctx.company.name, position: input.position, by: ctx.user.name })) });
       }
       return response({ ok: true });
     }

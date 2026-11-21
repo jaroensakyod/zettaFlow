@@ -212,7 +212,7 @@ export function MemberAccessTab({
                 setBusy(true);
                 try {
                   const dept = department && departmentNames.includes(department) ? department : "Finance";
-                  const r: InviteResult = await api("/team", { method: "POST", body: { email: key, role: "staff", departments: [dept], name: name || undefined } });
+                  const r: InviteResult = await api("/team", { method: "POST", body: { email: key, role: "staff", departments: [dept], name: name || undefined, position: position || undefined } });
                   setSent(r);
                   notify(r.emailed ? "ส่งอีเมลคำเชิญแล้ว · ใช้งานได้ 7 วัน" : "บันทึกคำเชิญแล้ว · ส่งข้อความให้พนักงานได้เลย");
                   await load();
@@ -373,7 +373,7 @@ export function MemberAccessTab({
         memberId={member.id}
         name={name || member.name}
         position={position}
-        onSent={(r) => notify(r.emailed ? "ส่งลิงก์ตั้งรหัสผ่านใหม่ทางอีเมลแล้ว" : "ให้พนักงานกด “ลืมรหัสผ่าน” ที่หน้าเข้าสู่ระบบแทน")}
+        onSent={(r) => notify(r.reset === false ? (r.demo ? "โหมดตัวอย่างไม่ส่งอีเมล" : "ส่งคำเชิญทางอีเมลแล้ว") : r.emailed ? "ส่งลิงก์ตั้งรหัสผ่านใหม่ทางอีเมลแล้ว" : "ให้พนักงานกด “ลืมรหัสผ่าน” ที่หน้าเข้าสู่ระบบแทน")}
       />
     </section>
   );

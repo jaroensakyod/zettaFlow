@@ -156,7 +156,9 @@ export function LoginHelp({
 }) {
   const [copied, setCopied] = useState(false),
     [result, setResult] = useState<InviteResult | null>(null),
+    [mailed, setMailed] = useState<"" | "sent" | "demo">(""),
     [busy, setBusy] = useState(false),
+    [mailing, setMailing] = useState(false),
     [error, setError] = useState("");
   const text = joinText(company, email, name, position);
   return (
@@ -179,7 +181,32 @@ export function LoginHelp({
         >
           {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? "คัดลอกแล้ว" : "คัดลอกคำเชิญ"}
         </button>
+        <button
+          type="button"
+          className="secondary"
+          disabled={mailing}
+          onClick={async () => {
+            setMailing(true);
+            setError("");
+            try {
+              const r: InviteResult = await api("/team/" + memberId + "/invite-email", { method: "POST", body: { name, position } });
+              setMailed(r.demo ? "demo" : "sent");
+              onSent?.({ ...r, reset: false });
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setMailing(false);
+            }
+          }}
+        >
+          <MailCheck size={15} /> {mailing ? "กำลังส่ง…" : "ส่งคำเชิญทางอีเมล"}
+        </button>
       </div>
+      {mailed && (
+        <p className="invite-msg-status ok">
+          <MailCheck size={15} /> {mailed === "demo" ? "โหมดตัวอย่างไม่ส่งอีเมลจริง" : `ส่งคำเชิญไปที่ ${email} แล้ว`}
+        </p>
+      )}
       <p className="login-help-forgot">
         พนักงานลืมรหัสผ่าน?{" "}
         <button
