@@ -11,9 +11,10 @@ import { b2bSample, isSampleThread, quickQuestions, sampleThreadFor, SAMPLE_NOTE
 import { api, Empty, Loading } from "./shared";
 import { Chat } from "./tools";
 import { CompanyLogo, employmentLabels, kindLabel, since } from "./feed";
-import { DealBar, DealCardView, PayForm, QuoteForm, RequestForm, StepForm, sampleDeal, sampleWorkDeal, type DealStepKind } from "./deal-room";
+import { DealBar, DealCardView, PayForm, RequestForm, StepForm, sampleDeal, sampleWorkDeal, type DealStepKind } from "./deal-room";
 import type { Deal, DealCard } from "@/lib/b2b-deal-types";
 import { AttachButton, MessageFiles, PendingFiles } from "./chat-people";
+import { QuoteEditor } from "./quote-editor";
 
 export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: string) => void; navigate: (v: string) => void }) {
   const params = useSearchParams(),
@@ -732,19 +733,37 @@ function B2bChat({
           }}
         />
       )}
-      {form?.kind === "quote" && active && (
-        <QuoteForm
-          sample={!!sample}
-          thread={active}
-          deal={form.deal}
-          from={form.from}
-          post={form.post}
-          notes={form.notes}
+      {form?.kind === "quote" && active && thread && (
+        // The same quotation document as the ใบเสนอราคา page; sending puts it in this chat as the quotation card.
+        <QuoteEditor
           onClose={() => setForm(null)}
-          onSent={() => {
-            setForm(null);
-            notify("ส่งใบเสนอราคาในแชทแล้ว");
-            dealChanged();
+          onSaved={() => {}}
+          chat={{
+            company: thread.company,
+            sample: !!sample,
+            title: form.from?.data?.title || form.deal?.title || form.post?.title,
+            notes: form.from?.kind === "quote" ? form.from.data?.notes || "" : form.notes,
+            items: form.from?.data?.items,
+            discount: form.from?.kind === "quote" ? Number(form.from.data?.discount) || 0 : 0,
+            vatMode: form.from?.kind === "quote" ? form.from.data?.vatMode : undefined,
+            validUntil: form.from?.kind === "quote" ? form.from.data?.validUntil : undefined,
+            onSend: async (q) => {
+              const src = form.from?.kind === "quote" ? form.from.data : undefined;
+              await api(`/b2b/${active}/quote`, {
+                method: "POST",
+                body: {
+                  deal: form.deal?.id || null,
+                  ...q,
+                  // what the document has no field for stays as the earlier version had it
+                  deliverBy: src?.deliverBy || src?.needBy || form.from?.data?.needBy || undefined,
+                  payTerms: src?.payTerms || undefined,
+                  installments: src?.installments?.length ? src.installments : undefined,
+                },
+              });
+              setForm(null);
+              notify("ส่งใบเสนอราคาในแชทแล้ว");
+              dealChanged();
+            },
           }}
         />
       )}
