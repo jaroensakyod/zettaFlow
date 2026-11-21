@@ -11,6 +11,7 @@ import "./styles/projects.css";
 import "./styles/line.css";
 import "./styles/home.css";
 import "./styles/employees.css";
+import "./styles/access.css";
 import "./styles/chat.css";
 import "./styles/profile.css";
 import "./styles/auth-future.css";

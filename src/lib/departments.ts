@@ -1,5 +1,6 @@
 // แผนก mega menu: 9 colour-coded departments, 6 shortcuts each. Every `view` is a real workspace page
 // (catalog kind or extra view); `?kind=` opens the report page on that department's data.
+import { catalog } from "./catalog";
 export type MenuItem = { label: string; view: string; icon: string };
 /** A left-sidebar entry; a group shows its children indented under it. */
 /** step: numbered stage of a flow (ใบเสนอราคา ① → ใบแจ้งหนี้ ③ …), drawn as a numbered dot on a line. */
@@ -221,4 +222,23 @@ export function sectionTone(d: DepartmentMenu | undefined, view: string) {
   const entry = activeEntry(d, view);
   if (!entry) return undefined;
   return sidebarOf(d).find((i) => i.section && (i === entry || i.children?.includes(entry)))?.section?.tone;
+}
+/** แผนกของฉัน card for each department name (catalog), where one exists. */
+const menuOfDepartment: Record<string, string> = {
+  Finance: "accounting", Sales: "sales", Marketing: "marketing", Warehouse: "warehouse", HR: "hr",
+  Purchasing: "admin", Admin: "admin", Event: "event", IT: "it", Legal: "legal",
+};
+/** The company's package doesn't open this department (departments without a menu card are never package-locked). */
+export const departmentPlanLocked = (department: string, paid: boolean) =>
+  !!menuOfDepartment[department] && departmentLocked(menuOfDepartment[department], paid);
+
+/**
+ * The department a page belongs to for สิทธิ์การใช้งาน: a member without ดู / ใช้งาน on it sees a lock screen.
+ * งาน, เอกสาร and Ticket are shared by every department; pages outside a department return null.
+ */
+export function systemDepartment(key: string): string | null {
+  if (["tax", "receipts", "income", "finance", "income-new", "expense-new"].includes(key)) return "Finance";
+  if (key === "transfers") return "Warehouse";
+  if (catalog[key] && !["tasks", "documents", "tickets"].includes(key)) return catalog[key].department;
+  return null;
 }

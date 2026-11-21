@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   Search, Plus, Download, Upload, Phone, Mail, Pencil, Star, CalendarDays, RefreshCw, SlidersHorizontal, Users, Check, Minus,
   CalendarCheck, AlarmClock, LayoutGrid, ChartNoAxesColumn, Clock, FileText, Sparkles, Files, History, Gem, UserRound,
-  ChevronLeft, ChevronRight, X, BadgeCheck, ShieldCheck, Eye, EyeOff,
+  ChevronLeft, ChevronRight, X, BadgeCheck, ShieldCheck, Eye, EyeOff, KeyRound,
 } from "lucide-react";
 import type { Context, Entity } from "@/lib/types";
 import { catalog, statusLabels } from "@/lib/catalog";
@@ -21,6 +21,7 @@ import { EntityFiles } from "./entity-files";
 import { deptLabels } from "./home-dashboard";
 import { EmployeeProfile, Avatar, tenure, parseHistory, type HistoryItem } from "./employee-profile";
 import { employeesSample, isSampleId, sampleCompany } from "@/lib/mock/employees";
+import { MemberAccessTab } from "./member-access";
 
 /** Add / edit พนักงาน: coloured sections in the order HR fills them in; anything else lands in ข้อมูลเพิ่มเติม. */
 const employeeGroups: EditorGroup[] = [
@@ -452,6 +453,7 @@ export function EmployeesPage({
                 sample={sample}
                 portraits={portraits}
                 navigate={navigate}
+                notify={notify}
                 patch={patch}
                 onEdit={() => setEditing(selected)}
                 onOpen={() => {
@@ -503,6 +505,8 @@ const TABS = [
   ["skills", "ทักษะ & ความสามารถ", Sparkles],
   ["files", "เอกสาร", Files],
   ["history", "ประวัติ", History],
+  // Owner only: per-system access of this person's login (member-access.tsx).
+  ["access", "สิทธิ์การใช้งาน", KeyRound],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
@@ -515,12 +519,14 @@ function Detail({
   sample,
   portraits,
   navigate,
+  notify,
   patch,
   onEdit,
   onOpen,
 }: {
   e: Entity;
   ctx: Context;
+  notify: (s: string) => void;
   rel: Related;
   today: string;
   writable: boolean;
@@ -601,7 +607,7 @@ function Detail({
         </section>
       </div>
       <nav className="ep-tabs" role="tablist">
-        {TABS.map(([k, label, Icon]) => (
+        {TABS.filter(([k]) => k !== "access" || (ctx.member.role === "owner" && !sample)).map(([k, label, Icon]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>
             <Icon size={15} /> {label}
           </button>
@@ -893,6 +899,9 @@ function Detail({
         </section>
       )}
       {tab === "history" && <HistoryTab e={e} writable={writable} patch={patch} />}
+      {tab === "access" && ctx.member.role === "owner" && !sample && (
+        <MemberAccessTab ctx={ctx} email={String(d.email || "")} department={String(d.department || "")} notify={notify} navigate={navigate} />
+      )}
     </>
   );
 }

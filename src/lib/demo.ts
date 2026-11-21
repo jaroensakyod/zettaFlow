@@ -225,6 +225,7 @@ export function seedDemo(makeId: () => string = uid): DemoState {
         email: "demo@eliteflow.test",
         role: "owner",
         departments: [],
+        read_departments: [],
         disabled: false,
       },
       ...(
@@ -243,6 +244,7 @@ export function seedDemo(makeId: () => string = uid): DemoState {
         email: `staff${i + 1}@siristudio.co.th`,
         role,
         departments: [...departments],
+        read_departments: [] as string[],
         disabled: false,
       })),
     ],
@@ -309,7 +311,8 @@ export async function demoContext(): Promise<Context> {
     m = s.members[0];
   return {
     user: { id: m.user_id, email: m.email, name: m.name },
-    member: m,
+    // Demo files saved before read_departments existed lack it.
+    member: { ...m, read_departments: m.read_departments || [] },
     company: s.company,
     demo: true,
   };

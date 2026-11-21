@@ -102,7 +102,8 @@ export async function context(opts: { fileId?: string } = {}): Promise<Context> 
       email: user.email || "",
       name: user.user_metadata.name || user.email,
     },
-    member,
+    // read_departments: until migration 0085 runs the column is missing.
+    member: { ...member, read_departments: member.read_departments || [] },
     company,
     demo: false,
   };

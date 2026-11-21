@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { deptThai } from "@/lib/line-message";
 
-const look: Record<string, [LucideIcon, string]> = {
+/** Icon and colour per department (also the สิทธิ์การใช้งาน rows). */
+export const deptLook: Record<string, [LucideIcon, string]> = {
   Finance: [Wallet, "#16a34a"],
   HR: [Users, "#db2777"],
   Warehouse: [Package, "#2563eb"],
@@ -47,7 +48,7 @@ export function DeptPicker({
   const pick = (v: string) => (value === undefined && setOwn(v), onChange?.(v));
   const options: [string, string, LucideIcon, string][] = [
     ["", noneLabel, CircleDashed, "#8a86a3"],
-    ...Object.entries(deptThai).map(([k, l]) => [k, l, ...(look[k] || [Briefcase, "#7c3aed"])] as [string, string, LucideIcon, string]),
+    ...Object.entries(deptThai).map(([k, l]) => [k, l, ...(deptLook[k] || [Briefcase, "#7c3aed"])] as [string, string, LucideIcon, string]),
   ];
   return (
     <div className="dpk" role="radiogroup" aria-label="แผนก">

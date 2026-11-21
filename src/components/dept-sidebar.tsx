@@ -1,21 +1,25 @@
 "use client";
 // Left sidebar on every department page: department name (back to all departments), its pages with icons, groups with
 // indented sub-pages, the current page highlighted, and an illustration card at the bottom.
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { activeEntry, sidebarOf, type DepartmentMenu } from "@/lib/departments";
+import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { activeEntry, baseView, sidebarOf, type DepartmentMenu } from "@/lib/departments";
 import { MenuIcon, rememberDept } from "./dept-menu";
 
 export function DepartmentSidebar({
   dept,
   view,
   navigate,
+  locked = () => false,
 }: {
   dept: DepartmentMenu;
+  /** No ดู / ใช้งาน on this page (สิทธิ์การใช้งาน): a lock after its label. */
+  locked?: (key: string) => boolean;
   /** Current page including its ?query, e.g. "expenses?filter=pending". */
   view: string;
   navigate: (view: string) => void;
 }) {
   const current = activeEntry(dept, view);
+  const mark = (to: string) => (locked(baseView(to)) ? <Lock size={12} className="lock-mark" aria-label="ล็อก" /> : null);
   const go = (to: string) => {
     rememberDept(dept.id);
     navigate(to);
@@ -47,7 +51,10 @@ export function DepartmentSidebar({
                     <MenuIcon name={item.icon} size={18} />
                   </span>
                   <span className="dept-side-two">
-                    {item.label}
+                    <span>
+                      {item.label}
+                      {mark(item.view)}
+                    </span>
                     <small>{item.section.caption}</small>
                   </span>
                 </button>
@@ -60,7 +67,10 @@ export function DepartmentSidebar({
                       onClick={() => go(c.view)}
                     >
                       {c.step ? <i>{c.step}</i> : <MenuIcon name={c.icon} size={15} />}
-                      <span>{c.label}</span>
+                      <span>
+                        {c.label}
+                        {mark(c.view)}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -76,11 +86,17 @@ export function DepartmentSidebar({
                 <MenuIcon name={item.icon} size={22} />
                 {item.sub ? (
                   <span className="dept-side-two">
-                    {item.label}
+                    <span>
+                      {item.label}
+                      {mark(item.view)}
+                    </span>
                     <small>{item.sub}</small>
                   </span>
                 ) : (
-                  <span>{item.label}</span>
+                  <span>
+                    {item.label}
+                    {mark(item.view)}
+                  </span>
                 )}
               </button>
               {!!item.children?.length && (
@@ -93,7 +109,10 @@ export function DepartmentSidebar({
                       onClick={() => go(c.view)}
                     >
                       <MenuIcon name={c.icon} size={16} />
-                      <span>{c.label}</span>
+                      <span>
+                        {c.label}
+                        {mark(c.view)}
+                      </span>
                     </button>
                   ))}
                 </div>

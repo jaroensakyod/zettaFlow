@@ -966,9 +966,12 @@ async function handle(req: NextRequest) {
     if (path[0] === "team") {
       requireOwner(ctx);
       if (method === "GET") {
+        // read_departments (ดู) is missing on rows saved before migration 0085 / older demo files.
+        const withRead = <T extends { read_departments?: string[] | null }>(rows: T[] | null) =>
+          (rows || []).map((m) => ({ ...m, read_departments: m.read_departments || [] }));
         if (ctx.demo) {
           const s = await demoRead();
-          return response({ members: s.members, invites: s.invites });
+          return response({ members: withRead(s.members), invites: s.invites });
         }
         const sb = await supabaseServer();
         const [{ data: members, error }, { data: invites, error: e }] =
@@ -978,16 +981,55 @@ async function handle(req: NextRequest) {
           ]);
         dbError(error);
         dbError(e);
-        return response({ members, invites });
+        return response({ members: withRead(members), invites });
+      }
+      // สิทธิ์การใช้งาน (employee page): POST /team/<member>/access {role, departments (ใช้งาน), read_departments (ดู)}.
+      if (path[1] && path[2] === "access" && method === "POST") {
+        const id = path[1];
+        const access = z
+          .object({
+            role: z.enum(["manager", "staff", "viewer"]),
+            departments: z.array(z.enum(departmentNames as [string, ...string[]])).max(30),
+            read_departments: z.array(z.enum(departmentNames as [string, ...string[]])).max(30),
+          })
+          .parse(await body(req));
+        const use = [...new Set(access.departments)];
+        const view = [...new Set(access.read_departments)].filter((d) => !use.includes(d));
+        assert(use.length + view.length > 0, "เลือกอย่างน้อย 1 ระบบที่ดูหรือใช้งานได้");
+        if (ctx.demo) {
+          let saved: import("@/lib/types").Member | undefined;
+          await demoMutate((s) => {
+            const m = s.members.find((m) => m.id === id);
+            assert(m, "ไม่พบสมาชิก", 404);
+            assert(m.role !== "owner", "เจ้าของบริษัทใช้ได้ทุกระบบ แก้ไขสิทธิ์ไม่ได้");
+            Object.assign(m, { role: access.role, departments: use, read_departments: view });
+            saved = { ...m };
+            demoAudit(s, "member_access_updated", id);
+          });
+          return response({ member: saved });
+        }
+        const sb = await supabaseServer();
+        const { data, error } = await sb.rpc("set_member_access", {
+          p_company: ctx.company.id,
+          p_member: z.uuid().parse(id),
+          p_role: access.role,
+          p_departments: use,
+          p_read_departments: view,
+        });
+        dbError(error);
+        return response({ member: data });
       }
       const input = z
         .object({
           email: z.email().optional(),
           role: z.enum(["manager", "staff", "viewer"]),
-          departments: z.array(z.string().min(1).max(100)).min(1).max(20),
+          departments: z.array(z.string().min(1).max(100)).max(20),
+          read_departments: z.array(z.string().min(1).max(100)).max(20).optional(),
           disabled: z.boolean().optional(),
         })
         .parse(await body(req));
+      // An invite needs a ใช้งาน department; an edit may leave only ดู ones.
+      assert(input.departments.length || (path[1] && input.read_departments?.length), "เลือกแผนกอย่างน้อย 1 แผนก");
       if (ctx.demo)
         await demoMutate((s) => {
           if (path[1]) {
@@ -996,6 +1038,7 @@ async function handle(req: NextRequest) {
             Object.assign(m, {
               role: input.role,
               departments: input.departments,
+              read_departments: (input.read_departments ?? m.read_departments ?? []).filter((d) => !input.departments.includes(d)),
               disabled: input.disabled || false,
             });
           } else {
@@ -1018,6 +1061,8 @@ async function handle(req: NextRequest) {
               p_role: input.role,
               p_departments: input.departments,
               p_disabled: input.disabled || false,
+              // Left out, the member's ดู departments are kept.
+              ...(input.read_departments ? { p_read_departments: input.read_departments } : {}),
             })
           : await sb.rpc("invite_member", {
               p_company: ctx.company.id,

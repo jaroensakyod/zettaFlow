@@ -27,6 +27,7 @@ const viewer = (company: Company, user: Context["user"]): Member => ({
   email: user.email,
   role: "viewer",
   departments: everyDepartment(),
+  read_departments: [],
   disabled: false,
 });
 const open = (a: SupportAccess) => !a.ended_at && Date.parse(a.expires_at) > Date.now();

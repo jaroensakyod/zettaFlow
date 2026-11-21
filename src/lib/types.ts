@@ -102,7 +102,10 @@ export type Member = {
   name: string;
   email: string;
   role: Role;
+  /** ใช้งาน: read and write (writes still need a role other than viewer). */
   departments: string[];
+  /** ดู: read only (migration 0085). Older rows / demo data may lack it — treat missing as []. */
+  read_departments: string[];
   disabled: boolean;
 };
 export type Company = {
