@@ -89,9 +89,9 @@ async function validatePayload(t: Tenant, kind: string, p: Data): Promise<Data> 
   return out;
 }
 
-type Plan = { stmts: Stmt[]; after: (() => Promise<void>)[] };
+export type Plan = { stmts: Stmt[]; after: (() => Promise<void>)[] };
 /** post_stock_movement(): stock in / out on a product, refusing to go below zero. */
-async function stockMove(t: Tenant, plan: Plan, productId: string, type: "in" | "out", q: number, reference: string, notes: string) {
+export async function stockMove(t: Tenant, plan: Plan, productId: string, type: "in" | "out", q: number, reference: string, notes: string) {
   if (!canWriteDept(t.viewer, "Warehouse")) fail("ไม่มีสิทธิ์คลังสินค้า", 403);
   const [product] = await t.selectInternal<Entity>("entities", { where: { id: productId, kind: "products", archived_at: null } });
   if (!product) fail("ไม่พบสินค้า", 404);
