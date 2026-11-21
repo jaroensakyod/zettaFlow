@@ -4,15 +4,16 @@
 // With no conversation yet (or in the public demo) the list shows a labelled sample inbox (lib/mock/b2b.ts).
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion } from "lucide-react";
+import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion, ReceiptText, Megaphone } from "lucide-react";
 import type { Context, FeedPost } from "@/lib/types";
-import type { B2bCompany, B2bMessage, B2bPostRef, B2bThread } from "@/lib/b2b";
+import type { B2bCompany, B2bFile, B2bMessage, B2bPostRef, B2bThread } from "@/lib/b2b";
 import { b2bSample, isSampleThread, quickQuestions, sampleThreadFor, SAMPLE_NOTE, SAMPLE_SENT, type SampleThread } from "@/lib/mock/b2b";
 import { api, Empty, Loading } from "./shared";
 import { Chat } from "./tools";
 import { CompanyLogo, employmentLabels, kindLabel, since } from "./feed";
 import { DealBar, DealCardView, PayForm, QuoteForm, RequestForm, StepForm, sampleDeal, sampleWorkDeal, type DealStepKind } from "./deal-room";
 import type { Deal, DealCard } from "@/lib/b2b-deal-types";
+import { AttachButton, MessageFiles, MyAvatar, PendingFiles, PersonAvatar } from "./chat-people";
 
 export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: string) => void; navigate: (v: string) => void }) {
   const params = useSearchParams(),
@@ -53,6 +54,27 @@ const offerMessage: Record<string, string> = {
   partner: "สนใจเสนอตัวเป็นพาร์ทเนอร์สำหรับงานนี้ ขอส่งรายละเอียดบริษัทและผลงานให้พิจารณา",
   job: "สนใจสมัครงานนี้ ขอส่งประวัติและผลงานให้พิจารณา",
 };
+/** What the poster usually answers first: the details of the work, filled from their own post. */
+const posterReplies = (post: B2bPostRef) => {
+  const m = post.meta || {};
+  return [
+    "ขอบคุณที่สนใจค่ะ รายละเอียดงานมีดังนี้\n• งาน: " + post.title + "\n• ขอบเขตงาน: \n• สถานที่: " + (m.location || "") + "\n• งบประมาณ: " + (m.budget || "") + "\n• กำหนดเสร็จ: ",
+    "ขอดูผลงานที่ผ่านมาและใบรับรองบริษัทได้ไหมคะ",
+    "สะดวกนัดคุยหรือเข้าดูหน้างานวันไหนคะ",
+    "ถ้าตกลงตามนี้ ส่งใบเสนอราคาในแชทนี้ได้เลยค่ะ",
+  ];
+};
+/** Type of a picked file when the browser leaves it blank (some systems do for .docx / .xlsx). */
+const extTypes: Record<string, string> = {
+  pdf: "application/pdf",
+  txt: "text/plain",
+  csv: "text/csv",
+  zip: "application/zip",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+const mimeOf = (f: File) => f.type || extTypes[f.name.split(".").pop()?.toLowerCase() || ""] || "";
 const imageSrc = (path: string) => (path.startsWith("data:") ? path : "/api/feed/image/" + path);
 const companyLogo = (c: { id: string; name: string; has_logo: boolean; logo_url?: string }, size: number) => (
   <CompanyLogo id={c.id} name={c.name} logo={c.logo_url || c.has_logo} size={size} />
@@ -138,6 +160,7 @@ function B2bChat({
     [messages, setMessages] = useState<B2bMessage[] | null>(null),
     [topic, setTopic] = useState<B2bPostRef | null>(null),
     [text, setText] = useState(""),
+    [pending, setPending] = useState<File[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     bottom = useRef<HTMLDivElement>(null),
@@ -148,7 +171,7 @@ function B2bChat({
     [form, setForm] = useState<
       | null
       | { kind: "request" }
-      | { kind: "quote"; deal?: Deal | null; from?: DealCard | null }
+      | { kind: "quote"; deal?: Deal | null; from?: DealCard | null; post?: B2bPostRef | null; notes?: string }
       | { kind: "step"; step: DealStepKind; deal: Deal }
       | { kind: "pay"; card: DealCard }
     >(null);
@@ -270,8 +293,9 @@ function B2bChat({
     });
   };
   const send = async () => {
-    if (!thread || !text.trim()) return;
+    if (!thread || (!text.trim() && !pending.length)) return;
     const body = text.trim();
+    if (sample && pending.length) return notify("ตัวอย่างแนบไฟล์ไม่ได้ — ส่งไฟล์ได้จริงเมื่อคุยกับบริษัทในเครือข่าย");
     if (sample) {
       const m: B2bMessage = {
         id: sample.id + "-local-" + Date.now(),
@@ -292,9 +316,19 @@ function B2bChat({
     }
     setBusy(true);
     try {
-      const m: B2bMessage = await api("/b2b/" + thread.id, { method: "POST", body: { body, post: topic?.id || null } });
+      // Files go straight to storage (the conversation's folder), then the message names them.
+      const files: B2bFile[] = [];
+      for (const f of pending) {
+        const mime = mimeOf(f),
+          up: { path: string; url: string } = await api(`/b2b/${thread.id}/upload`, { method: "POST", body: { name: f.name, mime, size: f.size } });
+        const put = await fetch(up.url, { method: "PUT", headers: { "Content-Type": mime, "x-upsert": "false" }, body: f });
+        if (!put.ok) throw new Error("อัปโหลด " + f.name + " ไม่สำเร็จ กรุณาลองใหม่");
+        files.push({ path: up.path, name: f.name.slice(0, 200), mime, size: f.size });
+      }
+      const m: B2bMessage = await api("/b2b/" + thread.id, { method: "POST", body: { body, post: topic?.id || null, files } });
       setMessages((list) => [...(list || []), { ...m, post: m.post ?? topic }]);
       setText("");
+      setPending([]);
       setTopic(null);
       loadThreads().catch(() => {});
     } catch (err) {
@@ -304,6 +338,31 @@ function B2bChat({
     }
   };
   const chips = useMemo(() => (topic ? quickQuestions[topic.kind] : []), [topic]);
+  // Whose post the conversation is about: that company explains the work, the other one offers and quotes.
+  const post = thread?.post || null,
+    ownerId = post?.company?.id || null,
+    amOwner = !!ownerId && ownerId === ctx.company.id,
+    talked = !!shown && shown.some((m) => m.mine && !m.card_id) && shown.some((m) => !m.mine && !m.card_id),
+    quoteReady = !!post && !amOwner && (post.kind === "partner" || post.kind === "job") && talked && !shownDeals.length,
+    // What the quotation refers to: the post and what its owner wrote in this chat.
+    agreed = () => {
+      const fromOwner = (shown || [])
+          .filter((m) => !m.mine && !m.card_id && m.body.length > 20)
+          .slice(-3)
+          .map((m) => m.body),
+        meta = post?.meta || {};
+      return [
+        post ? "อ้างอิงประกาศ: " + post.title : "",
+        meta.location ? "สถานที่: " + meta.location : "",
+        meta.budget ? "งบประมาณตามประกาศ: " + meta.budget : "",
+        fromOwner.length ? "รายละเอียดที่ตกลงในแชท:\n" + fromOwner.join("\n") : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+        .slice(0, 1900);
+    },
+    startQuote = () => setForm({ kind: "quote", post, notes: agreed() }),
+    me = { id: ctx.company.id, name: ctx.company.name, has_logo: !!ctx.company.profile?.logo };
   return (
     <section className={"card b2b" + (active && thread ? " open" : "")}>
       <aside className="b2b-list" aria-label="บริษัทที่คุยด้วย">
@@ -316,6 +375,7 @@ function B2bChat({
             </span>
           )}
         </div>
+        <MyAvatar userId={ctx.user.id} name={ctx.member.name || ctx.user.name || ctx.user.email} company={me} demo={ctx.demo} notify={notify} />
         {!list ? (
           <Loading />
         ) : (
@@ -327,6 +387,7 @@ function B2bChat({
                 select(t.id);
                 setTopic(null);
                 setText("");
+                setPending([]);
               }}
             >
               {companyLogo(t.company, 40)}
@@ -374,12 +435,17 @@ function B2bChat({
                 </strong>
                 <small>{[thread.company.industry, thread.company.province].filter(Boolean).join(" · ") || "บริษัทในเครือข่าย"}</small>
               </span>
+              <span className="b2b-sides" title="คุยระหว่างสองบริษัท">
+                <em className="mine">{ctx.company.name}</em>
+                <i>↔</i>
+                <em>{thread.company.name}</em>
+              </span>
             </header>
             <DealBar
               deals={shownDeals}
               disabled={viewer}
               onRequest={() => setForm({ kind: "request" })}
-              onQuote={() => setForm({ kind: "quote" })}
+              onQuote={() => (shownDeals.length ? setForm({ kind: "quote" }) : startQuote())}
               onStep={(step, deal) => setForm({ kind: "step", step, deal })}
             />
             <div className="b2b-messages">
@@ -390,7 +456,7 @@ function B2bChat({
                   {!shown.length && !pendingCard && (
                     <Empty title={"เริ่มคุยกับ " + thread.company.name} description="ข้อความเห็นได้ทุกคนในสองบริษัทนี้เท่านั้น" />
                   )}
-                  {shown.map((m, i) => {
+                  {shown.map((m) => {
                     const hit = m.card_id ? cardIndex.get(m.card_id) : undefined;
                     if (hit && m.card_id) {
                       const first = !firstLine.has(m.card_id);
@@ -417,23 +483,30 @@ function B2bChat({
                         </div>
                       );
                     }
+                    // Every message says who sent it: their picture, name and company.
+                    const company = m.mine ? { ...me, has_logo: m.company_has_logo ?? me.has_logo } : thread.company;
                     return (
-                    <div className={"b2b-msg" + (m.mine ? " mine" : "")} key={m.id}>
-                      {(i === 0 || shown[i - 1].mine !== m.mine || Date.parse(m.created_at) - Date.parse(shown[i - 1].created_at) > 6e5) && (
-                        <small>
-                          {m.mine ? m.author_name : (m.company_name || thread.company.name) + " · " + m.author_name} · {since(m.created_at)}
-                        </small>
-                      )}
-                      {m.post &&
-                        (m.post.excerpt !== undefined || m.post.image || m.post.company ? (
-                          <ChatPostCard post={m.post} onOpen={openPost} onAsk={m.post.id !== topic?.id ? () => setTopic(m.post!) : undefined} />
-                        ) : (
-                          <span className="b2b-ref">
-                            <FileText size={13} /> {kindLabel[m.post.kind]}: {m.post.title}
-                          </span>
-                        ))}
-                      <p>{m.body}</p>
-                    </div>
+                      <div className={"b2b-msg person" + (m.mine ? " mine" : "")} key={m.id}>
+                        <PersonAvatar userId={m.author_id} at={m.avatar_at} name={m.author_name} company={company} />
+                        <div className="b2b-msg-body">
+                          <small className="b2b-who">
+                            <b>{m.author_name}</b>
+                            <span>{m.company_name || company.name}</span>
+                            {ownerId && (m.mine ? ctx.company.id : thread.company.id) === ownerId && <em className="b2b-owner">เจ้าของประกาศ</em>}
+                            <time>{since(m.created_at)}</time>
+                          </small>
+                          {m.post &&
+                            (m.post.excerpt !== undefined || m.post.image || m.post.company ? (
+                              <ChatPostCard post={m.post} onOpen={openPost} onAsk={m.post.id !== topic?.id ? () => setTopic(m.post!) : undefined} />
+                            ) : (
+                              <span className="b2b-ref">
+                                <FileText size={13} /> {kindLabel[m.post.kind]}: {m.post.title}
+                              </span>
+                            ))}
+                          {m.body && <p>{m.body}</p>}
+                          {m.files && m.files.length > 0 && <MessageFiles thread={thread.id} files={m.files} />}
+                        </div>
+                      </div>
                     );
                   })}
                   {/* the sample deal's cards (demo) */}
@@ -445,6 +518,18 @@ function B2bChat({
                         </div>
                       )),
                     )}
+                  {quoteReady && !viewer && (
+                    <div className="b2b-next">
+                      <ReceiptText size={18} />
+                      <span>
+                        <b>คุยรายละเอียดครบแล้ว?</b>
+                        <small>ส่งใบเสนอราคาให้ {thread.company.name} ได้เลย ระบบกรอกชื่องานและรายละเอียดจากประกาศและแชทนี้ให้</small>
+                      </span>
+                      <button type="button" className="primary" onClick={startQuote}>
+                        ส่งใบเสนอราคา
+                      </button>
+                    </div>
+                  )}
                   {pendingCard && (
                     <div className="b2b-msg mine b2b-pending">
                       <small>คุณกำลังถามเกี่ยวกับโพสต์นี้</small>
@@ -483,8 +568,31 @@ function B2bChat({
                   )}
                 </div>
               )}
+              {amOwner && !topic && !viewer && post && (
+                <div className="b2b-topic-bar">
+                  <span className="b2b-ref compose">
+                    <Megaphone size={13} /> ประกาศของคุณ: <b>{post.title}</b> · ตอบรายละเอียดงานให้ผู้สนใจ
+                  </span>
+                  <div className="b2b-quick" aria-label="ตอบด่วน">
+                    {posterReplies(post).map((q) => (
+                      <button type="button" key={q} className={text === q ? "active" : ""} onClick={() => ask(q)}>
+                        {q.split("\n")[0]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <PendingFiles files={pending} onRemove={(i) => setPending((all) => all.filter((_, n) => n !== i))} />
               {sample && <small className="b2b-sample-compose">{SAMPLE_SENT} — ลองพิมพ์หรือกดคำถามด่วนได้</small>}
               <div>
+                <AttachButton
+                  disabled={viewer || busy}
+                  onPick={(files) => {
+                    const big = files.find((f) => f.size > 10_000_000);
+                    if (big) notify(big.name + " ใหญ่เกิน 10 MB");
+                    setPending((all) => [...all, ...files.filter((f) => f.size <= 10_000_000)].slice(0, 10));
+                  }}
+                />
                 <textarea
                   ref={input}
                   aria-label={"ข้อความถึง " + thread.company.name}
@@ -501,7 +609,7 @@ function B2bChat({
                     }
                   }}
                 />
-                <button className="primary" aria-label="ส่งข้อความ" disabled={viewer || busy || !text.trim()}>
+                <button className="primary" aria-label="ส่งข้อความ" disabled={viewer || busy || (!text.trim() && !pending.length)}>
                   <Send size={18} />
                 </button>
               </div>
@@ -560,6 +668,8 @@ function B2bChat({
           thread={active}
           deal={form.deal}
           from={form.from}
+          post={form.post}
+          notes={form.notes}
           onClose={() => setForm(null)}
           onSent={() => {
             setForm(null);

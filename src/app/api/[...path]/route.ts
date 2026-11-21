@@ -83,7 +83,7 @@ import { shopState, shopActive, shopBuy, shopActivate } from "@/lib/app-shop";
 import { projectsOverview, projectDetail } from "@/lib/projects";
 import { receiptsList } from "@/lib/receipts";
 import { dealDecide, dealQuote, dealRequest, dealStep, dealSteps, dealWithdraw, dealsOf } from "@/lib/b2b-deals";
-import { b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread } from "@/lib/b2b";
+import { avatarUrl, b2bFile, b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread, b2bUpload, clearAvatar, myAvatar, setAvatar } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
 import { taxReport, incomeReport, incomeForm, ledger, ledgerDetail, expiries } from "@/lib/dept-views";
@@ -1041,11 +1041,22 @@ async function handle(req: NextRequest) {
       if (path[1] && path[2] === "deals" && method === "GET") return response(await dealsOf(ctx, path[1]));
       if (path[1] && path[2] === "request" && method === "POST") return response(await dealRequest(ctx, path[1], await body(req)), 201);
       if (path[1] && path[2] === "quote" && method === "POST") return response(await dealQuote(ctx, path[1], await body(req)), 201);
+      // Files in the conversation: POST /b2b/<thread>/upload {name,mime,size} → {path,url}; GET /b2b/<thread>/file/<file>?name=
+      if (path[1] && path[2] === "upload" && method === "POST") return response(await b2bUpload(ctx, path[1], await body(req)), 201);
+      if (path[1] && path[2] === "file" && path[3] && method === "GET")
+        return NextResponse.redirect(await b2bFile(ctx, path[1], path[3], req.nextUrl.searchParams.get("name")));
       if (!path[1] && method === "GET") return response(await b2bInbox(ctx));
       if (path[1] === "unread") return response({ unread: await b2bUnread(ctx) });
       if (path[1] === "open" && method === "POST") return response(await b2bOpen(ctx, await body(req)));
       if (path[1] && method === "GET") return response(await b2bRead(ctx, path[1]));
       if (path[1] && method === "POST") return response(await b2bSend(ctx, path[1], await body(req)), 201);
+    }
+    // People's pictures: GET /avatar (mine: {avatar_at}), POST /avatar (form "file", WebP), DELETE /avatar, GET /avatar/<user>.
+    if (path[0] === "avatar") {
+      if (path[1] && method === "GET") return NextResponse.redirect(await avatarUrl(ctx, path[1]));
+      if (method === "GET") return response({ avatar_at: await myAvatar(ctx) });
+      if (method === "POST") return response({ avatar_at: await setAvatar(ctx, (await req.formData()).get("file")) });
+      if (method === "DELETE") return response({ avatar_at: await clearAvatar(ctx) });
     }
     if (path[0] === "chat") {
       const department =
