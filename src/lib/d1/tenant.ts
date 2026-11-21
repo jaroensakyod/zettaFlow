@@ -180,6 +180,65 @@ export class Tenant {
     const f = this.filters(table, m, where);
     return { sql: `SELECT CASE WHEN EXISTS (SELECT 1 FROM "${table}" t WHERE t.company_id = ? AND (${f.sql})) THEN 1 ELSE json('changed') END`, params: [this.viewer.companyId, ...f.params] };
   }
+  /**
+   * INSERT … ON CONFLICT (conflict) DO UPDATE SET each of `update` to the new value — Postgres's upsert, inside this
+   * company. `bump` adds the new value to the old one instead (quantity = quantity + excluded.quantity).
+   */
+  upsertStmt(table: string, row: Row, conflict: string[], update: string[], bump: string[] = []): Stmt {
+    const s = this.insertStmt(table, row),
+      m = meta(table);
+    [...conflict, ...update, ...bump].forEach((c) => col(m, table, c));
+    const sets = [...update.map((c) => `"${c}" = excluded."${c}"`), ...bump.map((c) => `"${c}" = "${table}"."${c}" + excluded."${c}"`)];
+    return { sql: s.sql.replace(/ RETURNING \*$/, ` ON CONFLICT (${conflict.map((c) => `"${c}"`).join(", ")}) DO ${sets.length ? "UPDATE SET " + sets.join(", ") : "NOTHING"} RETURNING *`), params: s.params };
+  }
+
+  // ---------- global: tables without company_id, or rows of other companies ----------
+  // For checked functions only (b2b deals and chat, the feed, plans and packages, platform admin). Nothing here is
+  // pinned to the company or filtered by a read rule: the caller must have checked who may see or change the row.
+  async selectGlobal<T = Row>(table: string, q: Query = {}): Promise<T[]> {
+    const m = meta(table),
+      f = this.filters(table, m, q.where);
+    const order = q.order?.length ? ` ORDER BY ${q.order.map(([c, d]) => `${col(m, table, c)} ${d === "desc" ? "DESC" : "ASC"}`).join(", ")}` : "";
+    const limit = q.limit !== undefined ? ` LIMIT ${Math.max(0, Math.floor(q.limit))}` : "";
+    const rows = await this.sql.all<Row>(`SELECT t.* FROM "${table}" t WHERE (${f.sql})${order}${limit}`, f.params);
+    return rows.map((row) => decode<T>(m, row));
+  }
+  insertGlobalStmt(table: string, row: Row): Stmt {
+    if (this.viewer.support) throw new AccessError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว)");
+    const m = meta(table),
+      keys = Object.keys(row).filter((k) => row[k] !== undefined);
+    keys.forEach((k) => col(m, table, k));
+    return { sql: `INSERT INTO "${table}" (${keys.map((k) => `"${k}"`).join(", ")}) VALUES (${keys.map(() => "?").join(", ")}) RETURNING *`, params: keys.map((k) => encode(m, k, row[k])) };
+  }
+  upsertGlobalStmt(table: string, row: Row, conflict: string[], update: string[], bump: string[] = []): Stmt {
+    const s = this.insertGlobalStmt(table, row),
+      m = meta(table);
+    [...conflict, ...update, ...bump].forEach((c) => col(m, table, c));
+    const sets = [...update.map((c) => `"${c}" = excluded."${c}"`), ...bump.map((c) => `"${c}" = "${table}"."${c}" + excluded."${c}"`)];
+    return { sql: s.sql.replace(/ RETURNING \*$/, ` ON CONFLICT (${conflict.map((c) => `"${c}"`).join(", ")}) DO ${sets.length ? "UPDATE SET " + sets.join(", ") : "NOTHING"} RETURNING *`), params: s.params };
+  }
+  updateGlobalStmt(table: string, where: Record<string, Cond>, patch: Row): Stmt {
+    if (this.viewer.support) throw new AccessError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว)");
+    const m = meta(table);
+    if (!Object.keys(where).length) throw new AccessError("update needs a where");
+    const keys = Object.keys(patch).filter((k) => patch[k] !== undefined);
+    if (!keys.length) throw new AccessError("nothing to update");
+    const f = this.filters(table, m, where);
+    return { sql: `UPDATE "${table}" AS t SET ${keys.map((k) => `"${k}" = ?`).join(", ")} WHERE (${f.sql}) RETURNING *`, params: [...keys.map((k) => (col(m, table, k), encode(m, k, patch[k]))), ...f.params] };
+  }
+  deleteGlobalStmt(table: string, where: Record<string, Cond>): Stmt {
+    if (this.viewer.support) throw new AccessError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว)");
+    const m = meta(table);
+    if (!Object.keys(where).length) throw new AccessError("delete needs a where");
+    const f = this.filters(table, m, where);
+    return { sql: `DELETE FROM "${table}" AS t WHERE (${f.sql}) RETURNING *`, params: f.params };
+  }
+  /** guardStmt for a global row: abort the batch unless a row matching `where` still exists. */
+  guardGlobalStmt(table: string, where: Record<string, Cond>): Stmt {
+    const m = meta(table),
+      f = this.filters(table, m, where);
+    return { sql: `SELECT CASE WHEN EXISTS (SELECT 1 FROM "${table}" t WHERE (${f.sql})) THEN 1 ELSE json('changed') END`, params: f.params };
+  }
   /** Next running number for a document prefix (next_number): atomic, never reused. */
   async nextNumber(prefix: string, year: number): Promise<number> {
     if (this.viewer.support) throw new AccessError("กำลังดูในมุมมองลูกค้า (อ่านอย่างเดียว)");
