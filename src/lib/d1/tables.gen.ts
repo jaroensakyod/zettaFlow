@@ -176,9 +176,12 @@ export const tables: Record<string, TableMeta> = {
    "body",
    "post_id",
    "created_at",
-   "card_id"
+   "card_id",
+   "files"
   ],
-  "json": [],
+  "json": [
+   "files"
+  ],
   "bool": [],
   "num": []
  },
@@ -1313,6 +1316,17 @@ export const tables: Record<string, TableMeta> = {
   "json": [
    "items"
   ],
+  "bool": [],
+  "num": []
+ },
+ "user_profiles": {
+  "company": false,
+  "columns": [
+   "user_id",
+   "avatar_at",
+   "updated_at"
+  ],
+  "json": [],
   "bool": [],
   "num": []
  },

@@ -143,12 +143,13 @@ CREATE TABLE "b2b_messages" (
   "post_id" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "card_id" TEXT,
+  "files" TEXT NOT NULL DEFAULT '[]' CHECK ("files" IS NULL OR json_valid("files")),
   PRIMARY KEY ("id"),
   FOREIGN KEY (card_id) REFERENCES "b2b_cards"(id) ON DELETE SET NULL,
   FOREIGN KEY (company_id) REFERENCES "companies"(id),
   FOREIGN KEY (post_id) REFERENCES "company_posts"(id) ON DELETE SET NULL,
   FOREIGN KEY (thread_id) REFERENCES "b2b_threads"(id) ON DELETE CASCADE,
-  CONSTRAINT "b2b_messages_body_check" CHECK (((length(body) >= 1) AND (length(body) <= 4000)))
+  CONSTRAINT "b2b_messages_body_check" CHECK (((length(body) <= 4000) AND ((length(body) >= 1) OR (json_array_length(files) > 0))))
 );
 CREATE TABLE "b2b_reads" (
   "thread_id" TEXT NOT NULL,
@@ -1066,6 +1067,12 @@ CREATE TABLE "user_notes" (
   FOREIGN KEY (company_id) REFERENCES "companies"(id),
   CONSTRAINT "user_notes_body_check" CHECK ((length(body) <= 4000)),
   CONSTRAINT "user_notes_items_check" CHECK (((json_type(items) = 'array') AND (json_array_length(items) <= 30)))
+);
+CREATE TABLE "user_profiles" (
+  "user_id" TEXT NOT NULL,
+  "avatar_at" TEXT,
+  "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY ("user_id")
 );
 CREATE TABLE "wht_certificates" (
   "id" TEXT NOT NULL DEFAULT (lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-4'||substr(lower(hex(randomblob(2))),2)||'-'||substr('89ab',1+(abs(random())%4),1)||substr(lower(hex(randomblob(2))),2)||'-'||lower(hex(randomblob(6)))),

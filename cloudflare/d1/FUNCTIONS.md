@@ -1,12 +1,17 @@
 # Postgres functions → D1 (TypeScript)
 
-Every function of the Supabase schema (the latest definition of each, one file per function: 200) and where it lives
+Every function of the Supabase schema (the latest definition of each, one file per function: 204) and where it lives
 on D1. Paths are relative to `src/lib/d1/` (`../` = `src/lib/`). "inlined" = the logic is part of another port (a
 trigger or a helper that has no caller of its own); "dropped" = the function no longer exists in Postgres. Tests are
 the parity tests in `tests/` (`d1-*-parity.test.ts`, PGlite with every migration vs node:sqlite with the D1 schema),
 plus `d1-tenant.test.ts` for the data layer; "through X" = covered by the steps that call X.
 
-**192 ported as an export, 7 inlined, 1 dropped, 0 missing.**
+**195 ported as an export, 8 inlined, 1 dropped, 0 missing.**
+
+Storage (not functions): the buckets and `storage.objects` policies of 0082 (`eliteflow-avatars`: anyone signed in
+reads, each person writes only `<own user id>.webp`, webp ≤ 1 MB; `eliteflow-b2b`: `<thread>/<file>`, read by
+`b2b_thread_member(thread)`, added by `b2b_thread_member(thread, true)`, ≤ 10 MB, listed mime types) are storage → R2,
+enforced in the Worker (which calls `network-chat.ts:b2bThreadMember` for the chat files).
 
 Shared pieces after the consolidation: `common.ts` (fail, now, Postgres text helpers, serviceTenant / systemTenant,
 member_role, dept_th, the project stages), `validate.ts` (validate_payload), `entity-insert.ts` (the entities INSERT
@@ -48,7 +53,7 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | b2b_deal_request | network-deals.ts:b2bDealRequest | d1-network-deals-parity |
 | b2b_deal_withdraw | network-deals.ts:b2bDealWithdraw | d1-network-deals-parity |
 | b2b_deals_of | network-deals.ts:b2bDealsOf | d1-network-deals-parity |
-| b2b_inbox | network-chat.ts:b2bInbox | d1-network-chat-parity, d1-network-deals-parity |
+| b2b_inbox | network-chat.ts:b2bInbox (files-only text: network-chat.ts b2bShownBody) | d1-network-chat-parity, d1-network-deals-parity |
 | b2b_installment_amount | network-deals.ts:b2bInstallmentAmount | d1-network-deals-parity |
 | b2b_installments | network-deals.ts:b2bInstallments | d1-network-deals-parity |
 | b2b_items | network-deals.ts:b2bItems | d1-network-deals-parity |
@@ -56,9 +61,11 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | b2b_party | network-deals.ts:b2bParty | d1-network-deals-parity |
 | b2b_post | network-chat.ts:b2bPost | d1-network-chat-parity |
 | b2b_post_card | network-chat.ts:b2bPostCard | d1-network-chat-parity |
-| b2b_read | network-chat.ts:b2bRead | d1-network-chat-parity, d1-network-deals-parity |
-| b2b_send | network-chat.ts:b2bSend | d1-network-chat-parity |
+| b2b_read | network-chat.ts:b2bRead (files + sender fields since 0082) | d1-network-chat-parity, d1-network-deals-parity |
+| b2b_send | network-chat.ts:b2bSend (p_files since 0082) | d1-network-chat-parity |
+| b2b_sender | inlined: network-chat.ts senders (b2b_sender for a batch of messages, used by b2bSend / b2bRead) | d1-network-chat-parity, d1-network-deals-parity |
 | b2b_set_entity | network-common.ts:setEntityStmts | d1-network-deals-parity (progress, delivery, payment, cancel) |
+| b2b_thread_member | network-chat.ts:b2bThreadMember | d1-network-chat-parity |
 | b2b_thread_of | network-chat.ts:b2bThreadOf | d1-network-chat-parity |
 | b2b_unread | network-chat.ts:b2bUnread | d1-network-chat-parity |
 | b2b_writer | network-chat.ts:b2bWriter | d1-network-chat-parity |
@@ -99,7 +106,7 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | expire_subscriptions | billing-plan.ts:expireSubscriptions | d1-billing-parity |
 | feed_ad_track | billing-ads.ts:feedAdTrack | d1-billing-parity |
 | feed_ads_live | billing-ads.ts:feedAdsLive | d1-billing-parity |
-| feed_alerts | network-feed.ts:feedAlerts | d1-network-chat-parity, d1-network-feed-parity |
+| feed_alerts | network-feed.ts:feedAlerts (files-only text: network-chat.ts b2bShownBody) | d1-network-chat-parity, d1-network-feed-parity |
 | feed_author | network-common.ts:feedAuthor | d1-network-feed-parity |
 | feed_comment | network-feed.ts:feedComment | d1-network-feed-parity |
 | feed_companies | network-feed.ts:feedCompanies | d1-network-feed-parity |
@@ -152,6 +159,7 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | load_sample_data | company-sample.ts:loadSampleData | d1-company-parity |
 | log_action | inlined: an audit_events insert in each batch (ingestion.ts logAction for the ingestion functions) | every parity test (audit_events compared) |
 | member_role | common.ts:memberRoleIn (company.ts:memberRole for building a Viewer; inside ported functions viewer.role) | d1-company-parity, d1-network-feed-parity, d1-network-deals-parity |
+| my_avatar | network-chat.ts:myAvatar | d1-network-chat-parity |
 | my_feed_ads | billing-ads.ts:myFeedAds | d1-billing-parity |
 | next_number | tenant.ts:Tenant.nextNumber (Tenant.nextNumberIntoStmts for another company inside a batch) | d1-tenant, d1-entities-parity, d1-network-deals-parity |
 | note_delete | company-share.ts:noteDelete | d1-company-parity |
@@ -187,6 +195,7 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | send_message | company.ts:sendMessage | d1-company-parity |
 | set_feed_ad_status | billing-ads.ts:setFeedAdStatus | d1-billing-parity |
 | set_line_group_listen | line.ts:setLineGroupListen | d1-line-parity |
+| set_my_avatar | network-chat.ts:setMyAvatar | d1-network-chat-parity |
 | set_template_target | approvals.ts:setTemplateTarget | d1-approvals-parity |
 | share_failed | company-share.ts:shareFailed | d1-company-parity |
 | share_lockout | company-share.ts:shareLockout | d1-company-parity |

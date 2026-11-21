@@ -3,7 +3,7 @@
 // Posts and companies are shared across tenants, so reads and writes are global; each function checks what the
 // Postgres one checked (member of the asking company, not a viewer, author or owner, ...).
 import type { Tenant } from "./tenant";
-import { companiesById, hasLogo, postTitle, type Company, type Message, type Post, type Thread } from "./network-chat";
+import { b2bShownBody, companiesById, hasLogo, postTitle, type Company, type Message, type Post, type Thread } from "./network-chat";
 import { bkkDDMM, fail, feedAuthor, ilike, jsonbText, jsonbType, jtext, left, len, memberRole, minusDays, myRole, stamp, textOrder, trim, uuid, type Data } from "./network-common";
 
 export { feedAuthor };
@@ -442,8 +442,8 @@ export async function feedAlerts(t: Tenant): Promise<Data[]> {
     const first = op && !earlier.some((e) => e.thread_id === m.thread_id && e.post_id === m.post_id && e.company_id === m.company_id && e.created_at < m.created_at);
     out.push(
       first
-        ? { kind: "interest", id: m.id, at: m.created_at, who: c.name, title: postTitle(op!), body: left(m.body, 90), post_id: op!.id, thread_id: m.thread_id }
-        : { kind: "message", id: m.id, at: m.created_at, who: c.name, title: left(m.body, 90), thread_id: m.thread_id },
+        ? { kind: "interest", id: m.id, at: m.created_at, who: c.name, title: postTitle(op!), body: b2bShownBody(m.body, 90), post_id: op!.id, thread_id: m.thread_id }
+        : { kind: "message", id: m.id, at: m.created_at, who: c.name, title: b2bShownBody(m.body, 90), thread_id: m.thread_id },
     );
   }
   for (const f of follows) {
