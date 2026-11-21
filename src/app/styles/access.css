@@ -97,3 +97,5 @@ button.is-locked { color: var(--th-muted, #77728a); }
 .invite-msg pre { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #ece8f8; font: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: #2c2a3a; }
 .invite-msg button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
 .invite-msg-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.login-help { margin-top: 18px; }
+.login-help-title { font-size: 14px; color: #3b2a72; }

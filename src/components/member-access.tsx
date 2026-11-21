@@ -11,7 +11,7 @@ import { accessLevel, type AccessLevel } from "@/lib/domain";
 import { subscriptionActive, type Subscription } from "@/lib/billing";
 import { deptLook } from "./dept-picker";
 import { api, displayDate, Loading } from "./shared";
-import { InviteMessage, type InviteResult } from "./invite-message";
+import { InviteMessage, LoginHelp, type InviteResult } from "./invite-message";
 
 /** Small lock after a menu label: the person may not open this system. */
 export const LockMark = ({ size = 12 }: { size?: number }) => (
@@ -364,6 +364,12 @@ export function MemberAccessTab({
       </footer>
       {ctx.demo && <p className="acl-note">โหมดตัวอย่าง: สิทธิ์ที่บันทึกจะเก็บไว้ในข้อมูลตัวอย่างบนเครื่องนี้เท่านั้น</p>}
       {error && <p className="form-error">{error}</p>}
+      <LoginHelp
+        company={ctx.company.name}
+        email={member.email}
+        memberId={member.id}
+        onSent={(r) => notify(r.emailed ? "ส่งลิงก์เข้าสู่ระบบทางอีเมลแล้ว" : "ส่งข้อความให้พนักงานทาง LINE แทนได้เลย")}
+      />
     </section>
   );
 }

@@ -1025,6 +1025,20 @@ async function handle(req: NextRequest) {
         dbError(error);
         return response({ ok: true, ...(await emailInvite(email, undefined, true)) });
       }
+      // A member who can't get in: POST /team/<member>/login-link emails them a link to set a password and sign in.
+      if (path[1] && path[2] === "login-link" && method === "POST") {
+        requireOwner(ctx);
+        if (ctx.demo) return response({ ok: true, demo: true });
+        const sb = await supabaseServer();
+        const { data: m, error: e } = await sb.from("memberships").select("email,role").eq("company_id", ctx.company.id).eq("id", z.uuid().parse(path[1])).maybeSingle();
+        dbError(e);
+        assert(m?.email, "ไม่พบสมาชิก", 404);
+        assert(process.env.SUPABASE_SERVICE_ROLE_KEY, "ยังส่งอีเมลจากระบบไม่ได้ ส่งข้อความให้พนักงานแทน");
+        const site = process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com";
+        const r = await supabaseAdmin().auth.resetPasswordForEmail(String(m.email).trim().toLowerCase(), { redirectTo: site + "/auth/callback?next=/reset-password" });
+        if (r.error) console.error("login link", r.error.message);
+        return response({ ok: true, emailed: !r.error, existing: true, reset: true });
+      }
       // สิทธิ์การใช้งาน (employee page): POST /team/<member>/access {role, departments (ใช้งาน), read_departments (ดู)}.
       if (path[1] && path[2] === "access" && method === "POST") {
         const id = path[1];
