@@ -101,6 +101,23 @@ test("b2b chat: one conversation per company pair, unread, privacy", async () =>
     );
     await login(bob);
 
+    // Each message shows who sent it: their picture version, name and company.
+    assert.equal(await val("select set_my_avatar(true) is not null"), true);
+    const file = { path: `${t}/30000000-0000-4000-8000-000000000001.pdf`, name: "ผลงาน.pdf", mime: "application/pdf", size: 1200 };
+    // A message can be files only; a file outside this conversation's folder is refused.
+    await db.query("select b2b_send($1,$2,'',null,$3)", [b, t, JSON.stringify([file])]);
+    await assert.rejects(db.query("select b2b_send($1,$2,'x',null,$3)", [b, t, JSON.stringify([{ ...file, path: "other/x.pdf" }])]), /ไฟล์แนบไม่ถูกต้อง/);
+    await assert.rejects(db.query("select b2b_send($1,$2,'  ',null,'[]')", [b, t]));
+    const withFiles = await val<{ body: string; files: unknown[]; author_id: string; avatar_at: string | null; company_name: string; company_has_logo: boolean; mine: boolean }[]>("select b2b_read($1,$2)", [b, t]);
+    const last = withFiles[withFiles.length - 1];
+    assert.deepEqual([last.body, last.files, last.author_id, !!last.avatar_at, last.company_name, last.company_has_logo, last.mine], ["", [file], bob, true, "Bob Co", false, true]);
+    const fromAlice = withFiles.find((m) => !m.mine)!;
+    assert.deepEqual([fromAlice.author_id, fromAlice.avatar_at, fromAlice.company_name], [alice, null, "Alice Co"]);
+    assert.equal((await val<{ last: { body: string } }[]>("select b2b_inbox($1)", [b]))[0].last.body, "ส่งไฟล์แนบ");
+    // Only members of the two companies may open the conversation's files.
+    assert.equal(await val("select b2b_thread_member($1,true)", [t]), true);
+    assert.equal(await val("select set_my_avatar(false) is null"), true);
+
     // A third company cannot read or write the conversation; the tables are closed to direct access.
     await login(stranger);
     const s = await val<string>("select create_company('Stranger Co')");
@@ -111,6 +128,8 @@ test("b2b chat: one conversation per company pair, unread, privacy", async () =>
     await assert.rejects(db.query("select b2b_post_card($1)", [post]));
     assert.equal((await val<Card | null>("select b2b_post($1,$2)", [s, post]))?.id, post);
     await assert.rejects(db.query("select * from b2b_messages"));
+    await assert.rejects(db.query("select * from user_profiles"));
+    assert.equal(await val("select b2b_thread_member($1)", [t]), false);
   } finally {
     await db.close();
   }

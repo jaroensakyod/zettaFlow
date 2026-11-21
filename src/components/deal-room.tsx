@@ -4,6 +4,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Ban, BadgeCheck, Banknote, CalendarClock, Camera, Check, CircleX, CreditCard, FileText, Handshake, LoaderCircle, Package, Pencil, Plus, ReceiptText, RotateCcw, Send, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import type { Context } from "@/lib/types";
+import type { B2bPostRef } from "@/lib/b2b";
 import { dealMoney, quoteTotals, type Deal, type DealCard, type DealItem } from "@/lib/b2b-deal-types";
 import { api, Modal, money } from "./shared";
 
@@ -663,10 +664,29 @@ export function RequestForm({ thread, onClose, onSent, sample }: { thread: strin
   );
 }
 
-export function QuoteForm({ thread, deal, from, onClose, onSent, sample }: { thread: string; deal?: Deal | null; from?: DealCard | null; onClose: () => void; onSent: () => void; sample?: boolean }) {
+export function QuoteForm({
+  thread,
+  deal,
+  from,
+  post,
+  notes: agreed,
+  onClose,
+  onSent,
+  sample,
+}: {
+  thread: string;
+  deal?: Deal | null;
+  from?: DealCard | null;
+  /** A first quotation in a conversation about a job / partner post: its title and what was agreed fill the form. */
+  post?: B2bPostRef | null;
+  notes?: string;
+  onClose: () => void;
+  onSent: () => void;
+  sample?: boolean;
+}) {
   const src = from?.data;
-  const [title, setTitle] = useState(src?.title || deal?.title || ""),
-    [rows, setRows] = useState<Row[]>(rowsOf(src?.items)),
+  const [title, setTitle] = useState(src?.title || deal?.title || post?.title || ""),
+    [rows, setRows] = useState<Row[]>(src?.items?.length || !post ? rowsOf(src?.items) : [{ ...blank(), name: post.title, unit: "งาน" }]),
     [discount, setDiscount] = useState(src?.discount ? String(src.discount) : ""),
     [vatMode, setVatMode] = useState<"excluded" | "included" | "none">(src?.vatMode || "excluded"),
     [validUntil, setValidUntil] = useState(src?.validUntil && src.validUntil >= today() ? src.validUntil : plusDays(30)),
@@ -675,7 +695,7 @@ export function QuoteForm({ thread, deal, from, onClose, onSent, sample }: { thr
     [inst, setInst] = useState<{ label: string; percent: string }[]>(
       src?.installments?.length ? src.installments.map((x) => ({ label: x.label, percent: String(x.percent) })) : [{ label: "ชำระเต็มจำนวน", percent: "100" }],
     ),
-    [notes, setNotes] = useState(from?.kind === "quote" ? src?.notes || "" : ""),
+    [notes, setNotes] = useState(from?.kind === "quote" ? src?.notes || "" : agreed || ""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const t = useMemo(() => quoteTotals(rows, Number(discount) || 0, vatMode), [rows, discount, vatMode]);

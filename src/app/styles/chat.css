@@ -515,3 +515,96 @@
 .deal-field > span small.bad { color: #be123c; }
 .deal-field input[type="range"] { padding: 0; accent-color: #7c3aed; }
 .modal.deal-modal.small { width: min(560px, calc(100vw - 24px)); }
+
+/* Use more of the screen on computers: a wider chat column, and team chat as tall as the window like คุยกับบริษัทอื่น */
+@media (min-width: 721px) {
+  .chat-hub { max-width: 1680px; }
+  .chat-hub .chat-layout { height: calc(100dvh - 170px); min-height: 460px; }
+  .chat-hub .chat-main { min-height: 0; }
+  .chat-hub .chat-messages { flex: 1; height: auto; min-height: 0; }
+  .chat-hub .b2b { grid-template-columns: 320px minmax(0, 1fr); }
+}
+
+/* No header bar above the chat (it took room from the conversation): the ในทีม / บริษัทอื่น switch sits at the top
+   of the list column, the page background stays plain and the chat fills the window. */
+.dept-shell:has(.chat-hub), .dept-shell:has(.chat-bar.t-b2b) { background: none; }
+.chat-switch { display: grid; grid-template-columns: 1fr 1fr; width: auto; gap: 4px; margin: 0 0 12px; }
+.chat-switch button { justify-content: center; gap: 5px; padding: 8px 6px; font-size: 12.5px; white-space: nowrap; }
+.chat-switch button.active { color: #5b21b6; }
+.chat-switch .li-alert-count { background: #f43f5e; color: #fff; }
+.b2b-list > .chat-switch { margin: 0 4px 10px; }
+@media (min-width: 721px) {
+  .chat-hub .b2b, .chat-hub .chat-layout { height: calc(100dvh - 100px); }
+  .chat-hub .chat-layout { grid-template-columns: 230px minmax(0, 1fr); }
+  .chat-channels { padding-top: 14px; }
+}
+@media (max-width: 760px) {
+  .chat-hub .b2b { height: calc(100dvh - 140px); }
+  .chat-hub .chat-channels { flex-wrap: wrap; }
+  .chat-channels > .chat-switch { flex: none; width: 100%; margin-bottom: 4px; }
+}
+
+/* ---- who sent each message: picture, name, company (chat-people.tsx) ---- */
+.person-avatar { position: relative; flex: none; display: inline-block; border-radius: 50%; }
+.person-avatar > img, .person-initials { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.person-initials { display: grid; place-items: center; color: #fff; font-weight: 800; letter-spacing: .02em; }
+.person-company { position: absolute; right: -4px; bottom: -4px; display: grid; padding: 1.5px; border-radius: 7px; background: #fff; box-shadow: 0 1px 3px rgba(30, 20, 60, .2); }
+.person-company > * { border-radius: 5px; }
+.b2b-msg.person { display: flex; align-items: flex-start; gap: 10px; max-width: min(78%, 640px); }
+.b2b-msg.person.mine { flex-direction: row-reverse; }
+.b2b-msg-body { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.b2b-msg.mine .b2b-msg-body { justify-items: end; }
+.b2b-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.b2b-msg .b2b-who b { font-size: 12.5px; font-weight: 800; color: #2c2a3a; }
+.b2b-who span { font-size: 11.5px; color: #6b6585; }
+.b2b-who span::before { content: "· "; }
+.b2b-who time { font-size: 11px; color: #a09ab8; }
+.b2b-owner { padding: 0 7px; border-radius: 99px; font-size: 10.5px; font-style: normal; font-weight: 800; color: #b45309; background: #fef3c7; }
+.b2b-msg.person:not(.mine) p { border-left: 3px solid #c4b5fd; }
+.b2b-head > .b2b-sides { margin-left: auto; display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px; color: #8b85a3; }
+.b2b-sides em { max-width: 140px; padding: 2px 8px; border-radius: 99px; font-style: normal; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #4c1d95; background: #f1edff; }
+.b2b-sides em.mine { color: #fff; background: var(--accent, #7c3aed); }
+@media (max-width: 1100px) { .b2b-head > .b2b-sides { display: none; } }
+@media (max-width: 760px) { .b2b-msg.person { max-width: 92%; } }
+
+/* my own picture, top of the conversation list */
+.my-avatar { display: flex; align-items: center; gap: 9px; margin: 0 4px 10px; padding: 8px 10px; border: 1px solid #ece8f8; border-radius: 14px; background: #fff; }
+.my-avatar > span { display: grid; min-width: 0; flex: 1; }
+.my-avatar b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.my-avatar small { font-size: 11.5px; color: #8b85a3; }
+.my-avatar-pick { position: relative; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%; }
+.my-avatar-pick:disabled { cursor: default; }
+.my-avatar-pick > i { position: absolute; left: -3px; bottom: -3px; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; color: #fff; background: #7c3aed; border: 2px solid #fff; }
+
+/* pictures and files on a message */
+.b2b-files { display: grid; gap: 6px; max-width: 360px; width: 100%; }
+.b2b-pics { display: grid; gap: 4px; grid-template-columns: repeat(var(--n, 1), 1fr); border-radius: 14px; overflow: hidden; }
+.b2b-pics.n2 { --n: 2; }
+.b2b-pics.n3 { --n: 3; }
+.b2b-pics a { display: block; aspect-ratio: 1; background: #eee; }
+.b2b-pics.n1 a { aspect-ratio: auto; max-height: 280px; }
+.b2b-pics img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b2b-doc { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid #e8e5f0; border-radius: 12px; background: #fff; color: #4c1d95; text-decoration: none; }
+.b2b-doc:hover { border-color: #a78bfa; }
+.b2b-doc > span { display: grid; min-width: 0; }
+.b2b-doc b { font-size: 13px; color: #2c2a3a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b2b-doc small { font-size: 11px; color: #8b85a3; }
+
+/* compose: paperclip and files waiting to be sent */
+.b2b-compose > div:last-child > .b2b-attach { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin-right: 4px; padding: 0; border: 0; border-radius: 10px; color: #6d28d9; background: none; box-shadow: none; }
+.b2b-compose > div:last-child > .b2b-attach:hover:not(:disabled) { background: #f1edff; }
+.b2b-compose > div:last-child { padding-left: 6px; }
+.b2b-pending-files { display: flex; flex-wrap: wrap; gap: 6px; }
+.b2b-pending-files > span { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 4px 6px 4px 4px; border: 1px solid #e4e0f2; border-radius: 10px; background: #faf9ff; color: #6d28d9; font-size: 12px; }
+.b2b-pending-files img { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; }
+.b2b-pending-files em { min-width: 0; font-style: normal; color: #2c2a3a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b2b-pending-files small { color: #8b85a3; white-space: nowrap; }
+.b2b-pending-files button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; color: #6b6585; background: #ece8f8; cursor: pointer; }
+
+/* next step: send the quotation */
+.b2b-next { align-self: stretch; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px dashed #a78bfa; border-radius: 14px; color: #5b21b6; background: linear-gradient(90deg, #f5f3ff, #fdf2f8); }
+.b2b-next > span { display: grid; flex: 1; min-width: 0; }
+.b2b-next b { font-size: 13.5px; }
+.b2b-next small { font-size: 12px; color: #6b6585; }
+.b2b-next .primary { flex: none; }
+@media (max-width: 760px) { .b2b-next { flex-wrap: wrap; } .b2b-next .primary { width: 100%; } }
