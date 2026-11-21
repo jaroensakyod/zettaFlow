@@ -900,7 +900,7 @@ function Detail({
       )}
       {tab === "history" && <HistoryTab e={e} writable={writable} patch={patch} />}
       {tab === "access" && ctx.member.role === "owner" && !sample && (
-        <MemberAccessTab ctx={ctx} email={String(d.email || "")} name={String(d.name || "")} department={String(d.department || "")} notify={notify} navigate={navigate} />
+        <MemberAccessTab ctx={ctx} email={String(d.email || "")} name={String(d.name || "")} position={String(d.position || "")} department={String(d.department || "")} notify={notify} navigate={navigate} />
       )}
     </>
   );

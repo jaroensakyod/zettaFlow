@@ -59,6 +59,9 @@ export function InviteMessage({
       <small>ส่งต่อทาง LINE ได้เลย</small>
       <pre>{text}</pre>
       <div className="invite-msg-actions">
+      <a className="secondary as-button" href={lineShare(text)} target="_blank" rel="noreferrer">
+        <Send size={15} /> ส่งทาง LINE
+      </a>
       <button
         type="button"
         className="secondary"
@@ -107,61 +110,81 @@ export function InviteMessage({
   );
 }
 
-/** Joined members who can't get in: how to sign in (copy for LINE) and a button to email a password link. */
-export const loginText = (company: string, email: string) =>
-  `วิธีเข้าใช้ระบบ EliteFlow ของ ${company}
-` +
-  `1. เข้า https://eliteflow-ai.com แล้วเข้าสู่ระบบด้วยอีเมล ${email}
-` +
-  `2. ลืมรหัสผ่าน: กด "ลืมรหัสผ่าน" ที่หน้าเข้าสู่ระบบ หรือเปิดอีเมลลิงก์ตั้งรหัสผ่านที่ส่งไป แล้วตั้งรหัสใหม่
-` +
-  `3. ถ้ามีหลายบริษัท สลับเป็น ${company} ได้ที่เมนูบัญชีมุมขวาบน`;
+/** Joined members: an invitation to start using the system — company, position, the link; they sign in with their own
+ * email and password. Setting a new password is a separate, smaller option for someone who forgot it. */
+const SITE = "https://eliteflow-ai.com";
+export const joinText = (company: string, email: string, name?: string, position?: string) =>
+  [
+    `สวัสดีค่ะ${name ? " คุณ" + name : ""}`,
+    `${company} เปิดสิทธิ์ให้คุณใช้งานระบบ EliteFlow แล้ว`,
+    position ? `ตำแหน่ง: ${position}` : "",
+    `กดเข้าใช้งานได้เลย 👉 ${SITE}/workspace/dashboard`,
+    `เข้าสู่ระบบด้วยอีเมล ${email} และรหัสผ่านของคุณ`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+/** Opens LINE with the message ready to send (phone app or LINE for PC). */
+export const lineShare = (text: string) => "https://line.me/R/msg/text/?" + encodeURIComponent(text);
 
-export function LoginHelp({ company, email, memberId, onSent }: { company: string; email: string; memberId: string; onSent?: (r: InviteResult) => void }) {
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const t = document.createElement("textarea");
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    document.execCommand("copy");
+    t.remove();
+  }
+}
+
+export function LoginHelp({
+  company,
+  email,
+  memberId,
+  name,
+  position,
+  onSent,
+}: {
+  company: string;
+  email: string;
+  memberId: string;
+  name?: string;
+  position?: string;
+  onSent?: (r: InviteResult) => void;
+}) {
   const [copied, setCopied] = useState(false),
     [result, setResult] = useState<InviteResult | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const text = loginText(company, email);
+  const text = joinText(company, email, name, position);
   return (
     <div className="invite-msg login-help">
-      <b className="login-help-title">ช่วยพนักงานเข้าระบบ</b>
-      <small>พนักงานลืมรหัสผ่านหรือเข้าระบบไม่ถูก ส่งลิงก์ทางอีเมลหรือคัดลอกข้อความส่ง LINE ได้ทุกเมื่อ</small>
-      {result && (
-        <p className={"invite-msg-status" + (result.emailed ? " ok" : "")}>
-          {result.emailed ? <MailCheck size={15} /> : <MailWarning size={15} />}
-          {result.emailed
-            ? `ส่งลิงก์ตั้งรหัสผ่านและเข้าสู่ระบบไปที่ ${email} แล้ว`
-            : result.demo
-              ? "โหมดตัวอย่างไม่ส่งอีเมลจริง · ส่งข้อความด้านล่างให้พนักงานแทน"
-              : "ส่งอีเมลไม่สำเร็จ ส่งข้อความด้านล่างให้พนักงานแทน"}
-        </p>
-      )}
+      <b className="login-help-title">คำเชิญเข้าใช้งานระบบ</b>
+      <small>ส่งให้พนักงานกดเข้าใช้งานได้ทันที ใช้อีเมลและรหัสผ่านของพนักงานเอง ส่งซ้ำได้ทุกเมื่อ</small>
       <pre>{text}</pre>
       <div className="invite-msg-actions">
+        <a className="primary as-button" href={lineShare(text)} target="_blank" rel="noreferrer">
+          <Send size={15} /> ส่งทาง LINE
+        </a>
         <button
           type="button"
           className="secondary"
           onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(text);
-            } catch {
-              const t = document.createElement("textarea");
-              t.value = text;
-              document.body.appendChild(t);
-              t.select();
-              document.execCommand("copy");
-              t.remove();
-            }
+            await copyText(text);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
           }}
         >
-          {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? "คัดลอกแล้ว" : "คัดลอกข้อความ"}
+          {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? "คัดลอกแล้ว" : "คัดลอกคำเชิญ"}
         </button>
+      </div>
+      <p className="login-help-forgot">
+        พนักงานลืมรหัสผ่าน?{" "}
         <button
           type="button"
-          className="secondary"
+          className="text-button"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -177,9 +200,19 @@ export function LoginHelp({ company, email, memberId, onSent }: { company: strin
             }
           }}
         >
-          <Send size={15} /> {busy ? "กำลังส่ง…" : "ส่งลิงก์เข้าสู่ระบบทางอีเมล"}
+          {busy ? "กำลังส่ง…" : "ส่งลิงก์ตั้งรหัสผ่านใหม่ทางอีเมล"}
         </button>
-      </div>
+      </p>
+      {result && (
+        <p className={"invite-msg-status" + (result.emailed ? " ok" : "")}>
+          {result.emailed ? <MailCheck size={15} /> : <MailWarning size={15} />}
+          {result.emailed
+            ? `ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ ${email} แล้ว`
+            : result.demo
+              ? "โหมดตัวอย่างไม่ส่งอีเมลจริง"
+              : "ส่งอีเมลไม่สำเร็จ ให้พนักงานกด “ลืมรหัสผ่าน” ที่หน้าเข้าสู่ระบบแทน"}
+        </p>
+      )}
       {error && <p className="form-error">{error}</p>}
     </div>
   );

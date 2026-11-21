@@ -445,7 +445,7 @@ export function EmployeeProfile({
       )}
       {tab === "access" && ctx.member.role === "owner" && (
         <div className="ep">
-          <MemberAccessTab ctx={ctx} email={String(d.email || "")} name={String(d.name || "")} department={String(d.department || "")} notify={notify} navigate={navigate} />
+          <MemberAccessTab ctx={ctx} email={String(d.email || "")} name={String(d.name || "")} position={String(d.position || "")} department={String(d.department || "")} notify={notify} navigate={navigate} />
         </div>
       )}
     </div>

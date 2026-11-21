@@ -112,6 +112,7 @@ export function MemberAccessTab({
   ctx,
   email,
   name,
+  position,
   department,
   notify,
   navigate,
@@ -120,6 +121,8 @@ export function MemberAccessTab({
   email: string;
   /** The employee's name (for the invite email). */
   name?: string;
+  /** The employee's position (in the invitation message). */
+  position?: string;
   /** The employee's own department (for an invite). */
   department?: string;
   notify: (s: string) => void;
@@ -368,7 +371,9 @@ export function MemberAccessTab({
         company={ctx.company.name}
         email={member.email}
         memberId={member.id}
-        onSent={(r) => notify(r.emailed ? "ส่งลิงก์เข้าสู่ระบบทางอีเมลแล้ว" : "ส่งข้อความให้พนักงานทาง LINE แทนได้เลย")}
+        name={name || member.name}
+        position={position}
+        onSent={(r) => notify(r.emailed ? "ส่งลิงก์ตั้งรหัสผ่านใหม่ทางอีเมลแล้ว" : "ให้พนักงานกด “ลืมรหัสผ่าน” ที่หน้าเข้าสู่ระบบแทน")}
       />
     </section>
   );
