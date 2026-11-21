@@ -223,7 +223,18 @@ export function MemberAccessTab({
               <UserPlus size={15} /> เชิญเข้าระบบ
             </button>
           )}
-          {key && pending && <InviteMessage company={ctx.company.name} email={email} result={sent} />}
+          {key && invite && !invite.accepted_at && (
+            <InviteMessage
+              company={ctx.company.name}
+              email={email}
+              result={sent}
+              canResend
+              onResent={(r) => {
+                notify(r.emailed ? "ส่งอีเมลเชิญอีกครั้งแล้ว · ต่ออายุคำเชิญ 7 วัน" : "ต่ออายุคำเชิญ 7 วันแล้ว · ส่งข้อความให้พนักงานได้เลย");
+                load();
+              }}
+            />
+          )}
           {full && (
             <p className="acl-note">
               ที่นั่งเต็มแล้ว ·{" "}

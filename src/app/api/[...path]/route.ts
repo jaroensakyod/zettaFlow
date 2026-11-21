@@ -159,15 +159,24 @@ async function body(req: NextRequest) {
   }
 }
 /** Email an invitation through Supabase Auth (service role). Never fails the invite itself. */
-async function emailInvite(email: string, name?: string): Promise<{ emailed: boolean; existing?: boolean }> {
+async function emailInvite(email: string, name?: string, resend = false): Promise<{ emailed: boolean; existing?: boolean; reset?: boolean }> {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { emailed: false };
+  const site = process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com";
   try {
     const { error } = await supabaseAdmin().auth.admin.inviteUserByEmail(email.trim().toLowerCase(), {
       data: name ? { name } : undefined,
-      redirectTo: (process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com") + "/auth/callback",
+      redirectTo: site + "/auth/callback",
     });
     if (!error) return { emailed: true };
-    if (/already|registered|exists/i.test(error.message)) return { emailed: false, existing: true };
+    if (/already|registered|exists/i.test(error.message)) {
+      // Asked to send again to someone who already has an account (or opened an earlier invite but never set a
+      // password): a link to set their password — they land signed in, and the company is added on sign-in.
+      if (!resend) return { emailed: false, existing: true };
+      const r = await supabaseAdmin().auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: site + "/auth/callback?next=/reset-password" });
+      if (!r.error) return { emailed: true, existing: true, reset: true };
+      console.error("invite reset email", r.error.message);
+      return { emailed: false, existing: true };
+    }
     console.error("invite email", error.message);
     return { emailed: false };
   } catch (e) {
@@ -1001,6 +1010,20 @@ async function handle(req: NextRequest) {
         dbError(error);
         dbError(e);
         return response({ members: withRead(members), invites });
+      }
+      // Send an invitation again: POST /team/invites/resend {email} — renews it for 7 days and emails it again.
+      if (path[1] === "invites" && path[2] === "resend" && method === "POST") {
+        requireOwner(ctx);
+        const email = z.email().parse((await body(req)).email).trim().toLowerCase();
+        if (ctx.demo) return response({ ok: true, demo: true });
+        const sb = await supabaseServer();
+        const { data: inv, error: e } = await sb.from("invitations").select("role,departments,accepted_at").eq("company_id", ctx.company.id).eq("email", email).maybeSingle();
+        dbError(e);
+        assert(inv, "ไม่พบคำเชิญของอีเมลนี้ เชิญใหม่จากหน้าพนักงานหรือหน้าทีม", 404);
+        assert(!inv.accepted_at, "อีเมลนี้เข้าร่วมบริษัทแล้ว");
+        const { error } = await sb.rpc("invite_member", { p_company: ctx.company.id, p_email: email, p_role: inv.role, p_departments: inv.departments });
+        dbError(error);
+        return response({ ok: true, ...(await emailInvite(email, undefined, true)) });
       }
       // สิทธิ์การใช้งาน (employee page): POST /team/<member>/access {role, departments (ใช้งาน), read_departments (ดู)}.
       if (path[1] && path[2] === "access" && method === "POST") {

@@ -596,7 +596,7 @@ export function Team({
     >([]),
     [loading, setLoading] = useState(true),
     [modal, setModal] = useState(false),
-    [invited, setInvited] = useState<{ email: string; result: InviteResult } | null>(null),
+    [invited, setInvited] = useState<{ email: string; result: InviteResult | null } | null>(null),
     [member, setMember] = useState<Member | null>(null),
     [role, setRole] = useState("staff"),
     [departments, setDepartments] = useState<string[]>([]),
@@ -691,6 +691,7 @@ export function Team({
                     <th>บทบาท</th>
                     <th>หมดอายุ</th>
                     <th>สถานะ</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -705,6 +706,13 @@ export function Team({
                           : new Date(i.expires_at) < new Date()
                             ? "หมดอายุ"
                             : "รอเข้าร่วม"}
+                      </td>
+                      <td>
+                        {!i.accepted_at && (
+                          <button type="button" className="secondary" onClick={() => setInvited({ email: i.email, result: null })}>
+                            ส่งอีกครั้ง / คัดลอก
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -722,8 +730,17 @@ export function Team({
       )}
       {!modal && error && <p className="form-error">{error}</p>}
       {invited && (
-        <Modal title="เชิญสมาชิกแล้ว" onClose={() => setInvited(null)}>
-          <InviteMessage company={ctx.company.name} email={invited.email} result={invited.result} />
+        <Modal title={invited.result ? "เชิญสมาชิกแล้ว" : "คำเชิญของ " + invited.email} onClose={() => setInvited(null)}>
+          <InviteMessage
+            company={ctx.company.name}
+            email={invited.email}
+            result={invited.result}
+            canResend
+            onResent={(r) => {
+              notify(r.emailed ? "ส่งอีเมลเชิญอีกครั้งแล้ว · ต่ออายุ 7 วัน" : "ต่ออายุคำเชิญ 7 วันแล้ว");
+              load();
+            }}
+          />
         </Modal>
       )}
       {modal && (
