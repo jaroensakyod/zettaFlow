@@ -2,11 +2,12 @@
 // or follow), the recent-activity timeline and my avatar. KPI cards and the sales chart are computed on the page from
 // GET /home (finance rows), so they need nothing here.
 import { z } from "zod";
-import { supabaseServer } from "./supabase/server";
+import { supabaseServer, supabaseAdmin } from "./supabase/server";
 import { demoRead, demoMutate, type DemoState } from "./demo";
 import { assert, canRead } from "./domain";
 import { dbError } from "./data";
 import { catalog } from "./catalog";
+import { personalHome, isMe, myTask } from "./home-mode";
 import type { Context, Entity, Ingestion } from "./types";
 
 export type NoteItem = { text: string; done: boolean };
@@ -72,16 +73,6 @@ const goalSchema = z.object({
   target: z.number().min(0).max(1e12),
 });
 
-/** Does a free-text assignee name mean me? (full name, or the first word of either name) */
-function isMe(ctx: Context, name: unknown) {
-  const n = String(name || "").trim().toLowerCase();
-  if (!n) return false;
-  const mine = [ctx.user.name, ctx.member.name, ctx.user.email]
-    .map((s) => String(s || "").trim().toLowerCase())
-    .filter(Boolean);
-  const first = (s: string) => s.split(/\s+/)[0];
-  return mine.some((m) => m === n || first(m) === first(n));
-}
 
 const pendingStatus: Record<string, string> = { leaves: "pending", expenses: "pending", purchases: "draft" };
 const label = (kind: string) => catalog[kind]?.label || kind;
@@ -233,6 +224,8 @@ const count = (work: WorkItem[]) => ({
 });
 
 export async function homeExtra(ctx: Context): Promise<HomeExtra> {
+  // Staff / viewers (home-mode.ts): no sales goal, and the activity timeline is only what they did themselves.
+  const personal = personalHome(ctx);
   const today = todayIso(),
     month = today.slice(0, 7) + "-01",
     since = new Date(Date.parse(today) - 60 * 864e5).toISOString().slice(0, 10);
@@ -255,7 +248,7 @@ export async function homeExtra(ctx: Context): Promise<HomeExtra> {
     const me = live.find(
       (e) => e.kind === "employees" && e.data.photo && String(e.data.email || "").toLowerCase() === ctx.user.email.toLowerCase(),
     );
-    const goal = (s.monthlyGoals || []).find((g) => g.month === month);
+    const goal = personal ? null : (s.monthlyGoals || []).find((g) => g.month === month);
     return {
       today,
       notes: (s.homeNotes || [])
@@ -267,8 +260,11 @@ export async function homeExtra(ctx: Context): Promise<HomeExtra> {
       work,
       counts: count(work),
       activity: buildActivity(
-        [...live].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 15),
-        ingestions,
+        [...live]
+          .filter((e) => !personal || e.created_by === ctx.user.id)
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+          .slice(0, 15),
+        personal ? ingestions.filter((i) => i.created_by === ctx.user.id) : ingestions,
         people,
       ),
       avatar: me ? String(me.data.photo) : null,
@@ -278,7 +274,9 @@ export async function homeExtra(ctx: Context): Promise<HomeExtra> {
     company = ctx.company.id;
   const [notes, goal, ings, pending, tasks, recent, members, me] = await Promise.all([
     sb.from("user_notes").select("day,body,items,updated_at").eq("company_id", company).eq("user_id", ctx.user.id).gte("day", since).order("day", { ascending: false }).limit(60),
-    sb.from("monthly_goals").select("month,sales_target").eq("company_id", company).eq("month", month).maybeSingle(),
+    personal
+      ? Promise.resolve({ data: null, error: null })
+      : sb.from("monthly_goals").select("month,sales_target").eq("company_id", company).eq("month", month).maybeSingle(),
     sb
       .from("ingestions")
       .select("id,template,values,status,source,target_kind,department,sender_name,created_by,created_at,decided_name,decided_at")
@@ -295,7 +293,12 @@ export async function homeExtra(ctx: Context): Promise<HomeExtra> {
       .order("created_at", { ascending: false })
       .limit(80),
     sb.from("entities").select("*").eq("company_id", company).is("archived_at", null).eq("kind", "tasks").neq("data->>status", "done").order("updated_at", { ascending: false }).limit(300),
-    sb.from("entities").select("*").eq("company_id", company).is("archived_at", null).order("updated_at", { ascending: false }).limit(15),
+    (personal
+      ? sb.from("entities").select("*").eq("company_id", company).is("archived_at", null).eq("created_by", ctx.user.id)
+      : sb.from("entities").select("*").eq("company_id", company).is("archived_at", null)
+    )
+      .order("updated_at", { ascending: false })
+      .limit(15),
     // Only the owner can read other members; everyone else gets their own row (names fall back to the department).
     sb.from("memberships").select("user_id,name").eq("company_id", company),
     sb
@@ -337,7 +340,7 @@ export async function homeExtra(ctx: Context): Promise<HomeExtra> {
     canSetGoal: approver(ctx),
     work,
     counts: count(work),
-    activity: buildActivity((recent.data || []) as Entity[], ingRows, people),
+    activity: buildActivity((recent.data || []) as Entity[], personal ? ingRows.filter((i) => i.created_by === ctx.user.id) : ingRows, people),
     avatar: ((me.data || []) as { photo: string | null }[])[0]?.photo || null,
   };
 }
@@ -396,4 +399,211 @@ export async function setGoal(ctx: Context, input: unknown) {
   const { error } = await sb.rpc("goal_set", { p_company: ctx.company.id, p_month: month, p_target: g.target });
   dbError(error);
   return { ok: true };
+}
+
+/* ---------- my workspace (home page for staff / viewers) ---------- */
+export type MyEmployee = {
+  id: string;
+  name: string;
+  nickname: string;
+  position: string;
+  code: string;
+  department: string;
+  level: string;
+};
+export type SentItem = {
+  id: string;
+  /** "entity" = a record they saved on the web; "line" = something they sent in LINE. */
+  source: "entity" | "line";
+  kind: string;
+  label: string;
+  title: string;
+  status: string;
+  statusLabel: string;
+  tone: "wait" | "ok" | "bad" | "info";
+  at: string;
+  /** Workspace view to open. */
+  view: string;
+};
+export type HomeMe = {
+  /** Their own employee record, found by their login email (null when there is none). */
+  employee: MyEmployee | null;
+  counts: { openTasks: number; lateTasks: number; waiting: number };
+  sent: SentItem[];
+};
+
+const entityStatus: Record<string, [string, SentItem["tone"]]> = {
+  pending: ["รออนุมัติ", "wait"],
+  review: ["รอตรวจสอบ", "wait"],
+  approved: ["อนุมัติแล้ว", "ok"],
+  paid: ["จ่ายแล้ว", "ok"],
+  done: ["เสร็จแล้ว", "ok"],
+  confirmed: ["ยืนยันแล้ว", "ok"],
+  rejected: ["ไม่อนุมัติ", "bad"],
+  cancelled: ["ยกเลิก", "bad"],
+};
+const lineStatus: Record<string, [string, SentItem["tone"]]> = {
+  queued: ["กำลังอ่าน", "info"],
+  processing: ["กำลังอ่าน", "info"],
+  draft: ["ร่าง", "info"],
+  review: ["รออนุมัติ", "wait"],
+  awaiting_slip: ["รอสลิป", "wait"],
+  approved: ["อนุมัติแล้ว", "ok"],
+  rejected: ["ไม่อนุมัติ", "bad"],
+  failed: ["อ่านไม่สำเร็จ", "bad"],
+  skipped: ["ไม่ได้บันทึก", "info"],
+};
+const waitingEntity = (kind: string, status: unknown) => pendingStatus[kind] === String(status || "");
+type MeEntity = { id: string; kind: string; data: Record<string, unknown>; created_at: string };
+type MeIngestion = {
+  id: string;
+  status: string;
+  target_kind?: string | null;
+  template?: { name?: string } | null;
+  values?: Record<string, unknown> | null;
+  created_at: string;
+};
+
+/** Shape the rows into "รายการที่ฉันส่ง" + the quick numbers. Pure, so demo and Supabase share it. */
+export function buildMe(
+  ctx: Context,
+  input: {
+    employee: Record<string, unknown> | null;
+    entities: MeEntity[];
+    /** Their records still waiting for approval (any age); defaults to the ones in `entities`. */
+    waiting?: MeEntity[];
+    ingestions: MeIngestion[];
+    tasks: { created_by?: string | null; data: Record<string, unknown> }[];
+    today: string;
+  },
+): HomeMe {
+  const e = input.employee;
+  const sent: SentItem[] = [
+    ...input.entities.map((r): SentItem => {
+      const st = String(r.data.status || ""),
+        [statusLabel, tone] = waitingEntity(r.kind, st) ? (["รออนุมัติ", "wait"] as const) : entityStatus[st] || (["บันทึกแล้ว", "info"] as const);
+      return {
+        id: r.id,
+        source: "entity",
+        kind: r.kind,
+        label: label(r.kind),
+        title: String(r.data.name || r.data.title || r.data.code || r.data.poNumber || label(r.kind)),
+        status: st,
+        statusLabel,
+        tone,
+        at: r.created_at,
+        view: r.kind,
+      };
+    }),
+    ...input.ingestions.map((i): SentItem => {
+      const [statusLabel, tone] = lineStatus[i.status] || (["ส่งแล้ว", "info"] as const);
+      return {
+        id: i.id,
+        source: "line",
+        kind: i.target_kind || "ai-inbox",
+        label: "LINE · " + (i.target_kind ? label(i.target_kind) : i.template?.name || "รายการ"),
+        title: String(i.values?.name || i.values?.title || i.template?.name || "รายการจาก LINE"),
+        status: i.status,
+        statusLabel,
+        tone,
+        at: i.created_at,
+        view: i.target_kind || "ai-inbox",
+      };
+    }),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  const open = input.tasks.filter((t) => String(t.data.status || "") !== "done" && myTask(ctx, t));
+  return {
+    employee: e
+      ? {
+          id: String(e.id || ""),
+          name: String(e.name || ""),
+          nickname: String(e.nickname || ""),
+          position: String(e.position || ""),
+          code: String(e.code || ""),
+          department: String(e.department || ""),
+          level: String(e.level || ""),
+        }
+      : null,
+    counts: {
+      openTasks: open.length,
+      lateTasks: open.filter((t) => t.data.dueDate && String(t.data.dueDate) < input.today).length,
+      waiting:
+        (input.waiting || input.entities).filter((r) => waitingEntity(r.kind, r.data.status)).length +
+        input.ingestions.filter((i) => i.status === "review").length,
+    },
+    sent: sent.slice(0, 6),
+  };
+}
+
+/**
+ * GET /home/me — the signed-in member's own things only: their employee record (matched by login email, even
+ * without HR access, and only these few fields), what they saved or sent in LINE, and counts of their open tasks
+ * and items waiting for approval. Every query is pinned to this company and this user.
+ */
+export async function homeMe(ctx: Context): Promise<HomeMe> {
+  const today = todayIso(),
+    email = ctx.user.email.trim().toLowerCase();
+  if (ctx.demo) {
+    const s = await demoRead(),
+      live = s.entities.filter((e) => !e.archived_at);
+    const emp = email ? live.find((e) => e.kind === "employees" && String(e.data.email || "").trim().toLowerCase() === email) : undefined;
+    const mine = live.filter((e) => e.created_by === ctx.user.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return buildMe(ctx, {
+      employee: emp ? { id: emp.id, ...emp.data } : null,
+      entities: mine.slice(0, 40),
+      waiting: mine,
+      ingestions: s.ingestions
+        .filter((i) => i.created_by === ctx.user.id)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 40),
+      tasks: live.filter((e) => e.kind === "tasks"),
+      today,
+    });
+  }
+  // The service role reads past department access, so every query below filters by this company and this user.
+  const sb = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin() : await supabaseServer(),
+    company = ctx.company.id,
+    me = ctx.user.id;
+  const links = await sb.from("line_users").select("line_user_id").eq("company_id", company).eq("user_id", me);
+  dbError(links.error);
+  const lineIds = ((links.data || []) as { line_user_id: string }[]).map((r) => r.line_user_id);
+  const ingSelect = "id,status,target_kind,template,values,created_at";
+  const none = Promise.resolve({ data: [] as never[], error: null });
+  const [emp, ents, waiting, ingMine, ingLine, tasks] = await Promise.all([
+    email
+      ? sb
+          .from("entities")
+          .select("id,name:data->>name,nickname:data->>nickname,position:data->>position,code:data->>code,department:data->>department,level:data->>level")
+          .eq("company_id", company)
+          .eq("kind", "employees")
+          .is("archived_at", null)
+          .ilike("data->>email", email.replace(/[%_\\]/g, "\\$&"))
+          .limit(1)
+      : none,
+    sb.from("entities").select("id,kind,data,created_at").eq("company_id", company).eq("created_by", me).is("archived_at", null).order("created_at", { ascending: false }).limit(40),
+    sb
+      .from("entities")
+      .select("id,kind,data,created_at")
+      .eq("company_id", company)
+      .eq("created_by", me)
+      .is("archived_at", null)
+      .or("and(kind.in.(leaves,expenses),data->>status.eq.pending),and(kind.eq.purchases,data->>status.eq.draft)")
+      .limit(500),
+    sb.from("ingestions").select(ingSelect).eq("company_id", company).eq("created_by", me).order("created_at", { ascending: false }).limit(40),
+    lineIds.length
+      ? sb.from("ingestions").select(ingSelect).eq("company_id", company).in("source_user", lineIds).order("created_at", { ascending: false }).limit(40)
+      : none,
+    sb.from("entities").select("created_by,data").eq("company_id", company).eq("kind", "tasks").is("archived_at", null).neq("data->>status", "done").limit(1000),
+  ]);
+  for (const r of [emp, ents, waiting, ingMine, ingLine, tasks]) dbError(r.error);
+  const seen = new Set<string>(),
+    ings = ([...(ingMine.data || []), ...(ingLine.data || [])] as MeIngestion[]).filter((i) => !seen.has(i.id) && !!seen.add(i.id));
+  return buildMe(ctx, {
+    employee: ((emp.data || []) as Record<string, unknown>[])[0] || null,
+    entities: (ents.data || []) as MeEntity[],
+    waiting: (waiting.data || []) as MeEntity[],
+    ingestions: ings,
+    tasks: (tasks.data || []) as { created_by: string; data: Record<string, unknown> }[],
+    today,
+  });
 }

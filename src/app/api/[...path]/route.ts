@@ -19,7 +19,7 @@ import {
   movement,
   purchaseAction,
   summary,
-  home,
+  homePage,
   homeFinance,
   templates,
   saveTemplate,
@@ -79,7 +79,7 @@ import {
 } from "@/lib/feed";
 import { financeOverview, saveBudgets, saveTargets, setClosingStep } from "@/lib/finance-center";
 import { linePageData } from "@/lib/line-page";
-import { homeExtra, saveNote, deleteNote, setGoal } from "@/lib/home-extra";
+import { homeExtra, homeMe, saveNote, deleteNote, setGoal } from "@/lib/home-extra";
 import { shopState, shopActive, shopBuy, shopActivate } from "@/lib/app-shop";
 import { projectsOverview, projectDetail } from "@/lib/projects";
 import { receiptsList } from "@/lib/receipts";
@@ -442,7 +442,8 @@ async function handle(req: NextRequest) {
           q = new URL(req.url).searchParams;
         return response(await homeFinance(ctx, day.parse(q.get("from")), day.parse(q.get("to"))));
       }
-      return response(await home(ctx));
+      if (path[1] === "me" && method === "GET") return response(await homeMe(ctx));
+      return response(await homePage(ctx));
     }
     if (path[0] === "feed") {
       if (path[1] === "image" || path[1] === "logo" || path[1] === "cover") {

@@ -36,6 +36,7 @@ import { freeKind } from "./departments";
 import { subscriptionActive, type Subscription } from "./billing";
 import { applyFx } from "./fx";
 import type { Context, Entity, Template, Ingestion, HomeData } from "./types";
+import { personalHome, myTask } from "./home-mode";
 export function dbError(error: { message: string; code?: string } | null) {
   if (error?.code === "23505")
     throw new AppError("รหัสหรือเลขอ้างอิงนี้มีอยู่แล้ว กรุณาใช้ค่าอื่น", 409);
@@ -658,6 +659,17 @@ const counted = (kind: unknown, status: unknown) =>
   kind === "sales"
     ? status === "confirmed"
     : ["approved", "paid"].includes(String(status));
+/**
+ * GET /home — what the home page (ภาพรวม) gets. Staff / viewers (home-mode.ts) get no company money, only their own
+ * tasks; the owner and managers get home(). Flow and other callers keep using home() with their normal access.
+ */
+export async function homePage(ctx: Context): Promise<HomeData> {
+  if (personalHome(ctx)) {
+    const all = await home(ctx);
+    return { finance: [], projects: [], tasks: all.tasks.filter((t) => myTask(ctx, t)) };
+  }
+  return home(ctx);
+}
 export async function home(ctx: Context): Promise<HomeData> {
   const since = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10);
   if (ctx.demo) {
@@ -745,6 +757,8 @@ export async function home(ctx: Context): Promise<HomeData> {
  * cards' totals for the period picked on the calendar (day, week, month or year) and the one before it.
  */
 export async function homeFinance(ctx: Context, from: string, to: string): Promise<HomeData["finance"]> {
+  // The home page's company totals are for the owner and managers; Finance pages have their own endpoints.
+  if (personalHome(ctx)) return [];
   if (ctx.demo)
     return (await home(ctx)).finance.filter((r) => r.date >= from && r.date <= to);
   const sb = await supabaseServer();
