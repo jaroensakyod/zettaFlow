@@ -4,7 +4,7 @@
 // With no conversation yet (or in the public demo) the list shows a labelled sample inbox (lib/mock/b2b.ts).
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion, ReceiptText, Megaphone } from "lucide-react";
+import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion, ReceiptText, Megaphone, Settings2, Handshake } from "lucide-react";
 import type { Context, FeedPost } from "@/lib/types";
 import type { B2bCompany, B2bFile, B2bMessage, B2bPostRef, B2bThread } from "@/lib/b2b";
 import { b2bSample, isSampleThread, quickQuestions, sampleThreadFor, SAMPLE_NOTE, SAMPLE_SENT, type SampleThread } from "@/lib/mock/b2b";
@@ -13,7 +13,7 @@ import { Chat } from "./tools";
 import { CompanyLogo, employmentLabels, kindLabel, since } from "./feed";
 import { DealBar, DealCardView, PayForm, QuoteForm, RequestForm, StepForm, sampleDeal, sampleWorkDeal, type DealStepKind } from "./deal-room";
 import type { Deal, DealCard } from "@/lib/b2b-deal-types";
-import { AttachButton, MessageFiles, MyAvatar, PendingFiles, PersonAvatar } from "./chat-people";
+import { AttachButton, MessageFiles, PendingFiles } from "./chat-people";
 
 export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: string) => void; navigate: (v: string) => void }) {
   const params = useSearchParams(),
@@ -387,7 +387,16 @@ function B2bChat({
             </span>
           )}
         </div>
-        <MyAvatar userId={ctx.user.id} name={ctx.member.name || ctx.user.name || ctx.user.email} company={me} demo={ctx.demo} notify={notify} />
+        <div className="b2b-me">
+          {companyLogo(me, 40)}
+          <span>
+            <small>คุยในนามบริษัท</small>
+            <b>{ctx.company.name}</b>
+          </span>
+          <button type="button" className="icon-button" title="รูปที่คู่ค้าเห็นคือโลโก้บริษัท · เปลี่ยนได้ที่ตั้งค่าบริษัท" aria-label="เปลี่ยนโลโก้บริษัท" onClick={() => navigate("settings")}>
+            <Settings2 size={16} />
+          </button>
+        </div>
         {!list ? (
           <Loading />
         ) : (
@@ -447,12 +456,26 @@ function B2bChat({
                 </strong>
                 <small>{[thread.company.industry, thread.company.province].filter(Boolean).join(" · ") || "บริษัทในเครือข่าย"}</small>
               </span>
-              <span className="b2b-sides" title="คุยระหว่างสองบริษัท">
-                <em className="mine">{ctx.company.name}</em>
-                <i>↔</i>
-                <em>{thread.company.name}</em>
-              </span>
+              {jobPost && (
+                <span className="b2b-roles">
+                  <em className={amOwner ? "owner" : "offer"}>คุณ · {amOwner ? "เจ้าของประกาศ" : "ผู้เสนอตัว"}</em>
+                  <em className={amOwner ? "offer" : "owner"}>
+                    {thread.company.name} · {amOwner ? "ผู้เสนอตัว" : "เจ้าของประกาศ"}
+                  </em>
+                </span>
+              )}
             </header>
+            {post && (
+              <button type="button" className={"b2b-pinned kind-" + post.kind} onClick={openPost} title="ดูโพสต์">
+                {post.image ? <img src={imageSrc(post.image)} alt="" /> : <Handshake size={18} />}
+                <span>
+                  <small>{kindLabel[post.kind]} ที่คุยกันอยู่</small>
+                  <b>{post.title}</b>
+                </span>
+                {(post.meta?.budget || post.meta?.location) && <em>{[post.meta?.location, post.meta?.budget].filter(Boolean).join(" · ")}</em>}
+                <ExternalLink size={14} />
+              </button>
+            )}
             <DealBar
               deals={shownDeals}
               disabled={viewer}
@@ -470,12 +493,20 @@ function B2bChat({
                   {!shown.length && !pendingCard && (
                     <Empty title={"เริ่มคุยกับ " + thread.company.name} description="ข้อความเห็นได้ทุกคนในสองบริษัทนี้เท่านั้น" />
                   )}
-                  {shown.map((m) => {
+                  {shown.map((m, i) => {
+                    const day = new Date(m.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }),
+                      newDay = i === 0 || new Date(shown[i - 1].created_at).toDateString() !== new Date(m.created_at).toDateString(),
+                      divider = newDay ? (
+                        <div className="b2b-day" key={"d" + m.id}>
+                          <span>{new Date(m.created_at).toDateString() === new Date().toDateString() ? "วันนี้" : day}</span>
+                        </div>
+                      ) : null;
                     const hit = m.card_id ? cardIndex.get(m.card_id) : undefined;
                     if (hit && m.card_id) {
                       const first = !firstLine.has(m.card_id);
                       firstLine.add(m.card_id);
                       return first ? (
+                        [divider,
                         <div className={"b2b-msg deal" + (m.mine ? " mine" : "")} key={m.id}>
                           <DealCardView
                             card={hit.card}
@@ -487,26 +518,27 @@ function B2bChat({
                             onQuote={(from) => setForm({ kind: "quote", deal: hit.deal, from })}
                             onPay={(card) => setForm({ kind: "pay", card })}
                           />
-                        </div>
+                        </div>]
                       ) : (
+                        [divider,
                         <div className="b2b-deal-line" key={m.id}>
                           <span>{m.body}</span>
                           <small>
                             {m.author_name} · {since(m.created_at)}
                           </small>
-                        </div>
+                        </div>]
                       );
                     }
-                    // Every message says who sent it: their picture, name and company.
+                    // Every message says who sent it: the company (its logo and name) and the person who wrote it.
                     const company = m.mine ? { ...me, has_logo: m.company_has_logo ?? me.has_logo } : thread.company;
-                    return (
+                    return [divider,
                       <div className={"b2b-msg person" + (m.mine ? " mine" : "")} key={m.id}>
-                        <PersonAvatar userId={m.author_id} at={m.avatar_at} name={m.author_name} company={company} />
+                        {companyLogo(company, 38)}
                         <div className="b2b-msg-body">
                           <small className="b2b-who">
-                            <b>{m.author_name}</b>
-                            <span>{m.company_name || company.name}</span>
+                            <b>{m.company_name || company.name}</b>
                             {ownerId && (m.mine ? ctx.company.id : thread.company.id) === ownerId && <em className="b2b-owner">เจ้าของประกาศ</em>}
+                            <span>{m.author_name}</span>
                             <time>{since(m.created_at)}</time>
                           </small>
                           {m.post &&
@@ -520,8 +552,7 @@ function B2bChat({
                           {m.body && <p>{m.body}</p>}
                           {m.files && m.files.length > 0 && <MessageFiles thread={thread.id} files={m.files} />}
                         </div>
-                      </div>
-                    );
+                      </div>];
                   })}
                   {/* the sample deal's cards (demo) */}
                   {sample &&

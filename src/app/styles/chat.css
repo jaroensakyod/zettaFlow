@@ -608,3 +608,77 @@
 .b2b-next small { font-size: 12px; color: #6b6585; }
 .b2b-next .primary { flex: none; }
 @media (max-width: 760px) { .b2b-next { flex-wrap: wrap; } .b2b-next .primary { width: 100%; } }
+
+/* ==== B2B chat, refreshed look: the company is the face of every message; clear colours for who is who ==== */
+.chat-hub .b2b { border: 0; border-radius: 22px; overflow: hidden; background: #fff; box-shadow: 0 18px 44px rgba(76, 29, 149, .12); }
+.chat-hub .b2b-list { background: linear-gradient(180deg, #f7f4ff 0%, #fdf7fb 100%); border-right: 1px solid #efeaf9; }
+.b2b-me { display: flex; align-items: center; gap: 10px; margin: 0 4px 12px; padding: 10px 12px; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #7c3aed, #db2777); box-shadow: 0 10px 22px rgba(124, 58, 237, .25); }
+.b2b-me > span { display: grid; flex: 1; min-width: 0; }
+.b2b-me small { font-size: 11px; opacity: .85; }
+.b2b-me b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b2b-me .icon-button { color: #fff; background: rgba(255, 255, 255, .18); border: 0; }
+.b2b-me .icon-button:hover { background: rgba(255, 255, 255, .3); }
+.b2b-me .net-logo { border: 2px solid rgba(255, 255, 255, .85); }
+.chat-hub .b2b-thread { margin: 0 4px 6px; padding: 10px; border: 1.5px solid transparent; border-radius: 16px; background: #fff; box-shadow: 0 2px 8px rgba(60, 40, 140, .05); transition: border-color .15s, transform .15s; }
+.chat-hub .b2b-thread:hover { border-color: #e0d7fb; transform: translateY(-1px); }
+.chat-hub .b2b-thread.active { border-color: #a78bfa; background: linear-gradient(135deg, #f5f0ff, #fff); box-shadow: 0 8px 20px rgba(124, 58, 237, .14); }
+
+/* header */
+.chat-hub .b2b-head { gap: 12px; padding: 14px 18px; background: linear-gradient(90deg, #faf7ff, #fff6fb); border-bottom: 1px solid #f0ebfa; }
+.chat-hub .b2b-head strong { font-size: 16px; }
+.b2b-roles { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.b2b-roles em { padding: 4px 11px; border-radius: 99px; font-size: 12px; font-style: normal; font-weight: 800; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.b2b-roles em.owner { color: #9a3412; background: #ffedd5; }
+.b2b-roles em.offer { color: #065f46; background: #d1fae5; }
+
+/* the post being discussed, pinned under the header */
+.b2b-pinned { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 18px; border: 0; border-bottom: 1px solid #f0ebfa; text-align: left; color: #4c1d95; background: #fffaf3; cursor: pointer; }
+.b2b-pinned.kind-job { background: #f0fdf9; }
+.b2b-pinned:hover { filter: brightness(.98); }
+.b2b-pinned img { width: 38px; height: 38px; border-radius: 10px; object-fit: cover; flex: none; }
+.b2b-pinned > svg:first-child { flex: none; width: 38px; height: 38px; padding: 9px; border-radius: 10px; color: #ea580c; background: #ffedd5; }
+.b2b-pinned > span { display: grid; min-width: 0; }
+.b2b-pinned small { font-size: 11px; font-weight: 700; color: #c2410c; }
+.b2b-pinned.kind-job small { color: #047857; }
+.b2b-pinned b { font-size: 14px; color: #2c2a3a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b2b-pinned em { margin-left: auto; flex: none; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-style: normal; font-weight: 700; color: #6b6585; background: #fff; border: 1px solid #f0e6da; }
+.b2b-pinned > svg:last-child { flex: none; color: #a78bfa; }
+
+/* deal steps: compact, coloured */
+.chat-hub .deal-bar { padding: 10px 18px; background: #fff; }
+.chat-hub .deal-steps li { border-radius: 99px; }
+.chat-hub .deal-steps li.now { background: linear-gradient(135deg, #7c3aed, #db2777); color: #fff; box-shadow: 0 6px 14px rgba(124, 58, 237, .25); }
+.chat-hub .deal-steps li.done { color: #15803d; background: #dcfce7; }
+
+/* messages */
+.chat-hub .b2b-messages { gap: 16px; padding: 20px 22px; background: radial-gradient(circle at 10% 0%, #f6f0ff 0, transparent 40%), radial-gradient(circle at 90% 100%, #fff0f7 0, transparent 40%), #fbfaff; }
+.b2b-day { align-self: center; }
+.b2b-day span { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: #6d28d9; background: rgba(255, 255, 255, .92); border: 1px solid #ece4ff; box-shadow: 0 2px 6px rgba(60, 40, 140, .06); }
+.chat-hub .b2b-msg.person { gap: 10px; }
+.chat-hub .b2b-msg.person > .net-logo, .chat-hub .b2b-msg.person > span:first-child { flex: none; margin-top: 18px; }
+.chat-hub .b2b-msg.person .net-logo { border-radius: 50%; box-shadow: 0 2px 6px rgba(30, 20, 60, .12); }
+.chat-hub .b2b-msg .b2b-who b { font-size: 13px; color: #3b2a72; }
+.chat-hub .b2b-msg.mine .b2b-who b { color: #6d28d9; }
+.chat-hub .b2b-msg.person .b2b-msg-body > p { padding: 11px 15px; border-radius: 18px 18px 18px 6px; border: 0; border-left: 0; font-size: 14.5px; color: #2c2a3a; background: #fff; box-shadow: 0 3px 12px rgba(60, 40, 140, .08); }
+.chat-hub .b2b-msg.person:not(.mine) .b2b-msg-body > p { background: linear-gradient(135deg, #ffffff, #f6f2ff); }
+.chat-hub .b2b-msg.person.mine .b2b-msg-body > p { border-radius: 18px 18px 6px 18px; color: #fff; background: linear-gradient(135deg, #7c3aed, #c026d3); box-shadow: 0 8px 18px rgba(124, 58, 237, .25); }
+.chat-hub .b2b-owner { color: #9a3412; background: #ffedd5; }
+
+/* composer */
+.chat-hub .b2b-compose { padding: 12px 20px 14px; background: #fff; border-top: 1px solid #f0ebfa; }
+.chat-hub .b2b-compose > div:last-child { border-radius: 20px; border-color: #e6defa; background: #fbf9ff; }
+.chat-hub .b2b-quick button { border-radius: 99px; border-color: #e6defa; background: #fff; }
+.chat-hub .b2b-quick button:hover, .chat-hub .b2b-quick button.active { color: #fff; border-color: transparent; background: linear-gradient(135deg, #7c3aed, #db2777); }
+.chat-hub .b2b-next { border: 0; color: #fff; background: linear-gradient(135deg, #7c3aed, #db2777); box-shadow: 0 10px 24px rgba(124, 58, 237, .28); }
+.chat-hub .b2b-next small { color: rgba(255, 255, 255, .88); }
+.chat-hub .b2b-next .primary { color: #6d28d9; background: #fff; border: 0; }
+@media (max-width: 760px) { .b2b-roles { display: none; } .b2b-pinned em { display: none; } .chat-hub .b2b-messages { padding: 14px; } }
+/* phones: one column (the list or the conversation), like globals.css meant before the desktop grid above overrode it */
+@media (max-width: 720px) {
+  .chat-hub .b2b { grid-template-columns: 1fr; border-radius: 18px; }
+  .chat-hub .b2b-head > .b2b-roles { display: none; }
+  .chat-hub .b2b-head { padding: 10px 12px; }
+  .b2b-pinned { padding: 8px 12px; }
+  .chat-hub .b2b-msg.person { max-width: 94%; }
+  .chat-hub .b2b-msg.person > .net-logo, .chat-hub .b2b-msg.person > span:first-child { margin-top: 16px; }
+}
