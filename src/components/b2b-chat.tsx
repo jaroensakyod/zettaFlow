@@ -337,6 +337,14 @@ function B2bChat({
       setBusy(false);
     }
   };
+  // The box grows with what is typed (up to about half the screen, then it scrolls), so a long message can be read
+  // in full before it is sent; it shrinks back after sending.
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight + 2, Math.max(160, Math.round(window.innerHeight * 0.45))) + "px";
+  }, [text, thread?.id]);
   const chips = useMemo(() => (topic ? quickQuestions[topic.kind] : []), [topic]);
   // Whose post the conversation is about: that company explains the work, the other one offers and quotes.
   const post = thread?.post || null,
