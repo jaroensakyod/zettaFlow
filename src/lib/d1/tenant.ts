@@ -29,7 +29,7 @@ type Row = Record<string, unknown>;
 export class AccessError extends Error {
   status = 403;
 }
-const meta = (table: string): TableMeta => {
+export const meta = (table: string): TableMeta => {
   const m = tables[table];
   if (!m) throw new AccessError(`unknown table ${table}`);
   return m;
@@ -58,7 +58,7 @@ function pathValue(v: unknown): SqlValue {
 const OPS = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
 
 /** A JS value → what SQLite stores for that column. */
-function encode(m: TableMeta, c: string, v: unknown): SqlValue {
+export function encode(m: TableMeta, c: string, v: unknown): SqlValue {
   if (v === undefined || v === null) return null;
   if (m.json.includes(c)) return JSON.stringify(v);
   if (m.bool.includes(c)) return v ? 1 : 0;
