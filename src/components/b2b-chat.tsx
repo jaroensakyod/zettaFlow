@@ -2,9 +2,9 @@
 // แชท page: the team's department rooms, and B2B chat with other companies on the network.
 // A conversation opened from a feed post shows that post as a card, with ready-made questions for its kind.
 // With no conversation yet (or in the public demo) the list shows a labelled sample inbox (lib/mock/b2b.ts).
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, MessagesSquare, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion } from "lucide-react";
+import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion } from "lucide-react";
 import type { Context, FeedPost } from "@/lib/types";
 import type { B2bCompany, B2bMessage, B2bPostRef, B2bThread } from "@/lib/b2b";
 import { b2bSample, isSampleThread, quickQuestions, sampleThreadFor, SAMPLE_NOTE, SAMPLE_SENT, type SampleThread } from "@/lib/mock/b2b";
@@ -28,27 +28,22 @@ export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: s
     const timer = setInterval(load, 20000);
     return () => clearInterval(timer);
   }, []);
+  // No page header: the switch between team chat and other companies sits at the top of the list column,
+  // so the conversation gets the whole height of the screen.
+  const tabs = (
+    <div className="chat-tabs chat-switch" role="tablist" aria-label="แชท">
+      <button role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>
+        <Users size={15} /> ในทีม
+      </button>
+      <button role="tab" aria-selected={tab === "b2b"} className={tab === "b2b" ? "active" : ""} onClick={() => setTab("b2b")}>
+        <Building2 size={15} /> บริษัทอื่น
+        {unread > 0 && <b className="li-alert-count">{unread}</b>}
+      </button>
+    </div>
+  );
   return (
     <div className="chat-hub">
-      <div className={"chat-bar t-" + tab}>
-        <span className="chat-bar-icon">
-          <MessagesSquare size={20} />
-        </span>
-        <div className="chat-bar-title">
-          <h1>แชท</h1>
-          <small>{tab === "team" ? "คุยกันในทีม แยกตามแผนก" : "ติดต่อ สอบถาม และต่อรองกับบริษัทในเครือข่าย"}</small>
-        </div>
-        <div className="chat-tabs" role="tablist">
-          <button role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>
-            <Users size={16} /> แชทในทีม
-          </button>
-          <button role="tab" aria-selected={tab === "b2b"} className={tab === "b2b" ? "active" : ""} onClick={() => setTab("b2b")}>
-            <Building2 size={16} /> คุยกับบริษัทอื่น
-            {unread > 0 && <b className="li-alert-count">{unread}</b>}
-          </button>
-        </div>
-      </div>
-      {tab === "team" ? <Chat ctx={ctx} notify={notify} /> : <B2bChat ctx={ctx} notify={notify} navigate={navigate} onRead={setUnread} />}
+      {tab === "team" ? <Chat ctx={ctx} notify={notify} top={tabs} /> : <B2bChat ctx={ctx} notify={notify} navigate={navigate} onRead={setUnread} top={tabs} />}
     </div>
   );
 }
@@ -127,11 +122,13 @@ function B2bChat({
   notify,
   navigate,
   onRead,
+  top,
 }: {
   ctx: Context;
   notify: (s: string) => void;
   navigate: (v: string) => void;
   onRead: (n: number) => void;
+  top?: ReactNode;
 }) {
   const params = useSearchParams(),
     router = useRouter(),
@@ -310,6 +307,7 @@ function B2bChat({
   return (
     <section className={"card b2b" + (active && thread ? " open" : "")}>
       <aside className="b2b-list" aria-label="บริษัทที่คุยด้วย">
+        {top}
         <div className="b2b-list-head">
           <b>บริษัทที่คุยด้วย</b>
           {sampleMode && (

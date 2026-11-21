@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -20,9 +20,11 @@ import type { Context, Entity, Message } from "@/lib/types";
 export function Chat({
   ctx,
   notify,
+  top,
 }: {
   ctx: Context;
   notify: (s: string) => void;
+  top?: ReactNode;
 }) {
   const choices =
     ctx.member.role === "owner" ? departmentNames : ctx.member.departments;
@@ -53,6 +55,7 @@ export function Chat({
   return (
     <section className="card chat-layout">
       <aside className="chat-channels">
+        {top}
         <h3>ห้องแชทของแผนก</h3>
         {choices.map((d) => (
           <button

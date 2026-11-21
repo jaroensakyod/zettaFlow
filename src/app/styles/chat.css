@@ -524,3 +524,22 @@
   .chat-hub .chat-messages { flex: 1; height: auto; min-height: 0; }
   .chat-hub .b2b { grid-template-columns: 320px minmax(0, 1fr); }
 }
+
+/* No header bar above the chat (it took room from the conversation): the ในทีม / บริษัทอื่น switch sits at the top
+   of the list column, the page background stays plain and the chat fills the window. */
+.dept-shell:has(.chat-hub), .dept-shell:has(.chat-bar.t-b2b) { background: none; }
+.chat-switch { display: grid; grid-template-columns: 1fr 1fr; width: auto; gap: 4px; margin: 0 0 12px; }
+.chat-switch button { justify-content: center; gap: 5px; padding: 8px 6px; font-size: 12.5px; white-space: nowrap; }
+.chat-switch button.active { color: #5b21b6; }
+.chat-switch .li-alert-count { background: #f43f5e; color: #fff; }
+.b2b-list > .chat-switch { margin: 0 4px 10px; }
+@media (min-width: 721px) {
+  .chat-hub .b2b, .chat-hub .chat-layout { height: calc(100dvh - 100px); }
+  .chat-hub .chat-layout { grid-template-columns: 230px minmax(0, 1fr); }
+  .chat-channels { padding-top: 14px; }
+}
+@media (max-width: 760px) {
+  .chat-hub .b2b { height: calc(100dvh - 140px); }
+  .chat-hub .chat-channels { flex-wrap: wrap; }
+  .chat-channels > .chat-switch { flex: none; width: 100%; margin-bottom: 4px; }
+}
