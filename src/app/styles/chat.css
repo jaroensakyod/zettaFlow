@@ -682,3 +682,10 @@
   .chat-hub .b2b-msg.person { max-width: 94%; }
   .chat-hub .b2b-msg.person > .net-logo, .chat-hub .b2b-msg.person > span:first-child { margin-top: 16px; }
 }
+
+/* the company logo is a square picture: never stretched */
+.b2b-me .net-logo, .chat-hub .b2b-msg.person .net-logo, .chat-hub .b2b-head .net-logo, .chat-hub .b2b-thread .net-logo { object-fit: contain; background: #fff; flex: none; }
+/* roles side by side on one line at the right of the header */
+.chat-hub .b2b-head > .b2b-roles { display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.chat-hub .b2b-head > .b2b-roles em { max-width: 260px; }
+@media (max-width: 1100px) { .chat-hub .b2b-head > .b2b-roles em:last-child { display: none; } }

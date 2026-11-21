@@ -337,6 +337,26 @@ function B2bChat({
       setBusy(false);
     }
   };
+  /** A ready-made line sent as is (what is being typed and the files waiting stay in the box). */
+  const sendReady = async (body: string) => {
+    if (!thread || busy) return;
+    if (sample) {
+      const m: B2bMessage = { id: sample.id + "-local-" + Date.now(), company_id: "sample-own", author_name: ctx.member.name || "คุณ", body, created_at: new Date().toISOString(), mine: true };
+      setSamples((all) => all.map((t) => (t.id === sample.id ? { ...t, messages: [...t.messages, m], last: { body, mine: true, at: m.created_at }, last_at: m.created_at } : t)));
+      return notify(SAMPLE_SENT);
+    }
+    setBusy(true);
+    try {
+      const m: B2bMessage = await api("/b2b/" + thread.id, { method: "POST", body: { body } });
+      setMessages((list) => [...(list || []), m]);
+      notify("ส่งคำขอใบเสนอราคาในแชทแล้ว");
+      loadThreads().catch(() => {});
+    } catch (err) {
+      notify((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   // The box grows with what is typed (up to about half the screen, then it scrolls), so a long message can be read
   // in full before it is sent; it shrinks back after sending.
   useEffect(() => {
@@ -479,7 +499,12 @@ function B2bChat({
             <DealBar
               deals={shownDeals}
               disabled={viewer}
-              onRequest={() => setForm({ kind: "request" })}
+              // On a job / partner post the company that offered only asks in the chat; the poster writes the quotation.
+              onRequest={() =>
+                jobPost && !amOwner && post
+                  ? sendReady(`ขอใบเสนอราคาสำหรับงาน “${post.title}” ตามรายละเอียดที่คุยกันด้วยค่ะ`)
+                  : setForm({ kind: "request" })
+              }
               onQuote={() => (shownDeals.length ? setForm({ kind: "quote" }) : startQuote())}
               canRequest={canRequest}
               canQuote={canQuote}
