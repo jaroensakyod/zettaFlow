@@ -53,12 +53,17 @@ export function DealBar({
   onQuote,
   onStep,
   disabled,
+  canRequest = true,
+  canQuote = true,
 }: {
   deals: Deal[];
   onRequest: () => void;
   onQuote: () => void;
   onStep: (step: DealStepKind, deal: Deal) => void;
   disabled?: boolean;
+  /** About a job / partner post: only the company that offered asks for a quotation, only the poster sends one. */
+  canRequest?: boolean;
+  canQuote?: boolean;
 }) {
   // The deal in progress (else the latest one).
   const deal = [...deals].reverse().find((d) => d.stage === "request" || d.stage === "quote" || working(d)) || deals[deals.length - 1];
@@ -81,12 +86,16 @@ export function DealBar({
           <span className="deal-bar-hint">ห้องดีล · ขอใบเสนอราคา ส่งใบเสนอราคา ตกลงจ้าง ส่งมอบงาน และชำระเงินได้ในแชทนี้</span>
         )}
         <span className="deal-bar-actions">
-          <button type="button" onClick={onRequest} disabled={disabled}>
-            <FileText size={14} /> ขอใบเสนอราคา
-          </button>
-          <button type="button" onClick={onQuote} disabled={disabled}>
-            <ReceiptText size={14} /> ส่งใบเสนอราคา
-          </button>
+          {canRequest && (
+            <button type="button" onClick={onRequest} disabled={disabled}>
+              <FileText size={14} /> ขอใบเสนอราคา
+            </button>
+          )}
+          {canQuote && (
+            <button type="button" onClick={onQuote} disabled={disabled}>
+              <ReceiptText size={14} /> ส่งใบเสนอราคา
+            </button>
+          )}
         </span>
       </div>
       {deal && (

@@ -61,7 +61,7 @@ const posterReplies = (post: B2bPostRef) => {
     "ขอบคุณที่สนใจค่ะ รายละเอียดงานมีดังนี้\n• งาน: " + post.title + "\n• ขอบเขตงาน: \n• สถานที่: " + (m.location || "") + "\n• งบประมาณ: " + (m.budget || "") + "\n• กำหนดเสร็จ: ",
     "ขอดูผลงานที่ผ่านมาและใบรับรองบริษัทได้ไหมคะ",
     "สะดวกนัดคุยหรือเข้าดูหน้างานวันไหนคะ",
-    "ถ้าตกลงตามนี้ ส่งใบเสนอราคาในแชทนี้ได้เลยค่ะ",
+    "สรุปตามนี้ เดี๋ยวส่งใบเสนอราคาให้ในแชทนี้นะคะ",
   ];
 };
 /** Type of a picked file when the browser leaves it blank (some systems do for .docx / .xlsx). */
@@ -346,17 +346,21 @@ function B2bChat({
     el.style.height = Math.min(el.scrollHeight + 2, Math.max(160, Math.round(window.innerHeight * 0.45))) + "px";
   }, [text, thread?.id]);
   const chips = useMemo(() => (topic ? quickQuestions[topic.kind] : []), [topic]);
-  // Whose post the conversation is about: that company explains the work, the other one offers and quotes.
+  // A conversation about a job / partner post: the posting company explains the work and sends the quotation; the
+  // company that offered itself asks for one (it has no "ส่งใบเสนอราคา").
   const post = thread?.post || null,
     ownerId = post?.company?.id || null,
     amOwner = !!ownerId && ownerId === ctx.company.id,
+    jobPost = !!post && (post.kind === "partner" || post.kind === "job"),
+    canQuote = !jobPost || amOwner,
+    canRequest = !jobPost || !amOwner,
     talked = !!shown && shown.some((m) => m.mine && !m.card_id) && shown.some((m) => !m.mine && !m.card_id),
-    quoteReady = !!post && !amOwner && (post.kind === "partner" || post.kind === "job") && talked && !shownDeals.length,
-    // What the quotation refers to: the post and what its owner wrote in this chat.
+    quoteReady = jobPost && amOwner && talked && !shownDeals.length,
+    // What the quotation refers to: the post and the details both sides wrote in this chat.
     agreed = () => {
       const fromOwner = (shown || [])
-          .filter((m) => !m.mine && !m.card_id && m.body.length > 20)
-          .slice(-3)
+          .filter((m) => !m.card_id && m.body.length > 20)
+          .slice(-4)
           .map((m) => m.body),
         meta = post?.meta || {};
       return [
@@ -454,6 +458,8 @@ function B2bChat({
               disabled={viewer}
               onRequest={() => setForm({ kind: "request" })}
               onQuote={() => (shownDeals.length ? setForm({ kind: "quote" }) : startQuote())}
+              canRequest={canRequest}
+              canQuote={canQuote}
               onStep={(step, deal) => setForm({ kind: "step", step, deal })}
             />
             <div className="b2b-messages">
