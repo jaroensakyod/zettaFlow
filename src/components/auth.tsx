@@ -317,9 +317,13 @@ const expiredNote =
 export function ResetPassword() {
   const [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
-    [expired, setExpired] = useState(false);
+    [expired, setExpired] = useState(false),
+    // Opened from an invite email: the person has no password yet and stays signed in afterwards.
+    [invite, setInvite] = useState(false);
   useEffect(() => {
-    if (new URLSearchParams(location.search).has("expired")) setExpired(true);
+    const q = new URLSearchParams(location.search);
+    if (q.has("expired")) setExpired(true);
+    if (q.has("invite")) setInvite(true);
   }, []);
   if (expired)
     return (
@@ -342,6 +346,11 @@ export function ResetPassword() {
                 password: new FormData(e.currentTarget).get("password"),
               },
             });
+            if (invite) {
+              setMessage("ตั้งรหัสผ่านแล้ว กำลังเข้าสู่บริษัท…");
+              window.location.assign("/workspace/dashboard");
+              return;
+            }
             // End the recovery session so the user signs in with the new password.
             await api("/auth", { method: "POST", body: { action: "logout" } }).catch(() => {});
             setMessage("เปลี่ยนรหัสผ่านแล้ว กำลังไปหน้าเข้าสู่ระบบ…");
@@ -357,7 +366,8 @@ export function ResetPassword() {
           }
         }}
       >
-        <h1>ตั้งรหัสผ่านใหม่</h1>
+        <h1>{invite ? "ตั้งรหัสผ่านเพื่อเริ่มใช้งาน" : "ตั้งรหัสผ่านใหม่"}</h1>
+        {invite && <p>คุณได้รับเชิญเข้าร่วมบริษัทบน EliteFlow ตั้งรหัสผ่านไว้ใช้เข้าสู่ระบบครั้งต่อไป</p>}
         <label>
           รหัสผ่านใหม่
           <PasswordInput

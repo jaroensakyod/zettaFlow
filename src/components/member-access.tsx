@@ -11,6 +11,7 @@ import { accessLevel, type AccessLevel } from "@/lib/domain";
 import { subscriptionActive, type Subscription } from "@/lib/billing";
 import { deptLook } from "./dept-picker";
 import { api, displayDate, Loading } from "./shared";
+import { InviteMessage, type InviteResult } from "./invite-message";
 
 /** Small lock after a menu label: the person may not open this system. */
 export const LockMark = ({ size = 12 }: { size?: number }) => (
@@ -110,12 +111,15 @@ type Invite = { id: string; email: string; role: string; accepted_at?: string | 
 export function MemberAccessTab({
   ctx,
   email,
+  name,
   department,
   notify,
   navigate,
 }: {
   ctx: Context;
   email: string;
+  /** The employee's name (for the invite email). */
+  name?: string;
   /** The employee's own department (for an invite). */
   department?: string;
   notify: (s: string) => void;
@@ -127,7 +131,8 @@ export function MemberAccessTab({
     [busy, setBusy] = useState(false),
     [role, setRole] = useState<Exclude<Role, "owner">>("staff"),
     [levels, setLevels] = useState<Levels>(all("lock")),
-    [dirty, setDirty] = useState(false);
+    [dirty, setDirty] = useState(false),
+    [sent, setSent] = useState<InviteResult | null>(null);
   const key = email.trim().toLowerCase();
   const load = useCallback(async () => {
     try {
@@ -204,8 +209,9 @@ export function MemberAccessTab({
                 setBusy(true);
                 try {
                   const dept = department && departmentNames.includes(department) ? department : "Finance";
-                  await api("/team", { method: "POST", body: { email: key, role: "staff", departments: [dept] } });
-                  notify("ส่งคำเชิญแล้ว · ใช้งานได้ 7 วัน");
+                  const r: InviteResult = await api("/team", { method: "POST", body: { email: key, role: "staff", departments: [dept], name: name || undefined } });
+                  setSent(r);
+                  notify(r.emailed ? "ส่งอีเมลคำเชิญแล้ว · ใช้งานได้ 7 วัน" : "บันทึกคำเชิญแล้ว · ส่งข้อความให้พนักงานได้เลย");
                   await load();
                 } catch (e) {
                   setError((e as Error).message);
@@ -217,6 +223,7 @@ export function MemberAccessTab({
               <UserPlus size={15} /> เชิญเข้าระบบ
             </button>
           )}
+          {key && pending && <InviteMessage company={ctx.company.name} email={email} result={sent} />}
           {full && (
             <p className="acl-note">
               ที่นั่งเต็มแล้ว ·{" "}

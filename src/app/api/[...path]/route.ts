@@ -158,6 +158,24 @@ async function body(req: NextRequest) {
     throw new AppError("JSON ไม่ถูกต้อง");
   }
 }
+/** Email an invitation through Supabase Auth (service role). Never fails the invite itself. */
+async function emailInvite(email: string, name?: string): Promise<{ emailed: boolean; existing?: boolean }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { emailed: false };
+  try {
+    const { error } = await supabaseAdmin().auth.admin.inviteUserByEmail(email.trim().toLowerCase(), {
+      data: name ? { name } : undefined,
+      redirectTo: (process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com") + "/auth/callback",
+    });
+    if (!error) return { emailed: true };
+    if (/already|registered|exists/i.test(error.message)) return { emailed: false, existing: true };
+    console.error("invite email", error.message);
+    return { emailed: false };
+  } catch (e) {
+    console.error("invite email", e);
+    return { emailed: false };
+  }
+}
+
 async function handle(req: NextRequest) {
   try {
     const path = req.nextUrl.pathname.slice(5).split("/"),
@@ -241,7 +259,8 @@ async function handle(req: NextRequest) {
         const { error } = await sb.auth.verifyOtp({ token_hash, type });
         if (error) return response({ error: "ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ใหม่ได้เลย", expired: true }, 400);
         await sb.rpc("accept_invitations");
-        return response({ next: type === "recovery" ? "/reset-password" : "/workspace/dashboard" });
+        // An invited person has no password yet: they set one first (then land in the company).
+        return response({ next: type === "recovery" ? "/reset-password" : type === "invite" ? "/reset-password?invite=1" : "/workspace/dashboard" });
       }
       if (action === "password") {
         const password = z.string().min(7).max(200).parse(input.password);
@@ -1026,6 +1045,8 @@ async function handle(req: NextRequest) {
           departments: z.array(z.string().min(1).max(100)).max(20),
           read_departments: z.array(z.string().min(1).max(100)).max(20).optional(),
           disabled: z.boolean().optional(),
+          /** The invited person's name (employee page), used in the invite email. */
+          name: z.string().trim().max(200).optional(),
         })
         .parse(await body(req));
       // An invite needs a ใช้งาน department; an edit may leave only ดู ones.
@@ -1052,6 +1073,7 @@ async function handle(req: NextRequest) {
           }
           demoAudit(s, "team_updated", String(input.email || path[1]));
         });
+        if (!path[1]) return response({ ok: true, demo: true });
       else {
         const sb = await supabaseServer();
         const { error } = path[1]
@@ -1071,6 +1093,10 @@ async function handle(req: NextRequest) {
               p_departments: input.departments,
             });
         dbError(error);
+        // A new invitation: email it. Someone without an account gets Supabase's invite email (template "invite":
+        // /auth/confirm?type=invite → set a password → into the company). Someone who already has an account
+        // gets no email (they only need to sign in again); the screen shows a message to send them instead.
+        if (!path[1]) return response({ ok: true, ...(await emailInvite(String(input.email), input.name)) });
       }
       return response({ ok: true });
     }

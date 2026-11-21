@@ -87,3 +87,12 @@ button.is-locked { color: var(--th-muted, #77728a); }
 /* ตั้งค่า → ทีม: the same three levels in the member editor. */
 .dept-levels { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
 .dept-levels .acl-row { padding: 6px 8px; }
+
+/* after inviting: email status and a message to send on LINE */
+.invite-msg { display: grid; gap: 8px; margin-top: 12px; padding: 14px; border: 1px solid #e6defa; border-radius: 14px; background: #faf8ff; text-align: left; }
+.invite-msg-status { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; color: #b45309; }
+.invite-msg-status.ok { color: #15803d; }
+.invite-msg-status svg { flex: none; margin-top: 2px; }
+.invite-msg small { font-size: 12px; color: #8b85a3; }
+.invite-msg pre { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #ece8f8; font: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: #2c2a3a; }
+.invite-msg button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }

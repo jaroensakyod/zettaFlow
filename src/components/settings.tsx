@@ -22,6 +22,7 @@ import {
 import { DocSigners } from "./doc-signers";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
 import { AccessLevelPicker } from "./member-access";
+import { InviteMessage, type InviteResult } from "./invite-message";
 import { accessLevel } from "@/lib/domain";
 import { UserOnline } from "./presence";
 import { FieldControl } from "./records";
@@ -595,6 +596,7 @@ export function Team({
     >([]),
     [loading, setLoading] = useState(true),
     [modal, setModal] = useState(false),
+    [invited, setInvited] = useState<{ email: string; result: InviteResult } | null>(null),
     [member, setMember] = useState<Member | null>(null),
     [role, setRole] = useState("staff"),
     [departments, setDepartments] = useState<string[]>([]),
@@ -713,12 +715,17 @@ export function Team({
             <p className="muted">ยังไม่มีคำเชิญ</p>
           )}
           <div className="note">
-            คำเชิญมีอายุ 7 วัน ให้สมาชิกสมัครหรือเข้าสู่ระบบด้วยอีเมลที่ระบุ
-            ระบบจะเชื่อมบริษัทให้อัตโนมัติ ยังไม่ส่งอีเมลคำเชิญ
+            คำเชิญมีอายุ 7 วัน ระบบส่งอีเมลคำเชิญให้คนที่ยังไม่มีบัญชี เมื่อสมาชิกสมัครหรือเข้าสู่ระบบด้วยอีเมลที่ระบุ
+            ระบบจะเชื่อมบริษัทให้อัตโนมัติ
           </div>
         </section>
       )}
       {!modal && error && <p className="form-error">{error}</p>}
+      {invited && (
+        <Modal title="เชิญสมาชิกแล้ว" onClose={() => setInvited(null)}>
+          <InviteMessage company={ctx.company.name} email={invited.email} result={invited.result} />
+        </Modal>
+      )}
       {modal && (
         <Modal
           title={member ? "แก้ไขสิทธิ์สมาชิก" : "เพิ่มคำเชิญสมาชิก"}
@@ -729,12 +736,11 @@ export function Team({
               e.preventDefault();
               setBusy(true);
               try {
-                await api("/team" + (member ? "/" + member.id : ""), {
+                const invitedEmail = member ? "" : String(new FormData(e.currentTarget).get("email") || "");
+                const r: InviteResult = await api("/team" + (member ? "/" + member.id : ""), {
                   method: member ? "PATCH" : "POST",
                   body: {
-                    email: member
-                      ? undefined
-                      : new FormData(e.currentTarget).get("email"),
+                    email: member ? undefined : invitedEmail,
                     role,
                     departments,
                     ...(member ? { read_departments: readDepartments.filter((d) => !departments.includes(d)) } : {}),
@@ -743,7 +749,8 @@ export function Team({
                 });
                 setModal(false);
                 await load();
-                notify("บันทึกสิทธิ์แล้ว");
+                if (!member) setInvited({ email: invitedEmail, result: r });
+                notify(member ? "บันทึกสิทธิ์แล้ว" : r.emailed ? "ส่งอีเมลคำเชิญแล้ว" : "บันทึกคำเชิญแล้ว");
               } catch (err) {
                 setError((err as Error).message);
               } finally {
