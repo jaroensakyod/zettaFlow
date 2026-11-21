@@ -1,19 +1,18 @@
 // Read-only reports for D1, after the Postgres functions (schema.sql): analytics_series, dashboard_summary,
-// usage_summary, template_breakdowns, template_metrics, calendar_entries, and the small helpers hhmm and dept_th.
-// usage_summary needs the plan helpers (effective_plan, plan_limit, trial_valid, trial_limit, subscription_active,
-// trial_usage); they are ported here too, with enforce_quota (the BEFORE INSERT quota trigger on ingestions and
-// line_groups), because ingestion and LINE writes need it.
+// usage_summary, template_breakdowns, template_metrics, calendar_entries, and the small helper hhmm. usage_summary
+// reads the plan helpers of billing-plan.ts (effective_plan, plan_limit, trial_valid, subscription_active,
+// trial_usage); dept_th lives in common.ts and is re-exported here.
 // member_role(c) is null only for someone outside the company; a D1 Tenant is always built for a member (or a support
 // viewer), so those "ไม่มีสิทธิ์" branches cannot be reached here and are left out.
-import { AppError } from "../domain";
 import { canReadDept } from "./access";
+import { deptTh, fail } from "./common";
+import { monthStart } from "./billing-util";
+import { effectivePlan, planLimit, subscriptionActive, subscriptionOf, trialUsage, trialValid } from "./billing-plan";
 import type { Tenant } from "./tenant";
 import type { Entity } from "../types";
 
+export { deptTh, monthStart };
 type Data = Record<string, unknown>;
-const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 /** (data->>'x')::numeric, null when missing. */
 const numOrNull = (v: unknown) => (v === undefined || v === null || v === "" ? null : Number(v));
@@ -24,134 +23,6 @@ export function hhmm(t: string | null | undefined): number | null {
   if (typeof t !== "string" || !/^\d{1,2}:\d{2}$/.test(t)) return null;
   const [h, m] = t.split(":");
   return Number(h) * 60 + Number(m);
-}
-
-const DEPT_TH: Record<string, string> = {
-  Finance: "ฝ่ายบัญชีและการเงิน",
-  HR: "ฝ่ายบุคคล",
-  Warehouse: "คลังสินค้า",
-  Sales: "ฝ่ายขาย",
-  Marketing: "การตลาด",
-  IT: "ฝ่าย IT",
-  Operations: "ฝ่ายปฏิบัติการ",
-  Purchasing: "จัดซื้อ",
-  Legal: "กฎหมาย",
-  Event: "อีเวนต์",
-  Admin: "บริหารองค์กร",
-  Design: "ออกแบบ",
-  "Customer Service": "บริการลูกค้า",
-  Data: "ข้อมูล",
-  "Business Development": "พัฒนาธุรกิจ",
-};
-/** dept_th(): a department's Thai name. */
-export const deptTh = (d: string | null | undefined) => (d ? (DEPT_TH[d] ?? d) : "");
-
-// ---------- plan helpers ----------
-type Subscription = { company_id: string; plan: string; cycle: string; status: string; trial_ends_at: string; current_period_end: string | null; addons: string[]; extra_users: number; updated_at: string };
-type PlanRow = { id: string; workflows: number | null; documents: number | null; line_groups: number | null; users: number | null } & Data;
-const ms = (s: string | null | undefined) => (s ? Date.parse(s) : NaN);
-const DAY = 86400000;
-/** date_trunc('month', now()) in UTC (the database time zone). */
-export const monthStart = (now: string) => `${now.slice(0, 7)}-01T00:00:00.000Z`;
-
-async function subscription(t: Tenant): Promise<Subscription | null> {
-  return (await t.selectInternal<Subscription>("subscriptions", { where: {} }))[0] ?? null;
-}
-/** effective_plan(): the paid plan while it runs (3 days' grace), the trial plan during the trial, else free. */
-export async function effectivePlan(t: Tenant, now = new Date().toISOString()): Promise<string | null> {
-  const s = await subscription(t);
-  if (!s) return null;
-  const n = Date.parse(now);
-  if (s.status === "trial" && ms(s.trial_ends_at) > n) return s.plan;
-  if (s.status === "active" && (s.current_period_end === null || ms(s.current_period_end) > n - 3 * DAY)) return s.plan;
-  return "free";
-}
-/** trial_valid() */
-export async function trialValid(t: Tenant, now = new Date().toISOString()): Promise<boolean> {
-  const s = await subscription(t);
-  return !!s && s.status === "trial" && ms(s.trial_ends_at) > Date.parse(now);
-}
-/** trial_limit() */
-export async function trialLimit(t: Tenant, r: string): Promise<number | null> {
-  const [row] = await t.selectGlobal<{ amount: number | null }>("trial_limits", { where: { resource: r } });
-  return row ? row.amount : null;
-}
-/** plan_limit(): the limit of a resource on the plan in force (trial limits during the trial). */
-export async function planLimit(t: Tenant, r: string, now = new Date().toISOString()): Promise<number | null> {
-  const s = await subscription(t);
-  if (!s) return null;
-  const [p] = await t.selectGlobal<PlanRow>("plans", { where: { id: (await effectivePlan(t, now)) as string } });
-  if (!p) return null;
-  if (await trialValid(t, now)) {
-    const tl = await trialLimit(t, r);
-    if (tl !== null) return tl;
-  }
-  if (r === "workflows") return p.workflows;
-  if (r === "documents") return p.documents;
-  if (r === "line_groups") return p.line_groups;
-  if (r === "users") return p.users === null ? null : p.users + (p.id === "free" ? 0 : Number(s.extra_users));
-  return null;
-}
-/** subscription_active() */
-export const subscriptionActive = async (t: Tenant) => !!(await subscription(t));
-
-/** trial_usage(): what the trial (or the free plan this month) has used against its limits. */
-export async function trialUsage(t: Tenant, now = new Date().toISOString()): Promise<Data | null> {
-  const s = await subscription(t);
-  if (!s) return null;
-  let since: string, fl: boolean;
-  if (await trialValid(t, now)) (since = new Date(ms(s.trial_ends_at) - 14 * DAY).toISOString()), (fl = false);
-  else if ((await effectivePlan(t, now)) === "free") (since = monthStart(now)), (fl = true);
-  else return null;
-  const after = { op: ">=" as const, value: since };
-  const ai = await t.selectInternal<{ has_file: boolean; feature: string }>("ai_usage", { where: { created_at: after } });
-  const free = async (r: string) => (await t.selectGlobal<{ amount: number | null }>("free_limits", { where: { resource: r } }))[0]?.amount ?? null;
-  return {
-    kind: fl ? "free" : "trial",
-    ends_at: fl ? null : s.trial_ends_at,
-    documents: { used: (await t.selectInternal("ingestions", { where: { created_at: after } })).length, limit: fl ? await planLimit(t, "documents", now) : await trialLimit(t, "documents") },
-    ai_files: { used: ai.filter((x) => x.has_file).length, limit: fl ? await free("ai_files") : await trialLimit(t, "ai_files") },
-    ai_chat: { used: ai.filter((x) => x.feature === "chat").length, limit: fl ? await free("ai_chat") : await trialLimit(t, "ai_chat") },
-    ai_calls: { used: ai.length, limit: fl ? await free("ai_calls") : await trialLimit(t, "ai_calls") },
-    line_groups: { used: (await t.selectInternal("line_groups")).length, limit: await planLimit(t, "line_groups", now) },
-    users: { used: (await t.selectInternal("memberships", { where: { disabled: false } })).length, limit: await planLimit(t, "users", now) },
-  };
-}
-
-/**
- * enforce_quota('documents' | 'line_groups'): the BEFORE INSERT trigger on ingestions and line_groups. Call it before
- * adding the row (`group` = the group being inserted, for line_groups).
- */
-export async function enforceQuota(t: Tenant, r: "documents" | "line_groups", group?: string, now = new Date().toISOString()): Promise<void> {
-  const s = await subscription(t);
-  const ep = await effectivePlan(t, now);
-  if (r === "documents") {
-    let l: number | null, n: number;
-    if (await trialValid(t, now)) {
-      l = await trialLimit(t, "documents");
-      if (l === null) return;
-      n = (await t.selectInternal("ingestions", { where: { created_at: { op: ">=", value: new Date(ms(s!.trial_ends_at) - 14 * DAY).toISOString() } } })).length;
-      if (n >= l) fail(`ช่วงทดลองใช้ครบ ${l} รายการแล้ว กรุณาเลือกแพ็กเกจเพื่อใช้งานต่อ`);
-    } else if (ep === "free") {
-      l = await planLimit(t, "documents", now);
-      if (l === null) return;
-      n = (await t.selectInternal("ingestions", { where: { created_at: { op: ">=", value: monthStart(now) } } })).length;
-      if (n >= l) fail(`แพ็กเกจฟรีใช้ได้ ${l} รายการต่อเดือน ครบแล้ว อัปเกรดแพ็กเกจเพื่อใช้งานต่อ`);
-    }
-    return;
-  }
-  const l = await planLimit(t, r, now);
-  if (l === null) return;
-  if ((await t.selectGlobal("line_groups", { where: { group_id: group ?? "" } })).length) return;
-  const n = (await t.selectInternal("line_groups")).length;
-  if (n >= l) {
-    if (await trialValid(t, now)) {
-      const [label] = await t.selectGlobal<{ label: string }>("trial_limits", { where: { resource: r } });
-      fail(`ช่วงทดลองใช้ได้สูงสุด ${l} ${label?.label ?? r} กรุณาเลือกแพ็กเกจเพื่อเพิ่ม`);
-    }
-    if (ep === "free") fail(`แพ็กเกจฟรีใช้ได้ ${l} กลุ่ม LINE อัปเกรดแพ็กเกจเพื่อเพิ่ม`);
-    fail(`เกินโควตาแพ็กเกจ (${r}: ${l}) กรุณาอัปเกรด`);
-  }
 }
 
 // ---------- reports ----------
@@ -200,29 +71,29 @@ export async function dashboardSummary(t: Tenant): Promise<Data> {
 /** usage_summary(): plan, trial and this month's usage against the limits. */
 export async function usageSummary(t: Tenant, now = new Date().toISOString()): Promise<Data> {
   const c = t.viewer.companyId,
-    s = await subscription(t),
-    ep = await effectivePlan(t, now),
+    s = await subscriptionOf(t),
+    ep = await effectivePlan(t, c, now),
     month = { op: ">=" as const, value: monthStart(now) };
   const [plan] = ep === null ? [] : await t.selectGlobal("plans", { where: { id: ep } });
-  const monthIngestions = await t.selectInternal<{ attachment_id: string | null; pages: number | null }>("ingestions", { where: { created_at: month } });
+  const monthIngestions = await t.selectInternal<{ attachment_id: string | null; pages: number | null }>("ingestions", { where: { created_at: month }, columns: ["attachment_id", "pages"] });
   const attached = monthIngestions.map((i) => i.attachment_id).filter((x): x is string => !!x);
-  const files = attached.length ? await t.selectInternal<{ id: string; mime: string }>("attachments", { where: { id: attached } }) : [];
+  const files = attached.length ? await t.selectInternal<{ id: string; mime: string }>("attachments", { where: { id: attached }, columns: ["id", "mime"] }) : [];
   const mime = new Map(files.map((a) => [a.id, a.mime]));
   return {
-    subscription: s ? { ...s, ...(ep === "free" && s.plan !== "free" && !(await trialValid(t, now)) ? { plan: "free", status: "active", current_period_end: null, lapsed_plan: s.plan } : {}) } : null,
+    subscription: s ? { ...s, ...(ep === "free" && s.plan !== "free" && !(await trialValid(t, c, now)) ? { plan: "free", status: "active", current_period_end: null, lapsed_plan: s.plan } : {}) } : null,
     plan: plan ?? null,
     active: await subscriptionActive(t),
-    trial: await trialUsage(t, now),
+    trial: await trialUsage(t, c, now),
     usage: {
-      workflows: (await t.selectInternal("data_templates")).length,
+      workflows: await t.countInternal("data_templates"),
       documents: monthIngestions.length,
       ocr: monthIngestions.filter((i) => i.attachment_id && mime.get(i.attachment_id)?.startsWith("image/")).length,
       ai_runs: monthIngestions.filter((i) => i.attachment_id && mime.get(i.attachment_id) === "application/pdf").length,
       pages: monthIngestions.reduce((n, i) => n + Number(i.pages ?? 0), 0),
-      line_groups: (await t.selectInternal("line_groups", { where: { company_id: c } })).length,
-      users: (await t.selectInternal("memberships", { where: { disabled: false } })).length,
+      line_groups: await t.countInternal("line_groups"),
+      users: await t.countInternal("memberships", { disabled: false }),
     },
-    limits: { workflows: await planLimit(t, "workflows", now), documents: await planLimit(t, "documents", now), line_groups: await planLimit(t, "line_groups", now), users: await planLimit(t, "users", now) },
+    limits: { workflows: await planLimit(t, "workflows", c, now), documents: await planLimit(t, "documents", c, now), line_groups: await planLimit(t, "line_groups", c, now), users: await planLimit(t, "users", c, now) },
   };
 }
 

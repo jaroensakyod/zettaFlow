@@ -22,7 +22,8 @@ import {
   updateStatus,
   type Ingestion,
 } from "./ingestion";
-import { deptTh, enforceQuota } from "./reports";
+import { deptTh } from "./common";
+import { enforceQuota } from "./billing-plan";
 
 type Data = Record<string, unknown>;
 const stamp = () => new Date().toISOString();
@@ -62,8 +63,9 @@ export async function pairLineGroup(sql: Sql, hash: string, groupId: string): Pr
   const g = await group(sql, groupId);
   if (g && g.company_id !== p.company_id) fail("กลุ่มนี้เชื่อมบริษัทอื่น", 409);
   const t = systemTenant(sql, p.company_id);
-  await enforceQuota(t, "line_groups", groupId);
+  const quota = await enforceQuota(t, "line_groups", { group_id: groupId });
   await t.atomic([
+    ...quota,
     t.guardGlobalStmt("line_pairings", { token_hash: hash, used_at: null }),
     g
       ? t.updateStmt("line_groups", { group_id: groupId }, { template_id: p.template_id, department: p.department ?? g.department })
@@ -271,7 +273,7 @@ export async function lineAddEvidence(sql: Sql, groupId: string, lineUser: strin
   const c = await lineEvidenceCheck(sql, groupId, lineUser, id);
   if (c.left < 1) fail("แนบได้สูงสุด 5 ไฟล์ต่อรายการค่ะ");
   const t = systemTenant(sql, c.company);
-  const e = (await t.selectInternal<Entity>("entities", { where: { archived_at: null } })).find((x) => txt(x.data.ingestionId) === id);
+  const [e] = await t.selectInternal<{ id: string }>("entities", { where: { "data.ingestionId": id, archived_at: null }, columns: ["id"], limit: 1 });
   const [a] = await t.selectInternal<{ id: string; entity_id: string | null }>("attachments", { where: { id: attachmentId } });
   if (!a) return fail("ไม่พบไฟล์", 404);
   await t.atomic([t.guardStmt("attachments", { id: attachmentId, entity_id: a.entity_id }), t.updateStmt("attachments", { id: attachmentId }, { ingestion_id: id, entity_id: a.entity_id ?? e?.id ?? null })]);
@@ -319,7 +321,12 @@ export async function lineDocuments(sql: Sql, groupId: string, lineUser: string,
   if (!g) return fail("กลุ่มไม่ถูกต้อง");
   const t = systemTenant(sql, g.company_id);
   const linked = !!(await lineMember(t, lineUser));
-  const rows = (await t.selectInternal<Entity>("entities", { where: { archived_at: null, ...(id ? { id } : {}) }, order: [["created_at", "desc"]] })).filter(
+  const rows = (
+    await t.selectInternal<Entity>("entities", {
+      where: { archived_at: null, "data.code": { op: "!=", value: "" }, ...(id ? { id } : {}), ...(code === null && id === null ? { "data.sourceGroup": { op: "!=", value: null } } : {}) },
+      order: [["created_at", "desc"]],
+    })
+  ).filter(
     (e) => (txt(e.data.code) ?? "") !== "" && (code === null || (txt(e.data.code) as string).toUpperCase() === code.toUpperCase()),
   );
   const ids = [...new Set(rows.map((e) => txt(e.data.ingestionId)).filter((x): x is string => !!x))];

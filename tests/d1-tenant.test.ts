@@ -137,3 +137,53 @@ test("a guarded batch aborts when what was read changed meanwhile (stand-in for 
   await a.atomic([a.guardStmt("entities", { id: row.id, version: row.version + 1 }), a.insertStmt("audit_events", { action: "x", target: row.id })]);
   assert.equal(await a.count("audit_events"), before + 1);
 });
+
+test("internal and global counts, quota guards, JSON paths and column lists", async () => {
+  const { sql, ownerOfA } = setup();
+  const a = new Tenant(sql, ownerOfA);
+  // countInternal: this company only, no read rule; countGlobal: any company, filtered by where.
+  assert.equal(await a.countInternal("entities"), 3);
+  assert.equal(await a.countInternal("entities", { kind: "customers" }), 1);
+  assert.equal(await a.countGlobal("entities", { kind: "customers" }), 2);
+  assert.equal(await a.countGlobal("entities", { company_id: B }), 2);
+  // countBelowStmt aborts the batch once the count reached the limit.
+  await a.atomic([a.countBelowStmt("entities", {}, 4), a.insertStmt("audit_events", { action: "ok", target: "1" })]);
+  const { ConflictError } = await import("../src/lib/d1/tenant");
+  await assert.rejects(a.atomic([a.countBelowStmt("entities", {}, 3)]), ConflictError);
+  await assert.rejects(a.atomic([a.countBelowGlobalStmt("entities", { company_id: B }, 2)]), ConflictError);
+  // A key "col.path" filters inside a JSON column, with the path bound (never spliced into SQL).
+  const [hit] = await a.selectInternal<{ kind: string }>("entities", { where: { "data.name": "ลูกค้า A" } });
+  assert.equal(hit.kind, "customers");
+  assert.equal((await a.selectInternal("entities", { where: { "data.name": ["ลูกค้า A", "สาขา A"] } })).length, 2);
+  assert.equal((await a.selectInternal("entities", { where: { "data.missing": { op: "!=", value: null } } })).length, 0);
+  assert.equal((await a.selectGlobal("entities", { where: { "data.name": { op: "like", value: "ลูกค้า%" } } })).length, 2);
+  assert.throws(() => a.guardStmt("entities", { "data.x') OR 1=1 --": 1 }), AccessError);
+  await assert.rejects(a.selectInternal("entities", { where: { "kind.x": 1 } }), AccessError);
+  // Column lists are honoured by selectInternal / selectGlobal too.
+  const [only] = await a.selectInternal<Record<string, unknown>>("entities", { where: { kind: "customers" }, columns: ["id", "kind"] });
+  assert.deepEqual(Object.keys(only).sort(), ["id", "kind"]);
+  // A guard may compare a whole JSON column with what was read.
+  const [row] = await a.selectInternal<{ id: string; data: Record<string, unknown> }>("entities", { where: { kind: "customers" } });
+  await a.atomic([a.guardStmt("entities", { id: row.id, data: row.data })]);
+  await assert.rejects(a.atomic([a.guardStmt("entities", { id: row.id, data: { name: "อื่น" } })]), ConflictError);
+  await assert.rejects(a.select("entities", { where: { data: { name: "x" } as never } }), AccessError);
+});
+
+test("next number written into another company's row inside the batch", async () => {
+  const { sql, ownerOfA } = setup();
+  const a = new Tenant(sql, ownerOfA);
+  const ids = ["e1000000-0000-4000-8000-000000000001", "e1000000-0000-4000-8000-000000000002"];
+  for (const id of ids)
+    await a.atomic([
+      a.insertGlobalStmt("entities", { id, company_id: B, kind: "customers", department: "Sales", data: { name: "จากดีล" } }),
+      ...a.nextNumberIntoStmts(B, "CUS", 0, { table: "entities", id, key: "data.code", text: "CUS-69-" }),
+    ]);
+  const rows = await a.selectGlobal<{ data: { code: string } }>("entities", { where: { id: ids }, order: [["id", "asc"]] });
+  assert.deepEqual(rows.map((r) => r.data.code), ["CUS-69-0001", "CUS-69-0002"]);
+  // B's counter moved, A's did not.
+  assert.equal((await new Tenant(sql, { ...ownerOfA, companyId: B }).selectInternal<{ last: number }>("doc_counters", { where: { prefix: "CUS" } }))[0].last, 2);
+  assert.equal(await a.countInternal("doc_counters"), 0);
+  // updateGlobal returns what it changed (a claim that lost returns nothing).
+  assert.equal((await a.updateGlobal("entities", { id: ids[0], version: 1 }, { version: 2 })).length, 1);
+  assert.equal((await a.updateGlobal("entities", { id: ids[0], version: 1 }, { version: 3 })).length, 0);
+});

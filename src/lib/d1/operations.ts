@@ -2,18 +2,14 @@
 // (schema.sql), including the entities triggers their updates fire (purchase total, derived fields). Rows Postgres
 // locked (FOR UPDATE) are guarded on what was read, so a concurrent change aborts the batch with ConflictError.
 import { randomUUID } from "node:crypto";
-import { AppError } from "../domain";
 import { derive } from "../dept-rules";
 import { canReadDept, canWriteDept } from "./access";
-import { stockMove, type Plan } from "./entities";
+import { stockMove, type Plan } from "./entity-insert";
+import { fail, now } from "./common";
 import type { Tenant } from "./tenant";
 import type { Entity } from "../types";
 
 type Data = Record<string, unknown>;
-const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
-const now = () => new Date().toISOString();
 const isManager = (t: Tenant) => ["owner", "manager"].includes(t.viewer.role);
 const audit = (t: Tenant, action: string, target: string) => t.insertStmt("audit_events", { actor: t.viewer.userId, action, target });
 

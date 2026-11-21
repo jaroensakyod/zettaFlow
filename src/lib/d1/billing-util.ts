@@ -1,15 +1,15 @@
-// Shared bits of the billing port (billing-*.ts): errors with the exact Postgres text, Postgres-style time arithmetic,
-// counts inside a company, and the "service role" tenant used by functions Postgres only granted to service_role
-// (confirm_payment, confirm_topup, admin_grant_plan, admin_revoke_grant, add_platform_customer, expire_subscriptions).
+// Shared bits of the billing port (billing-*.ts): Postgres-style time arithmetic, counts inside a company, and (from
+// common.ts) the error with the exact Postgres text and the "service role" tenant used by functions Postgres only
+// granted to service_role (confirm_payment, confirm_topup, admin_grant_plan, admin_revoke_grant,
+// add_platform_customer, expire_subscriptions).
 import { AppError } from "../domain";
-import type { Sql, SqlValue, Stmt } from "./driver";
-import { Tenant } from "./tenant";
+import type { Stmt } from "./driver";
+import type { Cond, Tenant } from "./tenant";
+import { fail, now, serviceTenant } from "./common";
 
+export { fail, serviceTenant };
 export type Row = Record<string, unknown>;
-export const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
-export const iso = () => new Date().toISOString();
+export const iso = now;
 const DAY = 86400000;
 export const addDays = (at: string, days: number) => new Date(Date.parse(at) + days * DAY).toISOString();
 /** timestamptz + interval 'n months' (UTC): the day is clamped to the last day of the target month, like Postgres. */
@@ -53,23 +53,12 @@ export function pgConstraint(e: unknown): never {
 }
 
 /**
- * The tenant for work Postgres did as service_role / SECURITY DEFINER on a company the caller names: auth.uid() is
- * null there, so nothing written here takes the viewer's id. The caller must already have checked who may do this
- * (platform admin: PLATFORM_ADMIN_EMAILS, cron secret, …).
+ * Counts inside a company without loading rows (select count(*) from <table> where company_id = c and ...): the
+ * viewer's own company without the per-person read rule, another company through the global count.
  */
-export const serviceTenant = (sql: Sql, companyId = "") => new Tenant(sql, { userId: "", email: "", companyId, role: "owner", departments: [] });
-
-// Counts without loading rows. Tenant has no count that skips the per-person read rule (selectInternal loads whole
-// rows), so this reads the driver Tenant was built with — see the report: Tenant.countInternal would replace it.
-const sqlOf = (t: Tenant): Sql => (t as unknown as { sql: Sql }).sql;
 export type Counted = "ingestions" | "ai_usage" | "line_groups" | "memberships" | "data_templates";
-/** select count(*) from <table> where company_id = c [and <extra>] — `extra` is fixed text from this port, never input. */
-export async function countIn(t: Tenant, table: Counted, c: string, extra = "", params: SqlValue[] = []): Promise<number> {
-  const [r] = await sqlOf(t).all<{ n: number }>(`SELECT count(*) AS n FROM "${table}" WHERE company_id = ?${extra ? ` AND ${extra}` : ""}`, [c, ...params]);
-  return Number(r?.n || 0);
-}
-/** A batch step that aborts (ConflictError) unless that count is still below `limit` — the quota's FOR UPDATE. */
-export const countBelowStmt = (table: Counted, c: string, limit: number, extra = "", params: SqlValue[] = []): Stmt => ({
-  sql: `SELECT CASE WHEN (SELECT count(*) FROM "${table}" WHERE company_id = ?${extra ? ` AND ${extra}` : ""}) < ? THEN 1 ELSE json('changed') END`,
-  params: [c, ...params, limit],
-});
+export const countIn = (t: Tenant, table: Counted, c: string, where: Record<string, Cond> = {}): Promise<number> =>
+  c === t.viewer.companyId ? t.countInternal(table, where) : t.countGlobal(table, { ...where, company_id: c });
+/** A batch step that aborts (ConflictError) unless that count is still below `limit` - the quota's FOR UPDATE. */
+export const countBelowStmt = (t: Tenant, table: Counted, c: string, limit: number, where: Record<string, Cond> = {}): Stmt =>
+  c === t.viewer.companyId ? t.countBelowStmt(table, where, limit) : t.countBelowGlobalStmt(table, { ...where, company_id: c }, limit);

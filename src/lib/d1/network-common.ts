@@ -3,16 +3,14 @@
 // exact error text, to_char money), the request clock, member_role for any company, and the entities triggers that
 // fire when a deal writes records into another company.
 import { randomUUID } from "node:crypto";
-import { AppError } from "../domain";
 import { derive, approvalStatuses } from "../dept-rules";
-import { codePrefix } from "./entities";
+import { beforeEntityInsert, codePrefix } from "./entity-insert";
+import { fail, memberRoleIn, projectStageRows } from "./common";
 import type { Stmt } from "./driver";
 import type { Tenant } from "./tenant";
 
+export { fail };
 export type Data = Record<string, unknown>;
-export const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
 export const uuid = () => randomUUID();
 
 // ---------- clock ----------
@@ -129,12 +127,8 @@ export const cat = (...parts: (string | number | null | undefined)[]): string | 
 export const nullif = (s: string | null) => (s === "" ? null : s);
 
 // ---------- who is asking ----------
-/** member_role(c) for any company: the person's role there, 'viewer' for a support view of their own request. */
-export async function memberRole(t: Tenant, companyId: string): Promise<string | null> {
-  if (companyId === t.viewer.companyId && t.viewer.support) return "viewer";
-  const [m] = await t.selectGlobal<{ role: string }>("memberships", { where: { company_id: companyId, user_id: t.viewer.userId, disabled: false }, limit: 1 });
-  return m?.role ?? null;
-}
+/** member_role(c) for any company (common.ts): the person's role there, 'viewer' for a support view, else null. */
+export const memberRole = (t: Tenant, companyId: string): Promise<string | null> => memberRoleIn(t, companyId);
 /** The request company's member_role (always the viewer's, read from memberships like Postgres). */
 export const myRole = (t: Tenant) => memberRole(t, t.viewer.companyId);
 /** feed_author(c): the person's name in the company, or their email. */
@@ -144,49 +138,24 @@ export async function feedAuthor(t: Tenant, companyId = t.viewer.companyId): Pro
 }
 
 // ---------- entities written into a company (the deal room's records) ----------
-/** init_project_stages(): the ten stages a new project starts with (same rows as entities.ts). */
-const projectStages: [string, number, string, string, string][] = [
-  ["location", 0, "Business Development", "หา Location", "Location"],
-  ["contract", 1, "Legal", "ทำสัญญา", "Contract"],
-  ["payment", 2, "Finance", "ชำระเงิน", "Payment"],
-  ["layout", 3, "Design", "เขียนแบบ", "Layout"],
-  ["procurement", 4, "Purchasing", "จัดซื้อ", "Procurement"],
-  ["warehouse", 5, "Warehouse", "คลังสินค้า", "Warehouse"],
-  ["setup", 6, "Operations", "เตรียมงาน", "Setup"],
-  ["selling", 7, "Sales", "PC ขายของ", "Selling"],
-  ["summary", 8, "Marketing", "สรุปผล", "Summary"],
-  ["close", 9, "Operations", "ปิดงาน", "Close"],
-];
 const thaiYear = (iso: string) => (Number(bkkDate(iso).slice(0, 4)) + 543) % 100;
 
 /**
- * INSERT INTO entities for any company, with what its triggers do on insert: entities_code (running code from that
- * company's counter, taken inside the same batch), entities_dept_rules (approval statuses, derived fields),
- * create_project_stages. (keep_source / purchase_figures / stock effect / item files do nothing for the kinds the deal
- * room writes.)
+ * INSERT INTO entities for any company, with what its triggers do on insert (entity-insert.ts): entities_code (a
+ * running code from that company's counter, taken inside the same batch: Tenant.nextNumberIntoStmts),
+ * entities_dept_rules (approval statuses need that company's owner or manager; derived fields), create_project_stages.
+ * (purchase_figures / stock effect / item files do nothing for the kinds the deal room writes.)
  */
 export async function insertEntityStmts(t: Tenant, row: { id: string; company_id: string; kind: string; department: string; data: Data; created_by?: string | null }, now: string): Promise<Stmt[]> {
-  let data = { ...row.data };
-  const status = jtext(data.status);
-  if (status !== null && approvalStatuses[row.kind]?.includes(status)) {
-    const role = await memberRole(t, row.company_id);
-    if (role !== null && !["owner", "manager"].includes(role)) fail("ต้องให้ Owner หรือ Manager เป็นผู้อนุมัติสถานะนี้");
-  }
-  data = { ...data, ...derive(row.kind, data) };
-  const stmts: Stmt[] = [];
-  const prefix = codePrefix[row.kind];
-  const needsCode = prefix && (jtext(data.code) ?? "") === "";
-  if (needsCode) stmts.push(t.upsertGlobalStmt("doc_counters", { company_id: row.company_id, prefix, year: 0, last: 1 }, ["company_id", "prefix", "year"], [], ["last"]));
-  stmts.push(t.insertGlobalStmt("entities", { ...row, data, created_by: row.created_by ?? null, created_at: now, updated_at: now }));
-  if (needsCode)
-    stmts.push({
-      // take_code(): PREFIX-yy-nnnn (lpad to 4, which also cuts longer numbers to 4 like Postgres).
-      sql: `UPDATE entities SET data = json_set(data, '$.code', ? || substr(printf('%04d', (SELECT last FROM doc_counters WHERE company_id = ? AND prefix = ? AND year = 0)), 1, 4)) WHERE id = ?`,
-      params: [`${prefix}-${String(thaiYear(now)).padStart(2, "0")}-`, row.company_id, prefix, row.id],
-    });
-  if (row.kind === "projects")
-    for (const [key, ordinal, department, label, english] of projectStages)
-      stmts.push(t.insertGlobalStmt("project_stages", { company_id: row.company_id, project_id: row.id, key, ordinal, department, label, english, updated_at: now }));
+  const { data, deferredCode } = await beforeEntityInsert(row.kind, row.data, {
+    takeCode: async () => null,
+    docCode: async (ing) => (await t.selectGlobal<{ doc_code: string | null }>("ingestions", { where: { id: ing, company_id: row.company_id } }))[0]?.doc_code ?? null,
+    approverRole: () => memberRole(t, row.company_id),
+  });
+  const stmts: Stmt[] = [t.insertGlobalStmt("entities", { ...row, data, created_by: row.created_by ?? null, created_at: now, updated_at: now })];
+  // take_code(): PREFIX-yy-nnnn
+  if (deferredCode) stmts.push(...t.nextNumberIntoStmts(row.company_id, deferredCode, 0, { table: "entities", id: row.id, key: "data.code", text: `${deferredCode}-${String(thaiYear(now)).padStart(2, "0")}-` }));
+  if (row.kind === "projects") for (const r of projectStageRows(row.id)) stmts.push(t.insertGlobalStmt("project_stages", { ...r, company_id: row.company_id, updated_at: now }));
   return stmts;
 }
 type Ent = { id: string; company_id: string; kind: string; data: Data; version: number };

@@ -2,36 +2,23 @@
 // (create_company, save_company, invite_member, accept_invitations, edit_member, member_role, support_viewer,
 // support_send / support_reply / support_seen, end_support_access, presence_ping, company_card, company_cover,
 // send_message) and the triggers their inserts fire: companies_trial (start_trial) and companies_seed_accounts on a
-// new company, quota_users (enforce_quota('users')) and memberships_platform_customer on a new membership.
+// new company, quota_users (enforce_quota('users')) and memberships_platform_customer on a new membership. The plan
+// helpers (start_trial, enforce_quota) are billing-plan.ts's; member_role / support_viewer and the small Postgres text
+// helpers are common.ts's (re-exported here for the company files).
 // Sample data lives in company-sample.ts; shares, notes, dashboard layout and the notification outbox in
 // company-share.ts.
 import { randomUUID } from "node:crypto";
-import { AppError } from "../domain";
 import type { Role } from "../types";
-import { canWriteDept, type Viewer } from "./access";
+import { canWriteDept } from "./access";
 import type { Sql, Stmt } from "./driver";
 import { Tenant } from "./tenant";
+import { fail, memberRoleIn, now, pgLeft, pgLen, pgText, pgTrim, serviceTenant, supportViewerIn } from "./common";
+import { enforceQuota, startTrial, type Subscription } from "./billing-plan";
 
+export { fail, now, pgLeft, pgLen, pgText, pgTrim, serviceTenant };
 type Data = Record<string, unknown>;
-export const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
-export const now = () => new Date().toISOString();
-/** Postgres trim(text): spaces only, not tabs or newlines. */
-export const pgTrim = (s: string) => s.replace(/^ +| +$/g, "");
-/** Postgres length(text) / left(text, n): characters, not UTF-16 units. */
-export const pgLen = (s: string) => [...s].length;
-export const pgLeft = (s: string, n: number) => [...s].slice(0, n).join("");
-/** jsonb ->> key: strings as they are, other values as their JSON text, missing / null as null. */
-export const pgText = (v: unknown): string | null => (v === undefined || v === null ? null : typeof v === "string" ? v : JSON.stringify(v));
 const ms = (iso: string | null | undefined) => (iso ? Date.parse(iso) : NaN);
 const audit = (t: Tenant, action: string, target: string) => t.insertStmt("audit_events", { actor: t.viewer.userId, action, target });
-
-/**
- * A Tenant for the service-role functions (support_reply, claim_notifications, share_*): no person, nothing checked.
- * Callers must only reach these from trusted server code (the admin console, the outbox worker, the share page).
- */
-export const serviceTenant = (sql: Sql, companyId = "") => new Tenant(sql, { userId: "", email: "", companyId, role: "owner", departments: [] });
 
 /**
  * The signed-in person before they belong to a company (create_company, accept_invitations): what Postgres read from
@@ -42,47 +29,12 @@ export type SignedInUser = { userId: string; email: string; name?: string | null
 // ---------- roles ----------
 
 /** support_viewer(c): a platform admin with an open, unexpired support session on this company. */
-export async function supportViewer(sql: Sql, userId: string, companyId: string): Promise<boolean> {
-  const stamp = now();
-  const rows = await serviceTenant(sql).selectGlobal<{ expires_at: string }>("support_access", { where: { company_id: companyId, user_id: userId, ended_at: null } });
-  return rows.some((r) => ms(r.expires_at) > ms(stamp));
-}
+export const supportViewer = (sql: Sql, userId: string, companyId: string): Promise<boolean> => supportViewerIn(serviceTenant(sql), userId, companyId);
 /**
  * member_role(c): the person's role in the company (not when disabled), else 'viewer' for a support session, else
  * null. Inside the ported functions this is viewer.role; this helper is for building the Viewer of a request.
  */
-export async function memberRole(sql: Sql, userId: string, companyId: string): Promise<Role | null> {
-  const [m] = await serviceTenant(sql).selectGlobal<{ role: Role }>("memberships", { where: { company_id: companyId, user_id: userId, disabled: false } });
-  if (m) return m.role;
-  return (await supportViewer(sql, userId, companyId)) ? "viewer" : null;
-}
-
-// ---------- quota_users: BEFORE INSERT on memberships ----------
-
-type Sub = { plan: string; status: string; trial_ends_at: string; current_period_end: string | null; extra_users: number };
-/** effective_plan(c): a running trial or an active plan (3 days' grace after its period), else free. */
-export function effectivePlan(s: Sub, stamp: string): string {
-  if (s.status === "trial" && ms(s.trial_ends_at) > ms(stamp)) return s.plan;
-  if (s.status === "active" && (s.current_period_end === null || ms(s.current_period_end) > ms(stamp) - 3 * 86400000)) return s.plan;
-  return "free";
-}
-/**
- * enforce_quota('users') for a membership about to be inserted (not disabled). `known` gives the subscription and
- * member count of a company that does not exist yet (create_company: its rows are written in the same batch).
- */
-async function checkUsersQuota(t: Tenant, companyId: string, stamp: string, known?: { sub: Sub; members: number }) {
-  const sub = known ? known.sub : (await t.selectGlobal<Sub>("subscriptions", { where: { company_id: companyId } }))[0];
-  if (!sub) return; // plan_limit: no subscription row, no limit
-  const trial = sub.status === "trial" && ms(sub.trial_ends_at) > ms(stamp);
-  const [plan] = await t.selectGlobal<{ id: string; users: number | null }>("plans", { where: { id: effectivePlan(sub, stamp) } });
-  if (!plan) return;
-  const [tl] = await t.selectGlobal<{ amount: number; label: string }>("trial_limits", { where: { resource: "users" } });
-  const limit = trial && tl ? Number(tl.amount) : plan.users === null ? null : Number(plan.users) + (plan.id === "free" ? 0 : Number(sub.extra_users));
-  if (limit === null) return;
-  const n = known ? known.members : (await t.selectGlobal("memberships", { where: { company_id: companyId, disabled: false } })).length;
-  if (n >= limit)
-    fail(trial ? `ช่วงทดลองใช้ได้สูงสุด ${limit} ${tl?.label ?? "users"} กรุณาเลือกแพ็กเกจเพื่อเพิ่ม` : effectivePlan(sub, stamp) === "free" ? `แพ็กเกจฟรีใช้ได้ ${limit} ผู้ใช้ อัปเกรดแพ็กเกจเพื่อเพิ่ม` : `เกินโควตาแพ็กเกจ (users: ${limit}) กรุณาอัปเกรด`);
-}
+export const memberRole = (sql: Sql, userId: string, companyId: string): Promise<Role | null> => memberRoleIn(serviceTenant(sql), companyId, userId);
 
 // ---------- the company ----------
 
@@ -110,13 +62,13 @@ export async function createCompany(sql: Sql, user: SignedInUser, name: string, 
   const id = randomUUID(),
     stamp = now();
   const t = new Tenant(sql, { userId: user.userId, email: user.email, companyId: id, role: "owner", departments: [] });
-  // start_trial(): every new company starts on Free.
-  const sub: Sub = { plan: "free", status: "active", trial_ends_at: new Date(ms(stamp) + 14 * 86400000).toISOString(), current_period_end: null, extra_users: 0 };
-  await checkUsersQuota(t, id, stamp, { sub, members: 0 });
+  // start_trial(): every new company starts on Free; quota_users then sees that subscription and no members yet.
+  const subscription: Pick<Subscription, "plan" | "status" | "trial_ends_at" | "current_period_end" | "extra_users"> = { plan: "free", status: "active", trial_ends_at: new Date(ms(stamp) + 14 * 86400000).toISOString(), current_period_end: null, extra_users: 0 };
+  await enforceQuota(t, "users", { company_id: id }, stamp, { subscription, count: 0 });
   await t.atomic([
     t.insertGlobalStmt("companies", { id, name: clean, profile: { name: clean } }),
     ...opts.seedAccounts(t),
-    t.upsertStmt("subscriptions", { plan: sub.plan, status: sub.status }, ["company_id"], []),
+    startTrial(t, id),
     t.insertStmt("memberships", { user_id: user.userId, name: user.name ?? user.email, email: user.email.toLowerCase(), role: "owner" }),
     audit(t, "company_created", id),
   ]);
@@ -176,8 +128,10 @@ export async function acceptInvitations(sql: Sql, user: SignedInUser): Promise<v
   const open = (await t.selectGlobal<Invitation>("invitations", { where: { email: user.email.toLowerCase(), accepted_at: null } })).filter((i) => ms(i.expires_at) > ms(stamp));
   const stmts: Stmt[] = [];
   for (const i of open) {
-    await checkUsersQuota(t, i.company_id, stamp); // quota_users fires before ON CONFLICT is looked at
+    // quota_users fires before ON CONFLICT is looked at.
+    const quota = await enforceQuota(t, "users", { company_id: i.company_id }, stamp);
     stmts.push(
+      ...quota,
       t.guardGlobalStmt("invitations", { id: i.id, accepted_at: null }),
       t.upsertGlobalStmt("memberships", { company_id: i.company_id, user_id: user.userId, name: user.name ?? user.email, email: user.email.toLowerCase(), role: i.role, departments: i.departments }, ["company_id", "user_id"], []),
       t.updateGlobalStmt("invitations", { id: i.id }, { accepted_at: stamp }),

@@ -4,8 +4,8 @@
 // its period falls back to Free (1 LINE group, 3 users, 3 forms, 300 items a month; other departments are locked app
 // side). Read helpers take the company (default: the viewer's) and one `now` per call, like Postgres now().
 import type { Sql, Stmt } from "./driver";
-import type { Tenant } from "./tenant";
-import { addDays, countBelowStmt, countIn, fail, iso, monthStart, serviceTenant } from "./billing-util";
+import type { Cond, Tenant } from "./tenant";
+import { addDays, countBelowStmt, countIn, fail, iso, monthStart, serviceTenant, type Counted } from "./billing-util";
 
 export type Subscription = {
   company_id: string;
@@ -25,8 +25,9 @@ const DAY = 86400000;
 export async function subscriptionOf(t: Tenant, c = t.viewer.companyId): Promise<Subscription | null> {
   return (await t.selectGlobal<Subscription>("subscriptions", { where: { company_id: c } }))[0] ?? null;
 }
-const trialValidOf = (s: Subscription | null, now: string) => !!s && s.status === "trial" && Date.parse(s.trial_ends_at) > Date.parse(now);
-const effectiveOf = (s: Subscription | null, now: string): string | null =>
+const trialValidOf = (s: Pick<Subscription, "status" | "trial_ends_at"> | null, now: string) => !!s && s.status === "trial" && Date.parse(s.trial_ends_at) > Date.parse(now);
+/** effective_plan() of a subscription row already read (null without one). */
+export const effectiveOf = (s: Pick<Subscription, "plan" | "status" | "trial_ends_at" | "current_period_end"> | null, now: string): string | null =>
   !s
     ? null
     : trialValidOf(s, now)
@@ -53,7 +54,7 @@ export async function trialLimit(t: Tenant, r: string): Promise<number | null> {
   const [x] = await t.selectGlobal<{ amount: number }>("trial_limits", { where: { resource: r } });
   return x ? Number(x.amount) : null;
 }
-async function limitOf(t: Tenant, s: Subscription | null, r: string, now: string): Promise<number | null> {
+async function limitOf(t: Tenant, s: Pick<Subscription, "plan" | "status" | "trial_ends_at" | "current_period_end" | "extra_users"> | null, r: string, now: string): Promise<number | null> {
   if (!s) return null;
   const ep = effectiveOf(s, now);
   const [p] = await t.selectGlobal<PlanRow>("plans", { where: { id: ep } });
@@ -95,15 +96,16 @@ export async function trialUsage(t: Tenant, c = t.viewer.companyId, now = iso())
     return x ? Number(x.amount) : null;
   };
   const allowance = (r: string) => (free ? freeLimit(r) : trialLimit(t, r));
+  const since = { op: ">=" as const, value: from };
   return {
     kind: free ? "free" : "trial",
     ends_at: free ? null : s.trial_ends_at,
-    documents: { used: await countIn(t, "ingestions", c, "created_at >= ?", [from]), limit: free ? await limitOf(t, s, "documents", now) : await trialLimit(t, "documents") },
-    ai_files: { used: await countIn(t, "ai_usage", c, "has_file = 1 AND created_at >= ?", [from]), limit: await allowance("ai_files") },
-    ai_chat: { used: await countIn(t, "ai_usage", c, "feature = 'chat' AND created_at >= ?", [from]), limit: await allowance("ai_chat") },
-    ai_calls: { used: await countIn(t, "ai_usage", c, "created_at >= ?", [from]), limit: await allowance("ai_calls") },
+    documents: { used: await countIn(t, "ingestions", c, { created_at: since }), limit: free ? await limitOf(t, s, "documents", now) : await trialLimit(t, "documents") },
+    ai_files: { used: await countIn(t, "ai_usage", c, { has_file: true, created_at: since }), limit: await allowance("ai_files") },
+    ai_chat: { used: await countIn(t, "ai_usage", c, { feature: "chat", created_at: since }), limit: await allowance("ai_chat") },
+    ai_calls: { used: await countIn(t, "ai_usage", c, { created_at: since }), limit: await allowance("ai_calls") },
     line_groups: { used: await countIn(t, "line_groups", c), limit: await limitOf(t, s, "line_groups", now) },
-    users: { used: await countIn(t, "memberships", c, "disabled = 0"), limit: await limitOf(t, s, "users", now) },
+    users: { used: await countIn(t, "memberships", c, { disabled: false }), limit: await limitOf(t, s, "users", now) },
   };
 }
 
@@ -115,38 +117,47 @@ const RESOURCE_TH: Record<string, string> = { line_groups: "กลุ่ม LINE
  * and returns batch steps to put BEFORE the insert, which abort the batch (ConflictError) if a concurrent insert used
  * the last slot meanwhile. `row.company_id` defaults to the viewer's company.
  */
-export async function enforceQuota(t: Tenant, r: Resource, row: { company_id?: string; group_id?: string; disabled?: boolean } = {}, now = iso()): Promise<Stmt[]> {
+export async function enforceQuota(
+  t: Tenant,
+  r: Resource,
+  row: { company_id?: string; group_id?: string; disabled?: boolean } = {},
+  now = iso(),
+  /** A company whose rows are written in the same batch (create_company): its subscription and current count, no guard. */
+  known?: { subscription: Pick<Subscription, "plan" | "status" | "trial_ends_at" | "current_period_end" | "extra_users">; count: number },
+): Promise<Stmt[]> {
   const c = row.company_id || t.viewer.companyId;
-  const s = await subscriptionOf(t, c),
+  const s = known ? known.subscription : await subscriptionOf(t, c),
     ep = effectiveOf(s, now);
+  const count = async (table: Counted, where: Record<string, Cond> = {}) => (known ? known.count : countIn(t, table, c, where));
+  const below = (table: Counted, limit: number, where: Record<string, Cond> = {}): Stmt[] => (known ? [] : [countBelowStmt(t, table, c, limit, where)]);
   if (r === "documents") {
     if (trialValidOf(s, now)) {
       const l = await trialLimit(t, "documents");
       if (l === null) return [];
-      const from = addDays(s!.trial_ends_at, -14);
-      if ((await countIn(t, "ingestions", c, "created_at >= ?", [from])) >= l) fail(`ช่วงทดลองใช้ครบ ${l} รายการแล้ว กรุณาเลือกแพ็กเกจเพื่อใช้งานต่อ`);
-      return [countBelowStmt("ingestions", c, l, "created_at >= ?", [from])];
+      const from = { created_at: { op: ">=" as const, value: addDays(s!.trial_ends_at, -14) } };
+      if ((await count("ingestions", from)) >= l) fail(`ช่วงทดลองใช้ครบ ${l} รายการแล้ว กรุณาเลือกแพ็กเกจเพื่อใช้งานต่อ`);
+      return below("ingestions", l, from);
     }
     if (ep === "free") {
       const l = await limitOf(t, s, "documents", now);
       if (l === null) return [];
-      const from = monthStart(now);
-      if ((await countIn(t, "ingestions", c, "created_at >= ?", [from])) >= l) fail(`แพ็กเกจฟรีใช้ได้ ${l} รายการต่อเดือน ครบแล้ว อัปเกรดแพ็กเกจเพื่อใช้งานต่อ`);
-      return [countBelowStmt("ingestions", c, l, "created_at >= ?", [from])];
+      const from = { created_at: { op: ">=" as const, value: monthStart(now) } };
+      if ((await count("ingestions", from)) >= l) fail(`แพ็กเกจฟรีใช้ได้ ${l} รายการต่อเดือน ครบแล้ว อัปเกรดแพ็กเกจเพื่อใช้งานต่อ`);
+      return below("ingestions", l, from);
     }
     return [];
   }
   const l = await limitOf(t, s, r, now);
   if (l === null) return [];
-  let guard: Stmt;
+  let guard: Stmt[];
   let n: number;
-  if (r === "workflows") (n = await countIn(t, "data_templates", c)), (guard = countBelowStmt("data_templates", c, l));
+  if (r === "workflows") (n = await count("data_templates")), (guard = below("data_templates", l));
   else if (r === "line_groups") {
     if (row.group_id && (await t.selectGlobal("line_groups", { where: { group_id: row.group_id }, limit: 1 })).length) return [];
-    (n = await countIn(t, "line_groups", c)), (guard = countBelowStmt("line_groups", c, l));
+    (n = await count("line_groups")), (guard = below("line_groups", l));
   } else {
     if (row.disabled) return [];
-    (n = await countIn(t, "memberships", c, "disabled = 0")), (guard = countBelowStmt("memberships", c, l, "disabled = 0"));
+    (n = await count("memberships", { disabled: false })), (guard = below("memberships", l, { disabled: false }));
   }
   if (n >= l) {
     if (trialValidOf(s, now)) {
@@ -156,7 +167,7 @@ export async function enforceQuota(t: Tenant, r: Resource, row: { company_id?: s
     if (ep === "free") fail(`แพ็กเกจฟรีใช้ได้ ${l} ${RESOURCE_TH[r] ?? r} อัปเกรดแพ็กเกจเพื่อเพิ่ม`);
     fail(`เกินโควตาแพ็กเกจ (${r}: ${l}) กรุณาอัปเกรด`);
   }
-  return [guard];
+  return guard;
 }
 
 /**

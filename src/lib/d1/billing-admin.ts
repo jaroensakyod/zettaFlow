@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { formatCode, thaiYear } from "../domain";
 import { derive } from "../dept-rules";
 import type { Sql, Stmt } from "./driver";
-import { codePrefix } from "./entities";
+import { codePrefix } from "./entity-insert";
 import { addDays, fail, iso, pgConstraint, serviceTenant, txt, type Row } from "./billing-util";
 import { subscriptionOf, type Subscription } from "./billing-plan";
 

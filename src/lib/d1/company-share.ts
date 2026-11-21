@@ -2,10 +2,10 @@
 // (save_dashboard_layout), personal day notes (note_save, note_delete), the notification outbox (claim_notifications)
 // and project stages (init_project_stages, trigger project_stage_init_trigger) for D1, after the Postgres functions.
 import { randomUUID } from "node:crypto";
-import { decode, type Tenant } from "./tenant";
-import { tables } from "./tables.gen";
+import type { Tenant } from "./tenant";
 import type { Sql, Stmt } from "./driver";
-import { fail, now, pgLeft, pgLen, pgText, pgTrim, serviceTenant } from "./company";
+import { fail, now, pgLeft, pgLen, pgText, pgTrim, serviceTenant } from "./common";
+import { projectStageStmts } from "./entity-insert";
 
 type Data = Record<string, unknown>;
 const ms = (iso: string) => Date.parse(iso);
@@ -179,34 +179,16 @@ export async function claimNotifications(sql: Sql): Promise<Notification[]> {
   const out: Notification[] = [];
   const lease = new Date(ms(stamp) + 120000).toISOString();
   for (const n of due) {
-    const s = t.updateGlobalStmt("notification_outbox", { id: n.id, status: n.status, attempts: n.attempts, lease_until: n.lease_until }, { status: "processing", attempts: n.attempts + 1, lease_until: lease });
-    const [row] = await sql.all<Data>(s.sql, s.params);
-    if (row) out.push(decode<Notification>(tables.notification_outbox, row));
+    const [row] = await t.updateGlobal<Notification>("notification_outbox", { id: n.id, status: n.status, attempts: n.attempts, lease_until: n.lease_until }, { status: "processing", attempts: n.attempts + 1, lease_until: lease });
+    if (row) out.push(row);
   }
   return out;
 }
 
 // ---------- project stages ----------
 
-/** The ten stages every project starts with (the same list as entities.ts uses for save_entity). */
-export const projectStages: [key: string, ordinal: number, department: string, label: string, english: string][] = [
-  ["location", 0, "Business Development", "หา Location", "Location"],
-  ["contract", 1, "Legal", "ทำสัญญา", "Contract"],
-  ["payment", 2, "Finance", "ชำระเงิน", "Payment"],
-  ["layout", 3, "Design", "เขียนแบบ", "Layout"],
-  ["procurement", 4, "Purchasing", "จัดซื้อ", "Procurement"],
-  ["warehouse", 5, "Warehouse", "คลังสินค้า", "Warehouse"],
-  ["setup", 6, "Operations", "เตรียมงาน", "Setup"],
-  ["selling", 7, "Sales", "PC ขายของ", "Selling"],
-  ["summary", 8, "Marketing", "สรุปผล", "Summary"],
-  ["close", 9, "Operations", "ปิดงาน", "Close"],
-];
-/**
- * project_stage_init_trigger (AFTER INSERT on entities when kind = 'projects'): the stage rows for a project being
- * inserted in the same batch. Existing stages are kept (on conflict do nothing).
- */
-export const projectStageStmts = (t: Tenant, projectId: string): Stmt[] =>
-  projectStages.map(([key, ordinal, department, label, english]) => t.upsertStmt("project_stages", { project_id: projectId, key, ordinal, department, label, english }, ["project_id", "key"], []));
+/** project_stage_init_trigger: projectStageStmts (entity-insert.ts) writes the stage rows of a project being inserted. */
+export { projectStageStmts };
 /** init_project_stages(): adds any missing stages to an existing project of this company; anything else is ignored. */
 export async function initProjectStages(t: Tenant, projectId: string): Promise<void> {
   const [p] = await t.selectInternal("entities", { where: { id: projectId, kind: "projects" } });

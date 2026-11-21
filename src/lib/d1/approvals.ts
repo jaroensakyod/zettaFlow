@@ -5,36 +5,34 @@
 //
 // Postgres did more inside those functions through triggers, and they are written out here as helpers the write paths
 // call at the same moment:
-// - ingestions, BEFORE update of status: ingestion_decision_stamp (decidedStamp)
+// - ingestions, BEFORE update of status: ingestion_decision_stamp (decisionStamp, also used by ingestion.ts)
 // - ingestions, AFTER update of status to approved: ingestion_to_entity (ingestionToEntity);
 //   ingestion_decision_notify never writes from here, because approval_apply always sets `approval` first.
 // - entities, on insert: entities_code, entities_dept_rules, entities_purchase_figures, create_project_stages,
-//   entities_stock_effect, entities_take_item_files (insertEntity)
-// - data_templates, BEFORE insert: enforce_quota('workflows') (workflowQuota)
+//   entities_stock_effect, entities_take_item_files (insertEntity, on the shared planner in entity-insert.ts)
+// - data_templates, BEFORE insert: enforce_quota('workflows') (billing-plan.ts enforceQuota)
+// validate_payload is the shared one (validate.ts).
 // create_ingestion_workflow (called by approval_apply) is ported here too (createIngestionWorkflow).
 // Rows Postgres locked (FOR UPDATE) are guarded on what was read, so a concurrent change aborts the batch with
 // ConflictError. Every call is one batch.
 import { randomUUID } from "node:crypto";
 import { AppError, formatCode, thaiYear } from "../domain";
-import { approvalStatuses, derive } from "../dept-rules";
-import type { Sql, SqlValue, Stmt } from "./driver";
+import { derive } from "../dept-rules";
+import type { Sql, Stmt } from "./driver";
 import { canWriteDept, type Viewer } from "./access";
-import { codePrefix, saveEntity, stockMove, type Plan } from "./entities";
+import { saveEntity } from "./entities";
+import { afterEntityInsert, beforeEntityInsert, type Plan } from "./entity-insert";
+import { deptTh, fail, jsonType as jtype, pgLeft as left, pgLen as chars, pgText as txt, pgTrim } from "./common";
+import { validatePayload } from "./validate";
+import { enforceQuota } from "./billing-plan";
 import { Tenant } from "./tenant";
 import type { Entity } from "../types";
 
+export { deptTh };
 type Data = Record<string, unknown>;
-const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
 const isManager = (role: string | null | undefined) => role === "owner" || role === "manager";
 
-// ---------- jsonb helpers ----------
-/** jsonb_typeof */
-const jtype = (v: unknown): string | null =>
-  v === undefined ? null : v === null ? "null" : Array.isArray(v) ? "array" : typeof v === "object" ? "object" : typeof v === "number" ? "number" : typeof v === "boolean" ? "boolean" : "string";
-/** x->>'key': the value as text, SQL null for a missing key or a JSON null. */
-const txt = (v: unknown): string | null => (v === undefined || v === null ? null : typeof v === "string" ? v : typeof v === "object" ? JSON.stringify(v) : String(v));
+// ---------- jsonb helpers (jsonb_typeof, ->>, trim, length, left: common.ts) ----------
 /** (x->>'key')::int */
 const int = (v: unknown): number | null => {
   const s = txt(v);
@@ -42,11 +40,6 @@ const int = (v: unknown): number | null => {
 };
 const obj = (v: unknown): Data => (v && typeof v === "object" && !Array.isArray(v) ? (v as Data) : {});
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-/** Postgres trim(): spaces only. */
-const pgTrim = (s: string) => s.replace(/^ +| +$/g, "");
-const chars = (s: string) => [...s].length;
-const left = (s: string, n: number) => [...s].slice(0, n).join("");
-const UUIDISH = /^[0-9a-f-]{36}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Time in Bangkok as parts, for to_char(… at time zone 'Asia/Bangkok'). */
 const bangkok = (iso: string) => {
@@ -96,35 +89,7 @@ export type DataTemplate = { id: string; company_id: string; name: string; depar
 type Member = { user_id: string; name: string; email: string; role: string; departments: string[]; disabled: boolean };
 
 /** A batch step that aborts unless the item still has the status, approval and values that were read. */
-function guardIngestion(t: Tenant, i: Ingestion): Stmt {
-  const j = (v: unknown): SqlValue => (v === null || v === undefined ? null : JSON.stringify(v));
-  return {
-    sql: `SELECT CASE WHEN EXISTS (SELECT 1 FROM "ingestions" t WHERE t.company_id = ? AND t.id = ? AND t.status = ? AND json(t.approval) IS json(?) AND json(t."values") IS json(?)) THEN 1 ELSE json('changed') END`,
-    params: [t.viewer.companyId, i.id, i.status, j(i.approval), j(i.values)],
-  };
-}
-
-/** dept_th(): Thai name of a department. */
-export function deptTh(d: string | null): string {
-  const th: Record<string, string> = {
-    Finance: "ฝ่ายบัญชีและการเงิน",
-    HR: "ฝ่ายบุคคล",
-    Warehouse: "คลังสินค้า",
-    Sales: "ฝ่ายขาย",
-    Marketing: "การตลาด",
-    IT: "ฝ่าย IT",
-    Operations: "ฝ่ายปฏิบัติการ",
-    Purchasing: "จัดซื้อ",
-    Legal: "กฎหมาย",
-    Event: "อีเวนต์",
-    Admin: "บริหารองค์กร",
-    Design: "ออกแบบ",
-    "Customer Service": "บริการลูกค้า",
-    Data: "ข้อมูล",
-    "Business Development": "พัฒนาธุรกิจ",
-  };
-  return d === null ? "" : (th[d] ?? d);
-}
+const guardIngestion = (t: Tenant, i: Ingestion): Stmt => t.guardStmt("ingestions", { id: i.id, status: i.status, approval: i.approval ?? null, values: i.values ?? null });
 
 // ---------- read helpers ----------
 /** approval_amount(): the amount a request is about, from the first numeric field that says it. */
@@ -181,19 +146,6 @@ type Ctx = {
   pending: Entity[];
 };
 
-const projectStages: [string, number, string, string, string][] = [
-  ["location", 0, "Business Development", "หา Location", "Location"],
-  ["contract", 1, "Legal", "ทำสัญญา", "Contract"],
-  ["payment", 2, "Finance", "ชำระเงิน", "Payment"],
-  ["layout", 3, "Design", "เขียนแบบ", "Layout"],
-  ["procurement", 4, "Purchasing", "จัดซื้อ", "Procurement"],
-  ["warehouse", 5, "Warehouse", "คลังสินค้า", "Warehouse"],
-  ["setup", 6, "Operations", "เตรียมงาน", "Setup"],
-  ["selling", 7, "Sales", "PC ขายของ", "Selling"],
-  ["summary", 8, "Marketing", "สรุปผล", "Summary"],
-  ["close", 9, "Operations", "ปิดงาน", "Close"],
-];
-
 /** Entities of this company, plus the ones this batch inserted. */
 async function entitiesOf(t: Tenant, ctx: Ctx, kind: string): Promise<Entity[]> {
   return [...(await t.selectInternal<Entity>("entities", { where: { kind, archived_at: null } })), ...ctx.pending.filter((e) => e.kind === kind)];
@@ -202,98 +154,20 @@ async function entitiesOf(t: Tenant, ctx: Ctx, kind: string): Promise<Entity[]> 
 /** INSERT INTO entities with the BEFORE and AFTER insert triggers, in Postgres order. Returns the new id. */
 export async function insertEntity(t: Tenant, plan: Plan, ctx: Ctx, kind: string, department: string, input: Data, createdBy: string | null): Promise<string> {
   const id = randomUUID();
-  let d: Data = { ...input };
-  // entities_code
-  const prefix = codePrefix[kind];
-  if (prefix) {
-    if ((txt(d.code) ?? "") === "") {
-      let c: string | null = null;
-      if (UUIDISH.test(txt(d.ingestionId) ?? "")) c = (await t.selectInternal<{ doc_code: string | null }>("ingestions", { where: { id: txt(d.ingestionId) } }))[0]?.doc_code ?? null;
-      d = { ...d, code: c ?? formatCode(prefix, thaiYear(), await t.nextNumber(prefix, 0)) };
-    }
-    if (kind === "purchases" && (txt(d.poNumber) ?? "") === "") d = { ...d, poNumber: txt(d.code) };
-  }
-  // entities_dept_rules
-  const s = txt(d.status);
-  if (ctx.authUid !== null && s !== null && approvalStatuses[kind]?.includes(s) && !isManager(t.viewer.role)) fail("ต้องให้ Owner หรือ Manager เป็นผู้อนุมัติสถานะนี้", 403);
-  d = { ...d, ...derive(kind, d) };
-  // entities_purchase_figures
-  if (kind === "purchases") {
-    const lines = jtype(d.lines) === "array" ? (d.lines as Data[]) : [];
-    if (lines.length) d = { ...d, total: lines.reduce((sum, x) => sum + Number(x.qty) * Number(x.price ?? 0), 0) };
-    else if ((txt(d.productId) ?? "") === "" || jtype(d.quantity) !== "number") fail("ใส่รายการสินค้า หรือ สินค้า จำนวน และราคาต่อหน่วย");
-  }
+  const { data: d } = await beforeEntityInsert(kind, input, {
+    takeCode: async (prefix) => formatCode(prefix, thaiYear(), await t.nextNumber(prefix, 0)),
+    docCode: async (ing) => (await t.selectInternal<{ doc_code: string | null }>("ingestions", { where: { id: ing } }))[0]?.doc_code ?? null,
+    // entity_dept_rules asks only when auth.uid() is set (not from the LINE webhook).
+    approverRole: () => (ctx.authUid !== null ? t.viewer.role : null),
+  });
   plan.stmts.push(t.insertStmt("entities", { id, kind, department, data: d, created_by: createdBy }));
   ctx.pending.push({ id, company_id: t.viewer.companyId, kind, department, data: d, created_at: ctx.stamp, updated_at: ctx.stamp, created_by: createdBy as string, version: 1, archived_at: null });
-  // create_project_stages
-  if (kind === "projects") for (const [key, ordinal, dep, label, english] of projectStages) plan.stmts.push(t.insertStmt("project_stages", { project_id: id, key, ordinal, department: dep, label, english }));
-  // entities_stock_effect
-  if (kind === "stock_issues" && s === "จ่ายของแล้ว") {
-    const q = Math.round(Number(d.quantity ?? 0));
-    if (q > 0) await stockMove(t, plan, String(d.productId), "out", q, "stock_issues:" + id, txt(d.name) ?? "");
-  } else if (kind === "stock_counts" && s === "ปรับยอดแล้ว") {
-    const [p] = await t.selectInternal<Entity>("entities", { where: { id: String(d.productId), kind: "products" } });
-    const q = Math.round(Number(d.countedQty ?? 0) - Number(p?.data.stock ?? 0));
-    if (q !== 0) await stockMove(t, plan, String(d.productId), q > 0 ? "in" : "out", Math.abs(q), "stock_counts:" + id, "ปรับยอดจากการตรวจนับ");
-  }
-  // entities_take_item_files
-  if (UUIDISH.test(txt(d.ingestionId) ?? "")) plan.stmts.push(t.updateStmt("attachments", { ingestion_id: txt(d.ingestionId), entity_id: null }, { entity_id: id }));
+  await afterEntityInsert(t, plan, id, kind, d);
   return id;
 }
 
-/** validate_payload() as Postgres has it: the fields of entity_schemas, Postgres's three-valued checks on item lines. */
-async function validatePayload(t: Tenant, ctx: Ctx, kind: string, spec: Data[] | null, p: Data): Promise<Data> {
-  if (!spec) fail("ไม่พบโมดูล", 404);
-  const out: Data = {};
-  // true / false / null (unknown), combined like SQL OR.
-  const or = (...xs: (boolean | null)[]) => (xs.includes(true) ? true : xs.includes(null) ? null : false);
-  for (const f of spec!) {
-    const key = txt(f.key) as string;
-    let v = p[key];
-    if (v === undefined || v === null || v === "") {
-      if (txt(f.required) === "true") fail(`ข้อมูลไม่ครบ: ${txt(f.label)}`);
-      continue;
-    }
-    if (f.type === "lines") {
-      const badLine = (x: unknown): boolean | null => {
-        if (jtype(x) !== "object") return true;
-        const o = x as Data,
-          name = txt(o.name),
-          qty = o.qty,
-          price = o.price;
-        return or(
-          o.name === undefined ? null : jtype(o.name) !== "string",
-          name === null ? null : chars(name) < 1 || chars(name) > 500,
-          qty === undefined ? null : jtype(qty) !== "number",
-          price === undefined ? null : jtype(price) !== "number",
-          qty === undefined || qty === null ? null : (qty as number) < 0 || (qty as number) > 1e9,
-          price === undefined || price === null ? null : Math.abs(price as number) > 1e12,
-          "category" in o && (jtype(o.category) !== "string" || chars(o.category as string) > 100),
-          "unit" in o && (jtype(o.unit) !== "string" || chars(o.unit as string) > 30),
-          "currency" in o && (jtype(o.currency) !== "string" || chars(o.currency as string) > 3),
-          "discount" in o && (jtype(o.discount) !== "number" || (o.discount as number) < 0 || (o.discount as number) > 1e12),
-          "discountType" in o && !["percent", "amount"].includes(txt(o.discountType) ?? ""),
-        );
-      };
-      if (jtype(v) !== "array" || (v as unknown[]).length > 100 || (v as unknown[]).some((x) => badLine(x) === true)) fail("รายการสินค้าไม่ถูกต้อง");
-      v = (v as Data[]).map((x) => Object.fromEntries(["name", "qty", "price", "category", "unit", "currency", "discount", "discountType"].filter((k) => x[k] !== undefined && x[k] !== null).map((k) => [k, x[k]])));
-    } else if (f.type === "number") {
-      if (jtype(v) !== "number") fail("รูปแบบตัวเลขไม่ถูกต้อง");
-      if (Math.abs(v as number) > 1e12 || ("min" in f && f.min !== null && (v as number) < Number(f.min))) fail("จำนวนไม่ถูกต้อง");
-    } else {
-      if (jtype(v) !== "string" || chars(v as string) > 10000) fail("รูปแบบข้อความไม่ถูกต้อง");
-      const s = v as string;
-      if (f.type === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s)) || new Date(s).toISOString().slice(0, 10) !== s)) fail("วันที่ไม่ถูกต้อง");
-      if (f.type === "select" && !arr(f.options).includes(s)) fail("ตัวเลือกไม่ถูกต้อง");
-      if (f.type === "relation" && !(UUID.test(s) && (await entitiesOf(t, ctx, txt(f.resource) ?? "")).some((e) => e.id === s))) fail("ข้อมูลอ้างอิงไม่อยู่ในบริษัทนี้");
-    }
-    out[key] = v;
-  }
-  const sd = txt(out.startDate),
-    ed = txt(out.endDate);
-  if (sd !== null && ed !== null && sd > ed) fail("ช่วงวันที่ไม่ถูกต้อง");
-  return out;
-}
+/** validate_payload() for a record this batch inserts: relations may also point at records inserted earlier in it. */
+const validateIn = (t: Tenant, ctx: Ctx, spec: Data[] | null, p: Data) => validatePayload(spec, p, async (id, kind) => (await entitiesOf(t, ctx, kind)).some((e) => e.id === id));
 
 /** create_ingestion_workflow(): an approved form opens its project (found or new), a deal for BD forms, and its tasks. */
 export async function createIngestionWorkflow(t: Tenant, plan: Plan, ctx: Ctx, actor: string | null, tpl: Data, v: Data, ingestionId: string): Promise<void> {
@@ -401,7 +275,7 @@ export async function ingestionToEntity(t: Tenant, plan: Plan, ctx: Ctx, row: In
   }
   let clean: Data;
   try {
-    clean = await validatePayload(t, ctx, kind, spec ? specFields : null, d);
+    clean = await validateIn(t, ctx, spec ? specFields : null, d);
   } catch (e) {
     if (!(e instanceof AppError)) throw e;
     throw new AppError(unresolved !== "" ? `ไม่พบ ${unresolved}ในระบบ แก้ให้ตรงกับข้อมูลที่มีก่อนอนุมัติ (${e.message})` : `บันทึกไม่สำเร็จ: ${e.message}`, 400);
@@ -416,16 +290,20 @@ export async function ingestionToEntity(t: Tenant, plan: Plan, ctx: Ctx, row: In
   if (row.attachment_id !== null) plan.stmts.push(t.updateStmt("attachments", { id: row.attachment_id, entity_id: null }, { entity_id: id, department: spec!.department }));
 }
 
-/** ingestion_decision_stamp() (BEFORE update of status to approved / rejected): when, by whom, through what. */
-async function decidedStamp(t: Tenant, ctx: Ctx, patch: { decided_by: string | null; decided_name: string | null; decided_via: string | null }) {
-  const by = patch.decided_by ?? ctx.authUid;
-  let name = patch.decided_name;
+/**
+ * ingestion_decision_stamp() (BEFORE update of ingestions when the status becomes approved / rejected): when, by
+ * whom, through what. `authUid` is auth.uid() of the call (null from the LINE webhook). Returns the four columns.
+ */
+export async function decisionStamp(t: Tenant, authUid: string | null, at: string, row: { decided_by: string | null; decided_name: string | null; decided_via: string | null }) {
+  const by = row.decided_by ?? authUid;
+  let name = row.decided_name;
   if (name === null && by !== null) {
     const [m] = await t.selectInternal<Member>("memberships", { where: { user_id: by } });
     name = (m?.name || null) ?? m?.email ?? null;
   }
-  return { decided_at: ctx.stamp, decided_by: by, decided_via: patch.decided_via ?? (ctx.authUid === null ? "line" : "web"), decided_name: name };
+  return { decided_at: at, decided_by: by, decided_via: row.decided_via ?? (authUid === null ? "line" : "web"), decided_name: name };
 }
+const decidedStamp = (t: Tenant, ctx: Ctx, row: { decided_by: string | null; decided_name: string | null; decided_via: string | null }) => decisionStamp(t, ctx.authUid, ctx.stamp, row);
 
 // ---------- the approval chain ----------
 export type ApplyInput = {
@@ -620,23 +498,6 @@ export async function saveEntityAs(sql: Sql, companyId: string, userId: string, 
 }
 
 // ---------- form templates ----------
-/** enforce_quota('workflows') (BEFORE insert on data_templates): the plan's number of forms. */
-async function workflowQuota(t: Tenant, now: string): Promise<void> {
-  const [s] = await t.selectInternal<{ plan: string; status: string; trial_ends_at: string; current_period_end: string | null; extra_users: number }>("subscriptions", {});
-  if (!s) return;
-  const trial = s.status === "trial" && s.trial_ends_at > now;
-  const threeDaysAgo = new Date(new Date(now).getTime() - 3 * 86400000).toISOString();
-  const effective = trial ? s.plan : s.status === "active" && (s.current_period_end === null || s.current_period_end > threeDaysAgo) ? s.plan : "free";
-  const [trialLimit] = await t.selectGlobal<{ amount: number; label: string }>("trial_limits", { where: { resource: "workflows" } });
-  const [p] = await t.selectGlobal<{ workflows: number | null }>("plans", { where: { id: effective } });
-  if (!p) return;
-  const l = trial && trialLimit ? trialLimit.amount : p.workflows;
-  if (l === null || l === undefined) return;
-  const n = (await t.selectInternal("data_templates", {})).length;
-  if (n >= l)
-    fail(trial ? `ช่วงทดลองใช้ได้สูงสุด ${l} ${trialLimit?.label ?? "workflows"} กรุณาเลือกแพ็กเกจเพื่อเพิ่ม` : effective === "free" ? `แพ็กเกจฟรีใช้ได้ ${l} ฟอร์ม อัปเกรดแพ็กเกจเพื่อเพิ่ม` : `เกินโควตาแพ็กเกจ (workflows: ${l}) กรุณาอัปเกรด`, 402);
-}
-
 /** save_template(): the owner creates or edits a LINE / web form (its fields and the workflow steps it opens). */
 export async function saveTemplate(t: Tenant, name: string, department: string, fields: Data[], steps: Data[], id: string | null = null): Promise<DataTemplate> {
   if (t.viewer.role !== "owner") fail("เฉพาะเจ้าของบริษัท", 403);
@@ -659,7 +520,8 @@ export async function saveTemplate(t: Tenant, name: string, department: string, 
   const stmts: Stmt[] = [];
   let rowId: string;
   if (id === null) {
-    await workflowQuota(t, stamp);
+    // enforce_quota('workflows'), the BEFORE INSERT trigger on data_templates.
+    stmts.push(...(await enforceQuota(t, "workflows", {}, stamp)));
     rowId = randomUUID();
     stmts.push(t.insertStmt("data_templates", { id: rowId, name, department, fields, steps }));
   } else {

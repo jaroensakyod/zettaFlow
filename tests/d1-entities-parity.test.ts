@@ -16,7 +16,9 @@ import type { Viewer } from "../src/lib/d1/access";
 const owner = "10000000-0000-4000-8000-000000000001",
   staff = "10000000-0000-4000-8000-000000000002";
 type Data = Record<string, unknown>;
-type Step = { label?: string; as: "owner" | "staff"; op: "save" | "archive"; kind?: string; data?: Data; ref?: string; version?: number | "current"; archive?: boolean };
+// raw: the payload goes to save_entity as it is (not through the app's validateEntity first), to compare
+// validate_payload itself on cases the app's form would never send.
+type Step = { label?: string; as: "owner" | "staff"; op: "save" | "archive"; kind?: string; data?: Data; ref?: string; version?: number | "current"; archive?: boolean; raw?: boolean };
 const today = "2026-11-20";
 const steps: Step[] = [
   { label: "C1", as: "owner", op: "save", kind: "customers", data: { name: "สยามฟู้ดส์", status: "active" } },
@@ -41,6 +43,18 @@ const steps: Step[] = [
   { as: "staff", op: "archive", ref: "C3", archive: true },
   { as: "owner", op: "archive", ref: "P1", archive: true },
   { as: "owner", op: "save", kind: "customers", data: { name: "ไม่ครบ" } },
+  // validate_payload's own rules (the same copy approvals and sample data use), on payloads sent as they are:
+  // an item line without name / qty passes (Postgres's checks on a missing key are unknown, not false) …
+  { label: "Q2", as: "owner", op: "save", raw: true, kind: "quotations", data: { name: "ไม่มีชื่อสินค้า", customerId: "@C2", date: today, lines: [{ qty: 3, price: 10 }, { price: 5, unit: "ชิ้น" }], vatMode: "excluded", status: "ร่าง" } },
+  // … but a key that is there must be right: a JSON null category / discountType is refused,
+  { as: "owner", op: "save", raw: true, kind: "quotations", data: { name: "หมวดว่าง", customerId: "@C2", date: today, lines: [{ name: "ก", qty: 1, price: 1, category: null }], status: "ร่าง" } },
+  { as: "owner", op: "save", raw: true, kind: "quotations", data: { name: "ส่วนลดว่าง", customerId: "@C2", date: today, lines: [{ name: "ก", qty: 1, price: 1, discountType: null }], status: "ร่าง" } },
+  // a day that does not exist fails the ::date cast, a relation that is not a uuid fails the ::uuid cast,
+  { as: "owner", op: "save", raw: true, kind: "expenses", data: { name: "วันผิด", category: "ค่าน้ำมัน/แก๊ส/รถยนต์", date: "2026-02-30", amount: 10, status: "pending" } },
+  { as: "owner", op: "save", raw: true, kind: "invoices", data: { name: "ลูกค้าผิด", customerId: "not-a-uuid", date: today, dueDate: today, subtotal: 10, vat: 7 } },
+  // a text field must be a string, and fields that are not in entity_schemas (participants) are dropped.
+  { as: "owner", op: "save", raw: true, kind: "customers", data: { name: ["ไม่ใช่ข้อความ"], status: "active" } },
+  { label: "EV", as: "owner", op: "save", raw: true, kind: "events", data: { name: "ประชุมทีม", startDate: today, endDate: today, status: "planning", participants: [{ kind: "customers", id: "@C2", name: "ไทยเทรด" }] } },
 ];
 
 async function postgres() {
@@ -96,7 +110,7 @@ test("save_entity / archive_entity on D1 match Postgres step for step", async ()
         await pg.db.query("select archive_entity($1,$2,$3)", [pg.company, ids.pg[s.ref!], s.archive]);
         return {};
       }
-      const data = validateEntity(s.kind!, resolve("pg", s.data));
+      const data = s.raw ? resolve("pg", s.data) : validateEntity(s.kind!, resolve("pg", s.data));
       const v = s.version === "current" ? versions.pg[s.ref!] : s.version;
       const r = (await pg.db.query<{ id: string; kind: string; department: string; version: number; data: Data }>("select * from save_entity($1,$2,$3,$4,$5)", [pg.company, s.kind, JSON.stringify(data), s.ref ? ids.pg[s.ref] : null, v ?? null])).rows[0];
       if (s.label) ids.pg[s.label] = r.id;
@@ -113,7 +127,7 @@ test("save_entity / archive_entity on D1 match Postgres step for step", async ()
         await archiveEntity(t, ids.d1[s.ref!], !!s.archive);
         return {};
       }
-      const data = validateEntity(s.kind!, resolve("d1", s.data));
+      const data = s.raw ? resolve("d1", s.data) : validateEntity(s.kind!, resolve("d1", s.data));
       const v = s.version === "current" ? versions.d1[s.ref!] : s.version;
       const r = await saveEntity(t, s.kind!, data, s.ref ? ids.d1[s.ref] : undefined, v);
       if (s.label) ids.d1[s.label] = r.id;

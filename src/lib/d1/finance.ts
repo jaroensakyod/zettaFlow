@@ -5,17 +5,15 @@
 // checked here first with the exact Postgres error text, so a refusal reads the same on both databases. Amounts are
 // summed as exact decimals (Postgres numeric), never as floats.
 import { randomUUID } from "node:crypto";
-import { AppError, formatCode, thaiYear } from "../domain";
+import { formatCode, thaiYear } from "../domain";
 import { canReadDept, canWriteDept } from "./access";
-import { codePrefix } from "./entities";
+import { codePrefix } from "./entity-insert";
+import { fail } from "./common";
 import type { Stmt } from "./driver";
 import type { Tenant } from "./tenant";
 import type { Entity } from "../types";
 
 type Data = Record<string, unknown>;
-const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
 const audit = (t: Tenant, action: string, target: string) => t.insertStmt("audit_events", { actor: t.viewer.userId, action, target });
 /** member_role(c): a support viewer who is not a member counts as 'viewer'. */
 const memberRole = (t: Tenant) => (t.viewer.support ? "viewer" : t.viewer.role);

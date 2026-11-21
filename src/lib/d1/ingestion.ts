@@ -6,33 +6,29 @@
 // through: BEFORE ingestions_decision_stamp → the row update → AFTER ingestions_decision_notify → ingestions_to_entity
 // (Postgres fires AFTER triggers in name order). create_ingestion_workflow, the ingestion_to_entity trigger, the
 // entities INSERT triggers (insertEntity) and the approval chain (approval_plan / approval_act / approval_apply) come
-// from approvals.ts. ingestion_decision_stamp is ported there too but not exported, so it is written here again
-// (decisionStamp) for the status updates outside approval_apply.
+// from approvals.ts, and so does ingestion_decision_stamp (decisionStamp), used here for the status updates outside
+// approval_apply. enforce_quota('documents') is billing-plan.ts's.
 //
 // auth.uid(): a Tenant's viewer.userId, or "" for the LINE webhook and the worker (service role) — systemTenant().
 // Worker and webhook functions take the Sql and build the Tenant of the row's company themselves.
 import { randomUUID } from "node:crypto";
-import { AppError, formatCode, thaiYear } from "../domain";
+import { formatCode, thaiYear } from "../domain";
 import type { Sql, Stmt } from "./driver";
 import { canReadDept, canWriteDept } from "./access";
-import { codePrefix, type Plan } from "./entities";
-import { Tenant } from "./tenant";
-import { deptTh, enforceQuota } from "./reports";
-import { approvalPlan, createIngestionWorkflow, ingestionToEntity, type Ingestion as ApprovalIngestion } from "./approvals";
+import { codePrefix, type Plan } from "./entity-insert";
+import type { Tenant } from "./tenant";
+import { deptTh, fail, pgLeft, pgLen as chars, pgText, pgTrim, systemTenant } from "./common";
+import { enforceQuota } from "./billing-plan";
+import { approvalPlan, createIngestionWorkflow, decisionStamp as stampOf, ingestionToEntity, type Ingestion as ApprovalIngestion } from "./approvals";
 import type { Entity } from "../types";
 
+export { fail, systemTenant };
 type Data = Record<string, unknown>;
-export const fail = (message: string, status = 400): never => {
-  throw new AppError(message, status);
-};
 const stamp = () => new Date().toISOString();
-/** jsonb ->> : the text of a JSON value, null for missing / JSON null. */
-export const txt = (v: unknown): string | null => (v === undefined || v === null ? null : typeof v === "string" ? v : JSON.stringify(v));
-/** Postgres trim(): spaces only. */
-export const pgTrim = (s: string) => s.replace(/^ +| +$/g, "");
-/** Postgres left(s, n): characters, not UTF-16 units. */
-export const left = (s: string, n: number) => Array.from(s).slice(0, n).join("");
-const chars = (s: string) => Array.from(s).length;
+/** jsonb ->>, trim(), left() (common.ts), under the names line.ts imports from here. */
+export { pgText as txt, pgTrim, pgLeft as left };
+const txt = pgText,
+  left = pgLeft;
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 /** jsonb equality: key order does not matter. */
 const canon = (v: unknown): unknown => (Array.isArray(v) ? v.map(canon) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon((v as Data)[k])])) : v);
@@ -56,8 +52,6 @@ type Membership = { user_id: string; name: string | null; email: string; role: s
 export type Ctx = Parameters<typeof ingestionToEntity>[2];
 export const newCtx = (t: Tenant, now: string): Ctx => ({ authUid: uid(t), stamp: now, pending: [] });
 
-/** The Tenant of a company for code that runs without a signed-in person (LINE webhook, worker): auth.uid() is null. */
-export const systemTenant = (sql: Sql, companyId = "") => new Tenant(sql, { userId: "", email: "", companyId, role: "viewer", departments: [] });
 /** auth.uid() */
 export const uid = (t: Tenant) => t.viewer.userId || null;
 /** log_action() */
@@ -86,13 +80,7 @@ export async function peekCode(t: Tenant, kind: string): Promise<string | null> 
 /** ingestion_decision_stamp (BEFORE update of status): when, who and how an item was approved or rejected. */
 async function decisionStamp(t: Tenant, old: Ingestion, row: Ingestion, now: string): Promise<Ingestion> {
   if (!["approved", "rejected"].includes(row.status) || old.status === row.status) return row;
-  const by = row.decided_by ?? uid(t);
-  let name = row.decided_name;
-  if (name === null && by) {
-    const [m] = await t.selectInternal<Membership>("memberships", { where: { user_id: by } });
-    name = (m?.name || null) ?? m?.email ?? null;
-  }
-  return { ...row, decided_at: now, decided_by: by, decided_via: row.decided_via ?? (uid(t) ? "web" : "line"), decided_name: name };
+  return { ...row, ...(await stampOf(t, uid(t), now, row)) };
 }
 /** ingestion_decision_notify (AFTER update of status): tell the LINE group an item without an approval chain was decided. */
 function decisionNotify(t: Tenant, p: Plan, old: Ingestion, row: Ingestion) {
@@ -140,9 +128,9 @@ export async function submitIngestion(t: Tenant, templateId: string, raw: string
   if (!tp || !canWriteDept(t.viewer, tp.department)) fail("ไม่มีสิทธิ์ส่งข้อมูล", 403);
   if (chars(raw) > 15000 || (chars(pgTrim(raw)) === 0 && attachmentId === null)) fail("กรอกข้อความหรือแนบเอกสาร");
   if (attachmentId !== null && !(await t.selectInternal("attachments", { where: { id: attachmentId, department: tp.department } })).length) fail("เอกสารไม่ถูกต้อง");
-  await enforceQuota(t, "documents");
+  const quota = await enforceQuota(t, "documents");
   const id = randomUUID();
-  await t.atomic([t.insertStmt("ingestions", { id, template: tp, department: tp.department, raw, attachment_id: attachmentId, created_by: uid(t) }), logAction(t, "ingestion_submitted", id)]);
+  await t.atomic([...quota, t.insertStmt("ingestions", { id, template: tp, department: tp.department, raw, attachment_id: attachmentId, created_by: uid(t) }), logAction(t, "ingestion_submitted", id)]);
   return (await ingestionById(t, id))!;
 }
 
@@ -150,7 +138,7 @@ export async function submitIngestion(t: Tenant, templateId: string, raw: string
 export async function claimIngestion(sql: Sql, id: string | null = null): Promise<Ingestion[]> {
   const g = systemTenant(sql),
     now = stamp();
-  await sql.run(...stmtArgs(g.updateGlobalStmt("ingestions", { status: "processing", lease_until: { op: "<", value: now }, attempts: { op: ">=", value: 5 } }, { status: "failed", error: "ประมวลผลหมดเวลาหลายครั้ง กรุณาลองใหม่" })));
+  await g.updateGlobal("ingestions", { status: "processing", lease_until: { op: "<", value: now }, attempts: { op: ">=", value: 5 } }, { status: "failed", error: "ประมวลผลหมดเวลาหลายครั้ง กรุณาลองใหม่" });
   const ready = (await g.selectGlobal<Ingestion>("ingestions", { where: { attempts: { op: "<", value: 5 }, ...(id ? { id } : {}) }, order: [["created_at", "asc"]] }))
     .filter((i) => i.status === "queued" || (i.status === "processing" && i.lease_until !== null && i.lease_until < now))
     .slice(0, 3);
@@ -166,7 +154,6 @@ export async function claimIngestion(sql: Sql, id: string | null = null): Promis
   const rows = await g.selectGlobal<Ingestion>("ingestions", { where: { id: ready.map((i) => i.id) } });
   return ready.map((i) => rows.find((r) => r.id === i.id)!);
 }
-const stmtArgs = (s: Stmt): [string, Stmt["params"]] => [s.sql, s.params];
 
 const dropMissing = (missing: unknown[], ...prefixes: string[]) =>
   missing.filter((m) => {
