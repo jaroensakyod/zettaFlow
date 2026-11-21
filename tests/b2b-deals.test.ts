@@ -121,7 +121,8 @@ test("deal room: request, quotation revisions, decisions and the records on acce
       proj = of("projects", b)[0],
       quote = of("quotations", b)[0],
       sup = of("suppliers", a)[0],
-      task = of("tasks", a)[0];
+      // the hiring company's project for the work (a task in งาน & Workflow before 0083)
+      task = of("projects", a)[0];
     assert.equal(cust.data.name, "Alice Events");
     assert.equal(quote.data.status, "ตอบรับ");
     assert.equal(quote.data.lines.length, 2);
@@ -130,9 +131,11 @@ test("deal room: request, quotation revisions, decisions and the records on acce
     assert.equal(proj.data.endDate, "2026-12-18");
     assert.equal(sup.data.name, "Bob Booth Studio");
     assert.equal(sup.data.category, "บริการ");
-    assert.equal(task.data.dueDate, "2026-12-18");
-    assert.match(task.data.notes, /125,000\.00/);
-    assert.equal(of("projects", a).length + of("quotations", a).length + of("tasks", b).length, 0, "nothing lands in the wrong company");
+    assert.equal(task.data.endDate, "2026-12-18");
+    assert.equal(task.data.budget, 125000);
+    assert.equal(task.data.owner, "Bob Booth Studio");
+    assert.match(task.data.description, /125,000\.00/);
+    assert.equal(of("tasks", a).length + of("quotations", a).length + of("tasks", b).length, 0, "nothing lands in the wrong company");
 
     // 6. The deal is closed: no new quotation, no withdrawal, no second decision
     await login(bob);

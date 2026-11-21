@@ -419,14 +419,9 @@ export function DealCardView({
               {card.decided_at && " · " + new Date(card.decided_at).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })}
             </small>
           </span>
-          {seller && (
+          {(seller || buyer) && (
             <button type="button" onClick={() => navigate("projects")}>
               เปิดโปรเจกต์
-            </button>
-          )}
-          {buyer && (
-            <button type="button" onClick={() => navigate("tasks")}>
-              เปิดงานติดตาม
             </button>
           )}
         </div>
