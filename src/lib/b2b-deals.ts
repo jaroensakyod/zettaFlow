@@ -80,6 +80,16 @@ export async function dealDecide(ctx: Context, card: string, input: unknown): Pr
   dbError(error);
   return data as DealCard;
 }
+/** A member takes over their own side of a deal (b2b_deal_take). */
+export async function dealTake(ctx: Context, deal: string): Promise<{ contact: string }> {
+  const id = z.uuid().parse(deal);
+  assert(!ctx.demo, demoNote);
+  assert(ctx.member.role !== "viewer", "ผู้ชมทำรายการไม่ได้", 403);
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("b2b_deal_take", { p_company: ctx.company.id, p_deal: id });
+  dbError(error);
+  return data as { contact: string };
+}
 export async function dealWithdraw(ctx: Context, card: string, input: unknown): Promise<DealCard> {
   const id = z.uuid().parse(card),
     { reason } = z.object({ reason: z.string().max(1000).optional() }).parse(input || {});

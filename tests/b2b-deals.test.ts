@@ -113,6 +113,15 @@ test("deal room: request, quotation revisions, decisions and the records on acce
     })();
     assert.ok(sellerView.project_id && sellerView.quote_id);
     assert.equal(sellerView.task_id, null, "seller does not see the buyer's task");
+    // Who handles the deal: the person who sent the accepted quotation and the person who accepted it.
+    type People = { contact_mine: string; contact_theirs: string; contact_is_me: boolean };
+    const bobSees = sellerView as unknown as People;
+    assert.ok(bobSees.contact_mine && bobSees.contact_theirs && bobSees.contact_mine !== bobSees.contact_theirs);
+    assert.equal(bobSees.contact_is_me, true);
+    await login(alice);
+    const aliceSees = (await val<People[]>("select b2b_deals_of($1,$2)", [a, t]))[0];
+    assert.deepEqual([aliceSees.contact_mine, aliceSees.contact_theirs, aliceSees.contact_is_me], [bobSees.contact_theirs, bobSees.contact_mine, true]);
+    await login(bob);
 
     type Ent = { kind: string; company_id: string; data: Record<string, any> };
     const made = await admin<Ent>("select kind,company_id,data from entities where data->>'b2bDealId'=$1 or data->>'networkCompanyId' in($2,$3) order by kind", [rfq.deal_id, a, b]);
@@ -133,8 +142,18 @@ test("deal room: request, quotation revisions, decisions and the records on acce
     assert.equal(sup.data.category, "บริการ");
     assert.equal(task.data.endDate, "2026-12-18");
     assert.equal(task.data.budget, 125000);
-    assert.equal(task.data.owner, "Bob Booth Studio");
+    assert.equal(task.data.customerTarget, "Bob Booth Studio");
     assert.match(task.data.description, /125,000\.00/);
+    // each side's project names its own person as ผู้รับผิดชอบ and the other side's person in the description
+    assert.equal(task.data.owner, aliceSees.contact_mine);
+    assert.equal(proj.data.owner, bobSees.contact_mine);
+    assert.ok(String(task.data.description).includes(bobSees.contact_mine));
+    // taking over a side: only a member of that deal's companies; the chat gets a line and the project's owner follows
+    await login(alice);
+    const before = (await admin<{ n: number }>("select count(*)::int n from b2b_messages where thread_id=$1", [t]))[0].n;
+    assert.equal((await val<{ contact: string }>("select b2b_deal_take($1,$2)", [a, rfq.deal_id])).contact, aliceSees.contact_mine);
+    assert.equal((await admin<{ n: number }>("select count(*)::int n from b2b_messages where thread_id=$1", [t]))[0].n, before + 1);
+    await login(bob);
     assert.equal(of("tasks", a).length + of("quotations", a).length + of("tasks", b).length, 0, "nothing lands in the wrong company");
 
     // 6. The deal is closed: no new quotation, no withdrawal, no second decision

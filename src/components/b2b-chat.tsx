@@ -509,6 +509,17 @@ function B2bChat({
               onQuote={() => (shownDeals.length ? setForm({ kind: "quote" }) : startQuote())}
               canRequest={canRequest}
               canQuote={canQuote}
+              theirName={thread.company.name}
+              onTake={(deal) =>
+                sample
+                  ? notify(SAMPLE_SENT)
+                  : api(`/b2b/deals/${deal.id}/take`, { method: "POST" })
+                      .then(() => {
+                        notify("คุณเป็นผู้ดูแลดีลนี้แล้ว");
+                        dealChanged();
+                      })
+                      .catch((e) => notify((e as Error).message))
+              }
               onStep={(step, deal) => setForm({ kind: "step", step, deal })}
             />
             <div className="b2b-messages">

@@ -82,7 +82,7 @@ import { homeExtra, saveNote, deleteNote, setGoal } from "@/lib/home-extra";
 import { shopState, shopActive, shopBuy, shopActivate } from "@/lib/app-shop";
 import { projectsOverview, projectDetail } from "@/lib/projects";
 import { receiptsList } from "@/lib/receipts";
-import { dealDecide, dealQuote, dealRequest, dealStep, dealSteps, dealWithdraw, dealsOf } from "@/lib/b2b-deals";
+import { dealDecide, dealQuote, dealRequest, dealStep, dealSteps, dealTake, dealWithdraw, dealsOf } from "@/lib/b2b-deals";
 import { avatarUrl, b2bFile, b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread, b2bUpload, clearAvatar, myAvatar, setAvatar } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
@@ -1037,6 +1037,7 @@ async function handle(req: NextRequest) {
       if ((path[1] === "deals" || path[1] === "cards") && path[2] && path[3] && dealSteps.includes(path[3] as never) && method === "POST")
         return response(await dealStep(ctx, path[1] === "deals" ? "deal" : "card", path[2], path[3], await body(req).catch(() => ({}))), 201);
       if (path[1] === "cards" && path[3] === "decide" && method === "POST") return response(await dealDecide(ctx, path[2], await body(req)));
+      if (path[1] === "deals" && path[2] && path[3] === "take" && method === "POST") return response(await dealTake(ctx, path[2]));
       if (path[1] === "cards" && path[3] === "withdraw" && method === "POST") return response(await dealWithdraw(ctx, path[2], await body(req).catch(() => ({}))));
       if (path[1] && path[2] === "deals" && method === "GET") return response(await dealsOf(ctx, path[1]));
       if (path[1] && path[2] === "request" && method === "POST") return response(await dealRequest(ctx, path[1], await body(req)), 201);
