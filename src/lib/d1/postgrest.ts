@@ -17,7 +17,36 @@ import { buckets, blobSecret, safePath, signBlobUrl, type BlobStore } from "./bl
 import type { Role } from "../types";
 
 type Row = Record<string, unknown>;
-export type D1User = { id: string; email: string; name: string };
+export type D1User = { id: string; email: string; name: string; emailVerified?: boolean; createdAt?: string };
+/** supabase-js User, the fields the app reads. */
+export type AuthUser = {
+  id: string;
+  email: string;
+  user_metadata: { name: string };
+  app_metadata: Record<string, unknown>;
+  aud: string;
+  role: string;
+  email_confirmed_at: string | null;
+  created_at: string | null;
+};
+export type AuthError = { message: string; name: string; status: number; code: string };
+export type AuthUserResponse = { data: { user: AuthUser | null; session: { user: AuthUser } | null }; error: AuthError | null };
+/** The supabase-js auth calls the app makes for sign-in, sign-up, email links and password reset. */
+export type D1AuthMethods = {
+  signInWithPassword(c: { email: string; password: string }): Promise<AuthUserResponse>;
+  signUp(c: { email: string; password: string; options?: { data?: Record<string, unknown>; emailRedirectTo?: string } }): Promise<AuthUserResponse>;
+  signOut(o?: { scope?: "global" | "local" | "others" }): Promise<{ error: AuthError | null }>;
+  resetPasswordForEmail(email: string, o?: { redirectTo?: string }): Promise<{ data: Record<string, never> | null; error: AuthError | null }>;
+  verifyOtp(p: { token_hash: string; type: string }): Promise<AuthUserResponse>;
+  updateUser(a: { password?: string; data?: Record<string, unknown> }): Promise<{ data: { user: AuthUser | null }; error: AuthError | null }>;
+  exchangeCodeForSession(code: string): Promise<AuthUserResponse>;
+};
+/** Real accounts (src/lib/d1/auth.ts d1AuthBridge): given the client's person, the methods that change it. */
+export type D1AuthProvider = (client: {
+  setUser(u: D1User | null): void;
+  authUser(): AuthUser | null;
+  toAuthUser(u: D1User): AuthUser;
+}) => D1AuthMethods;
 export type D1ClientOptions = {
   sql: Sql | (() => Promise<Sql>);
   /** The signed-in person (auth.uid()), null when nobody is signed in. Ignored for the service client. */
@@ -29,6 +58,8 @@ export type D1ClientOptions = {
   origin?: string;
   blobSecret?: string;
   onSignOut?: () => Promise<void> | void;
+  /** Sign-in, sign-up, email links, password changes (Better Auth). Without it they answer 501. */
+  authProvider?: D1AuthProvider;
 };
 export type PgError = { message: string; code: string; details: string | null; hint: string | null; status?: number };
 export type PgResult<T = unknown> = { data: T; error: PgError | null; count: number | null; status: number; statusText: string };
@@ -668,8 +699,9 @@ function resolveEmbed(table: string, e: SelEmbed): Embed {
 }
 
 export function d1Client(opts: D1ClientOptions) {
-  const service = opts.service,
-    user = service ? null : opts.user;
+  const service = opts.service;
+  // The signed-in person; sign-in / verifyOtp / signOut on this client change it, like supabase-js does.
+  let user = service ? null : opts.user;
   let sqlP: Promise<Sql> | null = null;
   const sql = () => (sqlP ??= typeof opts.sql === "function" ? opts.sql() : Promise.resolve(opts.sql));
   let blobsP: Promise<BlobStore> | null = null;
@@ -733,7 +765,15 @@ export function d1Client(opts: D1ClientOptions) {
     return out.filter((_, i) => keep[i]);
   };
 
-  const ctx: ClientCtx = { service, user, sql, readWhere, project };
+  const ctx: ClientCtx = {
+    service,
+    get user() {
+      return user;
+    },
+    sql,
+    readWhere,
+    project,
+  };
 
   // ----- rpc -----
   const caller = async (): Promise<RpcCaller> => {
@@ -761,47 +801,97 @@ export function d1Client(opts: D1ClientOptions) {
   const rpc = <T = unknown>(name: string, args: Record<string, unknown> = {}) => new D1Rpc<T>(name, args, caller, service || !!user);
 
   // ----- auth -----
-  const authUser = user && {
-    id: user.id,
-    email: user.email,
-    user_metadata: { name: user.name },
-    app_metadata: {},
+  const toAuthUser = (u: D1User): AuthUser => ({
+    id: u.id,
+    email: u.email,
+    user_metadata: { name: u.name },
+    app_metadata: { provider: "email", providers: ["email"] },
     aud: "authenticated",
     role: "authenticated",
+    email_confirmed_at: u.emailVerified === false ? null : (u.createdAt ?? null),
+    created_at: u.createdAt ?? null,
+  });
+  const authUser = () => (user ? toAuthUser(user) : null);
+  const setUser = (u: D1User | null) => {
+    if (service) return;
+    if ((u?.id ?? null) !== (user?.id ?? null)) sessionP = null; // the row rules of the new person
+    user = u;
   };
   const missing = { message: "Auth session missing!", name: "AuthSessionMissingError", status: 400, code: "session_missing" };
   const unsupported = (what: string) => async () => ({
     data: { user: null, session: null },
     error: { message: `${what} ยังไม่รองรับบน D1 (ช่วงทดลองใช้ผู้ใช้จาก D1_DEV_USER)`, name: "AuthApiError", status: 501, code: "not_implemented" },
   });
-  const auth = {
-    getUser: async () => (authUser ? { data: { user: authUser }, error: null } : { data: { user: null }, error: missing }),
-    getClaims: async () => (authUser ? { data: { claims: { sub: authUser.id, email: authUser.email, role: "authenticated" } }, error: null } : { data: null, error: missing }),
-    getSession: async () => ({ data: { session: authUser ? { user: authUser } : null }, error: null }),
+  const fallback: D1AuthMethods = {
     signOut: async () => {
-      await opts.onSignOut?.();
+      setUser(null);
       return { error: null };
     },
     signInWithPassword: unsupported("การเข้าสู่ระบบ"),
     signUp: unsupported("การสมัครสมาชิก"),
-    resetPasswordForEmail: unsupported("การรีเซ็ตรหัสผ่าน"),
+    resetPasswordForEmail: async () => ({ ...(await unsupported("การรีเซ็ตรหัสผ่าน")()), data: null }),
     verifyOtp: unsupported("การยืนยันอีเมล"),
-    updateUser: unsupported("การเปลี่ยนรหัสผ่าน"),
+    updateUser: async () => ({ ...(await unsupported("การเปลี่ยนรหัสผ่าน")()), data: { user: null } }),
     exchangeCodeForSession: unsupported("การเข้าสู่ระบบ"),
+  };
+  const methods = !service && opts.authProvider ? opts.authProvider({ setUser, authUser, toAuthUser }) : fallback;
+  const auth = {
+    getUser: async () => {
+      const u = authUser();
+      return u ? { data: { user: u }, error: null } : { data: { user: null }, error: missing };
+    },
+    getClaims: async () => {
+      const u = authUser();
+      return u ? { data: { claims: { sub: u.id, email: u.email, role: "authenticated" } }, error: null } : { data: null, error: missing };
+    },
+    getSession: async () => {
+      const u = authUser();
+      return { data: { session: u ? { user: u } : null }, error: null };
+    },
+    ...methods,
+    signOut: async (o?: { scope?: "global" | "local" | "others" }) => {
+      const r = await methods.signOut(o);
+      await opts.onSignOut?.();
+      return r;
+    },
     admin: {
       /** auth.admin.listUsers on the D1 users table (service client only). */
       async listUsers(p: { page?: number; perPage?: number } = {}) {
         if (!service) return { data: { users: [] }, error: { message: "User not allowed", status: 403 } };
         const per = Math.min(1000, p.perPage ?? 50),
           page = Math.max(1, p.page ?? 1);
-        const rows = await (await sql()).all<{ id: string; email: string; name: string; created_at: string }>("SELECT id, email, name, created_at FROM users ORDER BY created_at LIMIT ? OFFSET ?", [per, (page - 1) * per]);
-        return { data: { users: rows.map((u) => ({ id: u.id, email: u.email, created_at: u.created_at, last_sign_in_at: null, user_metadata: { name: u.name } })) }, error: null };
+        const rows = await (await sql()).all<{ id: string; email: string; name: string; created_at: string; email_verified: number | null; updated_at: string | null; last_sign_in_at: string | null }>(
+          "SELECT id, email, name, created_at, email_verified, updated_at, last_sign_in_at FROM users ORDER BY created_at LIMIT ? OFFSET ?",
+          [per, (page - 1) * per],
+        );
+        return {
+          data: {
+            users: rows.map((u) => ({
+              id: u.id,
+              email: u.email,
+              created_at: u.created_at,
+              last_sign_in_at: u.last_sign_in_at ?? null,
+              email_confirmed_at: u.email_verified ? (u.updated_at ?? u.created_at) : null,
+              user_metadata: { name: u.name },
+            })),
+          },
+          error: null,
+        };
       },
     },
   };
 
   // ----- storage -----
-  const storage = { from: (bucket: string) => new D1Bucket(bucket, { service, user, session, blobs, origin, secret: () => opts.blobSecret ?? blobSecret() }) };
+  const storage = { from: (bucket: string) => new D1Bucket(bucket, {
+        service,
+        get user() {
+          return user;
+        },
+        session,
+        blobs,
+        origin,
+        secret: () => opts.blobSecret ?? blobSecret(),
+      }) };
 
   return { from: <T = Row[]>(table: string) => new D1Query<T>(ctx, table), rpc, auth, storage };
 }

@@ -207,6 +207,8 @@ async function handle(req: NextRequest) {
       const sb = await supabaseServer();
       if (action === "logout") {
         await sb.auth.signOut({ scope: "local" });
+        // On D1 (Better Auth) signOut cleared its own cookies; there is no Supabase URL to name sb-*-auth-token.
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return response({ ok: true });
         const prefix =
           "sb-" +
           new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(

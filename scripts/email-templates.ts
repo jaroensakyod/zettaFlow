@@ -87,4 +87,4 @@ export const templates: Record<string, { subject: string; body: string }> = {
   },
 };
 
-if (process.argv[1]?.endsWith("email-templates.ts")) console.log(JSON.stringify(templates));
+if (typeof process !== "undefined" && process.argv?.[1]?.endsWith("email-templates.ts")) console.log(JSON.stringify(templates));

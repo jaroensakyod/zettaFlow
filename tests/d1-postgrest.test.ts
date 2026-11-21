@@ -51,7 +51,7 @@ function setup() {
 
 test("the migrations create the schema, the users table and the seed rows", () => {
   const { db, applied, cleanup } = setup();
-  assert.deepEqual(applied, ["0001_schema.sql", "0002_users.sql", "0003_seed.sql"]);
+  assert.deepEqual(applied, ["0001_schema.sql", "0002_users.sql", "0003_seed.sql", "0004_auth.sql"]);
   const n = (t: string) => (db.prepare(`select count(*) n from ${t}`).all()[0] as { n: number }).n;
   assert.ok(n("entity_schemas") > 10);
   assert.ok(n("plans") >= 4);

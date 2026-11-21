@@ -1,9 +1,11 @@
 // Where the D1 build gets its database, files and signed-in person: on Cloudflare Workers the bindings DB (D1) and
-// BLOBS (R2); in node (next dev) the file .data/d1.sqlite and the folder .data/d1-blobs. Used by
+// BLOBS (R2); in node (next dev) the file .data/d1.sqlite and the folder .data/d1-blobs. The person comes from the
+// Better Auth session cookie (src/lib/d1/auth.ts). Used by
 // src/lib/supabase/server.ts when DATA_BACKEND=d1 and by the /api/blob route.
 import { d1Driver, type Sql } from "./driver";
 import { fsBlobStore, r2BlobStore, type BlobStore, type R2Like } from "./blobs";
 import { d1Client, type D1User } from "./postgrest";
+import { d1Auth, d1AuthBridge, type CookieJar } from "./auth";
 
 export const d1Enabled = () => process.env.DATA_BACKEND === "d1";
 /** Running inside workerd (Cloudflare Workers / wrangler dev / OpenNext preview). */
@@ -45,26 +47,37 @@ export function d1Blobs(): Promise<BlobStore> {
 }
 
 /**
- * The signed-in person. Until Better Auth arrives this is the dev session: env D1_DEV_USER (an email) is looked up in
- * the users table and created there on first use (name from D1_DEV_USER_NAME, else the part before @).
+ * Dev stand-in for a signed-in person, only when env D1_DEV_USER (an email) is set and never in production: used when
+ * the request has no Better Auth session. Looked up in the users table and created there on first use (name from
+ * D1_DEV_USER_NAME, else the part before @).
  */
-export async function d1CurrentUser(sql: Sql): Promise<D1User | null> {
+export async function d1DevUser(sql: Sql): Promise<D1User | null> {
   const email = process.env.D1_DEV_USER?.trim().toLowerCase();
   if (!email) return null;
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[d1] D1_DEV_USER is ignored in production");
+    return null;
+  }
   const [found] = await sql.all<D1User>("SELECT id, email, name FROM users WHERE email = ?", [email]);
   if (found) return found;
   const name = process.env.D1_DEV_USER_NAME?.trim() || email.split("@")[0];
-  await sql.run("INSERT INTO users (id, email, name) VALUES (?, ?, ?) ON CONFLICT (email) DO NOTHING", [crypto.randomUUID(), email, name]);
+  await sql.run("INSERT INTO users (id, email, name, email_verified) VALUES (?, ?, ?, 1) ON CONFLICT (email) DO NOTHING", [crypto.randomUUID(), email, name]);
   const [made] = await sql.all<D1User>("SELECT id, email, name FROM users WHERE email = ?", [email]);
   return made ?? null;
 }
 
 export const appOrigin = () => (process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 
-/** supabaseServer() on D1: the person of this request, row rules on. */
-export async function d1ServerClient(origin = appOrigin()) {
+/** The request's cookies and headers (next/headers in the app). */
+export type D1Request = { cookies: CookieJar; headers?: Headers };
+/**
+ * supabaseServer() on D1: the person of this request (Better Auth session cookie, else the dev stand-in), row rules on.
+ * sb.auth.signInWithPassword / signUp / verifyOtp / … run Better Auth and write its cookies to `req.cookies`.
+ */
+export async function d1ServerClient(origin = appOrigin(), req: D1Request = { cookies: { getAll: () => [], set: () => {} } }) {
   const sql = await d1Sql();
-  return d1Client({ sql, user: await d1CurrentUser(sql), service: false, blobs: d1Blobs, origin });
+  const bridge = d1AuthBridge({ auth: () => d1Auth(sql), cookies: req.cookies, headers: req.headers, devUser: () => d1DevUser(sql) });
+  return d1Client({ sql, user: await bridge.currentUser(), service: false, blobs: d1Blobs, origin, authProvider: bridge.provider });
 }
 /** supabaseAdmin() on D1: service role, synchronous like createClient (the database opens on first query). */
 export function d1AdminClient(origin = appOrigin()) {

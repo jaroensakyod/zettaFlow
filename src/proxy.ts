@@ -2,6 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  // DATA_BACKEND=d1: sessions are Better Auth cookies read by supabaseServer() itself (src/lib/d1/auth.ts); Supabase
+  // is never called, even when its env is still set.
+  if (process.env.DATA_BACKEND === "d1") {
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  }
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY

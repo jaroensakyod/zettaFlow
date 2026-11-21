@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
 import { d1AdminClient, d1Enabled, d1ServerClient } from "@/lib/d1/runtime";
 // DATA_BACKEND=d1: the same two clients, backed by Cloudflare D1 (src/lib/d1/postgrest.ts). They answer the calls the
-// app makes (from/select/filters, rpc, auth.getUser, storage) in the shapes supabase-js gives, so callers stay as they are.
+// app makes (from/select/filters, rpc, auth — Better Auth sessions in this request's cookies —, storage) in the shapes supabase-js gives, so callers stay as they are.
 export const configured = () =>
   d1Enabled() ||
   !!(
@@ -59,7 +59,10 @@ async function requestOrigin() {
 }
 export async function supabaseServer(): Promise<ServerClient> {
   if (d1Enabled())
-    return (await d1ServerClient(await requestOrigin())) as unknown as ServerClient;
+    return (await d1ServerClient(await requestOrigin(), {
+      cookies: await cookies(),
+      headers: new Headers(await headers()),
+    })) as unknown as ServerClient;
   return supabaseServerClient();
 }
 export function supabaseAdmin(): AdminClient {
