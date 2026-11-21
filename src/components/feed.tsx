@@ -145,7 +145,7 @@ export function CompanyLogo({ id, name, logo, size = 40 }: { id: string; name: s
 }
 
 type AlertGroup = "all" | FeedAlert["kind"] | "system";
-type AlertItem = { group: AlertGroup; key: string; at: string; who: string; title: string; status?: string; url?: string; thread?: string };
+type AlertItem = { group: AlertGroup; key: string; at: string; who: string; title: string; status?: string; url?: string; thread?: string; body?: string };
 const alertGroups: [AlertGroup, string, typeof ImageIcon, string][] = [
   ["all", "ทั้งหมด", Inbox, "#7c3aed"],
   ["interest", "ผู้สนใจติดต่อ", Handshake, "#f97316"],
@@ -171,9 +171,13 @@ const tabArt: Record<string, ColorIconName> = {
   mine: "building",
   saved: "bookmark",
 };
+/** A chat message that offers to take the job / be the partner (the text เสนอตัว / สมัคร fills in, see b2b-chat.tsx). */
+const offerText = /^สนใจ(เสนอตัว|สมัคร)/;
 const alertLine = (a: AlertItem) =>
   a.group === "interest"
-    ? a.who + " สนใจติดต่อประกาศของคุณ"
+    ? a.thread
+      ? a.who + (offerText.test(a.body || "") ? " เสนอตัวในประกาศของคุณ" : " ทักมาขอรายละเอียดประกาศของคุณ")
+      : a.who + " สนใจติดต่อประกาศของคุณ"
     : a.group === "reply"
       ? a.who + (a.status === "shortlisted" ? " ตอบรับข้อเสนอของคุณ" : " ปฏิเสธข้อเสนอของคุณ")
       : a.group === "message"
@@ -241,7 +245,10 @@ export function Feed({
   }, [seenKey]);
   // Alerts the person has not opened yet, per group.
   const alertItems: AlertItem[] = [
-    ...alerts.map((a) => ({ group: a.kind as AlertGroup, key: a.kind + a.id + a.at, at: a.at, who: a.who, title: a.title, status: a.status, thread: a.thread_id })),
+      // An offer sent from งาน & ข้อเสนอ is both a proposal and a chat message: show only the chat one (it opens the chat).
+    ...alerts
+      .filter((a) => !(a.kind === "interest" && !a.thread_id && alerts.some((b) => b.kind === "interest" && b.thread_id && b.post_id === a.post_id && b.who === a.who)))
+      .map((a) => ({ group: a.kind as AlertGroup, key: a.kind + a.id + a.at, at: a.at, who: a.who, title: a.title, status: a.status, thread: a.thread_id, body: a.body })),
     ...promos.map((x) => ({ group: "system" as AlertGroup, key: "system" + x.id, at: x.starts_at || "", who: "EliteFlow", title: x.title, url: x.cta_url })),
   ];
   const unseen = (g: AlertGroup) =>
@@ -724,8 +731,8 @@ export function Feed({
                     className="li-alert-item"
                     onClick={() => {
                       setAlertsOpen(null);
-                      if (a.group === "interest" || a.group === "reply") navigate("jobs");
-                      else if (a.thread) navigate("chat?b2b=" + a.thread);
+                      if (a.thread) navigate("chat?b2b=" + a.thread);
+                      else if (a.group === "interest" || a.group === "reply") navigate("jobs");
                       else if (a.group === "message") setTab("mine");
                       else if (a.group === "system" && a.url) {
                         if (a.url.startsWith("http")) window.open(a.url, "_blank", "noopener");
@@ -739,6 +746,7 @@ export function Feed({
                     <span>
                       <strong>{alertLine(a)}</strong>
                       <small>{a.title}</small>
+                      {a.group === "interest" && a.body && <small className="li-alert-body">“{a.body}”</small>}
                     </span>
                     <time>{a.at ? since(a.at) : ""}</time>
                   </button>
@@ -1021,6 +1029,8 @@ export function PostCard({
       .then((r: { shares: number }) => onChange({ shares: r.shares }))
       .catch(() => {});
   };
+  // เสนอตัว / สมัคร on a job or partner post opens a chat with the posting company, quoting the post (comments stay comments).
+  const offerChat = () => navigate(`chat?with=${p.company_id}&post=${p.id}&intent=offer`);
   const offer = p.kind !== "post",
     text = offer ? p.body : excerpt(p),
     long = text.length > 280 || text.split("\n").length > 4,
@@ -1158,7 +1168,7 @@ export function PostCard({
             </span>
           </span>
           {!p.mine && (
-            <button className="li-offer-cta" onClick={() => navigate("jobs")}>
+            <button className="li-offer-cta" onClick={() => (p.proposed ? navigate("jobs") : offerChat())}>
               {p.proposed ? "ดูข้อเสนอ" : p.kind === "job" ? "สมัคร" : "เสนอตัว"}
             </button>
           )}

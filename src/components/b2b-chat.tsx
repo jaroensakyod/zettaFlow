@@ -53,6 +53,11 @@ export function ChatHub({ ctx, notify, navigate }: { ctx: Context; notify: (s: s
   );
 }
 
+/** What เสนอตัว / สมัคร fills in. It starts with “สนใจเสนอตัว / สนใจสมัคร” so the poster's alert says it is an offer (feed.tsx). */
+const offerMessage: Record<string, string> = {
+  partner: "สนใจเสนอตัวเป็นพาร์ทเนอร์สำหรับงานนี้ ขอส่งรายละเอียดบริษัทและผลงานให้พิจารณา",
+  job: "สนใจสมัครงานนี้ ขอส่งประวัติและผลงานให้พิจารณา",
+};
 const imageSrc = (path: string) => (path.startsWith("data:") ? path : "/api/feed/image/" + path);
 const companyLogo = (c: { id: string; name: string; has_logo: boolean; logo_url?: string }, size: number) => (
   <CompanyLogo id={c.id} name={c.name} logo={c.logo_url || c.has_logo} size={size} />
@@ -168,8 +173,10 @@ function B2bChat({
     [router],
   );
   // "ส่งข้อความ" from the feed: chat?with=<company>&post=<post> opens (or starts) that conversation about that post.
+  // &intent=offer (เสนอตัว / สมัคร on a job or partner post) also fills in the offer, ready to send.
   const target = params.get("with"),
-    fromPost = params.get("post");
+    fromPost = params.get("post"),
+    intent = params.get("intent");
   useEffect(() => {
     if (!target) return;
     if (ctx.demo) {
@@ -185,6 +192,7 @@ function B2bChat({
           const t = sampleThreadFor(samples, company, card);
           setSamples((all) => [t, ...all.filter((x) => x.id !== t.id)]);
           setTopic(t.post);
+          if (intent === "offer" && t.post) ask(offerMessage[t.post.kind] || offerMessage.partner);
           select(t.id);
         });
       return;
@@ -192,6 +200,7 @@ function B2bChat({
     api("/b2b/open", { method: "POST", body: { company: target, post: fromPost } })
       .then((r: { id: string; post?: B2bPostRef | null }) => {
         setTopic(r.post || null);
+        if (intent === "offer" && r.post) ask(offerMessage[r.post.kind] || offerMessage.partner);
         select(r.id);
         return loadThreads();
       })
