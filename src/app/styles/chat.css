@@ -515,3 +515,12 @@
 .deal-field > span small.bad { color: #be123c; }
 .deal-field input[type="range"] { padding: 0; accent-color: #7c3aed; }
 .modal.deal-modal.small { width: min(560px, calc(100vw - 24px)); }
+
+/* Use more of the screen on computers: a wider chat column, and team chat as tall as the window like คุยกับบริษัทอื่น */
+@media (min-width: 721px) {
+  .chat-hub { max-width: 1680px; }
+  .chat-hub .chat-layout { height: calc(100dvh - 170px); min-height: 460px; }
+  .chat-hub .chat-main { min-height: 0; }
+  .chat-hub .chat-messages { flex: 1; height: auto; min-height: 0; }
+  .chat-hub .b2b { grid-template-columns: 320px minmax(0, 1fr); }
+}
