@@ -28,6 +28,8 @@ jobs:
       PROD: ${{ (github.event_name == 'release' || inputs.target == 'production') && '1' || '' }}
       # Next.js bakes NEXT_PUBLIC_* in at build time, so each site is built with its own address.
       NEXT_PUBLIC_APP_URL: ${{ (github.event_name == 'release' || inputs.target == 'production') && 'https://eliteflow-ai.com' || 'https://dev.eliteflow-ai.com' }}
+      # The LINE bot people add (QR / add-friend link): the real one on production, the test bot "EliteFlow Dev" on dev.
+      NEXT_PUBLIC_LINE_BOT_ID: ${{ (github.event_name == 'release' || inputs.target == 'production') && '@532csucn' || '@987wircs' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
