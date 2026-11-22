@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 export async function proxy(request: NextRequest) {
+  // MAINTENANCE_MODE=1 (set on the old site while the data moves to Cloudflare, cloudflare/CUTOVER.md): pages still
+  // open, but nothing can be saved, so the final copy misses no change.
+  if (process.env.MAINTENANCE_MODE === "1" && request.nextUrl.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method))
+    return NextResponse.json({ error: "ระบบกำลังย้ายไปเซิร์ฟเวอร์ใหม่ บันทึกข้อมูลได้อีกครั้งในไม่กี่นาที" }, { status: 503, headers: { "Retry-After": "600" } });
   let response = NextResponse.next({ request });
   // DATA_BACKEND=d1: sessions are Better Auth cookies read by supabaseServer() itself (src/lib/d1/auth.ts); Supabase
   // is never called, even when its env is still set.

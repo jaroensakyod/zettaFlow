@@ -186,7 +186,7 @@ export async function verifyCounts(sql: Sql, src: Source) {
 
 export const importBuckets = () => Object.keys(buckets);
 
-type Env = { NEXT_PUBLIC_SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; IMPORT_TOKEN?: string };
+type Env = { NEXT_PUBLIC_SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; IMPORT_TOKEN?: string; [k: string]: unknown };
 /** POST /__import {step, …}: only with the Worker secret IMPORT_TOKEN as the bearer token; otherwise 404. */
 export async function handleImport(req: Request, env: Env, sql: () => Promise<Sql>, store: () => Promise<BlobStore>): Promise<Response> {
   const token = env.IMPORT_TOKEN;
@@ -202,7 +202,12 @@ export async function handleImport(req: Request, env: Env, sql: () => Promise<Sq
       case "check": {
         // What kind of service key the Worker holds (never the key): a JWT, a new "sb_secret_" key, or something else.
         const k = src.key;
-        return Response.json({ url: src.url, keyLength: k.length, kind: k.startsWith("eyJ") ? "jwt" : k.startsWith("sb_secret_") ? "sb_secret" : "other" });
+        // The other secrets the switch needs: only whether each is set and how long it is (values pulled from Vercel's
+        // "sensitive" variables arrive as short placeholders).
+        const e = env as Record<string, unknown>;
+        const names = ["RESEND_API_KEY", "MAIL_FROM", "GEMINI_API_KEY", "GEMINI_MODEL", "LINE_CHANNEL_SECRET", "LINE_CHANNEL_ACCESS_TOKEN", "CRON_SECRET", "BETTER_AUTH_SECRET", "BLOB_SECRET", "PLATFORM_ADMIN_EMAILS", "NEXT_PUBLIC_APP_URL", "DATA_BACKEND"];
+        const secrets = Object.fromEntries(names.map((n) => [n, typeof e[n] === "string" ? (e[n] as string).length : 0]));
+        return Response.json({ url: src.url, keyLength: k.length, kind: k.startsWith("eyJ") ? "jwt" : k.startsWith("sb_secret_") ? "sb_secret" : "other", secrets });
       }
       case "table":
         return Response.json(await importTable(await sql(), src, String(b.table), b.offset ?? 0, b.limit ?? 500, plan.deferred[String(b.table)] ?? []));
