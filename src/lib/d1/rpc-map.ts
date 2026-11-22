@@ -27,7 +27,7 @@ import { addPlatformCustomer, adminGrantPlan, adminRevokeGrant, platformCustomer
 import { buyFeedAd, feedAdTrack, feedAdsLive, myFeedAds, setFeedAdStatus } from "./billing-ads";
 import { expireSubscriptions, hasAddon, trialUsage } from "./billing-plan";
 import { buyModule, confirmPayment, confirmTopup, requestPayment, requestTopup, shopActivate, shopBuy } from "./billing-shop";
-import { acceptInvitations, companyCard, companyCover, createCompany, editMember, endSupportAccess, inviteMember, presencePing, saveCompany, sendMessage, supportReply, supportSeen, supportSend, type SignedInUser } from "./company";
+import { acceptInvitations, companyCard, companyCover, createCompany, editMember, endSupportAccess, setMemberAccess, inviteMember, presencePing, saveCompany, sendMessage, supportReply, supportSeen, supportSend, type SignedInUser } from "./company";
 import { clearSampleData, loadSampleData } from "./company-sample";
 import { claimNotifications, createShare, noteDelete, noteSave, revokeShare, saveDashboardLayout, shareFailed, shareLockout, shareMetrics } from "./company-share";
 import { documentNumber, financeCloseStep, financeSaveBudgets, financeSaveTargets, goalSet, issueDocument, issuedDocumentsList, postExpense, seedAccountsStmts } from "./finance";
@@ -83,6 +83,7 @@ import {
   b2bDealRequest,
   b2bDealWithdraw,
   b2bDealsOf,
+  b2bDealTake,
 } from "./network-deals";
 import {
   feedAlerts,
@@ -214,7 +215,8 @@ export const rpcs: Record<string, RpcHandler> = {
   },
   save_company: member("save_company", OWNER, (t, a) => saveCompany(t, g(a, "p_profile"), g(a, "p_settings", null))),
   invite_member: member("invite_member", OWNER, (t, a) => inviteMember(t, g(a, "p_email"), g(a, "p_role"), g(a, "p_departments"))),
-  edit_member: member("edit_member", OWNER, (t, a) => editMember(t, g(a, "p_id"), g(a, "p_role"), g(a, "p_departments"), g(a, "p_disabled"))),
+  edit_member: member("edit_member", OWNER, (t, a) => editMember(t, g(a, "p_id"), g(a, "p_role"), g(a, "p_departments"), g(a, "p_disabled"), g(a, "p_read_departments", null))),
+  set_member_access: member("set_member_access", OWNER, (t, a) => setMemberAccess(t, g(a, "p_member"), g(a, "p_role"), g(a, "p_departments"), g(a, "p_read_departments"))),
   presence_ping: async (c, a) => {
     if (!c.service && !c.userId) denied("presence_ping");
     if (!c.userId) fail("ต้องเข้าสู่ระบบ");
@@ -378,6 +380,7 @@ export const rpcs: Record<string, RpcHandler> = {
 
   // ---------- B2B deal room ----------
   b2b_deals_of: member("b2b_deals_of", null, (t, a) => b2bDealsOf(t, g(a, "p_thread"))),
+  b2b_deal_take: member("b2b_deal_take", null, (t, a) => b2bDealTake(t, g(a, "p_deal"))),
   b2b_deal_request: member("b2b_deal_request", null, (t, a) => b2bDealRequest(t, g(a, "p_thread"), g(a, "p_title"), g(a, "p_data"))),
   b2b_deal_quote: member("b2b_deal_quote", null, (t, a) => b2bDealQuote(t, g(a, "p_thread"), g(a, "p_deal"), g(a, "p_title"), g(a, "p_data"))),
   b2b_deal_decide: member("b2b_deal_decide", null, (t, a) => b2bDealDecide(t, g(a, "p_card"), g(a, "p_decision"), g(a, "p_reason", null))),

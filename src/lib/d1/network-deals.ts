@@ -1,8 +1,8 @@
 // The deal room (ห้องดีล) between two companies for D1, step for step after the Postgres b2b_deal_* functions:
 // request → quotation (revisions) → decision; then progress, delivery and acceptance, instalment invoices, payments
 // with withholding tax and receipts, closing, and cancelling with both sides' consent. Accepting, invoicing and
-// receiving write records into each company's own books (customers, projects, quotations, suppliers, tasks,
-// invoices, payments, expenses), with the entities triggers those inserts and updates fire (network-common.ts).
+// receiving write records into each company's own books (customers, projects, quotations, suppliers, the buyer's
+// project for the work (0083; older deals have a task there), invoices, payments, expenses), with the entities triggers those inserts and updates fire (network-common.ts).
 // Rows Postgres locked (FOR UPDATE) are guarded on what was read, so a concurrent change aborts the batch.
 import type { Stmt } from "./driver";
 import type { Tenant } from "./tenant";
@@ -49,7 +49,13 @@ export type Deal = {
   seller_project: string | null;
   seller_customer: string | null;
   buyer_supplier: string | null;
+  /** A project for the work (0083; older deals point at a task). */
   buyer_task: string | null;
+  /** Who handles the deal on each side (0084): set on acceptance or taken over with b2b_deal_take. */
+  buyer_contact_id?: string | null;
+  buyer_contact?: string | null;
+  seller_contact_id?: string | null;
+  seller_contact?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -391,7 +397,8 @@ export async function b2bDealDecide(t: Tenant, cardId: string, decision: string,
           endDate: jtext(q.deliverBy),
           budget: total,
           customerTarget: buyerName,
-          description: cat("งานจาก ", buyerName, " ตามใบเสนอราคา ", docNo, " ที่ตอบรับผ่านห้องดีล EliteFlow"),
+          owner: c!.author_name,
+          description: cat("งานจาก ", buyerName, " ตามใบเสนอราคา ", docNo, " ที่ตอบรับผ่านห้องดีล EliteFlow · ผู้ดูแลดีล: ", c!.author_name, " (เรา) · ", who, " (", buyerName, ")"),
           b2bDealId: d.id,
         }),
       },
@@ -426,7 +433,7 @@ export async function b2bDealDecide(t: Tenant, cardId: string, decision: string,
       now,
     )),
   );
-  // Buyer: supplier (found by network company or name) and a follow-up task.
+  // Buyer: supplier (found by network company or name) and a project for the work (its โปรเจกต์ page; was a task in งาน & Workflow).
   let sup = await findParty(t, d.buyer, "suppliers", d.seller, sellerName);
   if (!sup) {
     sup = uuid();
@@ -451,16 +458,19 @@ export async function b2bDealDecide(t: Tenant, cardId: string, decision: string,
       {
         id: task,
         company_id: d.buyer,
-        kind: "tasks",
-        department: "Purchasing",
+        kind: "projects",
+        department: "Operations",
         created_by: t.viewer.userId,
         data: stripNulls({
-          name: cat("ติดตามงาน: ", jtext(q.title)),
-          department: "Purchasing",
+          name: jtext(q.title),
           priority: "normal",
-          status: "pending",
-          dueDate: jtext(q.deliverBy) ?? jtext(get(req, "needBy")),
-          notes: cat("จ้าง ", sellerName, " ยอด ฿", total === null ? null : money(total), " ตามใบเสนอราคา ", docNo, " (ตอบรับโดย ", who, ")"),
+          status: "active",
+          startDate: today,
+          endDate: jtext(q.deliverBy) ?? jtext(get(req, "needBy")),
+          budget: total,
+          owner: who,
+          customerTarget: sellerName,
+          description: cat("จ้าง ", sellerName, " ยอด ฿", total === null ? null : money(total), " ตามใบเสนอราคา ", docNo, " ผ่านห้องดีล EliteFlow · ผู้ดูแลดีล: ", who, " (เรา) · ", c!.author_name, " (", sellerName, ")"),
           b2bDealId: d.id,
         }),
       },
@@ -468,7 +478,21 @@ export async function b2bDealDecide(t: Tenant, cardId: string, decision: string,
     )),
   );
   stmts.push(
-    dealUpdate(t, d.id, { stage: "accepted", accepted_at: now, accepted_by: who, seller_customer: cust, seller_project: proj, seller_quote: quote, buyer_supplier: sup, buyer_task: task, updated_at: now }),
+    dealUpdate(t, d.id, {
+      stage: "accepted",
+      accepted_at: now,
+      accepted_by: who,
+      seller_customer: cust,
+      seller_project: proj,
+      seller_quote: quote,
+      buyer_supplier: sup,
+      buyer_task: task,
+      buyer_contact_id: t.viewer.userId,
+      buyer_contact: who,
+      seller_contact_id: c!.author_id,
+      seller_contact: c!.author_name,
+      updated_at: now,
+    }),
     ...cardNoteStmts(t, d.thread_id, c!.id, who, "✅ ตอบรับใบเสนอราคา " + docNo + " · ฿" + money(total ?? 0) + " — ตกลงจ้างงานแล้ว", now),
   );
   await t.atomic(stmts);
@@ -524,9 +548,45 @@ export async function b2bDealsOf(t: Tenant, threadId: string): Promise<Data[]> {
     project_id: d.seller === me ? d.seller_project : null,
     quote_id: d.seller === me ? d.seller_quote : null,
     task_id: d.buyer === me ? d.buyer_task : null,
+    // Who handles the deal on each side: set on acceptance (or taken over), before that whoever last wrote a card there.
+    contact_mine: (d.buyer === me ? d.buyer_contact : d.seller_contact) ?? lastAuthor(cards, d.id, (c) => c === me),
+    contact_theirs: (d.buyer === me ? d.seller_contact : d.buyer_contact) ?? lastAuthor(cards, d.id, (c) => c !== me),
+    contact_is_me: (d.buyer === me ? d.buyer_contact_id : d.seller_contact_id) === t.viewer.userId,
     cards: cards.filter((c) => c.deal_id === d.id).map((c) => b2bCardJson(c, me)),
   }));
 }
+/** The author of the latest card of a deal written on one side (cards come oldest first). */
+const lastAuthor = (cards: Card[], dealId: string, side: (company: string) => boolean): string | null =>
+  cards.filter((c) => c.deal_id === dealId && side(c.company_id)).pop()?.author_name ?? null;
+
+/** b2b_deal_take(c, deal): a member takes over their own side of the deal (the chat says so, their project names them). */
+export async function b2bDealTake(t: Tenant, dealId: string): Promise<{ contact: string | null }> {
+  await b2bWriter(t);
+  const me = t.viewer.companyId,
+    now = stamp();
+  const [d] = await t.selectGlobal<Deal>("b2b_deals", { where: { id: dealId } });
+  if (!d || (me !== d.buyer && me !== d.seller)) fail("ไม่พบดีลนี้", 404);
+  await b2bThreadOf(t, d.thread_id);
+  if (["rejected", "cancelled"].includes(d.stage)) fail("ดีลนี้ปิดไปแล้ว");
+  const who = await feedAuthor(t);
+  const stmts: Stmt[] = [t.guardGlobalStmt("b2b_deals", { id: d.id, stage: d.stage, updated_at: d.updated_at })];
+  let ent: string | null;
+  if (d.buyer === me) {
+    stmts.push(dealUpdate(t, d.id, { buyer_contact_id: t.viewer.userId, buyer_contact: who, updated_at: now }));
+    ent = d.buyer_task;
+  } else {
+    stmts.push(dealUpdate(t, d.id, { seller_contact_id: t.viewer.userId, seller_contact: who, updated_at: now }));
+    ent = d.seller_project;
+  }
+  if (ent && (await entityKind(t, ent)) === "projects") stmts.push(...(await setEntityStmts(t, ent, { owner: who }, now)));
+  const [last] = await t.selectGlobal<Card>("b2b_cards", { where: { deal_id: d.id }, order: [["created_at", "desc"]], limit: 1 });
+  const [co] = await t.selectGlobal<{ name: string }>("companies", { where: { id: me } });
+  stmts.push(...cardNoteStmts(t, d.thread_id, last?.id ?? (null as unknown as string), who, cat("👤 ", who, " ดูแลดีล “", d.title, "” ฝั่ง ", co?.name ?? null) as string, now));
+  await t.atomic(stmts);
+  return { contact: who };
+}
+/** (select kind from entities where id = …): the buyer's record of an older deal is a task, a newer one a project. */
+const entityKind = async (t: Tenant, id: string) => (await t.selectGlobal<{ kind: string }>("entities", { where: { id } }))[0]?.kind ?? null;
 
 // ---------- phase 2: work, delivery, invoices, payments, cancelling ----------
 /** b2b_deal_progress(c, deal, percent, note): the seller reports progress (with the project's progress). */
@@ -584,7 +644,7 @@ export async function b2bDealCheck(t: Tenant, cardId: string, ok: boolean, reaso
     const paid = await b2bDealFullyPaid(t, d.id);
     stmts.push(dealUpdate(t, d.id, { stage: paid ? "closed" : "checked", updated_at: now }));
     if (d.seller_project) stmts.push(...(await setEntityStmts(t, d.seller_project, { status: "completed", progress: 100 }, now)));
-    if (d.buyer_task) stmts.push(...(await setEntityStmts(t, d.buyer_task, { status: "done" }, now)));
+    if (d.buyer_task) stmts.push(...(await setEntityStmts(t, d.buyer_task, (await entityKind(t, d.buyer_task)) === "projects" ? { status: "completed", progress: 100 } : { status: "done" }, now)));
     stmts.push(...cardNoteStmts(t, d.thread_id, c!.id, who, "✅ ตรวจรับงานแล้ว" + (paid ? " — ปิดงานเรียบร้อย" : ""), now));
   } else {
     stmts.push(dealUpdate(t, d.id, { stage: "work", updated_at: now }));
@@ -833,7 +893,10 @@ export async function b2bDealCancelAnswer(t: Tenant, cardId: string, agree: bool
   for (const x of cards.filter((x) => ["invoice", "payment", "delivery"].includes(x.kind) && x.status === "open")) stmts.push(cardUpdate(t, x.id, { status: "withdrawn" }));
   stmts.push(dealUpdate(t, d.id, { stage: "cancelled", updated_at: now }));
   if (d.seller_project) stmts.push(...(await setEntityStmts(t, d.seller_project, { status: "cancelled" }, now)));
-  if (d.buyer_task) stmts.push(...(await setEntityStmts(t, d.buyer_task, { status: "done", notes: cat("ยกเลิกงานตามที่ทั้งสองฝ่ายตกลง: ", jtext(c!.data.notes)) }, now)));
+  if (d.buyer_task) {
+    const why = cat("ยกเลิกงานตามที่ทั้งสองฝ่ายตกลง: ", jtext(c!.data.notes));
+    stmts.push(...(await setEntityStmts(t, d.buyer_task, (await entityKind(t, d.buyer_task)) === "projects" ? { status: "cancelled", description: why } : { status: "done", notes: why }, now)));
+  }
   const paid = num(c!.data.paid) as number;
   stmts.push(...cardNoteStmts(t, d.thread_id, c!.id, who, "🛑 ยกเลิกงานแล้ว (ทั้งสองฝ่ายยืนยัน)" + (paid > 0 ? " · มีเงินที่ชำระแล้ว ฿" + money(paid) + " ให้ตกลงคืนกันโดยตรง" : ""), now));
   await t.atomic(stmts);

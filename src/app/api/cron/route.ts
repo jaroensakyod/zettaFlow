@@ -11,6 +11,14 @@ export async function GET(req: Request) {
   )
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    // ?task=jobs (Cloudflare Cron Trigger every 5 minutes, cloudflare/worker.ts): only finish AI jobs and LINE
+    // notifications. On Workers, after() work gets ~30 s past the response; a job cut off there keeps its expired lease
+    // and is claimed again here instead of waiting for the daily run.
+    if (new URL(req.url).searchParams.get("task") === "jobs") {
+      const jobs = await processJobs(),
+        notifications = await processNotifications();
+      return Response.json({ jobs, notifications });
+    }
     const sb = supabaseAdmin();
     const { data: nudges } = await sb.rpc("queue_nudges");
     const { data: expired } = await sb.rpc("expire_subscriptions");

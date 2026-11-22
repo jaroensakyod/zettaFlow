@@ -2,7 +2,8 @@
 // eliteflow.<account>.workers.dev; the live site is still on Vercel. Build and deploy with `npm run cf:deploy`.
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"main": ".open-next/worker.js",
+	// cloudflare/worker.ts wraps OpenNext's generated .open-next/worker.js (fetch) and adds the Cron Trigger handler.
+	"main": "cloudflare/worker.ts",
 	"name": "eliteflow",
 	"compatibility_date": "2026-11-15",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -23,5 +24,8 @@
 	],
 	// Files of the D1 build (Supabase Storage before): keys "<bucket>/<path>", read by src/lib/d1/blobs.ts. The bucket
 	// must exist before a deploy: `wrangler r2 bucket create eliteflow-blobs`.
-	"r2_buckets": [{ "binding": "BLOBS", "bucket_name": "eliteflow-blobs" }]
+	"r2_buckets": [{ "binding": "BLOBS", "bucket_name": "eliteflow-blobs" }],
+	// Cron Triggers (UTC), run by cloudflare/worker.ts through /api/cron with CRON_SECRET (src/lib/cf-scheduled.ts):
+	// the daily run vercel.json had, and every 5 minutes the AI-job / LINE-notification drain (?task=jobs).
+	"triggers": { "crons": ["0 0 * * *", "*/5 * * * *"] }
 }

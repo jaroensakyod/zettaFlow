@@ -86,7 +86,7 @@ export type Ingestion = {
   nudged_at: string | null;
 } & Data;
 export type DataTemplate = { id: string; company_id: string; name: string; department: string; fields: Data[]; steps: Data[]; version: number; created_at: string; target_kind: string | null; field_map: Data };
-type Member = { user_id: string; name: string; email: string; role: string; departments: string[]; disabled: boolean };
+type Member = { user_id: string; name: string; email: string; role: string; departments: string[]; read_departments?: string[]; disabled: boolean };
 
 /** A batch step that aborts unless the item still has the status, approval and values that were read. */
 const guardIngestion = (t: Tenant, i: Ingestion): Stmt => t.guardStmt("ingestions", { id: i.id, status: i.status, approval: i.approval ?? null, values: i.values ?? null });
@@ -493,7 +493,7 @@ export async function saveEntityAs(sql: Sql, companyId: string, userId: string, 
   const [m] = await probe.selectInternal<Member>("memberships", { where: { user_id: userId } });
   if (!m) fail("ผู้ใช้ไม่ได้อยู่ในบริษัทนี้", 403);
   // member_role() ignores a disabled membership: such a user has no role, so can write nothing.
-  const viewer: Viewer = m!.disabled ? { userId, email: m!.email, companyId, role: "viewer", departments: [] } : { userId, email: m!.email, companyId, role: m!.role as Viewer["role"], departments: m!.departments };
+  const viewer: Viewer = m!.disabled ? { userId, email: m!.email, companyId, role: "viewer", departments: [] } : { userId, email: m!.email, companyId, role: m!.role as Viewer["role"], departments: m!.departments, readDepartments: m!.read_departments ?? [] };
   return saveEntity(new Tenant(sql, viewer), kind, data);
 }
 

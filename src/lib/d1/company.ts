@@ -1,5 +1,5 @@
 // The company, its members, support chat, presence and messages for D1, step for step after the Postgres functions
-// (create_company, save_company, invite_member, accept_invitations, edit_member, member_role, support_viewer,
+// (create_company, save_company, invite_member, accept_invitations, edit_member, set_member_access, member_role, support_viewer,
 // support_send / support_reply / support_seen, end_support_access, presence_ping, company_card, company_cover,
 // send_message) and the triggers their inserts fire: companies_trial (start_trial) and companies_seed_accounts on a
 // new company, quota_users (enforce_quota('users')) and memberships_platform_customer on a new membership. The plan
@@ -140,13 +140,57 @@ export async function acceptInvitations(sql: Sql, user: SignedInUser): Promise<v
   if (stmts.length) await t.atomic(stmts);
 }
 
-/** edit_member(): the owner changes a member's role, departments or disabled flag (never another owner). */
-export async function editMember(t: Tenant, id: string, role: string, departments: string[], disabled: boolean): Promise<void> {
+/** department_names(): the departments the app knows (src/lib/catalog.ts departmentNames). */
+export const departmentNames = (): string[] => ["Operations", "Business Development", "Design", "Purchasing", "Warehouse", "Sales", "Finance", "Marketing", "HR", "IT", "Customer Service", "Legal", "Data", "Event", "Admin"];
+/** dept_list(a): without blanks (spaces only) or repeats, first-seen order kept; the names themselves are not trimmed. */
+export const deptList = (a: (string | null)[] | null | undefined): string[] => {
+  const out: string[] = [];
+  for (const x of a ?? []) if (x !== null && pgTrim(x) !== "" && !out.includes(x)) out.push(x);
+  return out;
+};
+/** The ใช้งาน list and the ดู list without what is already in ใช้งาน (a department in both gets the higher level). */
+const accessLists = (write: (string | null)[] | null | undefined, read: (string | null)[] | null | undefined) => {
+  const w = deptList(write);
+  return { w, r: deptList(read).filter((x) => !w.includes(x)) };
+};
+const unknownDept = (l: string[]) => l.some((x) => !departmentNames().includes(x));
+
+type MemberRow = { id: string; company_id: string; user_id: string; role: string; departments: string[]; read_departments: string[]; disabled: boolean } & Data;
+/**
+ * edit_member() (ตั้งค่า → ทีม): the owner changes a member's role, ใช้งาน / ดู departments or disabled flag (never
+ * another owner). `readDepartments` left out (null) keeps the member's ดู departments.
+ */
+export async function editMember(t: Tenant, id: string, role: string, departments: string[] | null, disabled: boolean | null, readDepartments: string[] | null = null): Promise<void> {
   if (t.viewer.role !== "owner") fail("เฉพาะเจ้าของบริษัท");
-  if (!["manager", "staff", "viewer"].includes(role) || !departments?.length) fail("บทบาทหรือแผนกไม่ถูกต้อง");
-  const [m] = await t.selectInternal<{ role: string }>("memberships", { where: { id } });
+  if (!["manager", "staff", "viewer"].includes(role)) fail("บทบาทหรือแผนกไม่ถูกต้อง");
+  const [m] = await t.selectInternal<MemberRow>("memberships", { where: { id } });
   if (!m || m.role === "owner") fail("ไม่พบสมาชิกที่แก้ไขได้");
-  await t.atomic([t.guardStmt("memberships", { id, role: { op: "!=", value: "owner" } }), t.updateStmt("memberships", { id }, { role, departments, disabled }), audit(t, "member_updated", id)]);
+  const { w, r } = accessLists(departments, readDepartments ?? m!.read_departments);
+  if (w.length + r.length === 0) fail("บทบาทหรือแผนกไม่ถูกต้อง");
+  if (unknownDept([...w, ...r])) fail("ไม่รู้จักแผนกนี้");
+  await t.atomic([
+    t.guardStmt("memberships", { id, role: m!.role }),
+    t.updateStmt("memberships", { id }, { role, departments: w, read_departments: r, disabled: disabled ?? false }),
+    audit(t, "member_updated", id),
+  ]);
+}
+
+/** set_member_access(): the owner sets a member's role and per-department level (ใช้งาน / ดู) in one go. */
+export async function setMemberAccess(t: Tenant, memberId: string, role: string | null, departments: string[] | null, readDepartments: string[] | null): Promise<MemberRow> {
+  if (t.viewer.role !== "owner") fail("เฉพาะเจ้าของบริษัท");
+  if (role === null || role === undefined || !["manager", "staff", "viewer"].includes(role)) fail("บทบาทไม่ถูกต้อง");
+  const { w, r } = accessLists(departments, readDepartments);
+  if (unknownDept([...w, ...r])) fail("ไม่รู้จักแผนกนี้");
+  if (w.length + r.length === 0) fail("เลือกอย่างน้อย 1 ระบบที่ดูหรือใช้งานได้");
+  const [m] = await t.selectInternal<MemberRow>("memberships", { where: { id: memberId } });
+  if (!m) fail("ไม่พบสมาชิก");
+  if (m!.role === "owner") fail("เจ้าของบริษัทใช้ได้ทุกระบบ แก้ไขสิทธิ์ไม่ได้");
+  await t.atomic([
+    t.guardStmt("memberships", { id: memberId, role: m!.role }),
+    t.updateStmt("memberships", { id: memberId }, { role, departments: w, read_departments: r }),
+    audit(t, "member_access_updated", memberId),
+  ]);
+  return { ...m!, role: role!, departments: w, read_departments: r };
 }
 
 /** presence_ping(): marks the person online (at most every 20 s) and says who is online in the given companies. */

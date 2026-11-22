@@ -1,12 +1,12 @@
 # Postgres functions → D1 (TypeScript)
 
-Every function of the Supabase schema (the latest definition of each, one file per function: 204) and where it lives
+Every function of the Supabase schema (the latest definition of each, one file per function: 208) and where it lives
 on D1. Paths are relative to `src/lib/d1/` (`../` = `src/lib/`). "inlined" = the logic is part of another port (a
 trigger or a helper that has no caller of its own); "dropped" = the function no longer exists in Postgres. Tests are
 the parity tests in `tests/` (`d1-*-parity.test.ts`, PGlite with every migration vs node:sqlite with the D1 schema),
 plus `d1-tenant.test.ts` for the data layer; "through X" = covered by the steps that call X.
 
-**195 ported as an export, 8 inlined, 1 dropped, 0 missing.**
+**199 ported as an export, 8 inlined, 1 dropped, 0 missing.**
 
 Storage (not functions): the buckets and `storage.objects` policies of 0082 (`eliteflow-avatars`: anyone signed in
 reads, each person writes only `<own user id>.webp`, webp ≤ 1 MB; `eliteflow-b2b`: `<thread>/<file>`, read by
@@ -39,9 +39,9 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | b2b_card_json | network-deals.ts:b2bCardJson | d1-network-deals-parity (through the deal cards) |
 | b2b_card_note | network-chat.ts:cardNoteStmts | d1-network-deals-parity (every card note) |
 | b2b_deal_cancel | network-deals.ts:b2bDealCancel | d1-network-deals-parity |
-| b2b_deal_cancel_answer | network-deals.ts:b2bDealCancelAnswer | d1-network-deals-parity |
-| b2b_deal_check | network-deals.ts:b2bDealCheck | d1-network-deals-parity |
-| b2b_deal_decide | network-deals.ts:b2bDealDecide | d1-network-deals-parity |
+| b2b_deal_cancel_answer | network-deals.ts:b2bDealCancelAnswer (0083: the buyer's project is cancelled with a description, an older task is done with notes) | d1-network-deals-parity |
+| b2b_deal_check | network-deals.ts:b2bDealCheck (0083: the buyer's project completed 100%, an older task done) | d1-network-deals-parity |
+| b2b_deal_decide | network-deals.ts:b2bDealDecide (0083/0084: the buyer gets a project, not a task; both projects name ผู้รับผิดชอบ; the deal's contacts are set) | d1-network-deals-parity |
 | b2b_deal_deliver | network-deals.ts:b2bDealDeliver | d1-network-deals-parity |
 | b2b_deal_for | network-deals.ts:b2bDealFor | d1-network-deals-parity (through b2bDealRequest) |
 | b2b_deal_fully_paid | network-deals.ts:b2bDealFullyPaid | d1-network-deals-parity |
@@ -51,8 +51,9 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | b2b_deal_quote | network-deals.ts:b2bDealQuote | d1-network-deals-parity |
 | b2b_deal_receive | network-deals.ts:b2bDealReceive | d1-network-deals-parity |
 | b2b_deal_request | network-deals.ts:b2bDealRequest | d1-network-deals-parity |
+| b2b_deal_take | network-deals.ts:b2bDealTake (0084) | d1-network-deals-parity |
 | b2b_deal_withdraw | network-deals.ts:b2bDealWithdraw | d1-network-deals-parity |
-| b2b_deals_of | network-deals.ts:b2bDealsOf | d1-network-deals-parity |
+| b2b_deals_of | network-deals.ts:b2bDealsOf (contact_mine / contact_theirs / contact_is_me since 0084) | d1-network-deals-parity |
 | b2b_inbox | network-chat.ts:b2bInbox (files-only text: network-chat.ts b2bShownBody) | d1-network-chat-parity, d1-network-deals-parity |
 | b2b_installment_amount | network-deals.ts:b2bInstallmentAmount | d1-network-deals-parity |
 | b2b_installments | network-deals.ts:b2bInstallments | d1-network-deals-parity |
@@ -72,8 +73,8 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | buy_feed_ad | billing-ads.ts:buyFeedAd | d1-billing-parity |
 | buy_module | billing-shop.ts:buyModule | d1-billing-parity |
 | calendar_entries | reports.ts:calendarEntries | d1-reports-parity |
-| can_read_dept | access.ts:canReadDept (also the read rules in access.ts readRules) | d1-tenant; every parity test |
-| can_write_dept | access.ts:canWriteDept | d1-tenant; every parity test |
+| can_read_dept | access.ts:canReadDept (departments or read_departments since 0085; also the read rules in access.ts readRules) | d1-tenant; d1-company-parity; d1-postgrest; every parity test |
+| can_write_dept | access.ts:canWriteDept (owner or a departments entry, never a viewer; read_departments never count, 0085) | d1-tenant; d1-company-parity; every parity test |
 | claim_ingestion | ingestion.ts:claimIngestion | d1-ingestion-parity |
 | claim_notifications | company-share.ts:claimNotifications | d1-company-parity |
 | clear_sample_data | company-sample.ts:clearSampleData | d1-company-parity |
@@ -93,10 +94,12 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | create_share | company-share.ts:createShare | d1-company-parity |
 | dashboard_summary | reports.ts:dashboardSummary | d1-reports-parity |
 | decide_ingestion | ingestion.ts:decideIngestion | d1-ingestion-parity |
+| department_names | company.ts:departmentNames | d1-company-parity |
 | dept_derive | inlined: ../dept-rules.ts derive (called by entity-insert.ts beforeEntityInsert, entities.ts, operations.ts, network-common.ts) | d1-entities-parity, d1-operations-parity |
+| dept_list | company.ts:deptList | d1-company-parity |
 | dept_th | common.ts:deptTh (re-exported by reports.ts and approvals.ts) | d1-reports-parity |
 | document_number | finance.ts:documentNumber | d1-finance-parity |
-| edit_member | company.ts:editMember | d1-company-parity |
+| edit_member | company.ts:editMember (p_read_departments since 0085; null keeps the member's) | d1-company-parity |
 | effective_plan | billing-plan.ts:effectivePlan (effectiveOf for a row already read) | d1-billing-parity, d1-reports-parity |
 | end_support_access | company.ts:endSupportAccess | d1-company-parity |
 | enforce_quota | billing-plan.ts:enforceQuota (called before inserts in approvals.ts saveTemplate, ingestion.ts submitIngestion, line.ts pairLineGroup, company.ts createCompany / acceptInvitations) | d1-billing-parity, d1-approvals-parity, d1-company-parity |
@@ -195,6 +198,7 @@ triggers, post_stock_movement, code_prefix), `billing-plan.ts` (every plan / quo
 | send_message | company.ts:sendMessage | d1-company-parity |
 | set_feed_ad_status | billing-ads.ts:setFeedAdStatus | d1-billing-parity |
 | set_line_group_listen | line.ts:setLineGroupListen | d1-line-parity |
+| set_member_access | company.ts:setMemberAccess | d1-company-parity |
 | set_my_avatar | network-chat.ts:setMyAvatar | d1-network-chat-parity |
 | set_template_target | approvals.ts:setTemplateTarget | d1-approvals-parity |
 | share_failed | company-share.ts:shareFailed | d1-company-parity |

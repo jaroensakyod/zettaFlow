@@ -32,6 +32,7 @@ import {
   supabaseServer,
   supabaseAdmin,
   configured,
+  serviceConfigured,
 } from "@/lib/supabase/server";
 import {
   demoEnabled,
@@ -166,7 +167,7 @@ async function emailInvite(
   resend = false,
   company?: { name: string; position?: string; by?: string },
 ): Promise<{ emailed: boolean; existing?: boolean; reset?: boolean }> {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { emailed: false };
+  if (!serviceConfigured()) return { emailed: false };
   const site = process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com";
   try {
     const { error } = await supabaseAdmin().auth.admin.inviteUserByEmail(email.trim().toLowerCase(), {
@@ -229,7 +230,7 @@ async function handle(req: NextRequest) {
           (await cookies()).get(PUBLIC_DEMO_COOKIE)?.value === "1",
         ai: aiEnabled(),
         line: !!process.env.LINE_CHANNEL_SECRET,
-        worker: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        worker: serviceConfigured(),
       });
     if (path[0] === "auth") {
       const input = await body(req);
@@ -1065,7 +1066,7 @@ async function handle(req: NextRequest) {
         const { data: m, error: e } = await sb.from("memberships").select("email,role").eq("company_id", ctx.company.id).eq("id", z.uuid().parse(path[1])).maybeSingle();
         dbError(e);
         assert(m?.email, "ไม่พบสมาชิก", 404);
-        assert(process.env.SUPABASE_SERVICE_ROLE_KEY, "ยังส่งอีเมลจากระบบไม่ได้ ส่งข้อความให้พนักงานแทน");
+        assert(serviceConfigured(), "ยังส่งอีเมลจากระบบไม่ได้ ส่งข้อความให้พนักงานแทน");
         const site = process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com";
         const r = await supabaseAdmin().auth.resetPasswordForEmail(String(m.email).trim().toLowerCase(), { redirectTo: site + "/auth/callback?next=/reset-password" });
         if (r.error) console.error("login link", r.error.message);
@@ -1262,7 +1263,7 @@ async function handle(req: NextRequest) {
     if (path[0] === "ingestions") {
       if (path[2] === "retry" && method === "POST") {
         assert(
-          !ctx.demo && process.env.SUPABASE_SERVICE_ROLE_KEY,
+          !ctx.demo && serviceConfigured(),
           "ตั้งค่า Supabase worker ก่อน",
           503,
         );
@@ -1289,7 +1290,7 @@ async function handle(req: NextRequest) {
         );
         if (
           !ctx.demo &&
-          process.env.SUPABASE_SERVICE_ROLE_KEY &&
+          serviceConfigured() &&
           rows.some(
             (i) =>
               i.status === "queued" ||
@@ -1306,7 +1307,7 @@ async function handle(req: NextRequest) {
       }
       if (method === "POST") {
         assert(
-          ctx.demo || process.env.SUPABASE_SERVICE_ROLE_KEY,
+          ctx.demo || serviceConfigured(),
           "ตั้งค่า Service role เพื่อประมวลผลบน server",
           503,
         );
@@ -1523,7 +1524,7 @@ async function handle(req: NextRequest) {
       assert(
         !ctx.demo &&
           process.env.LINE_CHANNEL_SECRET &&
-          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          serviceConfigured(),
         "ตั้งค่า LINE และ Service role บน Vercel ก่อน",
         503,
       );

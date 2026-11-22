@@ -13,8 +13,9 @@ import bcrypt from "bcryptjs";
 import { SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler, type CompiledQuery, type DatabaseConnection, type Dialect, type QueryResult } from "kysely";
 import * as z from "zod";
 import type { Sql, SqlValue } from "./driver";
-import { confirmSignUpMail, envMailer, resetPasswordMail, type Mailer } from "./mailer";
-import type { AuthError, AuthUserResponse, D1AuthMethods, D1AuthProvider, D1User } from "./postgrest";
+import { confirmSignUpMail, envMailer, inviteMail, resetPasswordMail, type Mailer } from "./mailer";
+import type { AuthError, AuthUser, AuthUserResponse, D1AuthMethods, D1AuthProvider, D1User } from "./postgrest";
+import { clientIp, tooManyRequests, type RateAction, type RateLimiter } from "./rate-limit";
 
 // ---------- env ----------
 const DEV_SECRET = "eliteflow-d1-dev-better-auth-secret-not-for-production";
@@ -83,7 +84,7 @@ export const passwordHasher = {
 };
 
 // ---------- links ----------
-export const confirmLink = (base: string, token: string, type: "signup" | "recovery") => `${base}/auth/confirm?token_hash=${encodeURIComponent(token)}&type=${type}`;
+export const confirmLink = (base: string, token: string, type: "signup" | "recovery" | "invite") => `${base}/auth/confirm?token_hash=${encodeURIComponent(token)}&type=${type}`;
 
 // ---------- Better Auth ----------
 export type D1AuthConfig = { sql: Sql; mailer?: Mailer; secret?: string; appUrl?: string };
@@ -189,6 +190,23 @@ export function createD1Auth(cfg: D1AuthConfig) {
             await setSessionCookie(ctx, { session, user });
             return ctx.json({ user });
           }),
+          /**
+           * Supabase auth.admin.inviteUserByEmail: a new account without a password and the invitation email
+           * (/auth/confirm?token_hash=<email-confirmation token>&type=invite). Opening it confirms the address and signs
+           * the person in; route.ts then sends them to /reset-password?invite=1 to choose a password (d1SetPassword).
+           * An address that already has an account answers Supabase's "already been registered".
+           */
+          d1Invite: createAuthEndpoint.serverOnly({ method: "POST", body: z.object({ email: z.string().min(3), name: z.string().optional() }) }, async (ctx) => {
+            const email = ctx.body.email.trim().toLowerCase();
+            if (!z.email().safeParse(email).success) throw APIError.from("BAD_REQUEST", { code: "INVALID_EMAIL", message: "Invalid email" });
+            if (await ctx.context.internalAdapter.findUserByEmail(email))
+              throw APIError.from("UNPROCESSABLE_ENTITY", { code: "EMAIL_EXISTS", message: "A user with this email address has already been registered" });
+            const user = await ctx.context.internalAdapter.createUser({ email, name: ctx.body.name?.trim() || email.split("@")[0], emailVerified: false }, { method: "admin" });
+            if (!user) throw APIError.from("INTERNAL_SERVER_ERROR", { code: "FAILED_TO_CREATE_USER", message: "Failed to create user" });
+            const token = await createEmailVerificationToken(ctx.context.secret, email, undefined, confirmExpires, { userId: user.id });
+            await mailer.send({ to: email, ...inviteMail(email, confirmLink(appUrl, token, "invite")) });
+            return ctx.json({ user });
+          }),
           /** Supabase updateUser({ password }) for the signed-in person (no current password, like Supabase). */
           d1SetPassword: createAuthEndpoint.serverOnly(
             { method: "POST", body: z.object({ password: z.string() }), use: [sessionMiddleware] },
@@ -254,6 +272,8 @@ export function supabaseError(e: unknown): AuthError {
     case "TOKEN_EXPIRED":
     case "USER_NOT_FOUND":
       return authError("Email link is invalid or has expired", 403, "otp_expired");
+    case "EMAIL_EXISTS":
+      return authError("A user with this email address has already been registered", 422, "email_exists");
     case "UNAUTHORIZED":
     case "":
       if ((e as { statusCode?: number }).statusCode === 401) return authError("Auth session missing!", 400, "session_missing");
@@ -280,6 +300,8 @@ export type D1AuthBridgeOptions = {
   headers?: Headers | (() => Headers | undefined | Promise<Headers | undefined>);
   /** Explicit dev stand-in when no Better Auth session: D1_DEV_USER (never in production). */
   devUser?: () => Promise<D1User | null>;
+  /** Per-email / per-IP limits of sign-in, sign-up and reset (src/lib/d1/rate-limit.ts). Without it: no limits. */
+  limiter?: RateLimiter | null;
 };
 export function d1AuthBridge(o: D1AuthBridgeOptions) {
   let authP: Promise<D1Auth> | null = null;
@@ -322,6 +344,24 @@ export function d1AuthBridge(o: D1AuthBridgeOptions) {
     await applyCookies(r.headers);
     return r.response;
   };
+  const requestIp = async () => clientIp(typeof o.headers === "function" ? await o.headers() : o.headers);
+  /** The limiter never breaks signing in: a failing lookup lets the call through (and is logged). */
+  const limited = async (action: RateAction, email: string) => {
+    try {
+      return !!o.limiter && (await o.limiter.blocked(action, email, await requestIp()));
+    } catch (e) {
+      console.error("[auth] rate limit lookup failed:", (e as Error).message);
+      return false;
+    }
+  };
+  const count = async (action: RateAction, email: string, clear = false) => {
+    try {
+      if (clear) await o.limiter?.clear(action, email);
+      else await o.limiter?.hit(action, email, await requestIp());
+    } catch (e) {
+      console.error("[auth] rate limit write failed:", (e as Error).message);
+    }
+  };
   const hasSessionCookie = async () => [...(await cookieMap()).keys()].some((k) => k.endsWith("session_token"));
 
   /** The person of this request's session cookie (or the dev stand-in), null when signed out. */
@@ -363,15 +403,21 @@ export function d1AuthBridge(o: D1AuthBridgeOptions) {
 
     const methods: D1AuthMethods = {
       async signInWithPassword({ email, password }) {
+        // 5 failed sign-ins per email (20 per IP) in 15 minutes, then 429 until the window passes.
+        if (await limited("sign_in_failed", email)) return { data: { user: null, session: null }, error: tooManyRequests() };
         try {
           const r = await call<{ user: BaUser }>("signInEmail", { body: { email, password } });
           await upgradeHash(r.user.id, password);
+          await count("sign_in_failed", email, true);
           return ok(toD1User(r.user));
         } catch (e) {
+          await count("sign_in_failed", email);
           return failed(e);
         }
       },
       async signUp({ email, password, options }) {
+        if (await limited("sign_up", email)) return { data: { user: null, session: null }, error: tooManyRequests() };
+        await count("sign_up", email);
         try {
           const name = String(options?.data?.name ?? "").trim() || email.split("@")[0];
           const r = await call<{ token: string | null; user: BaUser }>("signUpEmail", { body: { email, password, name } });
@@ -400,6 +446,8 @@ export function d1AuthBridge(o: D1AuthBridgeOptions) {
         return { error: null };
       },
       async resetPasswordForEmail(email) {
+        if (await limited("reset", email)) return { data: null, error: tooManyRequests() };
+        await count("reset", email);
         try {
           await call("requestPasswordReset", { body: { email } });
           return { data: {}, error: null };
@@ -454,4 +502,54 @@ export function d1AuthBridge(o: D1AuthBridgeOptions) {
   }
 
   return { currentUser, provider };
+}
+
+// ---------- the service client (supabaseAdmin()) ----------
+/**
+ * What the service client adds on D1: auth.admin.inviteUserByEmail and auth.resetPasswordForEmail (route.ts
+ * emailInvite sends invitations and set-password links with these). No cookies: nobody is signed in by them.
+ */
+export function d1AuthAdmin(o: { auth: D1Auth | (() => D1Auth | Promise<D1Auth>); limiter?: RateLimiter | null | (() => Promise<RateLimiter | null>) }) {
+  const api = async () => (await (typeof o.auth === "function" ? o.auth() : o.auth)).api as unknown as Api;
+  const limiter = async () => (typeof o.limiter === "function" ? await o.limiter() : o.limiter) ?? null;
+  const toAuthUser = (u: BaUser): AuthUser => ({
+    id: u.id,
+    email: u.email,
+    user_metadata: { name: u.name ?? "" },
+    app_metadata: { provider: "email", providers: ["email"] },
+    aud: "authenticated",
+    role: "authenticated",
+    email_confirmed_at: null,
+    created_at: iso(u.createdAt),
+  });
+  return {
+    /** Supabase: inviteUserByEmail(email, { data: { name }, redirectTo }) gives { data: { user }, error }. */
+    async inviteUserByEmail(email: string, opts: { data?: Record<string, unknown>; redirectTo?: string } = {}) {
+      try {
+        const name = opts.data?.name == null ? undefined : String(opts.data.name);
+        const r = (await (await api()).d1Invite({ body: { email, name } })) as { user: BaUser };
+        return { data: { user: toAuthUser(r.user) }, error: null };
+      } catch (e) {
+        return { data: { user: null }, error: supabaseError(e) };
+      }
+    },
+    /** Supabase: resetPasswordForEmail(email, { redirectTo }) as the service role; limited per address only. */
+    async resetPasswordForEmail(email: string, _o?: { redirectTo?: string }) {
+      try {
+        const l = await limiter();
+        if (l && (await l.blocked("reset", email, null))) return { data: null, error: tooManyRequests() };
+        await l?.hit("reset", email, null);
+        await (await api()).requestPasswordReset({ body: { email }, headers: new Headers() });
+        return { data: {}, error: null };
+      } catch (e) {
+        return { data: null, error: supabaseError(e) };
+      }
+    },
+  };
+}
+/** Adds d1AuthAdmin's calls to a service client's `auth` (supabaseAdmin() on D1). */
+export function withAuthAdmin<C extends { auth: { admin: object } }>(client: C, admin: ReturnType<typeof d1AuthAdmin>) {
+  Object.assign(client.auth, { resetPasswordForEmail: admin.resetPasswordForEmail });
+  Object.assign(client.auth.admin, { inviteUserByEmail: admin.inviteUserByEmail });
+  return client as C & { auth: { resetPasswordForEmail: typeof admin.resetPasswordForEmail; admin: { inviteUserByEmail: typeof admin.inviteUserByEmail } } };
 }

@@ -5,7 +5,8 @@
 import { d1Driver, type Sql } from "./driver";
 import { fsBlobStore, r2BlobStore, type BlobStore, type R2Like } from "./blobs";
 import { d1Client, type D1User } from "./postgrest";
-import { d1Auth, d1AuthBridge, type CookieJar } from "./auth";
+import { d1Auth, d1AuthAdmin, d1AuthBridge, withAuthAdmin, type CookieJar } from "./auth";
+import { rateLimiter } from "./rate-limit";
 
 export const d1Enabled = () => process.env.DATA_BACKEND === "d1";
 /** Running inside workerd (Cloudflare Workers / wrangler dev / OpenNext preview). */
@@ -76,10 +77,14 @@ export type D1Request = { cookies: CookieJar; headers?: Headers };
  */
 export async function d1ServerClient(origin = appOrigin(), req: D1Request = { cookies: { getAll: () => [], set: () => {} } }) {
   const sql = await d1Sql();
-  const bridge = d1AuthBridge({ auth: () => d1Auth(sql), cookies: req.cookies, headers: req.headers, devUser: () => d1DevUser(sql) });
+  const bridge = d1AuthBridge({ auth: () => d1Auth(sql), cookies: req.cookies, headers: req.headers, devUser: () => d1DevUser(sql), limiter: rateLimiter(sql) });
   return d1Client({ sql, user: await bridge.currentUser(), service: false, blobs: d1Blobs, origin, authProvider: bridge.provider });
 }
-/** supabaseAdmin() on D1: service role, synchronous like createClient (the database opens on first query). */
+/**
+ * supabaseAdmin() on D1: service role, synchronous like createClient (the database opens on first query). Its auth also
+ * answers admin.inviteUserByEmail and resetPasswordForEmail (Better Auth, src/lib/d1/auth.ts d1AuthAdmin).
+ */
 export function d1AdminClient(origin = appOrigin()) {
-  return d1Client({ sql: d1Sql, user: null, service: true, blobs: d1Blobs, origin });
+  const client = d1Client({ sql: d1Sql, user: null, service: true, blobs: d1Blobs, origin });
+  return withAuthAdmin(client, d1AuthAdmin({ auth: async () => d1Auth(await d1Sql()), limiter: async () => rateLimiter(await d1Sql()) }));
 }

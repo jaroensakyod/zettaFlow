@@ -11,7 +11,7 @@ import { DatabaseSync } from "node:sqlite";
 import { PGlite } from "@electric-sql/pglite";
 import { sqliteDriver } from "../src/lib/d1/driver";
 import { Tenant } from "../src/lib/d1/tenant";
-import type { Viewer } from "../src/lib/d1/access";
+import { canReadDept, canWriteDept, type Viewer } from "../src/lib/d1/access";
 import type { Role } from "../src/lib/types";
 import { sampleRows } from "../src/lib/sample-data";
 import {
@@ -19,6 +19,8 @@ import {
   companyCard,
   companyCover,
   createCompany,
+  departmentNames,
+  deptList,
   editMember,
   endSupportAccess,
   inviteMember,
@@ -26,6 +28,7 @@ import {
   presencePing,
   saveCompany,
   sendMessage,
+  setMemberAccess,
   supportReply,
   supportSeen,
   supportSend,
@@ -63,7 +66,11 @@ type Step = { as?: Who; co?: string } & (
   | { op: "save"; profile: Data; settings?: Data }
   | { op: "invite"; email: string; role: string; departments: string[] }
   | { op: "accept" }
-  | { op: "edit"; who: Who | "unknown"; role: string; departments: string[]; disabled: boolean }
+  | { op: "edit"; who: Who | "unknown"; role: string; departments: string[]; disabled: boolean; readDepartments?: string[] | null }
+  | { op: "access"; who: Who | "unknown"; role: string | null; departments: string[]; readDepartments: string[] }
+  | { op: "can"; who: Who; dept: string }
+  | { op: "deptList"; list: string[] }
+  | { op: "deptNames" }
   | { op: "supportSend"; body: string }
   | { op: "supportReply"; name: string; body: string }
   | { op: "supportSeen" }
@@ -143,6 +150,35 @@ const steps: Step[] = [
   { as: "O", op: "edit", who: "unknown", role: "staff", departments: ["Sales"], disabled: false },
   { as: "O", op: "edit", who: "S", role: "manager", departments: ["Purchasing", "Operations", "Warehouse"], disabled: false },
   { as: "O", op: "edit", who: "V", role: "viewer", departments: ["Sales", "Marketing"], disabled: false },
+  { op: "role", who: "S" },
+  // set_member_access (0085): ใช้งาน / ดู per department; edit_member keeps the ดู list unless given one
+  { op: "deptNames" },
+  { op: "deptList", list: [" ", "Sales", "", "HR", "Sales", " Sales"] },
+  { op: "deptList", list: [] },
+  { as: "S", op: "access", who: "V", role: "staff", departments: ["Sales"], readDepartments: [] },
+  { as: "O", op: "access", who: "V", role: null, departments: ["Sales"], readDepartments: [] },
+  { as: "O", op: "access", who: "V", role: "owner", departments: ["Sales"], readDepartments: [] },
+  { as: "O", op: "access", who: "V", role: "staff", departments: ["Sales", "Nope"], readDepartments: [] },
+  { as: "O", op: "access", who: "V", role: "staff", departments: [], readDepartments: ["Nope"] },
+  { as: "O", op: "access", who: "V", role: "staff", departments: [" "], readDepartments: [""] },
+  { as: "O", op: "access", who: "unknown", role: "staff", departments: ["Sales"], readDepartments: [] },
+  { as: "O", op: "access", who: "O", role: "staff", departments: ["Sales"], readDepartments: [] },
+  { as: "O", op: "access", who: "S", role: "staff", departments: ["Sales", "Sales", " "], readDepartments: ["Finance", "Sales", "HR", "Finance"] },
+  { as: "S", op: "can", who: "S", dept: "Sales" },
+  { as: "S", op: "can", who: "S", dept: "Finance" },
+  { as: "S", op: "can", who: "S", dept: "Warehouse" },
+  { as: "O", op: "can", who: "O", dept: "Finance" },
+  { as: "V", op: "can", who: "V", dept: "Sales" },
+  { as: "V", op: "can", who: "V", dept: "HR" },
+  { as: "O", op: "edit", who: "S", role: "manager", departments: ["Warehouse"], disabled: false },
+  { as: "S", op: "can", who: "S", dept: "HR" },
+  { as: "O", op: "edit", who: "S", role: "manager", departments: ["Finance"], disabled: false, readDepartments: ["Finance", "Legal"] },
+  { as: "O", op: "edit", who: "S", role: "manager", departments: [], disabled: false, readDepartments: ["Nope"] },
+  { as: "O", op: "edit", who: "S", role: "manager", departments: [], disabled: false, readDepartments: [] },
+  { as: "O", op: "edit", who: "S", role: "staff", departments: [], disabled: false, readDepartments: ["Legal"] },
+  { as: "S", op: "can", who: "S", dept: "Legal" },
+  { as: "S", op: "can", who: "S", dept: "Finance" },
+  { as: "O", op: "edit", who: "S", role: "manager", departments: ["Purchasing", "Operations", "Warehouse"], disabled: false, readDepartments: [] },
   { op: "role", who: "S" },
   // support chat
   { as: "V", op: "supportSend", body: "ขอความช่วยเหลือ" },
@@ -352,8 +388,8 @@ test("company / members / support / sample data / shares / notes / outbox on D1 
   const co = (side: Side, s: Step) => ids[side][s.co ?? "A1"];
   const signedIn = (w: Who): SignedInUser => ({ userId: users[w].id, email: users[w].email, name: users[w].name, emailConfirmed: users[w].confirmed });
   const viewer = (w: Who, companyId: string): Viewer => {
-    const m = lite.prepare("select role, departments from memberships where company_id=? and user_id=?").get(companyId, users[w].id) as { role: Role; departments: string } | undefined;
-    return { userId: users[w].id, email: users[w].email, companyId, role: m?.role ?? "viewer", departments: m ? JSON.parse(m.departments) : [] };
+    const m = lite.prepare("select role, departments, read_departments from memberships where company_id=? and user_id=?").get(companyId, users[w].id) as { role: Role; departments: string; read_departments: string } | undefined;
+    return { userId: users[w].id, email: users[w].email, companyId, role: m?.role ?? "viewer", departments: m ? JSON.parse(m.departments) : [], readDepartments: m ? JSON.parse(m.read_departments) : [] };
   };
   const memberId = async (side: Side, w: Who | "unknown", c: string) => {
     if (w === "unknown") return fixed.N9;
@@ -376,8 +412,27 @@ test("company / members / support / sample data / shares / notes / outbox on D1 
       if (s.op === "edit") {
         const id = await memberId("pg", s.who, c);
         await pg.login(s.as!);
-        await q("select edit_member($1,$2,$3,$4,$5)", [c, id, s.role, pgArray(s.departments), s.disabled]);
+        if (s.readDepartments === undefined) await q("select edit_member($1,$2,$3,$4,$5)", [c, id, s.role, pgArray(s.departments), s.disabled]);
+        else await q("select edit_member($1,$2,$3,$4,$5,$6)", [c, id, s.role, pgArray(s.departments), s.disabled, s.readDepartments && pgArray(s.readDepartments)]);
         return null;
+      }
+      if (s.op === "access") {
+        const id = await memberId("pg", s.who, c);
+        await pg.login(s.as!);
+        const [m] = await q<Data>("select * from set_member_access($1,$2,$3,$4,$5)", [c, id, s.role, pgArray(s.departments), pgArray(s.readDepartments)]);
+        return { id: m.id, user_id: m.user_id, role: m.role, departments: m.departments, read_departments: m.read_departments, disabled: m.disabled };
+      }
+      if (s.op === "can") {
+        await pg.login(s.who);
+        return (await q("select can_read_dept($1,$2) as read, can_write_dept($1,$2) as write", [c, s.dept]))[0];
+      }
+      if (s.op === "deptList") {
+        await pg.login(null);
+        return (await q<{ r: string[] }>("select dept_list($1::text[]) as r", [pgArray(s.list)]))[0].r;
+      }
+      if (s.op === "deptNames") {
+        await pg.login(null);
+        return (await q<{ r: string[] }>("select department_names() as r"))[0].r;
       }
       await pg.login(["supportReply", "failed", "lockout", "metrics", "claim", "initStages", "role", "supportViewer"].includes(s.op) ? null : s.as!);
       switch (s.op) {
@@ -496,8 +551,20 @@ test("company / members / support / sample data / shares / notes / outbox on D1 
           await acceptInvitations(sql, signedIn(s.as!));
           return null;
         case "edit":
-          await editMember(t(), await memberId("d1", s.who, c), s.role, s.departments, s.disabled);
+          await editMember(t(), await memberId("d1", s.who, c), s.role, s.departments, s.disabled, s.readDepartments ?? null);
           return null;
+        case "access": {
+          const m = await setMemberAccess(t(), await memberId("d1", s.who, c), s.role, s.departments, s.readDepartments);
+          return { id: m.id, user_id: m.user_id, role: m.role, departments: m.departments, read_departments: m.read_departments, disabled: m.disabled };
+        }
+        case "can": {
+          const v = viewer(s.who, c);
+          return { read: canReadDept(v, s.dept), write: canWriteDept(v, s.dept) };
+        }
+        case "deptList":
+          return deptList(s.list);
+        case "deptNames":
+          return departmentNames();
         case "supportSend":
           return await supportSend(t(), s.body);
         case "supportReply":
@@ -571,7 +638,7 @@ test("company / members / support / sample data / shares / notes / outbox on D1 
   const json = (v: unknown) => (typeof v === "string" ? JSON.parse(v) : v);
   await same("companies", "select * from companies", "select * from companies", (r) => [r.id, r.name, json(r.profile), json(r.settings)]);
   await same("subscriptions", "select * from subscriptions", "select * from subscriptions", (r) => [r.company_id, r.plan, r.status]);
-  await same("memberships", "select * from memberships", "select * from memberships", (r) => [r.company_id, r.user_id, r.name, r.email, r.role, json(r.departments), !!r.disabled, !!r.last_seen_at]);
+  await same("memberships", "select * from memberships", "select * from memberships", (r) => [r.company_id, r.user_id, r.name, r.email, r.role, json(r.departments), json(r.read_departments), !!r.disabled, !!r.last_seen_at]);
   await same("invitations", "select * from invitations", "select * from invitations", (r) => [r.company_id, r.email, r.role, json(r.departments), !!r.accepted_at]);
   await same("accounts", "select company_id, count(*)::int n from accounts group by 1", "select company_id, count(*) n from accounts group by 1", (r) => [r.company_id, Number(r.n)]);
   await same("cost_centers", "select * from cost_centers", "select * from cost_centers", (r) => [r.company_id, r.code, r.name, r.kind]);

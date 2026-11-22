@@ -51,7 +51,7 @@ function setup() {
 
 test("the migrations create the schema, the users table and the seed rows", () => {
   const { db, applied, cleanup } = setup();
-  assert.deepEqual(applied, ["0001_schema.sql", "0002_users.sql", "0003_seed.sql", "0004_auth.sql"]);
+  assert.deepEqual(applied.slice(0, 4), ["0001_schema.sql", "0002_users.sql", "0003_seed.sql", "0004_auth.sql"]);
   const n = (t: string) => (db.prepare(`select count(*) n from ${t}`).all()[0] as { n: number }).n;
   assert.ok(n("entity_schemas") > 10);
   assert.ok(n("plans") >= 4);
@@ -196,6 +196,117 @@ test("or() in PostgREST syntax (home-extra.ts)", async () => {
   assert.deepEqual(data!.map((r) => r.name).sort(), ["ค่าเช่า", "สาขาหลัก"]);
   const q = await as(owner).from("entities").select("id").or(`data->>status.eq.active,and(kind.eq.expenses,created_at.gte."2000-01-01T00:00:00+07:00")`);
   assert.equal(q.data!.length, 2);
+  cleanup();
+});
+
+test("homeMe (home-extra.ts) and /team query shapes: ilike on a JSON path, created_by, line_users, ingestions, invitations", async () => {
+  const { as, admin, db, cleanup } = setup();
+  const run = (q: string, ...p: (string | number | null)[]) => db.prepare(q).run(...p);
+  run("insert into entities(company_id,kind,department,data) values (?,?,?,?)", A, "employees", "HR", JSON.stringify({ name: "สมชาย", nickname: "ชาย", position: "Sales", code: "EMP-1", department: "Sales", level: "L2", email: "Staff@A.th" }));
+  run("insert into entities(company_id,kind,department,data) values (?,?,?,?)", A, "employees", "HR", JSON.stringify({ name: "อื่น", email: "staffXa.th" }));
+  run("insert into entities(company_id,kind,department,data,created_by,created_at) values (?,?,?,?,?,?)", A, "leaves", "HR", JSON.stringify({ name: "ลา", status: "pending" }), staff.id, "2026-11-02T00:00:00.000Z");
+  run("insert into entities(company_id,kind,department,data,created_by,created_at) values (?,?,?,?,?,?)", A, "purchases", "Purchasing", JSON.stringify({ name: "ซื้อ", status: "approved" }), staff.id, "2026-11-03T00:00:00.000Z");
+  run("insert into entities(company_id,kind,department,data,created_by) values (?,?,?,?,?)", A, "tasks", "Sales", JSON.stringify({ name: "งาน 1", status: "done" }), staff.id);
+  run("insert into entities(company_id,kind,department,data,created_by) values (?,?,?,?,?)", A, "tasks", "Sales", JSON.stringify({ name: "งาน 2", status: "pending" }), staff.id);
+  run("insert into entities(company_id,kind,department,data,created_by) values (?,?,?,?,?)", A, "tasks", "Sales", JSON.stringify({ name: "งาน 3" }), staff.id);
+  run("insert into line_users(company_id,line_user_id,user_id) values (?,?,?)", A, "U-line-1", staff.id);
+  run("insert into ingestions(company_id,template,department,status,source,source_user,created_at) values (?,?,?,?,?,?,?)", A, '{"name":"ใบลา"}', "HR", "review", "LINE", "U-line-1", "2026-11-04T00:00:00.000Z");
+  run("insert into ingestions(company_id,template,department,status,created_by,created_at) values (?,?,?,?,?,?)", A, '{"name":"ขาย"}', "Sales", "approved", staff.id, "2026-11-05T00:00:00.000Z");
+  run("insert into invitations(company_id,email,role,departments) values (?,?,?,?)", A, "new@a.th", "staff", '["Sales"]');
+  const me = staff.id,
+    email = "staff@a.th";
+  // homeMe runs on the service client when there is one (else the person's): every query is pinned to the company and the person.
+  for (const sb of [admin, as(owner)]) {
+    const links = await sb.from("line_users").select("line_user_id").eq("company_id", A).eq("user_id", me);
+    assert.equal(links.error, null);
+    // line_users has no RLS policy: only the service role sees the link (a person reads no rows, no error).
+    assert.deepEqual(links.data, sb === admin ? [{ line_user_id: "U-line-1" }] : []);
+    const emp = await sb
+      .from("entities")
+      .select("id,name:data->>name,nickname:data->>nickname,position:data->>position,code:data->>code,department:data->>department,level:data->>level")
+      .eq("company_id", A)
+      .eq("kind", "employees")
+      .is("archived_at", null)
+      .ilike("data->>email", email.replace(/[%_\\]/g, "\\$&"))
+      .limit(1);
+    assert.equal(emp.error, null);
+    assert.equal(emp.data!.length, 1);
+    const { id, ...rest } = emp.data![0] as Record<string, unknown>;
+    assert.ok(id);
+    assert.deepEqual(rest, { name: "สมชาย", nickname: "ชาย", position: "Sales", code: "EMP-1", department: "Sales", level: "L2" });
+    // An escaped _ matches only itself (staff\_a.th does not match staffXa.th).
+    const none = await sb.from("entities").select("id").eq("company_id", A).ilike("data->>email", "staff\\_a.th");
+    assert.deepEqual(none.data, []);
+    const ents = await sb.from("entities").select("id,kind,data,created_at").eq("company_id", A).eq("created_by", me).is("archived_at", null).order("created_at", { ascending: false }).limit(40);
+    assert.equal(ents.error, null);
+    assert.equal(ents.data!.length, 5);
+    assert.ok((ents.data![0].data as { name: string }).name.startsWith("งาน"));
+    const waiting = await sb
+      .from("entities")
+      .select("id,kind,data,created_at")
+      .eq("company_id", A)
+      .eq("created_by", me)
+      .is("archived_at", null)
+      .or("and(kind.in.(leaves,expenses),data->>status.eq.pending),and(kind.eq.purchases,data->>status.eq.draft)")
+      .limit(500);
+    assert.deepEqual(
+      waiting.data!.map((r) => r.kind),
+      ["leaves"],
+    );
+    const ingSelect = "id,status,target_kind,template,values,created_at";
+    const ingMine = await sb.from("ingestions").select(ingSelect).eq("company_id", A).eq("created_by", me).order("created_at", { ascending: false }).limit(40);
+    assert.equal(ingMine.error, null);
+    assert.deepEqual(
+      ingMine.data!.map((r) => r.template),
+      [{ name: "ขาย" }],
+    );
+    const ingLine = await sb.from("ingestions").select(ingSelect).eq("company_id", A).in("source_user", ["U-line-1"]).order("created_at", { ascending: false }).limit(40);
+    assert.deepEqual(
+      ingLine.data!.map((r) => r.status),
+      ["review"],
+    );
+    // neq on a JSON path leaves out rows without the field, like Postgres (null <> 'done' is not true).
+    const tasks = await sb.from("entities").select("created_by,data").eq("company_id", A).eq("kind", "tasks").is("archived_at", null).neq("data->>status", "done").limit(1000);
+    assert.deepEqual(
+      tasks.data!.map((r) => (r.data as { name: string }).name),
+      ["งาน 2"],
+    );
+    // /team: the company's members and invitations, one invitation by email, one member by id.
+    const [members, invites] = await Promise.all([sb.from("memberships").select("*").eq("company_id", A), sb.from("invitations").select("*").eq("company_id", A)]);
+    assert.equal(members.error, null);
+    assert.equal(members.data!.length, 2);
+    assert.deepEqual(members.data!.find((m) => m.user_id === me)!.read_departments, []);
+    assert.deepEqual(
+      invites.data!.map((i) => [i.email, i.departments]),
+      [["new@a.th", ["Sales"]]],
+    );
+    const inv = await sb.from("invitations").select("role,departments,accepted_at").eq("company_id", A).eq("email", "new@a.th").maybeSingle();
+    assert.deepEqual(inv.data, { role: "staff", departments: ["Sales"], accepted_at: null });
+    const mid = members.data!.find((m) => m.user_id === me)!.id as string;
+    const m1 = await sb.from("memberships").select("email,name").eq("company_id", A).eq("id", mid).maybeSingle();
+    assert.deepEqual(m1.data, { email: "staff@a.th", name: "" });
+    const m2 = await sb.from("memberships").select("email,role").eq("company_id", A).eq("id", mid).maybeSingle();
+    assert.deepEqual(m2.data, { email: "staff@a.th", role: "staff" });
+  }
+  // A staff member sees only their own membership and none of the invitations (owner only).
+  const st = as(staff);
+  assert.equal((await st.from("memberships").select("*").eq("company_id", A)).data!.length, 1);
+  assert.deepEqual((await st.from("invitations").select("*").eq("company_id", A)).data, []);
+  cleanup();
+});
+
+test("read_departments (ดู) let a member read a department but never write it", async () => {
+  const { as, db, cleanup } = setup();
+  const names = async () => ((await as(staff).from("entities").select("data->>name").eq("company_id", A).is("archived_at", null)).data || []).map((r) => r.name).sort();
+  assert.deepEqual(await names(), ["ลูกค้า Alpha", "ลูกค้า Beta", "สาขาหลัก"]);
+  db.prepare("update memberships set read_departments=? where company_id=? and user_id=?").run('["Finance"]', A, staff.id);
+  assert.deepEqual(await names(), ["ค่าเช่า", "ลูกค้า Alpha", "ลูกค้า Beta", "สาขาหลัก"]);
+  // Journal entries (can_read_dept Finance) open up too; saving a Finance record still needs ใช้งาน.
+  assert.equal((await as(staff).from("journal_entries").select("id").eq("company_id", A)).data!.length, 1);
+  const { error } = await as(staff).rpc("save_entity", { p_company: A, p_kind: "expenses", p_data: { name: "x", category: "อื่นๆ", date: "2026-11-01", amount: 1, status: "pending" } });
+  assert.match(String(error?.message), /ไม่มีสิทธิ์/);
+  const ok = await as(staff).rpc("save_entity", { p_company: A, p_kind: "customers", p_data: { name: "ใหม่", status: "active" } });
+  assert.equal(ok.error, null);
   cleanup();
 });
 

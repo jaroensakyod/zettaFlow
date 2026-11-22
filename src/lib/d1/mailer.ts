@@ -1,6 +1,8 @@
-// Email of the D1 build (Supabase Auth sent these before): sign-up confirmation and password reset links.
-// Pluggable: `send({ to, subject, html, text })`.
-// - MAIL_PROVIDER=resend + MAIL_API_KEY + MAIL_FROM: Resend's HTTP API (fetch, no SDK; works on Workers).
+// Email of the D1 build (Supabase Auth sent these before): sign-up confirmation, password reset and invitation links.
+// Pluggable: `send({ to, subject, html, text })`. One mail configuration with the app's own emails (src/lib/mailer.ts):
+// - RESEND_API_KEY + MAIL_FROM (what src/lib/mailer.ts uses for invitation emails): Resend's HTTP API (fetch, no SDK;
+//   works on Workers). MAIL_ENDPOINT overrides the API URL.
+// - else, the older MAIL_PROVIDER=resend + MAIL_API_KEY + MAIL_FROM (same API).
 // - nothing configured, outside production: the message and its link go to the server console, and on node the last
 //   message per address is written to .data/mail/<email>.json (MAIL_DIR overrides) so tests and local checks can
 //   open the link.
@@ -68,6 +70,8 @@ export function memoryMailer() {
 
 /** The mailer chosen by env (see the top of this file). */
 export function envMailer(): Mailer {
+  if (process.env.RESEND_API_KEY && process.env.MAIL_FROM)
+    return resendMailer({ apiKey: process.env.RESEND_API_KEY, from: process.env.MAIL_FROM, endpoint: process.env.MAIL_ENDPOINT || undefined });
   const provider = (process.env.MAIL_PROVIDER || "").toLowerCase();
   if (provider) {
     const apiKey = process.env.MAIL_API_KEY,
@@ -79,7 +83,7 @@ export function envMailer(): Mailer {
   if (process.env.NODE_ENV === "production")
     return {
       async send(m) {
-        console.error(`[mail] MAIL_PROVIDER is not set: "${m.subject}" to ${m.to} was not sent`);
+        console.error(`[mail] RESEND_API_KEY / MAIL_FROM are not set: "${m.subject}" to ${m.to} was not sent`);
       },
     };
   return devMailer();
@@ -89,7 +93,7 @@ export function envMailer(): Mailer {
 const fill = (s: string, v: Record<string, string>) => s.replace(/\{\{ \.(\w+) \}\}/g, (all, k: string) => v[k] ?? all);
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 /** One of the app's templates with its button pointed at `link`. */
-function render(slug: "confirm-sign-up" | "reset-password", email: string, link: string, text: string): Omit<Mail, "to"> {
+function render(slug: "confirm-sign-up" | "reset-password" | "invite-user", email: string, link: string, text: string): Omit<Mail, "to"> {
   const t = templates[slug];
   // The templates link to {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=…; the D1 build makes the whole link.
   const body = t.body.replace(/\{\{ \.SiteURL \}\}\/auth\/confirm\?token_hash=\{\{ \.TokenHash \}\}&type=\w+/g, esc(link));
@@ -99,3 +103,5 @@ export const confirmSignUpMail = (email: string, link: string) =>
   render("confirm-sign-up", email, link, `ยืนยันอีเมล ${email} เพื่อเริ่มใช้ EliteFlow โดยเปิดลิงก์นี้`);
 export const resetPasswordMail = (email: string, link: string) =>
   render("reset-password", email, link, `ตั้งรหัสผ่านใหม่สำหรับบัญชี ${email} โดยเปิดลิงก์นี้ (ใช้ได้ครั้งเดียว หมดอายุภายใน 1 ชั่วโมง)`);
+export const inviteMail = (email: string, link: string) =>
+  render("invite-user", email, link, `มีผู้เชิญอีเมล ${email} เข้าร่วม EliteFlow เปิดลิงก์นี้เพื่อตอบรับคำเชิญและตั้งรหัสผ่าน (ใช้ได้ครั้งเดียว หมดอายุภายใน 24 ชั่วโมง)`);

@@ -66,9 +66,10 @@ test("departments, roles and own rows follow the Postgres policies", async () =>
   assert.deepEqual((await s.select<{ body: string }>("user_notes")).map((n) => n.body), ["ของพนักงาน"], "only their own notes");
   // An invitation to another company addressed to them is visible (to accept it).
   assert.equal((await s.select("invitations")).length, 1);
-  // Shared catalogues are readable; system tables are not.
+  // Shared catalogues are readable; line_users (RLS on, select granted, no policy) reads as no rows, like Postgres;
+  // tables without a rule are not readable at all.
   assert.ok(Array.isArray(await s.select("plans")));
-  await assert.rejects(s.select("line_users"), AccessError);
+  assert.deepEqual(await s.select("line_users"), []);
   await assert.rejects(s.select("no_such_table"), AccessError);
 });
 

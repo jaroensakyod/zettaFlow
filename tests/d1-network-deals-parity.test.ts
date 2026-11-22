@@ -10,6 +10,7 @@ import { json, labeller, runSteps, sameRows, setup, type D1Fns, type Refs, type 
 
 const NOPE = "20000000-0000-4000-8000-000000000099";
 const SUPPLIER = "30000000-0000-4000-8000-0000000000aa";
+const TASK = "30000000-0000-4000-8000-0000000000bb";
 
 const d1: D1Fns = {
   b2b_open: chat.b2bOpen,
@@ -27,6 +28,7 @@ const d1: D1Fns = {
   b2b_deal_decide: deals.b2bDealDecide,
   b2b_deal_withdraw: deals.b2bDealWithdraw,
   b2b_deals_of: deals.b2bDealsOf,
+  b2b_deal_take: deals.b2bDealTake,
   b2b_deal_progress: deals.b2bDealProgress,
   b2b_deal_deliver: deals.b2bDealDeliver,
   b2b_deal_check: deals.b2bDealCheck,
@@ -85,6 +87,12 @@ test("b2b_deal_* on D1 match Postgres step for step", async () => {
       { as: "alice", fn: "b2b_deal_quote", args: (r) => [T(r), deal("RFQ")(r), "x", { items: [{ name: "a", price: 1 }] }] },
       // 2. Bob (seller) quotes it; every refusal first.
       { as: "bob", fn: "b2b_deals_of", args: (r) => [T(r)] },
+      // Taking over a side (b2b_deal_take): refusals, then Bob takes the contractor's side before any project exists.
+      { as: "vic", fn: "b2b_deal_take", args: (r) => [deal("RFQ")(r)] },
+      { as: "alice", fn: "b2b_deal_take", args: () => [NOPE] },
+      { as: "carol", fn: "b2b_deal_take", args: (r) => [deal("RFQ")(r)] },
+      { as: "bob", fn: "b2b_deal_take", args: (r) => [deal("RFQ")(r)] },
+      { as: "alice", fn: "b2b_deals_of", args: (r) => [T(r)] },
       { as: "bob", fn: "b2b_deal_quote", args: (r) => [T(r), deal("RFQ")(r), "  ", { items }] },
       { as: "bob", fn: "b2b_deal_quote", args: (r) => [T(r), NOPE, "x", { items }] },
       { as: "bob", fn: "b2b_deal_quote", args: (r) => [T(r), deal("RFQ")(r), "x", { items, validUntil: "2020-01-01" }] },
@@ -111,10 +119,14 @@ test("b2b_deal_* on D1 match Postgres step for step", async () => {
       { as: "alice", fn: "raw", raw: { pg: `update b2b_cards set data=data||'{"validUntil":"2020-01-01"}' where id=$1`, d1: `update b2b_cards set data=json_set(data,'$.validUntil','2020-01-01') where id=?` }, args: (r) => [card("Q2")(r)] },
       { as: "alice", fn: "b2b_deal_decide", args: (r) => [card("Q2")(r), "accept", null] },
       { as: "alice", fn: "raw", raw: { pg: `update b2b_cards set data=data||'{"validUntil":"2099-01-31"}' where id=$1`, d1: `update b2b_cards set data=json_set(data,'$.validUntil','2099-01-31') where id=?` }, args: (r) => [card("Q2")(r)] },
-      // 5. Alice accepts Rev.2: customer, project, quotation for Bob; supplier (existing) and task for Alice.
+      // 5. Alice accepts Rev.2: customer, project, quotation for Bob; supplier (existing) and a project for the work for Alice.
       { as: "alice", fn: "b2b_deal_decide", save: "ACC", args: (r) => [card("Q2")(r), "accept", null] },
       { as: "alice", fn: "b2b_deals_of", args: (r) => [T(r)] },
       { as: "bob", fn: "b2b_deals_of", args: (r) => [T(r)] },
+      // Amy takes over the hiring side: her name goes on Alice's project for the work.
+      { as: "amy", fn: "b2b_deal_take", args: (r) => [deal("Q2")(r)] },
+      { as: "amy", fn: "b2b_deals_of", args: (r) => [T(r)] },
+      { as: "alice", fn: "b2b_deals_of", args: (r) => [T(r)] },
       { as: "bob", fn: "b2b_accepted_quote", admin: true, self: false, args: (r) => [deal("Q2")(r)] },
       { as: "bob", fn: "b2b_deal_fully_paid", admin: true, self: false, args: (r) => [deal("Q2")(r)] },
       // 6. The deal is agreed: no new quotation, no withdrawal, no second decision.
@@ -181,6 +193,10 @@ test("b2b_deal_* on D1 match Postgres step for step", async () => {
       // A second deal (no request): accepted, paid in part, then cancelled with both sides' consent.
       { as: "bob", fn: "b2b_deal_quote", save: "Q3", args: (r) => [T(r), null, "งานป้าย", { items: [{ name: "ป้าย", price: 5000 }], vatMode: "none", validUntil: "2099-01-01", installments: [{ percent: 30 }, { percent: 30 }, { percent: 40 }] }] },
       { as: "alice", fn: "b2b_deal_decide", args: (r) => [card("Q3")(r), "accept", null] },
+      // A deal accepted before 0083 points at a task, not a project: taking it over leaves the task alone, cancelling closes it.
+      { as: "alice", fn: "raw", raw: { pg: `insert into entities(id,company_id,kind,department,data) values ($1,$2,'tasks','Purchasing','{"name":"ติดตามงาน: งานป้าย","code":"TSK-OLD","status":"pending"}')`, d1: `insert into entities(id,company_id,kind,department,data) values (?,?,'tasks','Purchasing','{"name":"ติดตามงาน: งานป้าย","code":"TSK-OLD","status":"pending"}')` }, args: () => [TASK, A] },
+      { as: "alice", fn: "raw", raw: { pg: `update b2b_deals set buyer_task=$1 where id=$2`, d1: `update b2b_deals set buyer_task=? where id=?` }, args: (r) => [TASK, deal("Q3")(r)] },
+      { as: "alice", fn: "b2b_deal_take", args: (r) => [deal("Q3")(r)] },
       { as: "bob", fn: "b2b_deal_cancel", args: (r) => [deal("Q3")(r), " "] },
       { as: "bob", fn: "b2b_deal_invoice", save: "IV3", args: (r) => [deal("Q3")(r), 0, null] },
       { as: "alice", fn: "b2b_deal_pay", save: "PAY4", args: (r) => [card("IV3")(r), {}] },
@@ -197,6 +213,7 @@ test("b2b_deal_* on D1 match Postgres step for step", async () => {
       { as: "alice", fn: "b2b_deal_cancel_answer", args: (r) => [card("CX1")(r), true, null] },
       { as: "alice", fn: "b2b_deal_cancel", save: "CX2", args: (r) => [deal("Q3")(r), "งบถูกตัดค่ะ"] },
       { as: "bob", fn: "b2b_deal_cancel_answer", args: (r) => [card("CX2")(r), true, null] },
+      { as: "bob", fn: "b2b_deal_take", args: (r) => [deal("Q3")(r)] },
       { as: "bob", fn: "b2b_deal_progress", args: (r) => [deal("Q3")(r), 10, "x"] },
       { as: "alice", fn: "b2b_deal_pay", args: (r) => [card("IV4")(r), {}] },
       { as: "bob", fn: "b2b_deal_fully_paid", admin: true, self: false, args: (r) => [deal("Q3")(r)] },
@@ -217,6 +234,7 @@ test("b2b_deal_* on D1 match Postgres step for step", async () => {
       { as: "alice", fn: "b2b_deal_request", save: "R6", args: (r) => [T(r), "งานพิมพ์", { items: [{ name: "โบรชัวร์", qty: 500 }] }] },
       { as: "bob", fn: "b2b_deal_quote", save: "Q6", args: (r) => [T(r), deal("R6")(r), "งานพิมพ์", { items: [{ name: "โบรชัวร์", qty: 500, price: 3.5 }] }] },
       { as: "alice", fn: "b2b_deal_decide", args: (r) => [card("Q6")(r), "reject", null] },
+      { as: "alice", fn: "b2b_deal_take", args: (r) => [deal("Q6")(r)] },
       { as: "bob", fn: "b2b_deal_quote", save: "Q7", args: (r) => [T(r), null, "งานพิมพ์ 2", { items: [{ name: "โบรชัวร์", qty: 1000, price: 3 }] }] },
       { as: "alice", fn: "b2b_deal_decide", args: (r) => [card("Q7")(r), "reject", " แพงไป "] },
       // What both companies see at the end.
@@ -226,13 +244,13 @@ test("b2b_deal_* on D1 match Postgres step for step", async () => {
       { as: "alice", fn: "b2b_read", args: (r) => [T(r), null] },
       { as: "bob", fn: "b2b_inbox" },
     ];
-    const norm = labeller(h, { [NOPE]: "NOPE", [SUPPLIER]: "SUPPLIER" });
+    const norm = labeller(h, { [NOPE]: "NOPE", [SUPPLIER]: "SUPPLIER", [TASK]: "TASK" });
     const n = await runSteps(h, steps, d1, norm);
-    const made = { pg: "data ? 'b2bDealId' or data ? 'networkCompanyId' or kind='suppliers'", d1: "json_extract(data,'$.b2bDealId') is not null or json_extract(data,'$.networkCompanyId') is not null or kind='suppliers'" };
+    const made = { pg: "data ? 'b2bDealId' or data ? 'networkCompanyId' or kind in ('suppliers','tasks')", d1: "json_extract(data,'$.b2bDealId') is not null or json_extract(data,'$.networkCompanyId') is not null or kind in ('suppliers','tasks')" };
     await sameRows(h, norm, "entities", ["company_id", "kind", "department", "data", "version", "created_by", "archived_at"], made);
     await sameRows(h, norm, "project_stages", ["company_id", "key", "ordinal", "department", "status", "version"]);
     await sameRows(h, norm, "doc_counters", ["company_id", "prefix", "year", "last"]);
-    await sameRows(h, norm, "b2b_deals", ["thread_id", "buyer", "seller", "title", "stage", "accepted_by"]);
+    await sameRows(h, norm, "b2b_deals", ["thread_id", "buyer", "seller", "title", "stage", "accepted_by", "buyer_task", "buyer_contact_id", "buyer_contact", "seller_contact_id", "seller_contact"]);
     await sameRows(h, norm, "b2b_cards", ["company_id", "author_id", "author_name", "kind", "rev", "data", "status", "reason", "decided_by"]);
     await sameRows(h, norm, "b2b_messages", ["company_id", "author_id", "author_name", "body"]);
     assert.ok(n > 150);

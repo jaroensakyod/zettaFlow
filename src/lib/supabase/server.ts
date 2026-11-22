@@ -10,6 +10,8 @@ export const configured = () =>
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   );
+/** Server-side work as the service role is possible: SUPABASE_SERVICE_ROLE_KEY, or D1 (its service client needs no key). */
+export const serviceConfigured = () => d1Enabled() || !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 async function supabaseServerClient() {
   if (!configured())
     throw Error("ตั้งค่า Supabase URL และ Publishable key ก่อน");

@@ -11,15 +11,22 @@ export type Viewer = {
   /** The company of this request. */
   companyId: string;
   role: Role;
+  /** ใช้งาน departments: read and write. */
   departments: string[];
+  /** ดู departments (memberships.read_departments, 0085): read only, never writes. */
+  readDepartments?: string[];
   /** A platform admin looking read-only (ดูในมุมมองลูกค้า): reads every department, writes nothing. */
   support?: boolean;
 };
 export type Where = { sql: string; params: SqlValue[] };
 type Rule = (v: Viewer, now: string) => Where;
 
-export const canReadDept = (v: Viewer, d: string) => v.role === "owner" || !!v.support || v.departments.includes(d);
-export const canWriteDept = (v: Viewer, d: string) => !v.support && v.role !== "viewer" && canReadDept(v, d);
+/** can_read_dept(c, d): the owner, a department in either list, or an open support view. */
+export const canReadDept = (v: Viewer, d: string) => v.role === "owner" || !!v.support || v.departments.includes(d) || !!v.readDepartments?.includes(d);
+/** can_write_dept(c, d): never a viewer or a support view; the owner or a ใช้งาน department (read_departments do not count). */
+export const canWriteDept = (v: Viewer, d: string) => !v.support && v.role !== "viewer" && (v.role === "owner" || v.departments.includes(d));
+/** Every department the person reads (departments ∪ read_departments). */
+const readable = (v: Viewer) => JSON.stringify([...v.departments, ...(v.readDepartments ?? [])]);
 
 const all: Rule = () => ({ sql: "1", params: [] });
 const company = (v: Viewer, extra?: Where): Where => ({ sql: `t.company_id = ?${extra ? ` AND (${extra.sql})` : ""}`, params: [v.companyId, ...(extra?.params || [])] });
@@ -34,7 +41,7 @@ const dept =
   (v) =>
     company(v, canReadDept(v, d) ? yes : no);
 /** can_read_dept(company_id, department): the row's own department. */
-const deptColumn: Rule = (v) => (canReadDept(v, "*") ? company(v) : company(v, { sql: `t.department IN (SELECT value FROM json_each(?))`, params: [JSON.stringify(v.departments)] }));
+const deptColumn: Rule = (v) => (canReadDept(v, "*") ? company(v) : company(v, { sql: `t.department IN (SELECT value FROM json_each(?))`, params: [readable(v)] }));
 const projectAlive = (col: string) => `EXISTS (SELECT 1 FROM entities e WHERE e.id = t.${col} AND e.company_id = t.company_id AND e.archived_at IS NULL)`;
 const and = (a: Where, sql: string): Where => ({ sql: `(${a.sql}) AND ${sql}`, params: a.params });
 
@@ -91,7 +98,7 @@ export const readRules: Record<string, Rule> = {
   ingestions: deptColumn,
   messages: deptColumn,
   // Branches are shown to every member; other records by their department.
-  entities: (v) => (canReadDept(v, "*") ? company(v) : company(v, { sql: `t.kind = 'branches' OR t.department IN (SELECT value FROM json_each(?))`, params: [JSON.stringify(v.departments)] })),
+  entities: (v) => (canReadDept(v, "*") ? company(v) : company(v, { sql: `t.kind = 'branches' OR t.department IN (SELECT value FROM json_each(?))`, params: [readable(v)] })),
   design_revisions: (v) => and(dept("Design")(v, ""), projectAlive("project_id")),
   project_inventory: (v) => and(dept("Warehouse")(v, ""), projectAlive("project_id")),
   project_stages: (v) => and(deptColumn(v, ""), projectAlive("project_id")),
@@ -111,6 +118,9 @@ export const readRules: Record<string, Rule> = {
   journal_lines: (v) => ({ sql: `EXISTS (SELECT 1 FROM journal_entries j WHERE j.id = t.entry_id AND j.company_id = ? AND ${canReadDept(v, "Finance") ? "1" : "0"})`, params: [v.companyId] }),
   line_group_approvers: (v) => ({ sql: "EXISTS (SELECT 1 FROM line_groups g WHERE g.group_id = t.group_id AND g.company_id = ?)", params: [v.companyId] }),
   post_proposals: (v) => ({ sql: "t.company_id = ? OR EXISTS (SELECT 1 FROM company_posts p WHERE p.id = t.post_id AND p.company_id = ?)", params: [v.companyId, v.companyId] }),
+
+  // RLS on and select granted, but no policy: a signed-in person reads no rows (no error); only the service role does.
+  line_users: () => no,
 
   // Rows about the person themself.
   memberships: (v) => ({ sql: `t.user_id = ? OR (t.company_id = ? AND ${v.role === "owner" ? "1" : "0"})`, params: [v.userId, v.companyId] }),

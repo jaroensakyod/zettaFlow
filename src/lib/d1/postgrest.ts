@@ -351,7 +351,7 @@ export function parseSelect(s: string | undefined): SelItem[] {
 }
 
 // ---------- who is asking ----------
-type Member = { company_id: string; role: Role; departments: string[] };
+type Member = { company_id: string; role: Role; departments: string[]; read_departments: string[] };
 class Session {
   private viewersP: Promise<Viewer[]> | null = null;
   constructor(
@@ -363,14 +363,14 @@ class Session {
     if (!this.user) return Promise.resolve([]);
     const u = this.user;
     return (this.viewersP ??= (async () => {
-      const members = (await this.sql.all<Row>("SELECT company_id, role, departments FROM memberships WHERE user_id = ? AND disabled = 0", [u.id])).map(
+      const members = (await this.sql.all<Row>("SELECT company_id, role, departments, read_departments FROM memberships WHERE user_id = ? AND disabled = 0", [u.id])).map(
         (r) => decode<Member>(tables.memberships, r),
       );
       const at = new Date().toISOString();
       const support = (await this.sql.all<{ company_id: string; expires_at: string }>("SELECT company_id, expires_at FROM support_access WHERE user_id = ? AND ended_at IS NULL", [u.id])).filter(
         (r) => Date.parse(r.expires_at) > Date.parse(at),
       );
-      const out: Viewer[] = members.map((m) => ({ userId: u.id, email: u.email.toLowerCase(), companyId: m.company_id, role: m.role, departments: m.departments || [] }));
+      const out: Viewer[] = members.map((m) => ({ userId: u.id, email: u.email.toLowerCase(), companyId: m.company_id, role: m.role, departments: m.departments || [], readDepartments: m.read_departments || [] }));
       for (const s of support)
         if (!out.some((v) => v.companyId === s.company_id)) out.push({ userId: u.id, email: u.email.toLowerCase(), companyId: s.company_id, role: "viewer", departments: [], support: true });
       return out;
@@ -788,11 +788,11 @@ export function d1Client(opts: D1ClientOptions) {
       async tenantFor(companyId: string): Promise<Tenant> {
         if (service) return serviceTenant(s, companyId);
         if (!user) return fail("ไม่มีสิทธิ์", 403);
-        const [m] = (await s.all<Row>("SELECT role, departments FROM memberships WHERE company_id = ? AND user_id = ? AND disabled = 0 LIMIT 1", [companyId, user.id])).map((r) =>
+        const [m] = (await s.all<Row>("SELECT role, departments, read_departments FROM memberships WHERE company_id = ? AND user_id = ? AND disabled = 0 LIMIT 1", [companyId, user.id])).map((r) =>
           decode<Member>(tables.memberships, r),
         );
         const base = { userId: user.id, email: user.email.toLowerCase(), companyId };
-        if (m) return new Tenant(s, { ...base, role: m.role, departments: m.departments || [] });
+        if (m) return new Tenant(s, { ...base, role: m.role, departments: m.departments || [], readDepartments: m.read_departments || [] });
         if (await supportViewerIn(serviceTenant(s), user.id, companyId)) return new Tenant(s, { ...base, role: "viewer", departments: [], support: true });
         return fail("ไม่มีสิทธิ์", 403);
       },
