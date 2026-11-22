@@ -31,8 +31,9 @@ const files: Record<string, Record<string, Uint8Array>> = { "eliteflow-files": {
 const fakeSupabase: typeof fetch = async (input, init) => {
   const url = new URL(String(input));
   const method = init?.method ?? "GET";
-  const auth = new Headers(init?.headers).get("authorization");
-  if (auth !== "Bearer service-key") return new Response("no", { status: 401 });
+  // A new "sb_secret_" key travels in apikey only (a bearer that is not a JWT is refused, like Supabase does).
+  const h = new Headers(init?.headers);
+  if (h.get("apikey") !== "sb_secret_test" || h.has("authorization")) return new Response("no", { status: 401 });
   const rest = url.pathname.match(/^\/rest\/v1\/(\w+)$/);
   if (rest && method === "HEAD") return new Response(null, { status: 206, headers: { "content-range": `0-0/${(data[rest[1]] ?? []).length}` } });
   if (rest) {
@@ -78,7 +79,7 @@ function setup() {
   applyMigrations(db);
   const sql = sqliteDriver(db);
   const store = memoryStore();
-  const env = { NEXT_PUBLIC_SUPABASE_URL: "https://proj.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "service-key", IMPORT_TOKEN: TOKEN };
+  const env = { NEXT_PUBLIC_SUPABASE_URL: "https://proj.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test", IMPORT_TOKEN: TOKEN };
   const realFetch = globalThis.fetch;
   globalThis.fetch = fakeSupabase;
   const call = async (body: Record<string, unknown>, token = TOKEN, e: Record<string, string | undefined> = env) => {

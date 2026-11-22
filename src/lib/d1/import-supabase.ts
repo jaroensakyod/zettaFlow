@@ -26,7 +26,8 @@ const TIMESTAMP = /^\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d(\.\d+)?([+-]\d\d(:?\d\d)?|
 async function call(src: Source, path: string, init: RequestInit = {}) {
   const res = await (src.fetch ?? fetch)(src.url.replace(/\/$/, "") + path, {
     ...init,
-    headers: { apikey: src.key, Authorization: "Bearer " + src.key, "Content-Type": "application/json", ...(init.headers as Record<string, string>) },
+    // A legacy service_role JWT also goes as the bearer; a new "sb_secret_" key only in apikey (it is not a JWT).
+    headers: { apikey: src.key, ...(src.key.startsWith("eyJ") ? { Authorization: "Bearer " + src.key } : {}), "Content-Type": "application/json", ...(init.headers as Record<string, string>) },
   });
   if (!res.ok) throw new Error(`Supabase ${init.method ?? "GET"} ${path.split("?")[0]}: ${res.status} ${(await res.text()).slice(0, 300)}`);
   return res;
@@ -198,6 +199,11 @@ export async function handleImport(req: Request, env: Env, sql: () => Promise<Sq
     switch (b.step) {
       case "plan":
         return Response.json({ ...plan, buckets: importBuckets() });
+      case "check": {
+        // What kind of service key the Worker holds (never the key): a JWT, a new "sb_secret_" key, or something else.
+        const k = src.key;
+        return Response.json({ url: src.url, keyLength: k.length, kind: k.startsWith("eyJ") ? "jwt" : k.startsWith("sb_secret_") ? "sb_secret" : "other" });
+      }
       case "table":
         return Response.json(await importTable(await sql(), src, String(b.table), b.offset ?? 0, b.limit ?? 500, plan.deferred[String(b.table)] ?? []));
       case "patch":
