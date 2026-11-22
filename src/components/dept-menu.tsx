@@ -42,6 +42,7 @@ const unlockView = (id: string) => (PACKAGE_DEPARTMENTS.includes(id) ? "pricing"
 export function DepartmentMegaMenu({
   view,
   visible,
+  locked: noAccess = () => false,
   navigate,
   closing = false,
   onPointerEnter,
@@ -49,6 +50,8 @@ export function DepartmentMegaMenu({
 }: {
   view: string;
   visible: (key: string) => boolean;
+  /** No ดู / ใช้งาน on this page (สิทธิ์การใช้งาน): listed with a lock, opens the lock screen. */
+  locked?: (key: string) => boolean;
   navigate: (view: string) => void;
   closing?: boolean;
   onPointerEnter?: PointerEventHandler;
@@ -166,6 +169,7 @@ export function DepartmentMegaMenu({
                   <button className={baseView(i.view) === view ? "active" : ""} onClick={() => { rememberDept(d.id); navigate(i.view); }}>
                     <MenuIcon name={i.icon} size={15} />
                     {i.label}
+                    {noAccess(baseView(i.view)) && <Lock size={12} className="lock-mark" aria-label="ล็อก" />}
                   </button>
                 </li>
               ))}

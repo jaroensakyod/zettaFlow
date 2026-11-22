@@ -11,6 +11,7 @@ import { uploadFile } from "./platform";
 import { EntityEditor, photoUrl } from "./records";
 import { EntityFiles } from "./entity-files";
 import { deptLabels } from "./home-dashboard";
+import { MemberAccessTab } from "./member-access";
 
 const palette = ["#7952dd", "#0f9d74", "#d97706", "#2563eb", "#db2777", "#0891b2", "#65a30d", "#9333ea"];
 const tint = (s: string) => palette[[...s].reduce((n, c) => n + c.charCodeAt(0), 0) % palette.length];
@@ -126,6 +127,8 @@ export function EmployeeProfile({
     ["files", "เอกสาร", files.length],
     ["history", "ประวัติการทำงาน"],
     ["rights", "สิทธิ์การอนุมัติ", approvals.length],
+    // Owner only: per-system access of this person's login.
+    ...(ctx.member.role === "owner" ? [["access", "สิทธิ์การใช้งาน"] as [string, string]] : []),
   ];
   return (
     <div className="prof">
@@ -439,6 +442,11 @@ export function EmployeeProfile({
             load();
           }}
         />
+      )}
+      {tab === "access" && ctx.member.role === "owner" && (
+        <div className="ep">
+          <MemberAccessTab ctx={ctx} email={String(d.email || "")} name={String(d.name || "")} position={String(d.position || "")} department={String(d.department || "")} notify={notify} navigate={navigate} />
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,7 @@
 // ห้องดีล in the B2B chat (phase 1): progress bar, the request / quotation cards, their forms and decisions.
 // Rules live in the database (migration 0064); these only show what each side can press.
 import { useMemo, useState, type FormEvent } from "react";
-import { Ban, BadgeCheck, Banknote, CalendarClock, Camera, Check, CircleX, CreditCard, FileText, Handshake, LoaderCircle, Package, Pencil, Plus, ReceiptText, RotateCcw, Send, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
+import { UserRound, Ban, BadgeCheck, Banknote, CalendarClock, Camera, Check, CircleX, CreditCard, FileText, Handshake, LoaderCircle, Package, Pencil, Plus, ReceiptText, RotateCcw, Send, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import type { Context } from "@/lib/types";
 import type { B2bPostRef } from "@/lib/b2b";
 import { dealMoney, quoteTotals, type Deal, type DealCard, type DealItem } from "@/lib/b2b-deal-types";
@@ -53,12 +53,23 @@ export function DealBar({
   onQuote,
   onStep,
   disabled,
+  canRequest = true,
+  canQuote = true,
+  onTake,
+  theirName,
 }: {
   deals: Deal[];
   onRequest: () => void;
   onQuote: () => void;
   onStep: (step: DealStepKind, deal: Deal) => void;
   disabled?: boolean;
+  /** About a job / partner post: only the company that offered asks for a quotation, only the poster sends one. */
+  canRequest?: boolean;
+  canQuote?: boolean;
+  /** Take over our side of the deal (ฉันดูแลดีลนี้). */
+  onTake?: (deal: Deal) => void;
+  /** The other company's name, for "ผู้ดูแลฝั่ง …". */
+  theirName?: string;
 }) {
   // The deal in progress (else the latest one).
   const deal = [...deals].reverse().find((d) => d.stage === "request" || d.stage === "quote" || working(d)) || deals[deals.length - 1];
@@ -76,17 +87,36 @@ export function DealBar({
             <b title={deal.title}>{deal.title}</b>
             <span className={"deal-stage " + deal.stage}>{stageText[deal.stage]}</span>
             {deals.length > 1 && <small>{deals.length} ดีลในห้องนี้</small>}
+            {(deal.contact_mine || deal.contact_theirs) && (
+              <span className="deal-people" title="ผู้ดูแลดีลนี้ทั้งสองฝ่าย">
+                <em className="mine">
+                  <UserRound size={12} /> ฝั่งเรา: <b>{deal.contact_mine || "ยังไม่ระบุ"}</b>
+                </em>
+                <em>
+                  <UserRound size={12} /> ฝั่ง{theirName ? " " + theirName : "คู่ค้า"}: <b>{deal.contact_theirs || "ยังไม่ระบุ"}</b>
+                </em>
+                {onTake && !deal.contact_is_me && !disabled && !["rejected", "cancelled"].includes(deal.stage) && (
+                  <button type="button" className="link-button" onClick={() => onTake(deal)}>
+                    ฉันดูแลดีลนี้
+                  </button>
+                )}
+              </span>
+            )}
           </>
         ) : (
           <span className="deal-bar-hint">ห้องดีล · ขอใบเสนอราคา ส่งใบเสนอราคา ตกลงจ้าง ส่งมอบงาน และชำระเงินได้ในแชทนี้</span>
         )}
         <span className="deal-bar-actions">
-          <button type="button" onClick={onRequest} disabled={disabled}>
-            <FileText size={14} /> ขอใบเสนอราคา
-          </button>
-          <button type="button" onClick={onQuote} disabled={disabled}>
-            <ReceiptText size={14} /> ส่งใบเสนอราคา
-          </button>
+          {canRequest && (
+            <button type="button" onClick={onRequest} disabled={disabled}>
+              <FileText size={14} /> ขอใบเสนอราคา
+            </button>
+          )}
+          {canQuote && (
+            <button type="button" onClick={onQuote} disabled={disabled}>
+              <ReceiptText size={14} /> ส่งใบเสนอราคา
+            </button>
+          )}
         </span>
       </div>
       {deal && (
@@ -410,14 +440,9 @@ export function DealCardView({
               {card.decided_at && " · " + new Date(card.decided_at).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })}
             </small>
           </span>
-          {seller && (
+          {(seller || buyer) && (
             <button type="button" onClick={() => navigate("projects")}>
               เปิดโปรเจกต์
-            </button>
-          )}
-          {buyer && (
-            <button type="button" onClick={() => navigate("tasks")}>
-              เปิดงานติดตาม
             </button>
           )}
         </div>
@@ -1019,6 +1044,9 @@ export function sampleWorkDeal(otherName: string): Deal {
     project_id: null,
     quote_id: null,
     task_id: null,
+    contact_mine: "ศิริ (ฝ่ายจัดซื้อ)",
+    contact_theirs: "ทีมการตลาด",
+    contact_is_me: true,
     cards: [
       card("sw-q", "quote", "accepted", false, q, 72),
       card("sw-i1", "invoice", "accepted", false, { docNo: "IV2611-5C1D0-1", index: 0, count: 2, label: "มัดจำ", percent: 30, net: 16500, vat: 1155, amount: 17655, due: plusDays(-10), quoteNo: q.docNo }, 60),
@@ -1065,6 +1093,9 @@ export function sampleDeal(threadId: string, otherName: string, role: "buyer" | 
     project_id: null,
     quote_id: null,
     task_id: null,
+    contact_mine: "ศิริ (ฝ่ายจัดซื้อ)",
+    contact_theirs: "ทีมการตลาด",
+    contact_is_me: true,
     cards: [
       card("sample-rfq", "request", 1, "open", role === "buyer", { title: "บูธงาน Bangkok Expo 2026", items: items.map(({ name, qty, unit }) => ({ name, qty, unit })), needBy: plusDays(35), budget: 150000, notes: "ขอแบบ 3D ประกอบด้วยค่ะ" }, 30),
       card("sample-q1", "quote", 1, "superseded", role === "seller", { title: "บูธงาน Bangkok Expo 2026", docNo: "QT2611-8F3A2", items: [{ ...items[0], price: 120000, amount: 120000 }, items[1]], subtotal: 135000, discount: 0, vatMode: "excluded", vat: 9450, total: 144450, validUntil: plusDays(25), deliverBy: plusDays(33), payTerms: "มัดจำ 50% ส่วนที่เหลือเมื่อส่งมอบ" }, 20, {

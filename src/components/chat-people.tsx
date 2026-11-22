@@ -52,7 +52,7 @@ export function PersonAvatar({
 }
 
 /** Square-crop and shrink a picture to a 256 px WebP in the browser. */
-async function toAvatar(file: File): Promise<Blob> {
+export async function toAvatar(file: File): Promise<Blob> {
   const img = await createImageBitmap(file);
   const side = Math.min(img.width, img.height),
     canvas = document.createElement("canvas");

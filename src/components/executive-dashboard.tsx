@@ -16,6 +16,7 @@ import {
   ChartNoAxesCombined,
 } from "lucide-react";
 import type { Context, Entity, ProjectInventory } from "@/lib/types";
+import { canRead } from "@/lib/domain";
 import { api, Empty, money } from "./shared";
 import { NumberCard, LineChart, Donut, amountSeries } from "./dashboard-charts";
 import { projectNumbers, referenceImages } from "@/lib/zetta";
@@ -58,8 +59,7 @@ export function ExecutiveDashboard({
     let active = true;
     setInventory(null);
     if (
-      ctx.member.role === "owner" ||
-      ctx.member.departments.includes("Warehouse")
+      canRead(ctx, "Warehouse")
     ) {
       api("/transfers")
         .then((d) => {
@@ -72,7 +72,7 @@ export function ExecutiveDashboard({
     return () => {
       active = false;
     };
-  }, [ctx.company.id, ctx.member.role, ctx.member.departments, entities]);
+  }, [ctx.company.id, ctx.member.role, ctx.member.departments, ctx.member.read_departments, entities]);
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Bangkok",
   });

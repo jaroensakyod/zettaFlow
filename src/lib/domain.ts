@@ -19,13 +19,26 @@ export class UpgradeError extends AppError {
 export function assert(ok: unknown, message: string, status = 400): asserts ok {
   if (!ok) throw new AppError(message, status);
 }
-export function canRead(ctx: Context, department: string) {
+/** ดู or ใช้งาน on this department (the owner reads everything). */
+export function canRead(ctx: Pick<Context, "member">, department: string) {
   return (
-    ctx.member.role === "owner" || ctx.member.departments.includes(department)
+    ctx.member.role === "owner" ||
+    ctx.member.departments.includes(department) ||
+    (ctx.member.read_departments || []).includes(department)
   );
 }
-export function canWrite(ctx: Context, department: string) {
-  return ctx.member.role !== "viewer" && canRead(ctx, department);
+/** ใช้งาน on this department, and not a viewer (ดู never grants writes). */
+export function canWrite(ctx: Pick<Context, "member">, department: string) {
+  return (
+    ctx.member.role !== "viewer" &&
+    (ctx.member.role === "owner" || ctx.member.departments.includes(department))
+  );
+}
+/** A system's level for a member: ใช้งาน, ดู (read only) or ล็อก. */
+export type AccessLevel = "use" | "view" | "lock";
+export function accessLevel(member: { role: string; departments: string[]; read_departments?: string[] }, department: string): AccessLevel {
+  if (member.role === "owner" || member.departments.includes(department)) return "use";
+  return (member.read_departments || []).includes(department) ? "view" : "lock";
 }
 export function requireOwner(ctx: Context) {
   assert(ctx.member.role === "owner", "เฉพาะเจ้าของบริษัท", 403);

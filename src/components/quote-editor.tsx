@@ -128,15 +128,50 @@ function ItemPicker({ form, onAdd, onClose }: { form: QuoteForm; onAdd: (it: Ite
 }
 const fmt = (x: number) => x.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: () => void; onSaved: (msg: string, id: string) => void }) {
+/** The same quotation, written in a B2B chat: the customer is the company being talked to, and sending puts it in
+ * the chat as the quotation card (the deal room) instead of saving it to this company's list. */
+export type ChatQuote = {
+  company: { id: string; name: string };
+  title?: string;
+  notes?: string;
+  /** A new version of a quotation already in the chat starts from it. */
+  items?: { name: string; qty: number; unit?: string; price?: number }[];
+  discount?: number;
+  vatMode?: string;
+  validUntil?: string;
+  /** The public demo: show the document, send nothing. */
+  sample?: boolean;
+  onSend: (q: { title: string; items: { name: string; qty: number; unit?: string; price: number }[]; discount: number; vatMode: string; validUntil?: string; notes?: string }) => Promise<void>;
+};
+type Party = { name: string; nameEn: string; address: string; taxId: string; phone: string; email: string };
+
+export function QuoteEditor({ id, onClose, onSaved, chat }: { id?: string; onClose: () => void; onSaved: (msg: string, id: string) => void; chat?: ChatQuote }) {
   const [form, setForm] = useState<QuoteForm | null>(null),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState("");
+    [busy, setBusy] = useState(""),
+    [party, setParty] = useState<Party | null>(null);
   // The quotation being written.
   const [v, setV] = useState({
-    name: "", customerId: "", projectId: "", date: today(), validUntil: plus(today(), 14), owner: "", vatMode: "excluded", discount: 0, notes: "",
+    name: chat?.title || "", customerId: "", projectId: "", date: today(), validUntil: chat?.validUntil && chat.validUntil >= today() ? chat.validUntil : plus(today(), 14), owner: "",
+    vatMode: chat?.vatMode || "excluded", discount: chat?.discount || 0, notes: chat?.notes || "",
   });
-  const [items, setItems] = useState<Item[]>([blank()]);
+  const [items, setItems] = useState<Item[]>(
+    chat?.items?.length
+      ? chat.items.map((it) => ({ ...blank(), name: it.name, qty: Number(it.qty) || 1, unit: it.unit || "", price: Number(it.price) || 0 }))
+      : chat?.title
+        ? [{ ...blank(), name: chat.title, unit: "งาน" }]
+        : [blank()],
+  );
+  // In a chat: the other company's details from its company page (what it shows to the network).
+  useEffect(() => {
+    if (!chat || chat.sample) return;
+    api("/feed/profile/" + chat.company.id)
+      .then((p: { name: string; name_en?: string; details?: Record<string, string> }) => {
+        const d = p.details || {};
+        setParty({ name: p.name, nameEn: p.name_en || "", address: [d.address, d.zip].filter(Boolean).join(" "), taxId: d.taxId || d.registration || "", phone: d.phone || "", email: d.email || "" });
+      })
+      .catch(() => {});
+  }, [chat]);
   const [picking, setPicking] = useState(false);
   useEffect(() => {
     api("/quotes/form" + (id ? "?id=" + id : ""))
@@ -194,7 +229,31 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
     return rest.length ? { label, text: rest.join(": ") } : { label: "", text: x };
   })];
 
+  async function sendToChat() {
+    setError("");
+    const rows = items.filter((it) => it.name.trim());
+    if (!rows.length) return setError("ใส่รายการสินค้า / บริการอย่างน้อย 1 รายการ");
+    if (chat?.sample) return setError("นี่คือตัวอย่าง — ส่งได้จริงเมื่อคุยกับบริษัทในเครือข่าย");
+    setBusy("ส่งแล้ว");
+    try {
+      await chat!.onSend({
+        title: (v.name.trim() || rows[0].name.trim()).slice(0, 200),
+        // The item's รายละเอียด rides on its name (the deal card shows one line per item).
+        items: rows.map((it) => ({ name: (it.name.trim() + (it.detail.trim() ? " — " + it.detail.trim() : "")).slice(0, 300), qty: it.qty || 1, ...(it.unit.trim() ? { unit: it.unit.trim() } : {}), price: it.price })),
+        // Item discounts and the bill discount together, as the chat card has one discount.
+        discount: totals.off,
+        vatMode: v.vatMode,
+        validUntil: v.validUntil || undefined,
+        notes: [v.notes.trim(), v.owner.trim() ? "ผู้เสนอราคา: " + v.owner.trim() : ""].filter(Boolean).join("\n").slice(0, 2000) || undefined,
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
   async function save(status: "ร่าง" | "ส่งแล้ว") {
+    if (chat) return sendToChat();
     setError("");
     if (!v.customerId) return setError("เลือกลูกค้าก่อน");
     const rows = items.filter((it) => it.name.trim());
@@ -231,7 +290,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
   return (
     <div className="qe-overlay" role="dialog" aria-modal="true" aria-label={form.quote ? "แก้ไขใบเสนอราคา" : "เพิ่มใบเสนอราคา"}>
       <div className="qe-toolbar">
-        <b>{form.quote ? "แก้ไขใบเสนอราคา " + code : "เพิ่มใบเสนอราคา"}</b>
+        <b>{chat ? "ส่งใบเสนอราคาให้ " + chat.company.name : form.quote ? "แก้ไขใบเสนอราคา " + code : "เพิ่มใบเสนอราคา"}</b>
         <span className="qe-hint">กรอกบนเอกสารได้เลย · ช่องสีม่วงอ่อนคือช่องที่แก้ได้</span>
         <div>
           {form.quote && (
@@ -242,13 +301,21 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
           <button className="secondary" onClick={onClose}>
             <X size={15} /> ปิด
           </button>
-          <button className="secondary" disabled={!!busy} onClick={() => save("ร่าง")}>
-            <Save size={15} /> {busy === "ร่าง" ? "กำลังบันทึก…" : form.quote ? "บันทึก" : "บันทึกร่าง"}
-          </button>
-          {!form.quote && (
-            <button className="primary" disabled={!!busy} onClick={() => save("ส่งแล้ว")}>
-              <Send size={15} /> {busy === "ส่งแล้ว" ? "กำลังบันทึก…" : "บันทึก · ส่งให้ลูกค้าแล้ว"}
+          {chat ? (
+            <button className="primary" disabled={!!busy} onClick={sendToChat}>
+              <Send size={15} /> {busy ? "กำลังส่ง…" : "ส่งใบเสนอราคาในแชท"}
             </button>
+          ) : (
+            <>
+              <button className="secondary" disabled={!!busy} onClick={() => save("ร่าง")}>
+                <Save size={15} /> {busy === "ร่าง" ? "กำลังบันทึก…" : form.quote ? "บันทึก" : "บันทึกร่าง"}
+              </button>
+              {!form.quote && (
+                <button className="primary" disabled={!!busy} onClick={() => save("ส่งแล้ว")}>
+                  <Send size={15} /> {busy === "ส่งแล้ว" ? "กำลังบันทึก…" : "บันทึก · ส่งให้ลูกค้าแล้ว"}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -305,6 +372,34 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
               </span>
               ลูกค้า / Customer
             </h4>
+            {chat ? (
+              <dl>
+                <dt>ชื่อบริษัท</dt>
+                <dd>
+                  <b>{party?.name || chat.company.name}</b>
+                  {party?.nameEn && <small> · {party.nameEn}</small>}
+                </dd>
+                <dt>ที่อยู่</dt>
+                <dd>{party?.address || "-"}</dd>
+                <dt>เลขประจำตัวผู้เสียภาษี</dt>
+                <dd>{party?.taxId || "-"}</dd>
+                <dt>ติดต่อ</dt>
+                <dd className="qe-span">
+                  {party?.phone && (
+                    <span>
+                      <Phone size={13} /> {party.phone}
+                    </span>
+                  )}
+                  {party?.email && (
+                    <span>
+                      <Mail size={13} /> {party.email}
+                    </span>
+                  )}
+                  {!party?.phone && !party?.email && "คุยผ่านแชท EliteFlow"}
+                </dd>
+              </dl>
+            ) : (
+            <>
             <select className="qe-input qe-pick" value={v.customerId} onChange={(e) => set({ customerId: e.target.value })}>
               <option value="">— เลือกลูกค้าจากรายชื่อในระบบ —</option>
               {form.customers.map((x) => (
@@ -345,6 +440,8 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
             ) : (
               <p className="qe-placeholder">เลือกลูกค้าแล้ว ที่อยู่ เลขผู้เสียภาษี และผู้ติดต่อจะขึ้นให้อัตโนมัติ</p>
             )}
+            </>
+            )}
           </section>
 
           {/* Quotation info */}
@@ -353,7 +450,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
               <span>
                 <FileText size={15} /> เลขที่ใบเสนอราคา
               </span>
-              <b className="qe-code">{code}</b>
+              <b className="qe-code">{chat ? "ออกเลขเมื่อตกลงจ้าง" : code}</b>
             </div>
             <div>
               <span>
@@ -378,7 +475,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
               <span>
                 <Clock size={15} /> เงื่อนไขการชำระเงิน
               </span>
-              <b>{customer ? term : "ตามเครดิตลูกค้า"}</b>
+              <b>{chat ? "ตามที่ตกลงในแชท" : customer ? term : "ตามเครดิตลูกค้า"}</b>
             </div>
             <div>
               <span>
@@ -419,6 +516,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
             </span>
             <input className="qe-input" value={v.name} onChange={(e) => set({ name: e.target.value })} placeholder="เช่น ระบบ EliteFlow แพ็กเกจ Pro พร้อมติดตั้งและอบรม" maxLength={500} />
           </label>
+          {!chat && (
           <label>
             <span>
               <FolderKanban size={15} /> โปรเจกต์ (ถ้ามี)
@@ -433,6 +531,7 @@ export function QuoteEditor({ id, onClose, onSaved }: { id?: string; onClose: ()
               ))}
             </select>
           </label>
+          )}
         </section>
 
         {/* Items */}

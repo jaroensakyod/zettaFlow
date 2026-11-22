@@ -47,10 +47,23 @@ import {
   EyeOff,
   Sparkles,
   Lock,
+  Camera,
+  Building2,
+  Users,
+  Package,
+  Zap,
+  MessagesSquare,
   type LucideIcon,
 } from "lucide-react";
 import type { Context, Entity, HomeData } from "@/lib/types";
-import type { HomeExtra, NoteItem, UserNote, WorkItem, Activity } from "@/lib/home-extra";
+import type { HomeExtra, HomeMe, NoteItem, UserNote, WorkItem, Activity, SentItem } from "@/lib/home-extra";
+import type { B2bThread } from "@/lib/b2b";
+import { homeMode } from "@/lib/home-mode";
+import { accessLevel, canRead, canWrite } from "@/lib/domain";
+import { systemDepartment } from "@/lib/departments";
+import { deptThai } from "@/lib/line-message";
+import { PersonAvatar, toAvatar } from "./chat-people";
+import { CompanyLogo } from "./feed";
 import { api, money, Loading, Modal } from "./shared";
 import { HowToStart } from "./how-to-start";
 import { HelloAd } from "./hello-ad";
@@ -185,12 +198,16 @@ export function HomeDashboard({
     [period, setPeriod] = useState<Period>("month"),
     [picked, setPicked] = useState(todayIso),
     // "auto" = show the sample only while the company has nothing of its own here; "on" / "off" = the user's choice.
-    [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto");
+    [sampleMode, setSampleMode] = useState<"auto" | "on" | "off">("auto"),
+    // Staff / viewers get their own workspace instead of the company's money (home-mode.ts; the API enforces it too).
+    personal = homeMode(ctx) === "personal",
+    [me, setMe] = useState<HomeMe | null>(null),
+    [threads, setThreads] = useState<B2bThread[] | null>(null);
   const today = todayIso(),
     tomorrow = addDays(today, 1);
   const realEmpty = !!home && !!extra && homeIsEmpty(home, extra),
     // Samples only in the public demo; a real company sees its own data or empty states.
-    sample = ctx.demo && (sampleMode === "on" || (sampleMode === "auto" && realEmpty)),
+    sample = !personal && !!ctx.demo && (sampleMode === "on" || (sampleMode === "auto" && realEmpty)),
     demo = useMemo(() => homeSample(today), [today]);
   // Never mix: in sample mode every card reads the sample set only.
   const vHome = sample ? demo.home : home,
@@ -215,15 +232,66 @@ export function HomeDashboard({
     api("/calendar?month=" + tomorrow.slice(0, 7))
       .then((rows: Entity[]) => live && setUpcoming(rows))
       .catch(() => live && setUpcoming([]));
+    if (personal) {
+      api("/home/me")
+        .then((d: HomeMe) => live && setMe(d))
+        .catch((e) => live && setError((e as Error).message));
+      api("/b2b")
+        .then((rows: B2bThread[]) => live && setThreads(Array.isArray(rows) ? rows : []))
+        .catch(() => live && setThreads([]));
+    }
     return () => {
       live = false;
     };
-  }, [refreshKey, tomorrow, calKey]);
+  }, [refreshKey, tomorrow, calKey, personal]);
   const firstName = ctx.user.name.trim().split(/\s+/)[0] || ctx.user.name;
   const showWork = (f: "approve" | "review" | "follow") => {
     setWorkFilter(f);
     document.getElementById("hd-work")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  if (personal)
+    return (
+      <div className="hd hd-personal">
+        {error && <p className="form-error">{error}</p>}
+        <div className="hd-top">
+          <ProfileCard ctx={ctx} me={me} today={today} notify={notify} ad={<HelloAd demo={!!ctx.demo} />} />
+          <MyNumbers ctx={ctx} me={me} extra={extra} threads={threads} today={today} navigate={navigate} />
+        </div>
+        <div className="hd-mid">
+          <CalendarCard
+            ctx={ctx}
+            today={today}
+            navigate={navigate}
+            notify={notify}
+            onAdded={() => setCalKey((k) => k + 1)}
+            refreshKey={refreshKey + calKey}
+            period={period}
+            setPeriod={setPeriod}
+            selected={picked}
+            setSelected={setPicked}
+            periods={false}
+          />
+          <Diary today={today} extra={extra} notify={notify} reload={loadExtra} />
+          <SentCard me={me} navigate={navigate} />
+          <MyWork extra={extra} filter={workFilter} setFilter={setWorkFilter} navigate={navigate} />
+        </div>
+        <div className="hd-bottom">
+          <Alerts
+            today={today}
+            tomorrow={tomorrow}
+            summary={summary}
+            tasks={home?.tasks || []}
+            upcoming={upcoming}
+            approvals={extra?.counts.approve || 0}
+            navigate={navigate}
+            showWork={showWork}
+          />
+          <ChatsCard threads={threads} navigate={navigate} />
+          <ActivityCard activity={extra?.activity || null} today={today} navigate={navigate} title="สิ่งที่ฉันทำล่าสุด" />
+        </div>
+        {/* No "how to start" here: setting up the company and LINE is the owner's job. */}
+      </div>
+    );
   return (
     <SampleCtx.Provider value={sample}>
     <div className={"hd" + (sample ? " hd-is-sample" : "")}>
@@ -592,7 +660,7 @@ const fxList = [
   { code: "EUR", sign: "€", name: "ยูโร" },
   { code: "CNY", sign: "¥", name: "หยวนจีน" },
 ] as const;
-function ClockCard({ label, range, compare }: { label: string; range: string; compare: string }) {
+function ClockCard({ label, range, compare }: { label?: string; range?: string; compare?: string }) {
   const [now, setNow] = useState<Date | null>(null),
     [rates, setRates] = useState<Record<string, number | null>>({});
   useEffect(() => {
@@ -632,9 +700,11 @@ function ClockCard({ label, range, compare }: { label: string; range: string; co
           <span className="hd-clock-date">
             {now ? now.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: BKK }) : ""}
           </span>
-          <span className="hd-clock-period" title={compare + " · เปลี่ยนได้ที่ปฏิทิน"}>
-            <CalendarDays size={12} /> {label}: <b>{range}</b>
-          </span>
+          {label && (
+            <span className="hd-clock-period" title={compare + " · เปลี่ยนได้ที่ปฏิทิน"}>
+              <CalendarDays size={12} /> {label}: <b>{range}</b>
+            </span>
+          )}
         </span>
       </div>
       <div className="hd-fx">
@@ -665,12 +735,15 @@ function CalendarCard({
   setPeriod,
   selected,
   setSelected,
+  periods = true,
 }: {
   ctx: Context;
   today: string;
   navigate: Navigate;
   notify: (s: string) => void;
   onAdded: () => void;
+  /** Show the วัน / สัปดาห์ / เดือน / ปี switch for the overview cards (not in the personal home). */
+  periods?: boolean;
   refreshKey: number;
   /** Sample mode: show these instead of GET /calendar. */
   sampleEntries?: Entity[];
@@ -727,16 +800,20 @@ function CalendarCard({
           </button>
         </div>
       </div>
-      <div className="hd-period" role="group" aria-label="ดูยอดการ์ดภาพรวมแบบ">
-        {(Object.keys(periodNames) as Period[]).map((p) => (
-          <button key={p} className={period === p ? "on" : ""} aria-pressed={period === p} onClick={() => setPeriod(p)}>
-            ราย{periodNames[p]}
-          </button>
-        ))}
-      </div>
-      <p className="hd-period-range">
-        ยอดในการ์ด: <b>{periodText(period, range.from, range.to)}</b>
-      </p>
+      {periods && (
+        <>
+          <div className="hd-period" role="group" aria-label="ดูยอดการ์ดภาพรวมแบบ">
+            {(Object.keys(periodNames) as Period[]).map((p) => (
+              <button key={p} className={period === p ? "on" : ""} aria-pressed={period === p} onClick={() => setPeriod(p)}>
+                ราย{periodNames[p]}
+              </button>
+            ))}
+          </div>
+          <p className="hd-period-range">
+            ยอดในการ์ด: <b>{periodText(period, range.from, range.to)}</b>
+          </p>
+        </>
+      )}
       <div className="hd-cal-grid">
         {weekdays.map((d) => (
           <span className="hd-cal-dow" key={d}>
@@ -756,7 +833,7 @@ function CalendarCard({
                 "hd-cal-day" +
                 (day === today ? " today" : "") +
                 (day === selected ? " selected" : "") +
-                ((period === "week" || period === "day") && day >= range.from && day <= range.to ? " in-range" : "")
+                (periods && (period === "week" || period === "day") && day >= range.from && day <= range.to ? " in-range" : "")
               }
               onClick={() => setSelected(day)}
               aria-label={thai(day, { day: "numeric", month: "long" }) + (busy ? ` มี ${on(day).length} รายการ` : "")}
@@ -902,7 +979,7 @@ function Diary({
   }
   const done = note?.items.filter((i) => i.done).length || 0;
   return (
-    <section className="hd-card hd-diary">
+    <section className="hd-card hd-diary" id="hd-diary">
       <div className="hd-head">
         <h2>
           <NotebookPen size={18} className="hd-head-icon" />
@@ -1561,7 +1638,7 @@ const activityIcons: Record<Activity["icon"], LucideIcon> = {
   approved: CircleCheck,
   rejected: CircleX,
 };
-function ActivityCard({ activity, today, navigate }: { activity: Activity[] | null; today: string; navigate: Navigate }) {
+function ActivityCard({ activity, today, navigate, title = "กิจกรรมล่าสุด" }: { activity: Activity[] | null; today: string; navigate: Navigate; title?: string }) {
   const [all, setAll] = useState(false),
     shown = all ? activity || [] : (activity || []).slice(0, 3);
   return (
@@ -1569,7 +1646,7 @@ function ActivityCard({ activity, today, navigate }: { activity: Activity[] | nu
       <div className="hd-head">
         <h2>
           <History size={18} className="hd-head-icon" />
-          กิจกรรมล่าสุด
+          {title}
           <SampleBadge />
         </h2>
         {(activity?.length || 0) > 3 && (
@@ -1726,6 +1803,323 @@ function GoalCard({
             {sales < target ? ` · ขาดอีก ฿${money(Math.round(target - sales))}` : " · ถึงเป้าแล้ว 🎉"}
           </small>
         </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------- personal home (staff / viewers): my profile, my numbers, what I sent, who I talk with ---------- */
+const roleNames: Record<string, string> = { owner: "เจ้าของบริษัท", manager: "ผู้จัดการ", staff: "พนักงาน", viewer: "ผู้ดูข้อมูล" };
+const deptName = (d: string) => deptThai[d] || deptLabels[d] || d;
+function ProfileCard({
+  ctx,
+  me,
+  today,
+  notify,
+  ad,
+}: {
+  ctx: Context;
+  me: HomeMe | null;
+  today: string;
+  notify: (s: string) => void;
+  ad?: React.ReactNode;
+}) {
+  const [at, setAt] = useState<string | null>(null),
+    [busy, setBusy] = useState(false),
+    [input, setInput] = useState<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (ctx.demo) return;
+    api("/avatar")
+      .then((r: { avatar_at: string | null }) => setAt(r.avatar_at))
+      .catch(() => {});
+  }, [ctx.demo]);
+  const pick = async (file?: File) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", await toAvatar(file), "avatar.webp");
+      const res = await fetch("/api/avatar", { method: "POST", body: form }),
+        r: { avatar_at: string | null; error?: string } = await res.json();
+      if (!res.ok) throw new Error(r.error || "ตั้งรูปไม่สำเร็จ");
+      setAt(r.avatar_at);
+      notify("เปลี่ยนรูปโปรไฟล์แล้ว");
+    } catch (e) {
+      notify((e as Error).message);
+    } finally {
+      setBusy(false);
+      if (input) input.value = "";
+    }
+  };
+  const emp = me?.employee,
+    name = emp?.name || ctx.member.name || ctx.user.name,
+    // ใช้งาน / ดู per department; a viewer only ever reads. Everything else is locked.
+    level = (d: string) => (ctx.member.role === "viewer" ? "view" : accessLevel(ctx.member, d)),
+    use = ctx.member.departments.filter((d) => level(d) === "use"),
+    view = [...new Set([...ctx.member.departments, ...(ctx.member.read_departments || [])])].filter((d) => level(d) === "view"),
+    locked = Object.keys(deptThai).some((d) => level(d) === "lock");
+  return (
+    <section className="hd-card hd-hello hd-me">
+      <div className="hd-me-main">
+        <button
+          type="button"
+          className="hd-me-avatar"
+          onClick={() => input?.click()}
+          disabled={busy || ctx.demo}
+          title={ctx.demo ? "โหมดตัวอย่างเปลี่ยนรูปไม่ได้" : "เปลี่ยนรูปโปรไฟล์"}
+          aria-label="เปลี่ยนรูปโปรไฟล์"
+        >
+          <span className="hd-avatar-ring">
+            <PersonAvatar userId={ctx.user.id} at={at} name={name} size={80} />
+          </span>
+          <i className="hd-me-cam" aria-hidden>
+            <Camera size={13} />
+          </i>
+        </button>
+        <div className="hd-hello-text">
+          <p className="hd-me-greet">
+            {greeting()} <span aria-hidden="true">👋</span>
+            <small>{thai(today, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</small>
+          </p>
+          <h1>{name}</h1>
+          <p className="hd-me-role">
+            <span>{emp?.position || roleNames[ctx.member.role] || ctx.member.role}</span>
+            {emp?.code && <span className="hd-me-code">{emp.code}</span>}
+          </p>
+          <p className="hd-me-company">
+            <Building2 size={13} />
+            <span>
+              {ctx.company.name}
+              {emp?.department ? " · " + deptName(emp.department) : ""}
+            </span>
+          </p>
+        </div>
+      </div>
+      <div className="hd-me-access" aria-label="สิทธิ์การใช้งานของฉัน">
+        {use.map((d) => (
+          <span key={"u" + d} className="hd-chip use" title="ใช้งาน: ดูและบันทึกได้">
+            <Check size={12} />
+            {deptName(d)}
+            <small>ใช้งาน</small>
+          </span>
+        ))}
+        {view.map((d) => (
+          <span key={"v" + d} className="hd-chip view" title="ดู: อ่านอย่างเดียว">
+            <Eye size={12} />
+            {deptName(d)}
+            <small>ดู</small>
+          </span>
+        ))}
+        {locked && (
+          <span className="hd-chip lock" title="ขอสิทธิ์เพิ่มได้จากเจ้าของบริษัท">
+            <Lock size={12} />
+            ระบบอื่นล็อก
+          </span>
+        )}
+      </div>
+      <input ref={setInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => pick(e.target.files?.[0])} />
+      {ad}
+    </section>
+  );
+}
+
+type Shortcut = { view: string; label: string; icon: LucideIcon; color: string; write?: boolean };
+const shortcuts: Shortcut[] = [
+  { view: "tasks", label: "งานของฉัน", icon: ListTodo, color: "#0ea5e9" },
+  { view: "expense-new", label: "ส่งค่าใช้จ่าย", icon: Receipt, color: "#e11d48", write: true },
+  { view: "leaves", label: "ขอลา", icon: CalendarOff, color: "#f59e0b", write: true },
+  { view: "customers", label: "ลูกค้า", icon: Users, color: "#7c3aed" },
+  { view: "quotations", label: "ใบเสนอราคา", icon: FileText, color: "#3b82f6" },
+  { view: "purchases", label: "ขอซื้อ", icon: ShoppingCart, color: "#16a34a", write: true },
+  { view: "products", label: "สินค้า", icon: Package, color: "#f97316" },
+  { view: "chat", label: "แชท", icon: MessagesSquare, color: "#db2777" },
+  { view: "calendar", label: "ปฏิทิน", icon: CalendarDays, color: "#6366f1" },
+];
+/** Shortcuts to the systems this member can open (ส่ง / ขอ need ใช้งาน); pages without a department are open to all. */
+export function myShortcuts(ctx: Pick<Context, "member">) {
+  return shortcuts.filter((s) => {
+    const d = systemDepartment(s.view);
+    return !d || (s.write ? canWrite(ctx, d) : canRead(ctx, d));
+  });
+}
+
+function MyNumbers({
+  ctx,
+  me,
+  extra,
+  threads,
+  today,
+  navigate,
+}: {
+  ctx: Context;
+  me: HomeMe | null;
+  extra: HomeExtra | null;
+  threads: B2bThread[] | null;
+  today: string;
+  navigate: Navigate;
+}) {
+  const note = extra?.notes.find((n) => n.day === today),
+    items = note?.items.length || 0,
+    done = note?.items.filter((i) => i.done).length || 0,
+    unread = (threads || []).reduce((n, t) => n + (Number(t.unread) || 0), 0),
+    talking = (threads || []).length,
+    scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const cards: { key: string; label: string; value: string; icon: LucideIcon; color: string; note: React.ReactNode; go: () => void }[] = [
+    {
+      key: "open",
+      label: "งานค้าง",
+      value: me ? me.counts.openTasks + " งาน" : "…",
+      icon: Hourglass,
+      color: "#db2777",
+      note: me?.counts.lateTasks ? <span className="bad">เลยกำหนด {me.counts.lateTasks} งาน</span> : "ไม่มีงานเลยกำหนด",
+      go: () => navigate("tasks"),
+    },
+    {
+      key: "waiting",
+      label: "รออนุมัติ",
+      value: me ? me.counts.waiting + " รายการ" : "…",
+      icon: Clock,
+      color: "#f59e0b",
+      note: "รายการที่ฉันส่ง",
+      go: () => scrollTo("hd-sent"),
+    },
+    {
+      key: "chat",
+      label: "แชทใหม่",
+      value: threads ? unread + " ข้อความ" : "…",
+      icon: MessageSquareText,
+      color: "#7c3aed",
+      note: talking ? `คุยกับ ${talking} บริษัท` : "แชททีมและคู่ค้า",
+      go: () => navigate(unread ? "chat?b2b=" : "chat"),
+    },
+    {
+      key: "diary",
+      label: "ไดอารี่วันนี้",
+      value: items ? `${done}/${items} เสร็จ` : note ? "จดแล้ว" : "ยังไม่จด",
+      icon: NotebookPen,
+      color: "#16a34a",
+      note: items ? (done === items ? "ทำครบทุกข้อแล้ว 🎉" : `เหลืออีก ${items - done} ข้อ`) : "เห็นเฉพาะคุณ",
+      go: () => scrollTo("hd-diary"),
+    },
+  ];
+  const links = myShortcuts(ctx).slice(0, 6);
+  return (
+    <div className="hd-kpis hd-mine">
+      {cards.map((k) => (
+        <button key={k.key} className={"hd-card hd-kc hd-kc-" + k.key} style={{ "--c": k.color } as React.CSSProperties} onClick={k.go}>
+          <span className="hd-kc-top">
+            <span className="hd-kc-ic">
+              <k.icon size={16} />
+            </span>
+            <span className="hd-kc-label">{k.label}</span>
+          </span>
+          <span className="hd-kc-mid">
+            <strong className="hd-kc-value">{k.value}</strong>
+          </span>
+          <span className="hd-kc-note">{k.note}</span>
+        </button>
+      ))}
+      <ClockCard />
+      <section className="hd-card hd-shortcuts" aria-label="ทางลัด">
+        <span className="hd-shortcuts-head">
+          <Zap size={14} /> ทางลัด <small>ระบบที่คุณใช้ได้</small>
+        </span>
+        <div className="hd-shortcuts-grid">
+          {links.map((s) => (
+            <button key={s.view} style={{ "--c": s.color } as React.CSSProperties} onClick={() => navigate(s.view)}>
+              <i>
+                <s.icon size={16} />
+              </i>
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+const sentIcons: Record<string, LucideIcon> = { ...workIcons, quotations: FileText, customers: Users, products: Package };
+function SentCard({ me, navigate }: { me: HomeMe | null; navigate: Navigate }) {
+  return (
+    <section className="hd-card hd-sales hd-sent" id="hd-sent">
+      <div className="hd-head">
+        <h2>
+          <ClipboardCheck size={18} className="hd-head-icon" />
+          รายการที่ฉันส่ง
+          <span className="hd-head-sub">(บนเว็บและทาง LINE)</span>
+        </h2>
+      </div>
+      {!me ? (
+        <Loading />
+      ) : me.sent.length ? (
+        <ul className="hd-sent-list">
+          {me.sent.map((x: SentItem) => {
+            const Icon = x.source === "line" ? MessageSquareText : sentIcons[x.kind] || FileText;
+            return (
+              <li key={x.source + x.id}>
+                <button onClick={() => navigate(x.view)}>
+                  <span className={"hd-sent-icon " + x.source}>
+                    <Icon size={16} />
+                  </span>
+                  <span className="hd-sent-text">
+                    <strong>{x.title}</strong>
+                    <small>
+                      {x.label} · {stamp(x.at)}
+                    </small>
+                  </span>
+                  <span className={"hd-sent-status " + x.tone}>{x.statusLabel}</span>
+                  <ChevronRight size={15} className="hd-chev" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="hd-empty">ยังไม่มีรายการที่คุณส่ง — ส่งค่าใช้จ่าย ขอลา หรือส่งเอกสารในกลุ่ม LINE ของบริษัท แล้วจะขึ้นที่นี่พร้อมสถานะ</p>
+      )}
+    </section>
+  );
+}
+
+function ChatsCard({ threads, navigate }: { threads: B2bThread[] | null; navigate: Navigate }) {
+  const list = [...(threads || [])].sort((a, b) => (b.unread > 0 ? 1 : 0) - (a.unread > 0 ? 1 : 0) || b.last_at.localeCompare(a.last_at)).slice(0, 5);
+  return (
+    <section className="hd-card hd-chats">
+      <div className="hd-head">
+        <h2>
+          <MessagesSquare size={18} className="hd-head-icon" />
+          คุยงานกับใครบ้าง
+        </h2>
+        <button className="hd-link" onClick={() => navigate("chat")}>
+          แชททีม
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      {!threads ? (
+        <Loading />
+      ) : list.length ? (
+        <ul className="hd-chat-list">
+          {list.map((t) => (
+            <li key={t.id}>
+              <button onClick={() => navigate("chat?b2b=" + t.id)}>
+                <CompanyLogo id={t.company.id} name={t.company.name} logo={t.company.logo_url || t.company.has_logo} size={34} />
+                <span className="hd-chat-text">
+                  <strong>{t.company.name}</strong>
+                  <small>{t.last ? (t.last.mine ? "คุณ: " : "") + t.last.body : t.post ? "เรื่อง: " + t.post.title : "เริ่มคุยแล้ว"}</small>
+                </span>
+                {t.unread > 0 ? <span className="hd-badge">{t.unread}</span> : <small className="hd-chat-at">{clock(t.last_at)}</small>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="hd-empty">ยังไม่มีบทสนทนากับบริษัทอื่น — คุยกับทีมได้ที่แชททีม</p>
+      )}
+      {(threads?.length || 0) > 5 && (
+        <button className="hd-link" onClick={() => navigate("chat?b2b=")}>
+          ดูทั้งหมด ({threads!.length})
+        </button>
       )}
     </section>
   );

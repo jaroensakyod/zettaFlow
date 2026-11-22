@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { DocSigners } from "./doc-signers";
 import { api, Modal, Loading, Empty, displayDate } from "./shared";
+import { AccessLevelPicker } from "./member-access";
+import { InviteMessage, type InviteResult } from "./invite-message";
+import { accessLevel } from "@/lib/domain";
 import { UserOnline } from "./presence";
 import { FieldControl } from "./records";
 import { IndustryPicker } from "./industry-picker";
@@ -593,9 +596,12 @@ export function Team({
     >([]),
     [loading, setLoading] = useState(true),
     [modal, setModal] = useState(false),
+    [invited, setInvited] = useState<{ email: string; result: InviteResult | null } | null>(null),
     [member, setMember] = useState<Member | null>(null),
     [role, setRole] = useState("staff"),
     [departments, setDepartments] = useState<string[]>([]),
+    // ดู (read only) departments; the invite form has ใช้งาน only.
+    [readDepartments, setReadDepartments] = useState<string[]>([]),
     [disabled, setDisabled] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -617,6 +623,7 @@ export function Team({
     setMember(m || null);
     setRole(m?.role || "staff");
     setDepartments(m?.departments || ["Operations"]);
+    setReadDepartments(m?.read_departments || []);
     setDisabled(m?.disabled || false);
     setError("");
     setModal(true);
@@ -658,7 +665,8 @@ export function Team({
                     <td>
                       {m.role === "owner"
                         ? "ทุกแผนก"
-                        : m.departments.join(", ")}
+                        : m.departments.join(", ") +
+                          ((m.read_departments || []).length ? " · ดู: " + (m.read_departments || []).join(", ") : "")}
                     </td>
                     <td>{m.disabled ? "ระงับ" : "ใช้งาน"}</td>
                     <td>
@@ -683,6 +691,7 @@ export function Team({
                     <th>บทบาท</th>
                     <th>หมดอายุ</th>
                     <th>สถานะ</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -698,6 +707,13 @@ export function Team({
                             ? "หมดอายุ"
                             : "รอเข้าร่วม"}
                       </td>
+                      <td>
+                        {!i.accepted_at && (
+                          <button type="button" className="secondary" onClick={() => setInvited({ email: i.email, result: null })}>
+                            ส่งอีกครั้ง / คัดลอก
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -707,12 +723,26 @@ export function Team({
             <p className="muted">ยังไม่มีคำเชิญ</p>
           )}
           <div className="note">
-            คำเชิญมีอายุ 7 วัน ให้สมาชิกสมัครหรือเข้าสู่ระบบด้วยอีเมลที่ระบุ
-            ระบบจะเชื่อมบริษัทให้อัตโนมัติ ยังไม่ส่งอีเมลคำเชิญ
+            คำเชิญมีอายุ 7 วัน ระบบส่งอีเมลคำเชิญให้คนที่ยังไม่มีบัญชี เมื่อสมาชิกสมัครหรือเข้าสู่ระบบด้วยอีเมลที่ระบุ
+            ระบบจะเชื่อมบริษัทให้อัตโนมัติ
           </div>
         </section>
       )}
       {!modal && error && <p className="form-error">{error}</p>}
+      {invited && (
+        <Modal title={invited.result ? "เชิญสมาชิกแล้ว" : "คำเชิญของ " + invited.email} onClose={() => setInvited(null)}>
+          <InviteMessage
+            company={ctx.company.name}
+            email={invited.email}
+            result={invited.result}
+            canResend
+            onResent={(r) => {
+              notify(r.emailed ? "ส่งอีเมลเชิญอีกครั้งแล้ว · ต่ออายุ 7 วัน" : "ต่ออายุคำเชิญ 7 วันแล้ว");
+              load();
+            }}
+          />
+        </Modal>
+      )}
       {modal && (
         <Modal
           title={member ? "แก้ไขสิทธิ์สมาชิก" : "เพิ่มคำเชิญสมาชิก"}
@@ -723,20 +753,21 @@ export function Team({
               e.preventDefault();
               setBusy(true);
               try {
-                await api("/team" + (member ? "/" + member.id : ""), {
+                const invitedEmail = member ? "" : String(new FormData(e.currentTarget).get("email") || "");
+                const r: InviteResult = await api("/team" + (member ? "/" + member.id : ""), {
                   method: member ? "PATCH" : "POST",
                   body: {
-                    email: member
-                      ? undefined
-                      : new FormData(e.currentTarget).get("email"),
+                    email: member ? undefined : invitedEmail,
                     role,
                     departments,
+                    ...(member ? { read_departments: readDepartments.filter((d) => !departments.includes(d)) } : {}),
                     disabled,
                   },
                 });
                 setModal(false);
                 await load();
-                notify("บันทึกสิทธิ์แล้ว");
+                if (!member) setInvited({ email: invitedEmail, result: r });
+                notify(member ? "บันทึกสิทธิ์แล้ว" : r.emailed ? "ส่งอีเมลคำเชิญแล้ว" : "บันทึกคำเชิญแล้ว");
               } catch (err) {
                 setError((err as Error).message);
               } finally {
@@ -761,6 +792,29 @@ export function Team({
               </select>
             </label>
             <h3 className="form-section-title">แผนกที่เข้าถึงได้</h3>
+            {member ? (
+              // ล็อก / ดู / ใช้งาน per department (same as the employee page's สิทธิ์การใช้งาน).
+              <div className="dept-levels">
+                {departmentNames.map((d) => (
+                  <div key={d} className={"acl-row lv-" + accessLevel({ role, departments, read_departments: readDepartments }, d)}>
+                    <span className="acl-dept">
+                      <span>
+                        {deptThai[d] || d}
+                        <small>{d}</small>
+                      </span>
+                    </span>
+                    <AccessLevelPicker
+                      label={deptThai[d] || d}
+                      value={accessLevel({ role, departments, read_departments: readDepartments }, d)}
+                      onChange={(v) => {
+                        setDepartments((s) => (v === "use" ? [...s.filter((x) => x !== d), d] : s.filter((x) => x !== d)));
+                        setReadDepartments((s) => (v === "view" ? [...s.filter((x) => x !== d), d] : s.filter((x) => x !== d)));
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="department-checks">
               {departmentNames.map((d) => (
                 <label key={d}>
@@ -777,6 +831,7 @@ export function Team({
                 </label>
               ))}
             </div>
+            )}
             {member && (
               <label className="checkbox-label">
                 <input
@@ -793,7 +848,7 @@ export function Team({
             <div className="modal-footer">
               <button
                 className="primary"
-                disabled={busy || !departments.length}
+                disabled={busy || !(departments.length || (member && readDepartments.length))}
               >
                 บันทึกสิทธิ์
               </button>

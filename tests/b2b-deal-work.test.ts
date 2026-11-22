@@ -122,7 +122,7 @@ test("deal room phase 2: work, instalments, withholding tax, receipts, closing a
     const made = await ents(deal);
     const of = (kind: string, co: string) => made.filter((e) => e.kind === kind && e.company_id === co);
     assert.equal(of("projects", b)[0].data.status, "completed");
-    assert.equal(of("tasks", a)[0].data.status, "done");
+    assert.equal(of("projects", a)[0].data.status, "completed");
     const invs = of("invoices", b);
     assert.equal(invs.length, 2);
     assert.ok(invs.every((i) => i.data.status === "paid"));
@@ -158,8 +158,8 @@ test("deal room phase 2: work, instalments, withholding tax, receipts, closing a
     deals = await val<Deal[]>("select b2b_deals_of($1,$2)", [a, t]);
     assert.equal(deals[1].stage, "cancelled");
     const made2 = await ents(q2.deal_id);
-    assert.equal(made2.find((e) => e.kind === "projects")!.data.status, "cancelled");
-    assert.equal(made2.find((e) => e.kind === "tasks")!.data.status, "done");
+    assert.ok(made2.filter((e) => e.kind === "projects").every((e) => e.data.status === "cancelled"), "both sides' projects are cancelled");
+    assert.equal(made2.filter((e) => e.kind === "tasks").length, 0);
     await login(bob);
     await assert.rejects(db.query("select b2b_deal_progress($1,$2,10,'x')", [b, q2.deal_id]));
   } finally {

@@ -72,6 +72,10 @@ export type Deal = {
   quote_id: string | null;
   /** Buyer only: the follow-up task made on acceptance. */
   task_id: string | null;
+  /** Who handles the deal on each side (migration 0084): set on acceptance or taken over; before that the last to write a card. */
+  contact_mine?: string | null;
+  contact_theirs?: string | null;
+  contact_is_me?: boolean;
   cards: DealCard[];
 };
 

@@ -81,6 +81,8 @@ import { AdStudio } from "./ads";
 import { Accounting } from "./accounting";
 import { Directory } from "./directory";
 import { DepartmentMegaMenu, DEPT_KEY } from "./dept-menu";
+import { LockedSystem, LockMark } from "./member-access";
+import { canRead, canWrite } from "@/lib/domain";
 import { DepartmentSidebar } from "./dept-sidebar";
 import { SampleDataCard } from "./sample-data-card";
 import { ExpenseForm } from "./expense-form";
@@ -90,7 +92,7 @@ import { UpgradeDialog } from "./upgrade-dialog";
 import { AppSettings, savedLang } from "./app-settings";
 import { PlanTag } from "./plan-tag";
 import { planBadge, type PlanBadge } from "@/lib/plan-badge";
-import { departmentOf, sectionTone } from "@/lib/departments";
+import { departmentOf, sectionTone, systemDepartment } from "@/lib/departments";
 import { TaxReport, Expiries, TransfersPage, ExpiryAlerts } from "./dept-views";
 import { ZettaWorkspace } from "./zetta-workspace";
 import { Team } from "./settings";
@@ -599,22 +601,14 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
       setCompanyError((e as Error).message);
     }
   };
+  // Platform-admin and owner-only pages stay hidden from everyone else.
   const visible = (key: string) =>
-    key === "admin"
-      ? !!data.platformAdmin
-      : key === "team"
-      ? ctx.member.role === "owner"
-      : key === "tax"
-      ? ctx.member.role === "owner" || ctx.member.departments.includes("Finance")
-      : key === "receipts" || key === "income"
-      ? ctx.member.role === "owner" || ctx.member.departments.includes("Finance")
-      : key === "transfers"
-      ? ctx.member.role === "owner" || ctx.member.departments.includes("Warehouse")
-      : catalog[key]
-        ? ctx.member.role === "owner" ||
-          ctx.member.departments.includes(catalog[key].department) ||
-          ["tasks", "documents", "tickets"].includes(key)
-        : true;
+    key === "admin" ? !!data.platformAdmin : key === "team" ? ctx.member.role === "owner" : true;
+  // A department page this member has neither ดู nor ใช้งาน on stays in the menus with a lock and opens LockedSystem.
+  const locked = (key: string) => {
+    const d = systemDepartment(key);
+    return !!d && !canRead(ctx, d);
+  };
   return (
     <div
       className={"workspace top-layout theme-" + theme}
@@ -651,6 +645,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                 >
                   <Ico size={16} />
                   {label}
+                  {locked(key) && <LockMark />}
                 </button>
               ))}
             <button
@@ -816,6 +811,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <DepartmentMegaMenu
               view={view}
               visible={visible}
+              locked={locked}
               navigate={navigate}
               closing={menuClosing}
               onPointerEnter={menuHoverOpen}
@@ -832,7 +828,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
         {data.support && <SupportViewBanner support={data.support} company={ctx.company.name} />}
         {!!data.supportWatch?.length && <SupportWatchBanner watch={data.supportWatch} notify={notify} />}
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
-        {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} />}
+        {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} locked={locked} />}
         {/* Every department's pages: a tint in the department's colour at the top (รายรับ / ค่าใช้จ่าย keep their own). */}
         <main className={"main" + ((sectionTone(sideDept, fullView) || sideDept?.tone) ? " top-" + (sectionTone(sideDept, fullView) || sideDept?.tone) : "")} key={ctx.company.id}>
           {!["feed", "jobs", "dashboard", "company", "expense-new", "income-new", "employees", "finance", "projects", "departments", "store", "integrations", "receipts", "profile", "pricing", "customers", "suppliers", "chat", "admin"].includes(view) && (
@@ -867,7 +863,9 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           </div>
           )}
           {error && <p className="form-error">{error}</p>}
-          {view === "feed" ? (
+          {locked(view) ? (
+            <LockedSystem name={meta.label} department={systemDepartment(view)} />
+          ) : view === "feed" ? (
             <Feed ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "jobs" ? (
             <Jobs ctx={ctx} notify={notify} navigate={navigate} />
@@ -887,7 +885,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             // รายการค่าใช้จ่าย: a summary only — totals with tax for a day / month / year and every row in detail.
             <div className="acc">
               <FinanceTabs current="expenses" navigate={navigate}>
-                {ctx.member.role !== "viewer" && (
+                {canWrite(ctx, "Finance") && (
                   <button className="primary acc-new expense" onClick={() => navigate("expense-new")}>
                     <Plus size={16} /> บันทึกค่าใช้จ่าย
                   </button>
@@ -1153,9 +1151,12 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
                     .includes(search.toLowerCase()),
               )
               .map((key) => (
-                <button key={key} onClick={() => navigate(key)}>
+                <button key={key} className={locked(key) ? "is-locked" : undefined} onClick={() => navigate(key)}>
                   <Icon name={details(key).icon} />
-                  <span>{details(key).label}</span>
+                  <span>
+                    {details(key).label}
+                    {locked(key) && <LockMark />}
+                  </span>
                   <ArrowRight size={16} />
                 </button>
               ))}

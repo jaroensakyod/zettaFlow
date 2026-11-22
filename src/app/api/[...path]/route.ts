@@ -3,6 +3,7 @@ import { aiScope } from "@/lib/llm";
 import { adStudio, buyAd, liveAds, setAdStatus, trackAd } from "@/lib/ads";
 import { lineGroupMessages, lineGroupsOverview } from "@/lib/line-hub";
 import { NextResponse, after, type NextRequest } from "next/server";
+import { joinEmail, mailConfigured, sendMail } from "@/lib/mailer";
 import { cookies } from "next/headers";
 import { randomUUID, randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -18,7 +19,7 @@ import {
   movement,
   purchaseAction,
   summary,
-  home,
+  homePage,
   homeFinance,
   templates,
   saveTemplate,
@@ -78,11 +79,11 @@ import {
 } from "@/lib/feed";
 import { financeOverview, saveBudgets, saveTargets, setClosingStep } from "@/lib/finance-center";
 import { linePageData } from "@/lib/line-page";
-import { homeExtra, saveNote, deleteNote, setGoal } from "@/lib/home-extra";
+import { homeExtra, homeMe, saveNote, deleteNote, setGoal } from "@/lib/home-extra";
 import { shopState, shopActive, shopBuy, shopActivate } from "@/lib/app-shop";
 import { projectsOverview, projectDetail } from "@/lib/projects";
 import { receiptsList } from "@/lib/receipts";
-import { dealDecide, dealQuote, dealRequest, dealStep, dealSteps, dealWithdraw, dealsOf } from "@/lib/b2b-deals";
+import { dealDecide, dealQuote, dealRequest, dealStep, dealSteps, dealTake, dealWithdraw, dealsOf } from "@/lib/b2b-deals";
 import { avatarUrl, b2bFile, b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread, b2bUpload, clearAvatar, myAvatar, setAvatar } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
@@ -158,6 +159,44 @@ async function body(req: NextRequest) {
     throw new AppError("JSON ไม่ถูกต้อง");
   }
 }
+/** Email an invitation through Supabase Auth (service role). Never fails the invite itself. */
+async function emailInvite(
+  email: string,
+  name?: string,
+  resend = false,
+  company?: { name: string; position?: string; by?: string },
+): Promise<{ emailed: boolean; existing?: boolean; reset?: boolean }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { emailed: false };
+  const site = process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com";
+  try {
+    const { error } = await supabaseAdmin().auth.admin.inviteUserByEmail(email.trim().toLowerCase(), {
+      data: name ? { name } : undefined,
+      redirectTo: site + "/auth/callback",
+    });
+    if (!error) return { emailed: true };
+    if (/already|registered|exists/i.test(error.message)) {
+      // They have an account: with the mail service set up, the invitation itself (company, position, sign in with
+      // their own password); the company is added when they sign in.
+      if (company && mailConfigured()) {
+        await sendMail({ to: email.trim().toLowerCase(), ...joinEmail({ company: company.name, email, name, position: company.position, from: company.by }) });
+        return { emailed: true, existing: true };
+      }
+      // Asked to send again to someone who already has an account (or opened an earlier invite but never set a
+      // password): a link to set their password — they land signed in, and the company is added on sign-in.
+      if (!resend) return { emailed: false, existing: true };
+      const r = await supabaseAdmin().auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: site + "/auth/callback?next=/reset-password" });
+      if (!r.error) return { emailed: true, existing: true, reset: true };
+      console.error("invite reset email", r.error.message);
+      return { emailed: false, existing: true };
+    }
+    console.error("invite email", error.message);
+    return { emailed: false };
+  } catch (e) {
+    console.error("invite email", e);
+    return { emailed: false };
+  }
+}
+
 async function handle(req: NextRequest) {
   try {
     const path = req.nextUrl.pathname.slice(5).split("/"),
@@ -243,7 +282,8 @@ async function handle(req: NextRequest) {
         const { error } = await sb.auth.verifyOtp({ token_hash, type });
         if (error) return response({ error: "ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ใหม่ได้เลย", expired: true }, 400);
         await sb.rpc("accept_invitations");
-        return response({ next: type === "recovery" ? "/reset-password" : "/workspace/dashboard" });
+        // An invited person has no password yet: they set one first (then land in the company).
+        return response({ next: type === "recovery" ? "/reset-password" : type === "invite" ? "/reset-password?invite=1" : "/workspace/dashboard" });
       }
       if (action === "password") {
         const password = z.string().min(7).max(200).parse(input.password);
@@ -404,7 +444,8 @@ async function handle(req: NextRequest) {
           q = new URL(req.url).searchParams;
         return response(await homeFinance(ctx, day.parse(q.get("from")), day.parse(q.get("to"))));
       }
-      return response(await home(ctx));
+      if (path[1] === "me" && method === "GET") return response(await homeMe(ctx));
+      return response(await homePage(ctx));
     }
     if (path[0] === "feed") {
       if (path[1] === "image" || path[1] === "logo" || path[1] === "cover") {
@@ -968,9 +1009,12 @@ async function handle(req: NextRequest) {
     if (path[0] === "team") {
       requireOwner(ctx);
       if (method === "GET") {
+        // read_departments (ดู) is missing on rows saved before migration 0085 / older demo files.
+        const withRead = <T extends { read_departments?: string[] | null }>(rows: T[] | null) =>
+          (rows || []).map((m) => ({ ...m, read_departments: m.read_departments || [] }));
         if (ctx.demo) {
           const s = await demoRead();
-          return response({ members: s.members, invites: s.invites });
+          return response({ members: withRead(s.members), invites: s.invites });
         }
         const sb = await supabaseServer();
         const [{ data: members, error }, { data: invites, error: e }] =
@@ -980,16 +1024,103 @@ async function handle(req: NextRequest) {
           ]);
         dbError(error);
         dbError(e);
-        return response({ members, invites });
+        return response({ members: withRead(members), invites });
+      }
+      // Send an invitation again: POST /team/invites/resend {email} — renews it for 7 days and emails it again.
+      if (path[1] === "invites" && path[2] === "resend" && method === "POST") {
+        requireOwner(ctx);
+        const email = z.email().parse((await body(req)).email).trim().toLowerCase();
+        if (ctx.demo) return response({ ok: true, demo: true });
+        const sb = await supabaseServer();
+        const { data: inv, error: e } = await sb.from("invitations").select("role,departments,accepted_at").eq("company_id", ctx.company.id).eq("email", email).maybeSingle();
+        dbError(e);
+        assert(inv, "ไม่พบคำเชิญของอีเมลนี้ เชิญใหม่จากหน้าพนักงานหรือหน้าทีม", 404);
+        assert(!inv.accepted_at, "อีเมลนี้เข้าร่วมบริษัทแล้ว");
+        const { error } = await sb.rpc("invite_member", { p_company: ctx.company.id, p_email: email, p_role: inv.role, p_departments: inv.departments });
+        dbError(error);
+        return response({ ok: true, ...(await emailInvite(email, undefined, true, { name: ctx.company.name, by: ctx.user.name })) });
+      }
+      // Invitation email to a member (company, position, a button to sign in with their own password):
+      // POST /team/<member>/invite-email {name?, position?}
+      if (path[1] && path[2] === "invite-email" && method === "POST") {
+        requireOwner(ctx);
+        const input = z.object({ name: z.string().trim().max(200).optional(), position: z.string().trim().max(200).optional() }).parse(await body(req).catch(() => ({})));
+        if (ctx.demo) return response({ ok: true, demo: true });
+        const sb = await supabaseServer();
+        const { data: m, error: e } = await sb.from("memberships").select("email,name").eq("company_id", ctx.company.id).eq("id", z.uuid().parse(path[1])).maybeSingle();
+        dbError(e);
+        assert(m?.email, "ไม่พบสมาชิก", 404);
+        await sendMail({
+          to: String(m.email).trim().toLowerCase(),
+          replyTo: ctx.user.email || undefined,
+          ...joinEmail({ company: ctx.company.name, email: String(m.email), name: input.name || m.name || undefined, position: input.position, from: ctx.user.name }),
+        });
+        return response({ ok: true, emailed: true });
+      }
+      // A member who can't get in: POST /team/<member>/login-link emails them a link to set a password and sign in.
+      if (path[1] && path[2] === "login-link" && method === "POST") {
+        requireOwner(ctx);
+        if (ctx.demo) return response({ ok: true, demo: true });
+        const sb = await supabaseServer();
+        const { data: m, error: e } = await sb.from("memberships").select("email,role").eq("company_id", ctx.company.id).eq("id", z.uuid().parse(path[1])).maybeSingle();
+        dbError(e);
+        assert(m?.email, "ไม่พบสมาชิก", 404);
+        assert(process.env.SUPABASE_SERVICE_ROLE_KEY, "ยังส่งอีเมลจากระบบไม่ได้ ส่งข้อความให้พนักงานแทน");
+        const site = process.env.NEXT_PUBLIC_APP_URL || "https://eliteflow-ai.com";
+        const r = await supabaseAdmin().auth.resetPasswordForEmail(String(m.email).trim().toLowerCase(), { redirectTo: site + "/auth/callback?next=/reset-password" });
+        if (r.error) console.error("login link", r.error.message);
+        return response({ ok: true, emailed: !r.error, existing: true, reset: true });
+      }
+      // สิทธิ์การใช้งาน (employee page): POST /team/<member>/access {role, departments (ใช้งาน), read_departments (ดู)}.
+      if (path[1] && path[2] === "access" && method === "POST") {
+        const id = path[1];
+        const access = z
+          .object({
+            role: z.enum(["manager", "staff", "viewer"]),
+            departments: z.array(z.enum(departmentNames as [string, ...string[]])).max(30),
+            read_departments: z.array(z.enum(departmentNames as [string, ...string[]])).max(30),
+          })
+          .parse(await body(req));
+        const use = [...new Set(access.departments)];
+        const view = [...new Set(access.read_departments)].filter((d) => !use.includes(d));
+        assert(use.length + view.length > 0, "เลือกอย่างน้อย 1 ระบบที่ดูหรือใช้งานได้");
+        if (ctx.demo) {
+          let saved: import("@/lib/types").Member | undefined;
+          await demoMutate((s) => {
+            const m = s.members.find((m) => m.id === id);
+            assert(m, "ไม่พบสมาชิก", 404);
+            assert(m.role !== "owner", "เจ้าของบริษัทใช้ได้ทุกระบบ แก้ไขสิทธิ์ไม่ได้");
+            Object.assign(m, { role: access.role, departments: use, read_departments: view });
+            saved = { ...m };
+            demoAudit(s, "member_access_updated", id);
+          });
+          return response({ member: saved });
+        }
+        const sb = await supabaseServer();
+        const { data, error } = await sb.rpc("set_member_access", {
+          p_company: ctx.company.id,
+          p_member: z.uuid().parse(id),
+          p_role: access.role,
+          p_departments: use,
+          p_read_departments: view,
+        });
+        dbError(error);
+        return response({ member: data });
       }
       const input = z
         .object({
           email: z.email().optional(),
           role: z.enum(["manager", "staff", "viewer"]),
-          departments: z.array(z.string().min(1).max(100)).min(1).max(20),
+          departments: z.array(z.string().min(1).max(100)).max(20),
+          read_departments: z.array(z.string().min(1).max(100)).max(20).optional(),
           disabled: z.boolean().optional(),
+          /** The invited person's name and position (employee page), used in the invite email. */
+          name: z.string().trim().max(200).optional(),
+          position: z.string().trim().max(200).optional(),
         })
         .parse(await body(req));
+      // An invite needs a ใช้งาน department; an edit may leave only ดู ones.
+      assert(input.departments.length || (path[1] && input.read_departments?.length), "เลือกแผนกอย่างน้อย 1 แผนก");
       if (ctx.demo)
         await demoMutate((s) => {
           if (path[1]) {
@@ -998,6 +1129,7 @@ async function handle(req: NextRequest) {
             Object.assign(m, {
               role: input.role,
               departments: input.departments,
+              read_departments: (input.read_departments ?? m.read_departments ?? []).filter((d) => !input.departments.includes(d)),
               disabled: input.disabled || false,
             });
           } else {
@@ -1011,6 +1143,7 @@ async function handle(req: NextRequest) {
           }
           demoAudit(s, "team_updated", String(input.email || path[1]));
         });
+        if (!path[1]) return response({ ok: true, demo: true });
       else {
         const sb = await supabaseServer();
         const { error } = path[1]
@@ -1020,6 +1153,8 @@ async function handle(req: NextRequest) {
               p_role: input.role,
               p_departments: input.departments,
               p_disabled: input.disabled || false,
+              // Left out, the member's ดู departments are kept.
+              ...(input.read_departments ? { p_read_departments: input.read_departments } : {}),
             })
           : await sb.rpc("invite_member", {
               p_company: ctx.company.id,
@@ -1028,6 +1163,10 @@ async function handle(req: NextRequest) {
               p_departments: input.departments,
             });
         dbError(error);
+        // A new invitation: email it. Someone without an account gets Supabase's invite email (template "invite":
+        // /auth/confirm?type=invite → set a password → into the company). Someone who already has an account
+        // gets no email (they only need to sign in again); the screen shows a message to send them instead.
+        if (!path[1]) return response({ ok: true, ...(await emailInvite(String(input.email), input.name, false, { name: ctx.company.name, position: input.position, by: ctx.user.name })) });
       }
       return response({ ok: true });
     }
@@ -1039,6 +1178,7 @@ async function handle(req: NextRequest) {
       if ((path[1] === "deals" || path[1] === "cards") && path[2] && path[3] && dealSteps.includes(path[3] as never) && method === "POST")
         return response(await dealStep(ctx, path[1] === "deals" ? "deal" : "card", path[2], path[3], await body(req).catch(() => ({}))), 201);
       if (path[1] === "cards" && path[3] === "decide" && method === "POST") return response(await dealDecide(ctx, path[2], await body(req)));
+      if (path[1] === "deals" && path[2] && path[3] === "take" && method === "POST") return response(await dealTake(ctx, path[2]));
       if (path[1] === "cards" && path[3] === "withdraw" && method === "POST") return response(await dealWithdraw(ctx, path[2], await body(req).catch(() => ({}))));
       if (path[1] && path[2] === "deals" && method === "GET") return response(await dealsOf(ctx, path[1]));
       if (path[1] && path[2] === "request" && method === "POST") return response(await dealRequest(ctx, path[1], await body(req)), 201);
