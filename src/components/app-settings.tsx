@@ -37,10 +37,10 @@ export function AppSettings({ notify }: { notify: (s: string) => void }) {
     notify(l.ready ? "เปลี่ยนภาษาเป็น " + l.name + " แล้ว" : "บันทึกภาษา " + l.name + " แล้ว · หน้าจอภาษานี้กำลังทยอยเปิดใช้ ระหว่างนี้แสดงเป็นภาษาไทย");
   };
   return (
-    <div className="as-page">
-      <section className="as-card">
+    <div className="acs-page">
+      <section className="acs-card">
         <header>
-          <span className="as-icon t-blue">
+          <span className="acs-icon t-blue">
             <Languages size={18} />
           </span>
           <div>
@@ -48,45 +48,45 @@ export function AppSettings({ notify }: { notify: (s: string) => void }) {
             <small>เลือกภาษาที่ใช้แสดงผลในระบบ</small>
           </div>
         </header>
-        <div className="as-langs" role="radiogroup" aria-label="ภาษา">
+        <div className="acs-langs" role="radiogroup" aria-label="ภาษา">
           {languages.map((l) => (
             <button key={l.id} type="button" role="radio" aria-checked={lang === l.id} className={lang === l.id ? "on" : ""} onClick={() => pick(l.id)}>
-              <span className={"as-flag f-" + l.id}>{l.id.toUpperCase()}</span>
-              <span className="as-lang-text">
+              <span className={"acs-flag f-" + l.id}>{l.id.toUpperCase()}</span>
+              <span className="acs-lang-text">
                 <b>{l.name}</b>
                 <small>{l.ready ? l.native : l.native + " · เร็วๆ นี้"}</small>
               </span>
-              {lang === l.id && <Check size={16} className="as-check" />}
+              {lang === l.id && <Check size={16} className="acs-check" />}
             </button>
           ))}
         </div>
-        <p className="as-note">
+        <p className="acs-note">
           <Globe2 size={14} /> ภาษาที่เลือกจะจำไว้ในเครื่องนี้ ภาษาอื่นนอกจากไทยกำลังทยอยเปิดใช้งาน
         </p>
       </section>
 
-      <section className="as-card as-soon">
+      <section className="acs-card acs-soon">
         <header>
-          <span className="as-icon t-pink">
+          <span className="acs-icon t-pink">
             <Bell size={18} />
           </span>
           <div>
             <h3>การแจ้งเตือน</h3>
             <small>เลือกเรื่องที่ต้องการให้แจ้งทางเว็บ อีเมล และ LINE</small>
           </div>
-          <em className="as-tag">เร็วๆ นี้</em>
+          <em className="acs-tag">เร็วๆ นี้</em>
         </header>
       </section>
-      <section className="as-card as-soon">
+      <section className="acs-card acs-soon">
         <header>
-          <span className="as-icon t-violet">
+          <span className="acs-icon t-violet">
             <Palette size={18} />
           </span>
           <div>
             <h3>หน้าตาและธีม</h3>
             <small>โหมดสว่าง / มืด และขนาดตัวอักษร</small>
           </div>
-          <em className="as-tag">เร็วๆ นี้</em>
+          <em className="acs-tag">เร็วๆ นี้</em>
         </header>
       </section>
     </div>
