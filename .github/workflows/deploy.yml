@@ -1,0 +1,46 @@
+# Deploys the app to Cloudflare Workers (cloudflare/DEPLOY.md):
+#  - every push to main      → dev        (Worker eliteflow-dev, https://dev.eliteflow-ai.com, D1 eliteflow-dev-db)
+#  - a published GitHub release → production (Worker eliteflow, https://eliteflow-ai.com, D1 eliteflow-db)
+# Both first run the checks (typecheck, tests), then apply new D1 migrations, then deploy.
+# Repository secrets: CLOUDFLARE_API_TOKEN (Workers Scripts, D1, Workers Routes: Edit) and CLOUDFLARE_ACCOUNT_ID.
+name: Deploy to Cloudflare
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "dev or production"
+        required: true
+        default: dev
+concurrency:
+  group: deploy-${{ github.event_name == 'release' && 'production' || inputs.target || 'dev' }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'release' || inputs.target == 'production') && 'production' || 'dev' }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROD: ${{ (github.event_name == 'release' || inputs.target == 'production') && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run cf:build
+      - name: Apply D1 migrations
+        run: |
+          if [ -n "$PROD" ]; then npx wrangler d1 migrations apply eliteflow-db --remote
+          else npx wrangler d1 migrations apply eliteflow-dev-db --remote --env dev; fi
+      - name: Deploy
+        run: |
+          if [ -n "$PROD" ]; then npx wrangler deploy --message "release ${{ github.ref_name }}"
+          else npx wrangler deploy --env dev --message "main ${GITHUB_SHA::7}"; fi
