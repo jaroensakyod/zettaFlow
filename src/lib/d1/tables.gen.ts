@@ -159,7 +159,11 @@ export const tables: Record<string, TableMeta> = {
    "buyer_supplier",
    "buyer_task",
    "created_at",
-   "updated_at"
+   "updated_at",
+   "buyer_contact_id",
+   "buyer_contact",
+   "seller_contact_id",
+   "seller_contact"
   ],
   "json": [],
   "bool": [],
@@ -850,10 +854,12 @@ export const tables: Record<string, TableMeta> = {
    "role",
    "departments",
    "disabled",
-   "last_seen_at"
+   "last_seen_at",
+   "read_departments"
   ],
   "json": [
-   "departments"
+   "departments",
+   "read_departments"
   ],
   "bool": [
    "disabled"
