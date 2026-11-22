@@ -42,5 +42,5 @@ jobs:
           else npx wrangler d1 migrations apply eliteflow-dev-db --remote --env dev; fi
       - name: Deploy
         run: |
-          if [ -n "$PROD" ]; then npx wrangler deploy --message "release ${{ github.ref_name }}"
-          else npx wrangler deploy --env dev --message "main ${GITHUB_SHA::7}"; fi
+          if [ -n "$PROD" ]; then npx wrangler deploy --message="release-${{ github.ref_name }}"
+          else npx wrangler deploy --env dev --message="main-${GITHUB_SHA::7}"; fi
