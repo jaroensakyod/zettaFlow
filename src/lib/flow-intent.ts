@@ -83,6 +83,14 @@ export function pageFor(text: string) {
 }
 
 /**
+ * Asking for a person: "ติดต่อเจ้าหน้าที่", "ขอคุยกับแอดมิน", "คุยกับทีมงาน". Answered with a button that opens the chat
+ * with the EliteFlow team (not with the company's own staff: "พนักงาน" is left out on purpose).
+ */
+export const wantsStaff = (message: string) =>
+  /ติดต่อ\s*(?:เจ้าหน้าที่|ทีมงาน|ทีม\s*eliteflow|แอดมิน|admin|ฝ่ายบริการ|ซัพพอร์ต|support)|(?:คุย|แชท|ปรึกษา)\s*(?:กับ)?\s*(?:คน(?:จริง)?|เจ้าหน้าที่|ทีมงาน|แอดมิน|admin|ซัพพอร์ต)|ขอ\s*(?:สาย|คุยกับ)\s*(?:คน|เจ้าหน้าที่|แอดมิน)|call\s*center|คอลเซ็นเตอร์/i.test(
+    message,
+  );
+/**
  * A problem report ("bug") or a suggestion / feature wish ("idea") for the EliteFlow team, or null.
  * "งานค้าง" and "ค้างจ่าย" are questions about the company's data, not app problems.
  */

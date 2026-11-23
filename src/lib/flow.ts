@@ -6,7 +6,7 @@ import { assert, canWrite, validDate } from "./domain";
 import { home, listEntities, summary } from "./data";
 import { entitled } from "./platform";
 import { MAX_PDF_PAGES, pdfPages } from "./billing";
-import { feedbackIsEmpty, feedbackKind, routeIntent, type TaskDraft } from "./flow-intent";
+import { feedbackIsEmpty, feedbackKind, routeIntent, wantsStaff, type TaskDraft } from "./flow-intent";
 import { aiEnabled, aiGenerate } from "./llm";
 import { businessSnapshot } from "./flow-context";
 import type { Context, Entity } from "./types";
@@ -19,7 +19,9 @@ export type FlowAction =
   /** Sends the attached receipt to the accounting page as an expense waiting review (only after the user clicks). */
   | { type: "receipt"; label: string }
   /** แจ้งปัญหา / ข้อเสนอแนะ for the EliteFlow team, sent only when the user presses the button. */
-  | { type: "feedback"; kind: "bug" | "idea"; text: string; label: string };
+  | { type: "feedback"; kind: "bug" | "idea"; text: string; label: string }
+  /** Opens the chat with the EliteFlow team (ติดต่อเจ้าหน้าที่). */
+  | { type: "contact"; label: string };
 export type FlowCard = { title: string; sub: string; tone?: "danger" | "warn" | "ok"; view?: string };
 export type FlowReply = { reply: string; actions: FlowAction[]; cards: FlowCard[]; engine: string };
 
@@ -228,6 +230,14 @@ export async function flowReply(ctx: Context, input: unknown, file?: File | null
     .object({ message: z.string().trim().min(1).max(1500), history: chatHistory })
     .parse(input);
   const today = bangkokToday();
+  if (wantsStaff(message))
+    return {
+      reply:
+        "ได้เลยค่ะ กด **คุยกับเจ้าหน้าที่** ด้านล่าง เลือกเรื่องที่อยากถาม แล้วพิมพ์ข้อความถึงทีม EliteFlow ได้เลยนะคะ เจ้าหน้าที่จะตอบกลับในแชทนั้นในเวลาทำการค่ะ",
+      actions: [{ type: "contact", label: "คุยกับเจ้าหน้าที่" }],
+      cards: [],
+      engine: "rules",
+    };
   // แจ้งปัญหา / ข้อเสนอแนะ: with AI, explain the feature if it exists or say it is not supported yet; always offer to
   // pass it to the EliteFlow team (sent only when the user presses the button).
   const fb = feedbackKind(message);

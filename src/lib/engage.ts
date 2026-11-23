@@ -7,6 +7,7 @@ import { demoRead, demoMutate, type DemoState } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
 import { platformAdmin } from "./platform";
+import { supportTopic, supportTopics } from "./support-topics";
 import type { Context } from "./types";
 
 export type Promo = {
@@ -40,6 +41,8 @@ export type SupportMessage = {
   id: string;
   company_id: string;
   sender: "customer" | "admin";
+  /** The customer who wrote it; on a team answer, the customer it answers. */
+  user_id?: string | null;
   name: string;
   body: string;
   created_at: string;
@@ -78,9 +81,27 @@ export async function publicContent(demo: boolean) {
 }
 
 // ---------- Customer support ----------
+// One thread per company with the EliteFlow team. Owners and managers see the whole thread; any other member can
+// write too (น้องโฟลว์ → ติดต่อเจ้าหน้าที่) and sees only their own messages and the team's answers to them.
 const canSupport = (ctx: Context) => ctx.member.role === "owner" || ctx.member.role === "manager";
+const roleNames: Record<string, string> = { owner: "เจ้าของ", manager: "ผู้จัดการ", staff: "พนักงาน", viewer: "ผู้ชม" };
+/** A member's message into the company thread, written with the service key (the caller has checked the member). */
+async function postAsMember(ctx: Context, body: string) {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("support_messages")
+    .insert({ company_id: ctx.company.id, sender: "customer", user_id: ctx.user.id, name: ctx.user.name, body })
+    .select("*")
+    .single();
+  dbError(error);
+  const { data: thread } = await sb.from("support_threads").select("unread_admin").eq("company_id", ctx.company.id).maybeSingle();
+  const { error: e2 } = await sb
+    .from("support_threads")
+    .upsert({ company_id: ctx.company.id, unread_admin: Number(thread?.unread_admin || 0) + 1, status: "open", updated_at: now() }, { onConflict: "company_id" });
+  dbError(e2);
+  return data as SupportMessage;
+}
 export async function supportThread(ctx: Context) {
-  assert(canSupport(ctx), "เฉพาะ Owner หรือ Manager", 403);
   if (ctx.demo) {
     const s = (await demoRead()) as DemoState & DemoEngage;
     return {
@@ -89,6 +110,18 @@ export async function supportThread(ctx: Context) {
       ],
       unread: 0,
     };
+  }
+  if (!canSupport(ctx)) {
+    // The server has checked the member; the service key reads only this person's messages and the answers to them.
+    const { data, error } = await supabaseAdmin()
+      .from("support_messages")
+      .select("*")
+      .eq("company_id", ctx.company.id)
+      .eq("user_id", ctx.user.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    dbError(error);
+    return { messages: (data || []).reverse(), unread: 0 };
   }
   const sb = await supabaseServer();
   const [{ data: messages, error }, { data: thread }] = await Promise.all([
@@ -104,32 +137,39 @@ export async function supportSeen(ctx: Context) {
   await sb.rpc("support_seen", { p_company: ctx.company.id });
 }
 export async function supportSend(ctx: Context, input: unknown) {
-  const { body } = z.object({ body: z.string().trim().min(1).max(4000) }).parse(input);
-  assert(canSupport(ctx), "เฉพาะ Owner หรือ Manager", 403);
+  const { body: text, topic } = z
+    .object({ body: z.string().trim().min(1).max(3900), topic: z.enum(supportTopics).optional() })
+    .parse(input);
+  const body = (topic ? "[" + topic + "] " : "") + text;
   if (ctx.demo)
     return demoMutate((s: DemoState & DemoEngage) => {
       const m: SupportMessage = { id: randomUUID(), company_id: s.company.id, sender: "customer", name: ctx.user.name, body, created_at: now() };
       (s.support ??= []).push(m);
       return m;
     });
-  const sb = await supabaseServer();
-  const { data, error } = await sb.rpc("support_send", { p_company: ctx.company.id, p_body: body });
-  dbError(error);
-  await sendAdminAlert("support", `💬 ข้อความใหม่จาก ${ctx.company.name} (${ctx.user.name})
-${body.slice(0, 300)}`);
-  return data as SupportMessage;
+  let message: SupportMessage;
+  if (canSupport(ctx)) {
+    const sb = await supabaseServer();
+    const { data, error } = await sb.rpc("support_send", { p_company: ctx.company.id, p_body: body });
+    dbError(error);
+    message = data as SupportMessage;
+  } else message = await postAsMember(ctx, body);
+  await sendAdminAlert(
+    "support",
+    `💬 ${topic ? "[" + topic + "] " : ""}ข้อความใหม่จาก ${ctx.company.name} (${ctx.user.name} · ${roleNames[ctx.member.role] || ctx.member.role})
+${text.slice(0, 300)}`,
+  );
+  return message;
 }
 
 /**
  * แจ้งปัญหา / ข้อเสนอแนะ sent from น้องโฟลว์: goes into the company's thread with the EliteFlow team (the operator
- * inbox), from any member — unlike the support chat itself, which owners and managers use. The server has already
- * checked the member, so it is written with the service key.
+ * inbox), from any member. The sender sees the team's answer in the "คุยกับเจ้าหน้าที่" chat.
  */
 export async function sendFeedback(ctx: Context, input: unknown) {
   const { kind, text } = z
     .object({ kind: z.enum(["bug", "idea"]), text: z.string().trim().min(3, "เล่ารายละเอียดอีกนิดนะคะ").max(2000) })
     .parse(input);
-  const roles: Record<string, string> = { owner: "เจ้าของ", manager: "ผู้จัดการ", staff: "พนักงาน", viewer: "ผู้ชม" };
   const body =
     (kind === "bug" ? "[แจ้งปัญหา]" : "[ข้อเสนอแนะ]") +
     " ผ่านน้องโฟลว์\n" +
@@ -137,7 +177,7 @@ export async function sendFeedback(ctx: Context, input: unknown) {
     "\n— " +
     ctx.user.name +
     " (" +
-    (roles[ctx.member.role] || ctx.member.role) +
+    (roleNames[ctx.member.role] || ctx.member.role) +
     ")";
   if (ctx.demo)
     return demoMutate((s: DemoState & DemoEngage) => {
@@ -145,14 +185,7 @@ export async function sendFeedback(ctx: Context, input: unknown) {
       (s.support ??= []).push(m);
       return { ok: true };
     });
-  const sb = supabaseAdmin();
-  const { error } = await sb.from("support_messages").insert({ company_id: ctx.company.id, sender: "customer", user_id: ctx.user.id, name: ctx.user.name, body });
-  dbError(error);
-  const { data: thread } = await sb.from("support_threads").select("unread_admin").eq("company_id", ctx.company.id).maybeSingle();
-  const { error: e2 } = await sb
-    .from("support_threads")
-    .upsert({ company_id: ctx.company.id, unread_admin: Number(thread?.unread_admin || 0) + 1, status: "open", updated_at: now() }, { onConflict: "company_id" });
-  dbError(e2);
+  await postAsMember(ctx, body);
   await sendAdminAlert("support", `${kind === "bug" ? "🐞 แจ้งปัญหา" : "💡 ข้อเสนอแนะ"} จาก ${ctx.company.name}
 ${text.slice(0, 300)}`);
   return { ok: true };
@@ -160,12 +193,38 @@ ${text.slice(0, 300)}`);
 
 // ---------- Operator console (PLATFORM_ADMIN_EMAILS) ----------
 const requireAdmin = (ctx: Context) => assert(platformAdmin(ctx), "เฉพาะผู้ดูแลแพลตฟอร์ม", 403);
-export async function adminInbox(ctx: Context) {
+export type InboxThread = {
+  company_id: string;
+  unread_admin: number;
+  status: string;
+  updated_at: string;
+  companies?: { name: string } | null;
+  /** The newest customer message: who wrote it, its subject and the start of the text. */
+  last?: { name: string; topic: string; text: string; at: string } | null;
+};
+export async function adminInbox(ctx: Context): Promise<InboxThread[]> {
   requireAdmin(ctx);
   if (ctx.demo) return [];
-  const { data, error } = await supabaseAdmin().from("support_threads").select("*, companies(name)").order("updated_at", { ascending: false }).limit(200);
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.from("support_threads").select("*, companies(name)").order("updated_at", { ascending: false }).limit(200);
   dbError(error);
-  return data;
+  const threads = (data || []) as InboxThread[];
+  if (!threads.length) return threads;
+  const { data: recent, error: e2 } = await sb
+    .from("support_messages")
+    .select("company_id, name, body, created_at")
+    .eq("sender", "customer")
+    .in("company_id", threads.map((t) => t.company_id))
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  dbError(e2);
+  const last = new Map<string, InboxThread["last"]>();
+  for (const m of (recent || []) as { company_id: string; name: string; body: string; created_at: string }[]) {
+    if (last.has(m.company_id)) continue;
+    const { topic, text } = supportTopic(m.body);
+    last.set(m.company_id, { name: m.name, topic, text: text.slice(0, 160), at: m.created_at });
+  }
+  return threads.map((t) => ({ ...t, last: last.get(t.company_id) || null }));
 }
 export async function adminThread(ctx: Context, company: string) {
   requireAdmin(ctx);
@@ -181,9 +240,25 @@ export async function adminReply(ctx: Context, company: string, input: unknown) 
   requireAdmin(ctx);
   const { body } = z.object({ body: z.string().trim().min(1).max(4000) }).parse(input);
   assert(!ctx.demo, "ใช้ได้เมื่อเชื่อม Supabase", 503);
-  const { data, error } = await supabaseAdmin().rpc("support_reply", { p_company: z.uuid().parse(company), p_name: "ทีมงาน ZettaFlow", p_body: body });
+  const id = z.uuid().parse(company),
+    sb = supabaseAdmin();
+  const { data, error } = await sb.rpc("support_reply", { p_company: id, p_name: "ทีมงาน ZettaFlow", p_body: body });
   dbError(error);
-  return data;
+  // The answer belongs to whoever wrote last, so a staff member who asked through น้องโฟลว์ sees it in their chat too.
+  const reply = data as SupportMessage;
+  const { data: asker } = await sb
+    .from("support_messages")
+    .select("user_id")
+    .eq("company_id", id)
+    .eq("sender", "customer")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (asker?.user_id && reply?.id) {
+    await sb.from("support_messages").update({ user_id: asker.user_id }).eq("id", reply.id);
+    reply.user_id = asker.user_id;
+  }
+  return reply;
 }
 const promoSchema = z.object({
   title: z.string().trim().min(1).max(120),

@@ -2691,6 +2691,74 @@ td strong {
   flex: 1;
   min-width: 0;
 }
+.support-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 0;
+  border-top: 1px solid var(--line);
+}
+.support-topics button {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--th-surface, #fff);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.support-topics button.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.support-topics + form {
+  border-top: 0;
+}
+.support-topic {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.support-msg.customer .support-topic {
+  color: var(--accent);
+  background: var(--th-surface, #fff);
+}
+.support-inbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.admin-thread-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.admin-thread-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.admin-thread-preview {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.admin-thread.unread b {
+  color: var(--accent);
+}
 .announce {
   display: flex;
   gap: 10px;
@@ -8101,6 +8169,7 @@ a.line-hub-page:hover { background: var(--th-accent-soft, #e6dcff); text-decorat
 .flow-fb .flow-action { color: #fff; background: linear-gradient(120deg, #7c3aed, #ec4899); border: 0; box-shadow: 0 6px 14px rgba(124, 58, 237, .28); }
 .flow-fb.bug .flow-action { background: linear-gradient(120deg, #f97316, #e11d48); box-shadow: 0 6px 14px rgba(225, 29, 72, .25); }
 .flow-fb .flow-action:disabled { opacity: .6; }
+.flow-bot > .flow-action.contact { display: inline-flex; align-items: center; gap: 6px; color: #fff; background: linear-gradient(120deg, #7c3aed, #ec4899); border: 0; box-shadow: 0 6px 14px rgba(124, 58, 237, .28); }
 
 /* Item lines in record forms (a purchase order's items, each with its own quantity) */
 .lines-field { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }

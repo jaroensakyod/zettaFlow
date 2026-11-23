@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { routeIntent, parseDue, pageFor } from "../src/lib/flow-intent";
+import { routeIntent, parseDue, pageFor, wantsStaff } from "../src/lib/flow-intent";
 
 const today = "2026-10-19"; // Monday
 
@@ -49,4 +49,9 @@ test("แจ้งปัญหา / ข้อเสนอแนะ are told apar
   assert.equal(feedbackIsEmpty("แจ้งปัญหา / เสนอแนะ"), true);
   assert.equal(feedbackIsEmpty("อยากเสนอแนะค่ะ"), true);
   assert.equal(feedbackIsEmpty("แจ้งปัญหา กดบันทึกลูกค้าแล้วหน้าค้าง"), false);
+});
+
+test("asking for a person opens the chat with the EliteFlow team; company staff questions do not", () => {
+  for (const m of ["ติดต่อเจ้าหน้าที่", "ขอคุยกับแอดมินหน่อย", "อยากคุยกับคนจริง", "ติดต่อทีมงานยังไง", "ขอสายเจ้าหน้าที่"]) assert.ok(wantsStaff(m), m);
+  for (const m of ["พนักงานคนไหนลาวันนี้", "สรุปยอดขายสัปดาห์นี้", "แจ้งปัญหา / เสนอแนะ"]) assert.ok(!wantsStaff(m), m);
 });

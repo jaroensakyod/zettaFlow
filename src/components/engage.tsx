@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { X, Send, Megaphone, Trash2, Plus, Save } from "lucide-react";
 import { api, Modal, Empty, displayDate } from "./shared";
 import type { Context } from "@/lib/types";
-import type { Announcement, Promo, SupportMessage } from "@/lib/engage";
+import type { Announcement, InboxThread, Promo, SupportMessage } from "@/lib/engage";
+import { supportTopic, supportTopics } from "@/lib/support-topics";
 
 const DISMISSED = "zf_dismissed_announcements";
 function readDismissed(): string[] {
@@ -48,106 +49,126 @@ export function AnnouncementPopup() {
   );
 }
 
-/** Floating chat with the ZettaFlow team (owners and managers). */
+const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" });
+/** One message; a "[subject] " at its start is shown as a tag. */
+function SupportBubble({ m, mine }: { m: SupportMessage; mine: boolean }) {
+  const { topic, text } = supportTopic(m.body);
+  return (
+    <div className={"support-msg " + (mine ? "customer" : "admin")}>
+      <small>
+        {m.name} · {when(m.created_at)}
+      </small>
+      <p>
+        {topic && <span className="support-topic">{topic}</span>}
+        {text}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Chat with the EliteFlow team (ติดต่อเจ้าหน้าที่). Owners and managers see the company's whole thread; other members
+ * see their own messages and the answers to them. Opened by น้องโฟลว์ and other screens with
+ * window.dispatchEvent(new Event("ef:support-open")).
+ */
 export function SupportChat({ ctx }: { ctx: Context }) {
   const [open, setOpen] = useState(false),
     [messages, setMessages] = useState<SupportMessage[]>([]),
-    [unread, setUnread] = useState(0),
     [text, setText] = useState(""),
+    [topic, setTopic] = useState<string>(supportTopics[0]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
-  const allowed = ctx.member.role === "owner" || ctx.member.role === "manager";
-  const load = useCallback(
-    async (seen: boolean) => {
-      try {
-        const d = await api("/support" + (seen ? "?seen=true" : ""));
-        setMessages(d.messages);
-        setUnread(seen ? 0 : d.unread);
-      } catch {}
-    },
-    [],
-  );
-  // Other screens (e.g. coin top-up) open the chat with window.dispatchEvent(new Event("ef:support-open")).
+  const whole = ctx.member.role === "owner" || ctx.member.role === "manager";
+  const load = useCallback(async (seen: boolean) => {
+    try {
+      const d = await api("/support" + (seen ? "?seen=true" : ""));
+      setMessages(d.messages);
+    } catch {}
+  }, []);
   useEffect(() => {
     const show = () => setOpen(true);
     window.addEventListener("ef:support-open", show);
     return () => window.removeEventListener("ef:support-open", show);
   }, []);
   useEffect(() => {
-    if (!allowed) return;
-    load(open);
-    const t = setInterval(() => !document.hidden && load(open), open ? 8000 : 60000);
+    if (!open) return;
+    load(true);
+    const t = setInterval(() => !document.hidden && load(true), 8000);
     return () => clearInterval(t);
-  }, [allowed, open, load]);
+  }, [open, load]);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
   }, [messages, open]);
-  if (!allowed) return null;
+  if (!open) return null;
   return (
     <>
       {/* No floating launcher: the chat opens from screens that need it (window event "ef:support-open"); this button only closes it. */}
-      {open && (
-        <button className="support-fab" aria-label="ปิดแชททีมงาน" onClick={() => setOpen(false)}>
-          <X size={22} />
-        </button>
-      )}
-      {open && (
-        <section className="support-panel" aria-label="แชทกับทีมงาน">
-          <header>
-            <b>ทีมงาน ZettaFlow</b>
-            <small>ตอบกลับในเวลาทำการ · ถามเรื่องการตั้งค่า LINE แพ็กเกจ หรือการชำระเงิน</small>
-          </header>
-          <div className="support-list">
-            {messages.map((m) => (
-              <div key={m.id} className={"support-msg " + m.sender}>
-                <small>
-                  {m.name} · {new Date(m.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
-                </small>
-                <p>{m.body}</p>
-              </div>
-            ))}
-            {!messages.length && <p className="muted">ยังไม่มีข้อความ พิมพ์คำถามได้เลย</p>}
-            <div ref={end} />
-          </div>
-          {error && <p className="form-error">{error}</p>}
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!text.trim()) return;
-              setBusy(true);
-              setError("");
-              try {
-                await api("/support", { method: "POST", body: { body: text } });
-                setText("");
-                await load(true);
-              } catch (err) {
-                setError((err as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์ข้อความ…" maxLength={4000} aria-label="ข้อความถึงทีมงาน" />
-            <button className="primary" disabled={busy || !text.trim()} aria-label="ส่ง">
-              <Send size={16} />
+      <button className="support-fab" aria-label="ปิดแชทเจ้าหน้าที่" onClick={() => setOpen(false)}>
+        <X size={22} />
+      </button>
+      <section className="support-panel" aria-label="คุยกับเจ้าหน้าที่">
+        <header>
+          <b>คุยกับเจ้าหน้าที่ EliteFlow</b>
+          <small>
+            ตอบกลับในเวลาทำการ ·{" "}
+            {whole ? "เจ้าของและผู้จัดการเห็นทุกข้อความของบริษัท" : "เห็นเฉพาะข้อความของคุณและคำตอบจากเจ้าหน้าที่"}
+          </small>
+        </header>
+        <div className="support-list">
+          {messages.map((m) => (
+            <SupportBubble key={m.id} m={m} mine={m.sender === "customer"} />
+          ))}
+          {messages.length === 0 && <p className="muted">ยังไม่มีข้อความ เลือกเรื่องแล้วพิมพ์ถามได้เลย</p>}
+          <div ref={end} />
+        </div>
+        {error && <p className="form-error">{error}</p>}
+        <div className="support-topics" role="radiogroup" aria-label="เรื่องที่ติดต่อ">
+          {supportTopics.map((t) => (
+            <button key={t} type="button" role="radio" aria-checked={topic === t} className={topic === t ? "on" : ""} onClick={() => setTopic(t)}>
+              {t}
             </button>
-          </form>
-        </section>
-      )}
+          ))}
+        </div>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!text.trim()) return;
+            setBusy(true);
+            setError("");
+            try {
+              await api("/support", { method: "POST", body: { body: text, topic } });
+              setText("");
+              await load(true);
+            } catch (err) {
+              setError((err as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์ข้อความถึงเจ้าหน้าที่…" maxLength={3900} aria-label="ข้อความถึงเจ้าหน้าที่" />
+          <button className="primary" disabled={busy || !text.trim()} aria-label="ส่ง">
+            <Send size={16} />
+          </button>
+        </form>
+      </section>
     </>
   );
 }
 
-type Thread = { company_id: string; unread_admin: number; status: string; updated_at: string; companies?: { name: string } };
+/** หลังบ้าน → ซัพพอร์ต: every company that wrote in, what about, and a reply box for the thread. */
 export function SupportInbox({ notify }: { notify: (s: string) => void }) {
-  const [threads, setThreads] = useState<Thread[]>([]),
-    [current, setCurrent] = useState<Thread | null>(null),
+  const [threads, setThreads] = useState<InboxThread[]>([]),
+    [current, setCurrent] = useState<InboxThread | null>(null),
     [messages, setMessages] = useState<SupportMessage[]>([]),
-    [text, setText] = useState("");
+    [onlyUnread, setOnlyUnread] = useState(false),
+    [text, setText] = useState(""),
+    [busy, setBusy] = useState(false);
+  const end = useRef<HTMLDivElement>(null);
   const loadThreads = useCallback(() => api("/admin/support").then(setThreads).catch(() => {}), []);
   const loadMessages = useCallback(
-    (t: Thread) => api("/admin/support/" + t.company_id).then(setMessages).catch(() => {}),
+    (t: InboxThread) => api("/admin/support/" + t.company_id).then(setMessages).catch(() => {}),
     [],
   );
   useEffect(() => {
@@ -159,46 +180,69 @@ export function SupportInbox({ notify }: { notify: (s: string) => void }) {
     }, 10000);
     return () => clearInterval(i);
   }, [loadThreads, loadMessages, current]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
+  const shown = onlyUnread ? threads.filter((t) => t.unread_admin > 0 || t.company_id === current?.company_id) : threads;
+  const waiting = threads.filter((t) => t.unread_admin > 0).length;
   return (
     <div className="two-column">
       <section className="card">
-        <h2>บทสนทนา</h2>
-        {!threads.length && <Empty title="ยังไม่มีข้อความจากลูกค้า" />}
-        {threads.map((t) => (
+        <div className="support-inbox-head">
+          <h2>บทสนทนา</h2>
+          <label className="muted">
+            <input type="checkbox" checked={onlyUnread} onChange={(e) => setOnlyUnread(e.target.checked)} /> ยังไม่อ่าน ({waiting})
+          </label>
+        </div>
+        {shown.length === 0 && <Empty title={onlyUnread ? "อ่านครบทุกข้อความแล้ว" : "ยังไม่มีข้อความจากลูกค้า"} />}
+        {shown.map((t) => (
           <button
             key={t.company_id}
-            className={"admin-thread " + (current?.company_id === t.company_id ? "active" : "")}
+            className={"admin-thread " + (current?.company_id === t.company_id ? "active " : "") + (t.unread_admin > 0 ? "unread" : "")}
             onClick={() => {
               setCurrent(t);
               loadMessages(t).then(loadThreads);
             }}
           >
-            <b>{t.companies?.name || t.company_id.slice(0, 8)}</b>
-            <small>{displayDate(t.updated_at)}</small>
+            <span className="admin-thread-main">
+              <span className="admin-thread-top">
+                <b>{t.companies?.name || t.company_id.slice(0, 8)}</b>
+                <small>{displayDate(t.updated_at)}</small>
+              </span>
+              {t.last && (
+                <small className="admin-thread-preview">
+                  {t.last.topic && <span className="support-topic">{t.last.topic}</span>}
+                  {t.last.name}: {t.last.text}
+                </small>
+              )}
+            </span>
             {t.unread_admin > 0 && <span className="support-badge inline">{t.unread_admin}</span>}
           </button>
         ))}
       </section>
       <section className="card">
-        {!current ? (
+        {current === null ? (
           <Empty title="เลือกบทสนทนา" />
         ) : (
           <>
             <h2>{current.companies?.name}</h2>
+            {current.last?.topic && (
+              <p className="muted">
+                เรื่องล่าสุด: <span className="support-topic">{current.last.topic}</span> จาก {current.last.name}
+              </p>
+            )}
             <div className="support-list tall">
               {messages.map((m) => (
-                <div key={m.id} className={"support-msg " + (m.sender === "admin" ? "customer" : "admin")}>
-                  <small>
-                    {m.name} · {new Date(m.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
-                  </small>
-                  <p>{m.body}</p>
-                </div>
+                <SupportBubble key={m.id} m={m} mine={m.sender === "admin"} />
               ))}
+              <div ref={end} />
             </div>
             <form
               className="support-reply"
               onSubmit={async (e) => {
                 e.preventDefault();
+                if (!text.trim()) return;
+                setBusy(true);
                 try {
                   await api("/admin/support/" + current.company_id, { method: "POST", body: { body: text } });
                   setText("");
@@ -206,11 +250,13 @@ export function SupportInbox({ notify }: { notify: (s: string) => void }) {
                   loadThreads();
                 } catch (err) {
                   notify((err as Error).message);
+                } finally {
+                  setBusy(false);
                 }
               }}
             >
-              <input value={text} onChange={(e) => setText(e.target.value)} placeholder="ตอบกลับลูกค้า…" aria-label="ข้อความตอบกลับ" />
-              <button className="primary" disabled={!text.trim()}>
+              <input value={text} onChange={(e) => setText(e.target.value)} placeholder="ตอบกลับลูกค้า…" maxLength={4000} aria-label="ข้อความตอบกลับ" />
+              <button className="primary" disabled={busy || !text.trim()}>
                 <Send size={15} /> ส่ง
               </button>
             </form>

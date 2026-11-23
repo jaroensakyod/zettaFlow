@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Paperclip, Send, X, Check, FileText, ArrowRight, Mic, Square, Volume2, VolumeX, Trash2, MessageSquareHeart } from "lucide-react";
+import { Paperclip, Send, X, Check, FileText, ArrowRight, Mic, Square, Volume2, VolumeX, Trash2, MessageSquareHeart, MessageCircle } from "lucide-react";
 import { departmentNames } from "@/lib/catalog";
 import type { FlowAction, FlowCard } from "@/lib/flow";
 import type { TaskDraft } from "@/lib/flow-intent";
@@ -37,7 +37,7 @@ type Msg =
   | { id: number; from: "bot"; text: string; actions: FlowAction[]; cards: FlowCard[]; done?: string[] };
 type NewMsg = Msg extends infer M ? (M extends Msg ? Omit<M, "id"> : never) : never;
 const STORE = "eliteflow-flow-chat";
-const prompts = ["ใบแจ้งหนี้ไหนค้างจ่ายบ้าง", "งานที่ใกล้ครบกำหนด", "สินค้าไหนใกล้หมด", "สรุปยอดขายสัปดาห์นี้", "แจ้งปัญหา / เสนอแนะ"];
+const prompts = ["ใบแจ้งหนี้ไหนค้างจ่ายบ้าง", "งานที่ใกล้ครบกำหนด", "สินค้าไหนใกล้หมด", "สรุปยอดขายสัปดาห์นี้", "แจ้งปัญหา / เสนอแนะ", "ติดต่อเจ้าหน้าที่"];
 const load = (): Msg[] => {
   if (typeof window === "undefined") return [];
   try {
@@ -84,7 +84,7 @@ export function FlowAssistant({
         from: "bot",
         text:
           (a.kind === "bug" ? "ส่งเรื่องถึงทีม EliteFlow แล้วค่ะ ทีมจะรีบตรวจสอบและแก้ไขให้นะคะ" : "ส่งไอเดียถึงทีม EliteFlow แล้วค่ะ ขอบคุณที่ช่วยให้ EliteFlow ดีขึ้นทุกวันนะคะ") +
-          " ถ้าทีมตอบกลับ เจ้าของบัญชีและผู้จัดการจะเห็นในกล่อง **คุยกับทีมงาน** ค่ะ",
+          " ทีมตอบกลับในแชท **คุยกับเจ้าหน้าที่** ค่ะ (ถามน้องโฟลว์ว่า \"ติดต่อเจ้าหน้าที่\" เพื่อเปิดดูได้เลย)",
         actions: [],
         cards: [],
       });
@@ -459,6 +459,19 @@ export function FlowAssistant({
                           </button>
                         </div>
                       )
+                    ) : a.type === "contact" ? (
+                      <button
+                        key={i}
+                        className="flow-action contact"
+                        onClick={() => {
+                          // SupportChat (engage.tsx) listens for this; the assistant closes so the chat is in view.
+                          window.dispatchEvent(new Event("ef:support-open"));
+                          setOpen(false);
+                        }}
+                      >
+                        <MessageCircle size={14} />
+                        {a.label}
+                      </button>
                     ) : a.type === "delete_task" ? (
                       <DeleteTaskConfirm
                         key={i}
