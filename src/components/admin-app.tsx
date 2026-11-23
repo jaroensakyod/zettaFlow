@@ -105,9 +105,16 @@ function PlanChip({ plan }: { plan: string }) {
 function ViaChip({ c }: { c: AdminCompany }) {
   return <span className={"ad-via v-" + c.via}>{c.via === "grant" && c.grant_kind ? "แอดมินมอบ · " + grantKinds[c.grant_kind] : viaLabel[c.via]}</span>;
 }
-/** A company's logo (logo = company id) or a person's photo (user = user id); the initial when there is none. */
-function Avatar({ name, size = 34, logo, user }: { name: string; size?: number; logo?: string; user?: string }) {
-  const src = logo ? "/api/feed/logo/" + logo : user ? "/api/avatar/" + user : "",
+/** A company's logo (logo = company id) or a person's picture as the system shows it (user = user id): the photo they
+ *  uploaded (avatar_at), else their employee record's photo, else the initial. */
+function Avatar({ name, size = 34, logo, user, avatar_at, photo }: { name: string; size?: number; logo?: string; user?: string; avatar_at?: string | null; photo?: string | null }) {
+  const src = logo
+      ? "/api/feed/logo/" + logo
+      : user && avatar_at
+        ? `/api/avatar/${user}?v=${encodeURIComponent(avatar_at)}`
+        : photo
+          ? "/api/admin/photo/" + photo
+          : "",
     [broken, setBroken] = useState("");
   if (src && broken !== src)
     return <img className={"ad-av img" + (user ? " round" : "")} src={src} alt="" width={size} height={size} loading="lazy" onError={() => setBroken(src)} />;
@@ -776,7 +783,7 @@ function UserList({ open }: { open: (id: string) => void }) {
               <tr key={u.company_id + u.user_id} onClick={() => open(u.company_id)}>
                 <td>
                   <span className="ad-co">
-                    <Avatar name={u.name || u.email} user={u.user_id} size={30} />
+                    <Avatar name={u.name || u.email} user={u.user_id} avatar_at={u.avatar_at} photo={u.photo} size={30} />
                     <span>
                       <b>{u.name || u.email.split("@")[0]}</b>
                       <small>{u.email}</small>
@@ -1090,7 +1097,7 @@ function CompanyDrawer({
   notify: (s: string) => void;
   changed: () => void;
 }) {
-  const [data, setData] = useState<{ company: AdminCompany; members: { email: string; name: string; role: string; disabled: boolean; user_id: string }[]; grants: AdminGrant[]; payments: { id: string; amount: number; status: string; created_at: string; plan: string }[] } | null>(null),
+  const [data, setData] = useState<{ company: AdminCompany; members: Member[]; grants: AdminGrant[]; payments: { id: string; amount: number; status: string; created_at: string; plan: string }[] } | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
     api("/admin/companies/" + id)
@@ -1204,7 +1211,7 @@ function CompanyDrawer({
                   <div className="ad-list">
                     {data.members.map((m) => (
                       <button key={m.user_id} className="ad-member ad-member-btn" onClick={() => setPerson(m)} title="ดูโปรไฟล์และโพสต์">
-                        <Avatar name={m.name || m.email} user={m.user_id} size={30} />
+                        <Avatar name={m.name || m.email} user={m.user_id} avatar_at={m.avatar_at} photo={m.photo} size={30} />
                         <span>
                           <b>{m.name || m.email.split("@")[0]}</b>
                           <small>{m.email}</small>
@@ -1400,7 +1407,7 @@ function CompanyDrawer({
   );
 }
 
-type Member = { email: string; name: string; role: string; disabled: boolean; user_id: string };
+type Member = { email: string; name: string; role: string; disabled: boolean; user_id: string; avatar_at?: string | null; photo?: string | null };
 type CompanyTab = "members" | "plan" | "money" | "shop" | "ads" | "posts";
 const companyTabs: [CompanyTab, string, LucideIcon][] = [
   ["members", "สมาชิก", Users],
@@ -1450,7 +1457,7 @@ function PersonPanel({ m, roleName, posts, back }: { m: Member; roleName: string
         <Undo2 size={15} /> กลับไปรายชื่อสมาชิก
       </button>
       <div className="ad-member ad-person">
-        <Avatar name={m.name || m.email} user={m.user_id} size={48} />
+        <Avatar name={m.name || m.email} user={m.user_id} avatar_at={m.avatar_at} photo={m.photo} size={48} />
         <span>
           <b>{m.name || m.email.split("@")[0]}</b>
           <small>{m.email}</small>

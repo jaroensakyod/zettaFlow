@@ -34,7 +34,7 @@ export type AdminCompany = {
   owner_email: string;
   owner_name: string;
 };
-export type AdminUser = { user_id: string; email: string; name: string; role: string; disabled: boolean; company_id: string; company: string; created_at?: string | null; last_sign_in_at?: string | null };
+export type AdminUser = { user_id: string; email: string; name: string; role: string; disabled: boolean; company_id: string; company: string; created_at?: string | null; last_sign_in_at?: string | null; avatar_at?: string | null; photo?: string | null };
 export type AdminGrant = {
   id: string;
   company_id: string;
@@ -359,9 +359,14 @@ export async function adminCompany(ctx: Context, id: string) {
     r = await raw(ctx),
     company = shapeCompanies(r).find((c) => c.id === cid);
   assert(company, "ไม่พบบริษัท", 404);
+  const members = r.members.filter((m) => m.company_id === cid),
+    look = await looks(ctx, members);
   return {
     company,
-    members: r.members.filter((m) => m.company_id === cid),
+    members: members.map((m) => {
+      const l = look.get(m.company_id + "/" + m.user_id);
+      return { ...m, name: l?.name || m.name, avatar_at: l?.avatar_at || null, photo: l?.photo || null };
+    }),
     grants: r.grants.filter((g) => g.company_id === cid),
     payments: r.payments.filter((p) => p.company_id === cid),
   };
@@ -370,18 +375,24 @@ export async function adminUsers(ctx: Context) {
   requireAdmin(ctx);
   const r = await raw(ctx),
     names = new Map(r.companies.map((c) => [c.id, c.name]));
-  let seen = new Map<string, { created_at?: string | null; last_sign_in_at?: string | null }>();
+  let seen = new Map<string, { created_at?: string | null; last_sign_in_at?: string | null; account?: string }>();
   if (!ctx.demo) {
     // Sign-up and last sign-in come from Supabase Auth (up to 5,000 users).
     const auth = supabaseAdmin().auth.admin;
     for (let page = 1; page <= 5; page++) {
       const { data, error } = await auth.listUsers({ page, perPage: 1000 });
       if (error || !data?.users.length) break;
-      for (const u of data.users) seen.set(u.id, { created_at: u.created_at, last_sign_in_at: u.last_sign_in_at });
+      for (const u of data.users) seen.set(u.id, { created_at: u.created_at, last_sign_in_at: u.last_sign_in_at, account: String(u.user_metadata?.name || "").trim() || undefined });
       if (data.users.length < 1000) break;
     }
   } else seen = new Map(r.members.map((m, i) => [m.user_id, { created_at: new Date(Date.now() - (i + 2) * DAY).toISOString(), last_sign_in_at: new Date(Date.now() - i * 5 * 3600000).toISOString() }]));
-  return r.members.map((m): AdminUser => ({ ...m, company: names.get(m.company_id) || "", ...seen.get(m.user_id) }));
+  // Name: the employee record with this email, then the name on the account, then the membership.
+  const look = await looks(ctx, r.members);
+  return r.members.map((m): AdminUser => {
+    const { account, ...when } = seen.get(m.user_id) || {},
+      l = look.get(m.company_id + "/" + m.user_id);
+    return { ...m, name: l?.name || account || m.name, company: names.get(m.company_id) || "", ...when, avatar_at: l?.avatar_at || null, photo: l?.photo || null };
+  });
 }
 export async function adminGrants(ctx: Context) {
   requireAdmin(ctx);
@@ -450,4 +461,44 @@ export async function revokeGrant(ctx: Context, id: string) {
   const { data, error } = await supabaseAdmin().rpc("admin_revoke_grant", { p_id: z.uuid().parse(gid), p_by: by });
   dbError(error);
   return data as AdminGrant;
+}
+
+// ---------- how each person looks in the system ----------
+/** A member's name and picture as the company knows them: the employee record with the same email (HR → พนักงาน)
+ *  gives the real name and photo; a picture the person uploaded themself (user_profiles.avatar_at) wins over it. */
+export type Look = { name?: string; avatar_at?: string | null; photo?: string | null };
+export async function looks(ctx: Context, members: { company_id: string; user_id: string; email: string }[]): Promise<Map<string, Look>> {
+  const out = new Map<string, Look>();
+  if (ctx.demo || !members.length) return out;
+  const sb = supabaseAdmin(),
+    companies = [...new Set(members.map((m) => m.company_id))],
+    users = [...new Set(members.map((m) => m.user_id))];
+  const [profiles, employees] = await Promise.all([
+    sb.from("user_profiles").select("user_id,avatar_at").in("user_id", users),
+    sb.from("entities").select("company_id,data").eq("kind", "employees").is("archived_at", null).in("company_id", companies).limit(20000),
+  ]);
+  const avatar = new Map(((profiles.data || []) as { user_id: string; avatar_at: string | null }[]).map((p) => [p.user_id, p.avatar_at])),
+    staff = new Map<string, { name?: string; photo?: string }>();
+  for (const e of (employees.data || []) as { company_id: string; data: Record<string, unknown> | string }[]) {
+    const d = (typeof e.data === "string" ? JSON.parse(e.data) : e.data) as Record<string, unknown>,
+      email = String(d.email || "").trim().toLowerCase();
+    if (email) staff.set(e.company_id + "/" + email, { name: String(d.name || "").trim() || undefined, photo: d.photo ? String(d.photo) : undefined });
+  }
+  for (const m of members) {
+    const e = staff.get(m.company_id + "/" + m.email.trim().toLowerCase());
+    out.set(m.company_id + "/" + m.user_id, { name: e?.name, avatar_at: avatar.get(m.user_id) || null, photo: e?.photo || null });
+  }
+  return out;
+}
+
+/** An employee photo for หลังบ้าน (admins are not members of the customer company, so /api/files does not serve it). */
+export async function adminPhoto(ctx: Context, id: string) {
+  requireAdmin(ctx);
+  assert(!ctx.demo, "ไม่พบรูป", 404);
+  const sb = supabaseAdmin();
+  const { data: a } = await sb.from("attachments").select("path,mime").eq("id", z.uuid().parse(id)).maybeSingle();
+  assert(a && /^image\/(png|jpeg|webp|gif)$/.test(String(a.mime)), "ไม่พบรูป", 404);
+  const { data, error } = await sb.storage.from("eliteflow-files").download(String(a!.path));
+  assert(!error && data, "อ่านรูปไม่ได้", 404);
+  return { mime: String(a!.mime), bytes: new Uint8Array(await data!.arrayBuffer()) };
 }
