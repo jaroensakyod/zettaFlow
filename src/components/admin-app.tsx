@@ -17,6 +17,7 @@ import { AiPage, HealthPage, LinePage } from "./admin-monitor";
 import { AdsPage, ShopPage } from "./admin-shop";
 import { SecurityPage, SettingsPage } from "./admin-settings";
 import { OpenViewDialog } from "./support-view";
+import type { CompanyFull } from "@/lib/admin-company";
 import type { AdminCompany, AdminGrant, AdminUser, FeedItem, GrantKind, Overview, Via } from "@/lib/admin-console";
 
 type Section = "home" | "companies" | "users" | "packages" | "finance" | "support" | "promos" | "announcements" | "line" | "ai" | "health" | "security" | "shop" | "ads" | "settings";
@@ -1090,13 +1091,22 @@ function CompanyDrawer({
     }
   };
   const c = data?.company;
-  const [viewing, setViewing] = useState(false);
+  const [viewing, setViewing] = useState(false),
+    [tab, setTab] = useState<CompanyTab>("members"),
+    [person, setPerson] = useState<Member | null>(null),
+    [full, setFull] = useState<CompanyFull | null>(null),
+    [fullError, setFullError] = useState("");
+  useEffect(() => {
+    api("/admin/companies/" + id + "/full")
+      .then(setFull)
+      .catch((e) => setFullError((e as Error).message));
+  }, [id, tick]);
   const roles: Record<string, string> = { owner: "เจ้าของ", manager: "ผู้จัดการ", staff: "พนักงาน", viewer: "ผู้ชม" };
   // On <body>: the workspace's animated page would otherwise trap position: fixed.
   return createPortal(
     <>
       <div className="ad-scrim" onClick={close} aria-hidden="true" />
-      <aside className="ad-drawer" role="dialog" aria-label="รายละเอียดบริษัท">
+      <aside className="ad-drawer wide" role="dialog" aria-label="รายละเอียดบริษัท">
         <button className="ad-close" onClick={close} aria-label="ปิด">
           <X size={18} />
         </button>
@@ -1133,66 +1143,289 @@ function CompanyDrawer({
             </div>
             {viewing && <OpenViewDialog company={c} close={() => setViewing(false)} notify={notify} />}
 
-            <h3 className="ad-h small">
-              <Users size={16} /> สมาชิก ({data.members.length})
-            </h3>
-            <div className="ad-list">
-              {data.members.map((m) => (
-                <div key={m.user_id} className="ad-member">
-                  <Avatar name={m.name || m.email} size={30} />
-                  <span>
-                    <b>{m.name || m.email.split("@")[0]}</b>
-                    <small>{m.email}</small>
-                  </span>
-                  <span className={"ad-role r-" + (m.disabled ? "off" : m.role)}>{m.disabled ? "ระงับ" : roles[m.role] || m.role}</span>
+            {person ? (
+              <PersonPanel
+                m={person}
+                roleName={roles[person.role] || person.role}
+                posts={(full?.posts || []).filter((p) => p.author_id === person.user_id)}
+                back={() => setPerson(null)}
+              />
+            ) : (
+              <>
+                <div className="ad-tabs ad-dtabs" role="tablist">
+                  {companyTabs.map(([key, label, Ico]) => (
+                    <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "on" : ""} onClick={() => setTab(key)}>
+                      <Ico size={14} /> {label}
+                      {key === "members" && <em>{data.members.length}</em>}
+                      {key === "posts" && full && <em>{full.posts.length}</em>}
+                      {key === "ads" && full && <em>{full.ads.length}</em>}
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-
-            <h3 className="ad-h small">
-              <Gift size={16} /> แพ็กเกจที่แอดมินมอบ
-            </h3>
-            {data.grants.length ? (
-              <div className="ad-grants compact">
-                {data.grants.map((g) => (
-                  <GrantRow key={g.id} g={{ ...g, company: c.name }} revoke={revoke} />
-                ))}
-              </div>
-            ) : (
-              <p className="ad-empty">ยังไม่เคยได้รับแพ็กเกจจากแอดมิน</p>
-            )}
-
-            <h3 className="ad-h small">
-              <BadgeDollarSign size={16} /> ประวัติการชำระเงิน
-            </h3>
-            {data.payments.length ? (
-              <div className="ad-list">
-                {data.payments.map((p) => (
-                  <div key={p.id} className="ad-member">
-                    <i className="ad-pay" style={{ background: p.status === "verified" ? "#16a34a" : p.status === "pending" ? "#d97706" : "#94a3b8" }}>
-                      <Coins size={14} />
-                    </i>
-                    <span>
-                      <b>
-                        {planName[p.plan] || p.plan} · {baht(Number(p.amount))}
-                      </b>
-                      <small>{thDate(p.created_at)}</small>
-                    </span>
-                    <span className={"ad-role r-" + (p.status === "verified" ? "manager" : p.status === "pending" ? "pending" : "off")}>
-                      {p.status === "verified" ? "ยืนยันแล้ว" : p.status === "pending" ? "รอตรวจ" : "ปฏิเสธ"}
-                    </span>
+                {tab !== "members" && !full ? (
+                  fullError ? <p className="form-error">{fullError}</p> : <Loading />
+                ) : tab === "members" ? (
+                  <div className="ad-list">
+                    {data.members.map((m) => (
+                      <button key={m.user_id} className="ad-member ad-member-btn" onClick={() => setPerson(m)} title="ดูโปรไฟล์และโพสต์">
+                        <Avatar name={m.name || m.email} size={30} />
+                        <span>
+                          <b>{m.name || m.email.split("@")[0]}</b>
+                          <small>{m.email}</small>
+                        </span>
+                        <span className={"ad-role r-" + (m.disabled ? "off" : m.role)}>{m.disabled ? "ระงับ" : roles[m.role] || m.role}</span>
+                        <ChevronRight size={15} />
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="ad-empty">ยังไม่มีการชำระเงิน</p>
+                ) : tab === "plan" && full ? (
+                  <>
+                    <div className="ad-dgrid">
+                      <Info label="แพ็กเกจ" value={<PlanChip plan={c.plan} />} sub={full.subscription ? subStatus[full.subscription.status] || full.subscription.status : "ยังไม่เคยสมัคร"} />
+                      <Info label="ได้มาจาก" value={<ViaChip c={c} />} />
+                      <Info label="รอบบิล" value={c.plan === "free" ? "—" : c.cycle === "yearly" ? "รายปี" : "รายเดือน"} sub={"หมดอายุ " + thDate(c.period_end)} />
+                      <Info label="ผู้ใช้เพิ่ม" value={String(full.subscription?.extra_users || 0) + " คน"} sub={"ใช้อยู่ " + c.members + " คน"} />
+                    </div>
+                    <h3 className="ad-h small">
+                      <Sparkles size={16} /> ฟังก์ชันเสริมในแพ็กเกจ
+                    </h3>
+                    {full.subscription?.addons.length ? (
+                      <div className="ad-chips">
+                        {full.subscription.addons.map((a) => (
+                          <span key={a} className="ad-role r-manager">
+                            {full.addonNames[a] || a}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="ad-empty">ไม่มีฟังก์ชันเสริม</p>
+                    )}
+                    <h3 className="ad-h small">
+                      <Gift size={16} /> แพ็กเกจที่แอดมินมอบ
+                    </h3>
+                    {data.grants.length ? (
+                      <div className="ad-grants compact">
+                        {data.grants.map((g) => (
+                          <GrantRow key={g.id} g={{ ...g, company: c.name }} revoke={revoke} />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="ad-empty">ยังไม่เคยได้รับแพ็กเกจจากแอดมิน</p>
+                    )}
+                  </>
+                ) : tab === "money" && full ? (
+                  <>
+                    <div className="ad-dgrid">
+                      <Info label="จ่ายค่าแพ็กเกจแล้ว" value={baht(full.payments.filter((p) => p.status === "verified").reduce((t, p) => t + p.amount, 0))} sub={full.payments.length + " รายการ"} />
+                      <Info label="เติมเหรียญแล้ว" value={baht(full.topups.filter((t) => t.status === "verified").reduce((s, t) => s + t.amount, 0))} sub={full.topups.length + " รายการ"} />
+                      <Info label="เหรียญคงเหลือ" value={full.wallet.toLocaleString("th-TH") + " เหรียญ"} />
+                      <Info label="รอตรวจสลิป" value={String(full.payments.filter((p) => p.status === "pending").length + full.topups.filter((t) => t.status === "pending").length)} />
+                    </div>
+                    <h3 className="ad-h small">
+                      <BadgeDollarSign size={16} /> ค่าแพ็กเกจ
+                    </h3>
+                    {full.payments.length ? (
+                      <div className="ad-list">
+                        {full.payments.map((p) => (
+                          <div key={p.id} className="ad-member">
+                            <i className="ad-pay" style={{ background: payColor(p.status) }}>
+                              <Coins size={14} />
+                            </i>
+                            <span>
+                              <b>
+                                {planName[p.plan] || p.plan} · {baht(p.amount)} · {p.cycle === "yearly" ? "รายปี" : "รายเดือน"}
+                              </b>
+                              <small>
+                                {thDate(p.created_at)}
+                                {p.slip_ref ? " · สลิป " + p.slip_ref : ""}
+                                {p.note ? " · " + p.note : ""}
+                              </small>
+                            </span>
+                            <PayStatus status={p.status} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="ad-empty">ยังไม่มีการชำระค่าแพ็กเกจ</p>
+                    )}
+                    <h3 className="ad-h small">
+                      <Coins size={16} /> เติมเหรียญ
+                    </h3>
+                    {full.topups.length ? (
+                      <div className="ad-list">
+                        {full.topups.map((t) => (
+                          <div key={t.id} className="ad-member">
+                            <i className="ad-pay" style={{ background: payColor(t.status) }}>
+                              <Coins size={14} />
+                            </i>
+                            <span>
+                              <b>
+                                {t.coins.toLocaleString("th-TH")} เหรียญ · {baht(t.amount)}
+                              </b>
+                              <small>{thDate(t.created_at)}</small>
+                            </span>
+                            <PayStatus status={t.status} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="ad-empty">ยังไม่เคยเติมเหรียญ</p>
+                    )}
+                    <h3 className="ad-h small">
+                      <ReceiptText size={16} /> ความเคลื่อนไหวเหรียญ
+                    </h3>
+                    {full.ledger.length ? (
+                      <div className="ad-list">
+                        {full.ledger.map((l) => (
+                          <div key={l.id} className="ad-member">
+                            <span>
+                              <b>{ledgerReason[l.reason] || l.reason}</b>
+                              <small>
+                                {thDate(l.created_at)}
+                                {l.ref ? " · " + l.ref : ""}
+                              </small>
+                            </span>
+                            <b className={l.delta >= 0 ? "ad-plus" : "ad-minus"}>
+                              {l.delta >= 0 ? "+" : ""}
+                              {l.delta.toLocaleString("th-TH")}
+                            </b>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="ad-empty">ยังไม่มีความเคลื่อนไหว</p>
+                    )}
+                  </>
+                ) : tab === "shop" && full ? (
+                  full.purchases.length ? (
+                    <div className="ad-list">
+                      {full.purchases.map((p) => (
+                        <div key={p.kind + p.id} className="ad-member">
+                          <i className="ad-pay" style={{ background: "#7c3aed" }}>
+                            <ShoppingBag size={14} />
+                          </i>
+                          <span>
+                            <b>{p.name}</b>
+                            <small>
+                              {shopKind[p.kind] || p.kind} · ซื้อ {thDate(p.bought_at)}
+                              {p.expires_at ? " · หมด " + thDate(p.expires_at) : ""}
+                            </small>
+                          </span>
+                          <span className={"ad-role r-" + (p.active ? "manager" : "viewer")}>
+                            {p.price_coins.toLocaleString("th-TH")} เหรียญ{p.active && p.kind !== "module" ? " · ใช้อยู่" : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="ad-empty">ยังไม่ได้ซื้ออะไรใน App Shop</p>
+                  )
+                ) : tab === "ads" && full ? (
+                  full.ads.length ? (
+                    <div className="ad-list">
+                      {full.ads.map((a) => {
+                        const live = a.status === "active" && Date.parse(a.ends_at) > Date.now();
+                        return (
+                          <div key={a.id} className="ad-member ad-adrow">
+                            <span>
+                              <b>{a.title || "(ไม่มีหัวข้อ)"}</b>
+                              <small>{a.placement}</small>
+                              <small>
+                                เริ่ม {thDate(a.starts_at)} · สิ้นสุด {thDate(a.ends_at)} · แพ็ก {a.package} ({a.coins} เหรียญ)
+                                {a.target_industry ? " · กลุ่ม " + a.target_industry : ""}
+                              </small>
+                              <small>
+                                เห็น {a.views.toLocaleString("th-TH")} · คลิก {a.clicks.toLocaleString("th-TH")}
+                              </small>
+                            </span>
+                            <span className={"ad-role r-" + (live ? "manager" : a.status === "paused" ? "pending" : "off")}>
+                              {live ? "กำลังแสดง" : a.status === "paused" ? "หยุดชั่วคราว" : a.status === "removed" ? "ถูกนำออก" : "จบแล้ว"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="ad-empty">ยังไม่เคยลงโฆษณา</p>
+                  )
+                ) : tab === "posts" && full ? (
+                  <PostList posts={full.posts} />
+                ) : null}
+              </>
             )}
-            <p className="ad-hint">หลังบ้านแสดงเฉพาะข้อมูลบัญชีและการใช้งาน ไม่แสดงข้อมูลธุรกิจภายในของลูกค้า</p>
+            <p className="ad-hint">
+              ข้อมูลธุรกิจภายใน (ลูกค้า บัญชี งาน สต็อก แชท …) เปิดดูได้ที่ปุ่ม “ดูในมุมมองลูกค้า” แบบอ่านอย่างเดียว ระบบบันทึกเหตุผลและลูกค้าเห็นว่าทีมงานเข้ามาดู
+            </p>
           </>
         )}
       </aside>
     </>,
     document.body,
+  );
+}
+
+type Member = { email: string; name: string; role: string; disabled: boolean; user_id: string };
+type CompanyTab = "members" | "plan" | "money" | "shop" | "ads" | "posts";
+const companyTabs: [CompanyTab, string, LucideIcon][] = [
+  ["members", "สมาชิก", Users],
+  ["plan", "แพ็กเกจและสิทธิ์", Crown],
+  ["money", "การเงิน", BadgeDollarSign],
+  ["shop", "ซื้อเพิ่ม", ShoppingBag],
+  ["ads", "โฆษณา", Megaphone],
+  ["posts", "โพสต์", MessagesSquare],
+];
+const subStatus: Record<string, string> = { trial: "ทดลองใช้", active: "ใช้งานอยู่", past_due: "ค้างชำระ", cancelled: "ยกเลิกแล้ว" };
+const ledgerReason: Record<string, string> = { topup: "เติมเหรียญ", purchase: "ซื้อใน App Shop / โฆษณา", adjust: "แอดมินปรับยอด" };
+const shopKind: Record<string, string> = { character: "AI Character", theme: "ธีม", system: "ระบบเสริม", module: "ฟังก์ชันแผนก" };
+const postKind: Record<string, string> = { post: "โพสต์", job: "รับสมัครงาน", partner: "หาพาร์ทเนอร์" };
+const payColor = (s: string) => (s === "verified" ? "#16a34a" : s === "pending" ? "#d97706" : "#94a3b8");
+function PayStatus({ status }: { status: string }) {
+  return (
+    <span className={"ad-role r-" + (status === "verified" ? "manager" : status === "pending" ? "pending" : "off")}>
+      {status === "verified" ? "ยืนยันแล้ว" : status === "pending" ? "รอตรวจ" : "ปฏิเสธ"}
+    </span>
+  );
+}
+function PostList({ posts }: { posts: CompanyFull["posts"] }) {
+  if (!posts.length) return <p className="ad-empty">ยังไม่มีโพสต์</p>;
+  return (
+    <div className="ad-posts">
+      {posts.map((p) => (
+        <article key={p.id} className={"ad-post" + (p.archived_at ? " off" : "")}>
+          <header>
+            <b>{p.author_name || "—"}</b>
+            <small>
+              {postKind[p.kind] || p.kind} · {thDate(p.created_at)} · {ago(p.created_at)}ที่แล้ว
+              {p.images ? " · รูป " + p.images : ""}
+              {p.archived_at ? " · ลบแล้ว" : ""}
+            </small>
+          </header>
+          <p>{p.body}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+/** One member: who they are in this company and what they posted on the business network. */
+function PersonPanel({ m, roleName, posts, back }: { m: Member; roleName: string; posts: CompanyFull["posts"]; back: () => void }) {
+  return (
+    <>
+      <button className="ad-btn ghost ad-back" onClick={back}>
+        <Undo2 size={15} /> กลับไปรายชื่อสมาชิก
+      </button>
+      <div className="ad-member ad-person">
+        <Avatar name={m.name || m.email} size={48} />
+        <span>
+          <b>{m.name || m.email.split("@")[0]}</b>
+          <small>{m.email}</small>
+        </span>
+        <span className={"ad-role r-" + (m.disabled ? "off" : m.role)}>{m.disabled ? "ระงับ" : roleName}</span>
+      </div>
+      <h3 className="ad-h small">
+        <MessagesSquare size={16} /> โพสต์ของ {m.name || m.email.split("@")[0]} ({posts.length})
+      </h3>
+      <PostList posts={posts} />
+    </>
   );
 }
 function Info({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {

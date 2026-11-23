@@ -593,3 +593,26 @@ button.ad-sec-row:hover { background: #faf8ff; border-color: #ddd6fe; }
   .sv-banner button { width: 100%; justify-content: center; }
   .sv-drawer-acts { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* หลังบ้าน → บริษัท: the wide company drawer with tabs (admin-app.tsx CompanyDrawer). */
+.ad-drawer.wide { width: min(760px, 100vw); }
+.ad-dtabs { --g: linear-gradient(120deg, #7c3aed, #ec4899); margin: 18px 0 10px; gap: 6px; }
+.ad-dtabs button { padding: 6px 12px; font-size: 13px; gap: 6px; }
+.ad-dtabs button em { font-style: normal; font-size: 11px; color: var(--mut); background: #f4f2fb; border-radius: 99px; padding: 0 7px; }
+.ad-dtabs button.on em { background: rgba(255, 255, 255, .25); color: #fff; }
+.ad-member-btn { width: 100%; cursor: pointer; }
+.ad-member-btn:hover { background: #faf8ff; }
+.ad-member-btn > svg { color: var(--mut); flex: none; }
+.ad-list > .ad-member-btn > .ad-role { flex: none; }
+.ad-adrow { align-items: flex-start; }
+.ad-adrow small { white-space: normal; }
+.ad-plus { color: #16a34a; }
+.ad-minus { color: #e11d48; }
+.ad-back { margin: 16px 0 8px; }
+.ad-person { padding: 12px; border-radius: 14px; background: #faf8ff; }
+.ad-posts { display: grid; gap: 10px; }
+.ad-post { padding: 12px 14px; border: 1px solid #ebe6f8; border-radius: 14px; background: #fff; }
+.ad-post.off { opacity: .55; }
+.ad-post header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; }
+.ad-post header small { color: var(--mut); font-size: 11.5px; }
+.ad-post p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; line-height: 1.6; }

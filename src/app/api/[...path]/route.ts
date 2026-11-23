@@ -130,6 +130,7 @@ import { sendFeedback,
   promoMediaUpload,
 } from "@/lib/engage";
 import { adminCompanies, adminCompany, adminGrants, adminOverview, adminUsers, grantPlan, revokeGrant } from "@/lib/admin-console";
+import { adminCompanyFull } from "@/lib/admin-company";
 import { adminAi, adminHealth, adminLine } from "@/lib/admin-monitor";
 import { adminAds, adminShop, saveShopPrice, setAdminAdStatus } from "@/lib/admin-shop";
 import { adminSecurity, adminSettings, recordLoginFailure, saveSetting } from "@/lib/admin-settings";
@@ -679,6 +680,7 @@ async function handle(req: NextRequest) {
     if (path[0] === "admin") {
       // หลังบ้าน (admin-console.ts): overview, companies, users, package grants.
       if (path[1] === "overview") return response(await adminOverview(ctx, req.nextUrl.searchParams.get("range")));
+      if (path[1] === "companies" && path[2] && path[3] === "full") return response(await adminCompanyFull(ctx, path[2]));
       if (path[1] === "companies") return response(path[2] ? await adminCompany(ctx, path[2]) : await adminCompanies(ctx));
       if (path[1] === "users") return response(await adminUsers(ctx));
       if (path[1] === "ai") return response(await adminAi(ctx, req.nextUrl.searchParams.get("range")));
