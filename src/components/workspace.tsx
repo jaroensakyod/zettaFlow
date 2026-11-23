@@ -651,7 +651,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
             <button
               className={
                 "topnav-link" +
-                (menu || (navKey !== "store" && !primary.some(([key]) => key === navKey))
+                (menu || (navKey !== "store" && navKey !== "admin" && !primary.some(([key]) => key === navKey))
                   ? " active"
                   : "")
               }
@@ -679,6 +679,17 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               >
                 <Store size={16} />
                 App Shop
+              </button>
+            )}
+            {/* หลังบ้าน (Admin Console): only platform admins see it (PLATFORM_ADMIN_EMAILS / admin team). */}
+            {visible("admin") && (
+              <button
+                className={"topnav-link" + (navKey === "admin" ? " active" : "")}
+                aria-current={navKey === "admin" ? "page" : undefined}
+                onClick={() => navigate("admin")}
+              >
+                <ShieldCheck size={16} />
+                หลังบ้าน
               </button>
             )}
           </nav>
