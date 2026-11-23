@@ -592,3 +592,5 @@ button.ad-sec-row:hover { background: #faf8ff; border-color: #ddd6fe; }
 .ad-post header small { color: var(--mut); font-size: 11.5px; }
 .ad-post p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; line-height: 1.6; }
 .ad-dtabs.ad-people { margin: 0 0 14px; }
+.ad-av.img { object-fit: cover; background: #f4f2fb; }
+.ad-av.round { border-radius: 50%; }

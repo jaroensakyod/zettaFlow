@@ -105,9 +105,14 @@ function PlanChip({ plan }: { plan: string }) {
 function ViaChip({ c }: { c: AdminCompany }) {
   return <span className={"ad-via v-" + c.via}>{c.via === "grant" && c.grant_kind ? "แอดมินมอบ · " + grantKinds[c.grant_kind] : viaLabel[c.via]}</span>;
 }
-function Avatar({ name, size = 34 }: { name: string; size?: number }) {
+/** A company's logo (logo = company id) or a person's photo (user = user id); the initial when there is none. */
+function Avatar({ name, size = 34, logo, user }: { name: string; size?: number; logo?: string; user?: string }) {
+  const src = logo ? "/api/feed/logo/" + logo : user ? "/api/avatar/" + user : "",
+    [broken, setBroken] = useState("");
+  if (src && broken !== src)
+    return <img className={"ad-av img" + (user ? " round" : "")} src={src} alt="" width={size} height={size} loading="lazy" onError={() => setBroken(src)} />;
   return (
-    <span className="ad-av" style={{ width: size, height: size, background: tint(name) }}>
+    <span className={"ad-av" + (user ? " round" : "")} style={{ width: size, height: size, background: tint(name) }}>
       {initials(name)}
     </span>
   );
@@ -498,7 +503,7 @@ function Home({ o, companies, go, openCompany }: { o: Overview; companies: Admin
               <div className="ad-list">
                 {expiring.map((c) => (
                   <button key={c.id} onClick={() => openCompany(c.id)}>
-                    <Avatar name={c.name} size={30} />
+                    <Avatar name={c.name} logo={c.id} size={30} />
                     <span>
                       <b>{c.name}</b>
                       <small>
@@ -659,7 +664,7 @@ function CompanyList({ companies, open, grant, initialPlan = "" }: { companies: 
                 <tr key={c.id} onClick={() => open(c.id)}>
                   <td>
                     <span className="ad-co">
-                      <Avatar name={c.name} />
+                      <Avatar name={c.name} logo={c.id} />
                       <span>
                         <b>{c.name}</b>
                         <small>{c.owner_email || c.industry || "—"}</small>
@@ -771,7 +776,7 @@ function UserList({ open }: { open: (id: string) => void }) {
               <tr key={u.company_id + u.user_id} onClick={() => open(u.company_id)}>
                 <td>
                   <span className="ad-co">
-                    <Avatar name={u.name || u.email} size={30} />
+                    <Avatar name={u.name || u.email} user={u.user_id} size={30} />
                     <span>
                       <b>{u.name || u.email.split("@")[0]}</b>
                       <small>{u.email}</small>
@@ -900,7 +905,7 @@ function GrantRow({ g, open, revoke }: { g: AdminGrant; open?: (id: string) => v
   return (
     <div className={"ad-grant" + (live ? "" : " off")}>
       <button className="ad-grant-co" onClick={() => open?.(g.company_id)}>
-        <Avatar name={g.company || "?"} size={36} />
+        <Avatar name={g.company || "?"} logo={g.company_id} size={36} />
         <span>
           <b>{g.company || "บริษัท"}</b>
           <small>
@@ -967,7 +972,7 @@ function GrantDialog({ companies, initial, close, done }: { companies: AdminComp
           <span>บริษัท</span>
           {company ? (
             <div className="ad-picked">
-              <Avatar name={company.name} />
+              <Avatar name={company.name} logo={company.id} />
               <span>
                 <b>{company.name}</b>
                 <small>
@@ -988,7 +993,7 @@ function GrantDialog({ companies, initial, close, done }: { companies: AdminComp
               </label>
               {matches.map((c) => (
                 <button key={c.id} onClick={() => setCompany(c)}>
-                  <Avatar name={c.name} size={28} />
+                  <Avatar name={c.name} logo={c.id} size={28} />
                   <span>
                     <b>{c.name}</b>
                     <small>{c.owner_email}</small>
@@ -1138,7 +1143,7 @@ function CompanyDrawer({
         ) : (
           <>
             <div className="ad-dhead" style={{ background: `linear-gradient(135deg, ${planColor[c.plan][0]}33, #fff 70%)` }}>
-              <Avatar name={c.name} size={56} />
+              <Avatar name={c.name} logo={c.id} size={56} />
               <div>
                 <h2>{c.name}</h2>
                 <p>{[c.industry, c.province].filter(Boolean).join(" · ") || "—"}</p>
@@ -1199,7 +1204,7 @@ function CompanyDrawer({
                   <div className="ad-list">
                     {data.members.map((m) => (
                       <button key={m.user_id} className="ad-member ad-member-btn" onClick={() => setPerson(m)} title="ดูโปรไฟล์และโพสต์">
-                        <Avatar name={m.name || m.email} size={30} />
+                        <Avatar name={m.name || m.email} user={m.user_id} size={30} />
                         <span>
                           <b>{m.name || m.email.split("@")[0]}</b>
                           <small>{m.email}</small>
@@ -1445,7 +1450,7 @@ function PersonPanel({ m, roleName, posts, back }: { m: Member; roleName: string
         <Undo2 size={15} /> กลับไปรายชื่อสมาชิก
       </button>
       <div className="ad-member ad-person">
-        <Avatar name={m.name || m.email} size={48} />
+        <Avatar name={m.name || m.email} user={m.user_id} size={48} />
         <span>
           <b>{m.name || m.email.split("@")[0]}</b>
           <small>{m.email}</small>
