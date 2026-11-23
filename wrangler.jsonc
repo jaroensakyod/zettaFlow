@@ -57,7 +57,8 @@
 				}
 			],
 			"r2_buckets": [{ "binding": "BLOBS", "bucket_name": "eliteflow-blobs-dev" }],
-			"triggers": { "crons": ["0 0 * * *", "*/5 * * * *"] }
+			// No crons on dev: it holds a copy of the real data, and scheduled jobs would message real customers.
+			"triggers": { "crons": [] }
 		}
 	}
 }
