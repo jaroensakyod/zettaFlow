@@ -715,8 +715,17 @@ function CompanyList({ companies, open, grant, initialPlan = "" }: { companies: 
 }
 function Seats({ c }: { c: AdminCompany }) {
   const pct = c.users_limit ? Math.min(100, Math.round((c.members / c.users_limit) * 100)) : 30;
+  const faces = c.people || [];
   return (
     <span className="ad-seats">
+      {faces.length > 0 && (
+        <span className="ad-faces" title={faces.map((p) => p.name).join(", ")}>
+          {faces.slice(0, 5).map((p) => (
+            <Avatar key={p.user_id} name={p.name} user={p.user_id} avatar_at={p.avatar_at} photo={p.photo} size={22} />
+          ))}
+          {faces.length > 5 && <em>+{faces.length - 5}</em>}
+        </span>
+      )}
       <span className="ad-bar-track">
         <i style={{ width: pct + "%", background: pct >= 100 ? "#e11d48" : (planColor[c.plan] || planColor.free)[1] }} />
       </span>

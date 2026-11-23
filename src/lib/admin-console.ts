@@ -33,6 +33,8 @@ export type AdminCompany = {
   users_limit: number | null;
   owner_email: string;
   owner_name: string;
+  /** The people using its seats (owner first), for the small faces in the ผู้ใช้ column. */
+  people?: { user_id: string; name: string; email: string; role: string; avatar_at: string | null; photo: string | null }[];
 };
 export type AdminUser = { user_id: string; email: string; name: string; role: string; disabled: boolean; company_id: string; company: string; created_at?: string | null; last_sign_in_at?: string | null; avatar_at?: string | null; photo?: string | null };
 export type AdminGrant = {
@@ -349,9 +351,22 @@ export async function adminOverview(ctx: Context, range: unknown) {
   const days = z.coerce.number().int().min(1).max(366).catch(30).parse(range ?? 30);
   return shapeOverview(await raw(ctx), days);
 }
+const roleOrder: Record<string, number> = { owner: 0, manager: 1, staff: 2, viewer: 3 };
 export async function adminCompanies(ctx: Context) {
   requireAdmin(ctx);
-  return shapeCompanies(await raw(ctx)).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const r = await raw(ctx),
+    look = await looks(ctx, r.members),
+    people = new Map<string, NonNullable<AdminCompany["people"]>>();
+  for (const m of [...r.members].sort((a, b) => (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9))) {
+    if (m.disabled) continue;
+    const l = look.get(m.company_id + "/" + m.user_id),
+      list = people.get(m.company_id) || [];
+    list.push({ user_id: m.user_id, name: l?.name || m.name || m.email, email: m.email, role: m.role, avatar_at: l?.avatar_at || null, photo: l?.photo || null });
+    people.set(m.company_id, list);
+  }
+  return shapeCompanies(r)
+    .map((c) => ({ ...c, people: people.get(c.id) || [] }))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 export async function adminCompany(ctx: Context, id: string) {
   requireAdmin(ctx);
