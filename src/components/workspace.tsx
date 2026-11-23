@@ -1,6 +1,6 @@
 "use client";
-import { SupportHistory, SupportViewBanner, SupportWatchBanner } from "./support-view";
-import type { SupportAccess, SupportView } from "@/lib/support-view";
+import { SupportViewBanner } from "./support-view";
+import type { SupportView } from "@/lib/support-view";
 import { Suspense, useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -345,7 +345,6 @@ type WorkspaceData = {
   /** This admin is looking at the company read-only (ดูในมุมมองลูกค้า). */
   support?: SupportView | null;
   /** Owners / managers: the EliteFlow team is looking right now. */
-  supportWatch?: SupportAccess[];
 };
 type WorkspaceProps = { initialView?: string; product?: "elite" | "zetta" };
 // The workspace reads the URL query (sidebar, list filters, the expense being edited), so Next needs a Suspense
@@ -837,7 +836,6 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           </div>
         )}
         {data.support && <SupportViewBanner support={data.support} company={ctx.company.name} />}
-        {!!data.supportWatch?.length && <SupportWatchBanner watch={data.supportWatch} notify={notify} />}
         <div className={"dept-shell" + (sideDept ? " with-side" : "")}>
         {sideDept && <DepartmentSidebar dept={sideDept} view={fullView} navigate={navigate} locked={locked} />}
         {/* Every department's pages: a tint in the department's colour at the top (รายรับ / ค่าใช้จ่าย keep their own). */}
@@ -975,7 +973,6 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "team" ? (
             <>
               <Team ctx={ctx} notify={notify} />
-              {(ctx.member.role === "owner" || ctx.member.role === "manager") && !data.support && <SupportHistory notify={notify} />}
             </>
           ) : view === "integrations" ? (
             <LineIntegrationPage ctx={ctx} notify={notify} />

@@ -1,7 +1,7 @@
 // หลังบ้าน → บริษัท → one company in full: package and rights, money, App Shop purchases, ads and posts.
 // Read with the service key after the platform-admin check (requireAdmin). The company's own business records
 // (customers, accounting, tasks …) are not copied here: they are opened through "ดูในมุมมองลูกค้า"
-// (support-view.ts), which is time-limited, logged and shown to the customer.
+// (support-view.ts), which is read-only and kept in the admin log.
 import { z } from "zod";
 import { supabaseAdmin } from "./supabase/server";
 import { dbError } from "./data";

@@ -136,7 +136,7 @@ import { adminAds, adminShop, saveShopPrice, setAdminAdStatus } from "@/lib/admi
 import { adminSecurity, adminSettings, recordLoginFailure, saveSetting } from "@/lib/admin-settings";
 import { loadCatalog } from "@/lib/platform-settings";
 import { sendAdminAlert } from "@/lib/admin-log";
-import { activeSupport, closeSupportView, endSupportAccess, openSupportView, supportAccessList } from "@/lib/support-view";
+import { closeSupportView, openSupportView } from "@/lib/support-view";
 import { presence } from "@/lib/presence";
 import { customerLogo, customerPlans } from "@/lib/package-sale";
 import { validVisibility } from "@/lib/company-visibility";
@@ -431,11 +431,8 @@ async function handle(req: NextRequest) {
         platformAdmin: platformViewer(ctx),
         adminRole: platformRole(ctx),
         support: ctx.support || null,
-        supportWatch: ctx.support ? [] : await activeSupport(ctx),
       });
     }
-    if (path[0] === "support-access")
-      return response(method === "GET" ? await supportAccessList(ctx) : await endSupportAccess(ctx, z.string().max(64).parse(path[1])));
     if (path[0] === "home") {
       if (path[1] === "extra" && method === "GET") return response(await homeExtra(ctx));
       if (path[1] === "notes" && method === "PUT") return response(await saveNote(ctx, await body(req)));

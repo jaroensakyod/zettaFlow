@@ -16,7 +16,7 @@ import { PlatformPayments } from "./platform";
 import { AiPage, HealthPage, LinePage } from "./admin-monitor";
 import { AdsPage, ShopPage } from "./admin-shop";
 import { SecurityPage, SettingsPage } from "./admin-settings";
-import { OpenViewDialog } from "./support-view";
+import { openCustomerView } from "./support-view";
 import type { CompanyFull } from "@/lib/admin-company";
 import type { AdminCompany, AdminGrant, AdminUser, FeedItem, GrantKind, Overview, Via } from "@/lib/admin-console";
 
@@ -1137,11 +1137,21 @@ function CompanyDrawer({
               <button className="ad-btn primary" onClick={() => grant(c)}>
                 <Gift size={15} /> มอบแพ็กเกจให้บริษัทนี้
               </button>
-              <button className="ad-btn ghost" onClick={() => setViewing(true)} title="อ่านอย่างเดียว ต้องใส่เหตุผล และลูกค้าเห็นว่าคุณเข้ามาดู">
+              <button
+                className="ad-btn ghost"
+                disabled={viewing}
+                onClick={() => {
+                  setViewing(true);
+                  openCustomerView(c.id).catch((e) => {
+                    notify((e as Error).message);
+                    setViewing(false);
+                  });
+                }}
+                title="เข้าไปดูทุกหน้าของบริษัทนี้แบบอ่านอย่างเดียว"
+              >
                 <Eye size={15} /> ดูในมุมมองลูกค้า
               </button>
             </div>
-            {viewing && <OpenViewDialog company={c} close={() => setViewing(false)} notify={notify} />}
 
             {person ? (
               <PersonPanel
@@ -1354,7 +1364,7 @@ function CompanyDrawer({
               </>
             )}
             <p className="ad-hint">
-              ข้อมูลธุรกิจภายใน (ลูกค้า บัญชี งาน สต็อก แชท …) เปิดดูได้ที่ปุ่ม “ดูในมุมมองลูกค้า” แบบอ่านอย่างเดียว ระบบบันทึกเหตุผลและลูกค้าเห็นว่าทีมงานเข้ามาดู
+              ข้อมูลธุรกิจภายใน (ลูกค้า บัญชี งาน สต็อก แชท …) เปิดดูได้ที่ปุ่ม “ดูในมุมมองลูกค้า” แบบอ่านอย่างเดียว
             </p>
           </>
         )}
