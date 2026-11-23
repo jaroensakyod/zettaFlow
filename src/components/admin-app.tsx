@@ -20,7 +20,7 @@ import { openCustomerView } from "./support-view";
 import type { CompanyFull } from "@/lib/admin-company";
 import type { AdminCompany, AdminGrant, AdminUser, FeedItem, GrantKind, Overview, Via } from "@/lib/admin-console";
 
-type Section = "home" | "companies" | "users" | "packages" | "finance" | "support" | "promos" | "announcements" | "line" | "ai" | "health" | "security" | "shop" | "ads" | "settings";
+type Section = "home" | "companies" | "packages" | "finance" | "support" | "promos" | "announcements" | "line" | "ai" | "health" | "security" | "shop" | "ads" | "settings";
 type Item = { key: Section; label: string; icon: LucideIcon; c: [string, string]; soon?: string };
 const menu: { group: string; items: Item[] }[] = [
   { group: "ภาพรวม", items: [{ key: "home", label: "หน้าแรก", icon: House, c: ["#a855f7", "#6d28d9"] }] },
@@ -28,7 +28,6 @@ const menu: { group: string; items: Item[] }[] = [
     group: "ลูกค้า",
     items: [
       { key: "companies", label: "บริษัท", icon: Building2, c: ["#38bdf8", "#2563eb"] },
-      { key: "users", label: "ผู้ใช้", icon: Users, c: ["#2dd4bf", "#0d9488"] },
     ],
   },
   {
@@ -178,7 +177,11 @@ export function AdminApp({ notify }: { notify: (s: string) => void }) {
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, []);
-  const go = (s: Section, plan = "") => {
+  const [people, setPeople] = useState<"companies" | "users">("companies");
+  // ผู้ใช้ lives inside บริษัท as a second tab; go("users") opens that tab.
+  const go = (to: Section | "users", plan = "") => {
+    const s: Section = to === "users" ? "companies" : to;
+    setPeople(to === "users" ? "users" : "companies");
     setSection(s);
     setPlanFilter(plan);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -271,8 +274,26 @@ export function AdminApp({ notify }: { notify: (s: string) => void }) {
               <Loading />
             </section>
           ))}
-        {section === "companies" && (companies ? <CompanyList companies={companies} open={setOpenCompany} grant={setGranting} initialPlan={planFilter} /> : <Loading />)}
-        {section === "users" && <UserList open={setOpenCompany} />}
+        {section === "companies" && (
+          <>
+            <div className="ad-tabs ad-dtabs ad-people" role="tablist">
+              <button role="tab" aria-selected={people === "companies"} className={people === "companies" ? "on" : ""} onClick={() => setPeople("companies")}>
+                <Building2 size={14} /> บริษัท
+                {companies && <em>{companies.length}</em>}
+              </button>
+              <button role="tab" aria-selected={people === "users"} className={people === "users" ? "on" : ""} onClick={() => setPeople("users")}>
+                <Users size={14} /> ผู้ใช้ทั้งหมด
+              </button>
+            </div>
+            {people === "users" ? (
+              <UserList open={setOpenCompany} />
+            ) : companies ? (
+              <CompanyList companies={companies} open={setOpenCompany} grant={setGranting} initialPlan={planFilter} />
+            ) : (
+              <Loading />
+            )}
+          </>
+        )}
         {section === "packages" &&
           (overview && companies ? (
             <Packages o={overview} companies={companies} grant={setGranting} open={setOpenCompany} notify={notify} changed={refresh} tick={tick} initialPlan={planFilter} />
@@ -326,7 +347,7 @@ export function AdminApp({ notify }: { notify: (s: string) => void }) {
 }
 
 // ---------- หน้าแรก ----------
-function Home({ o, companies, go, openCompany }: { o: Overview; companies: AdminCompany[]; go: (s: Section, plan?: string) => void; openCompany: (id: string) => void }) {
+function Home({ o, companies, go, openCompany }: { o: Overview; companies: AdminCompany[]; go: (s: Section | "users", plan?: string) => void; openCompany: (id: string) => void }) {
   const hour = Number(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Bangkok" })),
     greet = hour < 12 ? "สวัสดีตอนเช้า" : hour < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น",
     todo = [
