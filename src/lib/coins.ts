@@ -26,11 +26,16 @@ export const moduleCatalog: Module[] = [
   { id: "marketing", department: "Marketing", name: "ระบบ Marketing", description: "วางแผนแคมเปญ งบประมาณ ROI และกลุ่มลูกค้า", price_coins: 100, features: ["จัดการแคมเปญ", "วิเคราะห์ ROI", "Customer Segment"], view: "campaigns" },
   { id: "hr", department: "HR", name: "ระบบ HR", description: "ข้อมูลพนักงาน วันลา และเงินเดือน", price_coins: 100, features: ["ข้อมูลพนักงาน", "ระบบการลา", "คำนวณเงินเดือน"], view: "employees" },
   { id: "it", department: "IT", name: "ระบบ IT", description: "ทรัพย์สินไอทีและแจ้งปัญหา", price_coins: 100, features: ["ทะเบียนอุปกรณ์", "Ticket แจ้งซ่อม"], view: "assets" },
-  { id: "customer_service", department: "Customer Service", name: "ระบบบริการลูกค้า", description: "รับเรื่องและติดตามการแก้ไขให้ลูกค้า", price_coins: 100, features: ["Ticket ลูกค้า", "ติดตามการแก้ไข"], view: "tickets" },
-  { id: "data", department: "Data", name: "ระบบ DATA", description: "วิเคราะห์ข้อมูลและรายงานข้ามแผนก", price_coins: 100, features: ["Dashboard", "Export รายงาน"], view: "reports" },
+  { id: "customer_service", department: "Customer Service", name: "ระบบบริการลูกค้า", description: "รับเรื่องและติดตามการแก้ไขให้ลูกค้า", price_coins: 100, features: ["Ticket ลูกค้า", "เคลม & คืนสินค้า", "ความพึงพอใจลูกค้า"], view: "tickets" },
+  { id: "data", department: "Data", name: "ระบบ DATA", description: "วิเคราะห์ข้อมูลและรายงานข้ามแผนก", price_coins: 100, features: ["ตัวชี้วัดองค์กร", "คำขอข้อมูล & รายงาน", "แหล่งข้อมูล"], view: "metrics" },
   { id: "legal", department: "Legal", name: "ระบบกฎหมาย", description: "นิติกรรม สัญญา และวันครบกำหนด", price_coins: 100, features: ["ทะเบียนสัญญา", "แจ้งเตือนวันหมดอายุ"], view: "contracts" },
   { id: "inventory", department: "Warehouse", name: "ระบบสต็อกสินค้า", description: "จัดการคลัง รับ-จ่าย และจุดสั่งซื้อ", price_coins: 100, features: ["สต็อกสินค้า", "โอนย้ายคลัง", "แจ้งเตือนของใกล้หมด"], view: "products" },
   { id: "event", department: "Event", name: "ระบบ Event", description: "บันทึกอีเวนต์ พื้นที่จัดงาน และ Freelance", price_coins: 100, features: ["ตารางอีเวนต์", "พื้นที่จัดงาน", "Freelance"], view: "events" },
+  // Departments sold one by one (0006_department_systems.sql); customer_service and data above open those departments too.
+  { id: "operations", department: "Operations", name: "ระบบปฏิบัติการ", description: "ใบสั่งงาน ติดตามงานหน้างาน และตรวจคุณภาพ", price_coins: 100, features: ["ใบสั่งงาน", "ตรวจคุณภาพ (QC)", "รายงานปฏิบัติการ"], view: "work_orders" },
+  { id: "purchasing", department: "Purchasing", name: "ระบบจัดซื้อ", description: "ใบขอซื้อ เปรียบเทียบราคา และสั่งซื้อจากผู้ขาย", price_coins: 100, features: ["ใบขอซื้อ (PR)", "เปรียบเทียบราคา", "รายงานจัดซื้อ"], view: "purchase_requests" },
+  { id: "design", department: "Design", name: "ระบบออกแบบ", description: "รับบรีฟงานออกแบบ ติดตามรอบแก้ และคลังไฟล์งาน", price_coins: 100, features: ["บรีฟงานออกแบบ", "คลังงานออกแบบ", "ติดตามรอบแก้ไข"], view: "design_requests" },
+  { id: "business_development", department: "Business Development", name: "ระบบพัฒนาธุรกิจ", description: "พันธมิตร ดีล และโอกาสทางธุรกิจใหม่", price_coins: 100, features: ["พันธมิตรธุรกิจ", "วิจัยตลาด", "ดีล & Dealer"], view: "partnerships" },
 ];
 const viewOf = (id: string) => moduleCatalog.find((m) => m.id === id)?.view || "dashboard";
 

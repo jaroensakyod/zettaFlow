@@ -402,6 +402,40 @@ export function seedCompany(add: Add, now = Date.now()) {
     add("services", { name, category, requester: person(who as number), location, date: day(-between(0, 5)), owner: person(0), status }),
   );
 
+  // ---------- departments sold in App Shop: ปฏิบัติการ, จัดซื้อ, ออกแบบ, บริการลูกค้า, ข้อมูล, พัฒนาธุรกิจ ----------
+  const wo = [
+    add("work_orders", { name: "ติดตั้งบูธ Fashion Expo โซน B", customerId: cus[0], projectId: prj[1], location: "ไบเทค บางนา ฮอลล์ 98", assignee: person(8), startDate: day(-2), dueDate: day(3), priority: "ด่วน", cost: 18500, status: "กำลังทำ" }),
+    add("work_orders", { name: "ส่งยูนิฟอร์มล็อตแรก 150 ชุด", customerId: cus[1], location: "คลังสินค้า บางนา", assignee: person(9), startDate: day(-6), dueDate: day(-1), priority: "ปกติ", cost: 3200, status: "รอตรวจรับ" }),
+    add("work_orders", { name: "ซ่อมป้ายไฟหน้าร้านสาขาเชียงใหม่", location: "สาขาเชียงใหม่ นิมมาน", assignee: person(6), dueDate: day(9), priority: "ปกติ", status: "รอเริ่ม" }),
+  ];
+  add("quality_checks", { name: "ตรวจเย็บเสื้อเชิ้ตลินิน ล็อต 11/69", workOrderId: wo[1], productId: prd[0], inspector: person(9), date: day(-2), sampleSize: 30, defects: 1, result: "ผ่านแบบมีเงื่อนไข", action: "เปลี่ยนกระดุม 1 ตัว", status: "แก้ไขแล้ว" });
+  add("quality_checks", { name: "ตรวจโครงบูธก่อนส่งมอบ", workOrderId: wo[0], inspector: person(8), date: day(-1), sampleSize: 1, defects: 0, result: "ผ่าน", status: "ตรวจแล้ว" });
+  const pr = [
+    add("purchase_requests", { name: "PR-6911-001 กระดาษ A4 และหมึกพิมพ์", requester: person(7), department: "Finance", lines: [{ name: "กระดาษ A4 80 แกรม", qty: 20, unit: "รีม", price: 125 }, { name: "หมึก HP 682", qty: 4, unit: "ตลับ", price: 390 }], budget: 4060, neededBy: day(5), reason: "ของหมดสต็อกสำนักงาน", status: "อนุมัติแล้ว" }),
+    add("purchase_requests", { name: "PR-6911-002 ผ้าลินินขาว 300 หลา", requester: person(9), department: "Operations", budget: 54000, neededBy: day(14), reason: "ผลิตยูนิฟอร์มไทยเบฟ", projectId: prj[1], status: "รออนุมัติ" }),
+  ];
+  add("supplier_quotes", { name: "ผ้าลินินขาว 300 หลา", requestId: pr[1], supplierId: sup[0], quoteNo: "QT-ST-2211", date: day(-1), amount: 51600, vatMode: "excluded", leadDays: 7, creditDays: 30, validUntil: day(20), status: "เลือกแล้ว" });
+  add("supplier_quotes", { name: "ผ้าลินินขาว 300 หลา", requestId: pr[1], supplierId: sup[1], quoteNo: "Q-6911/045", date: day(-1), amount: 49800, vatMode: "excluded", leadDays: 21, creditDays: 15, validUntil: day(10), status: "ไม่เลือก", notes: "ถูกกว่าแต่ส่งช้า ไม่ทันงาน" });
+  const dr = [
+    add("design_requests", { name: "ออกแบบบูธ Fashion Expo 3D", type: "บูธ / ตกแต่ง", requester: person(0), customerId: cus[0], designer: person(5), brief: "บูธ 6x9 เมตร โทนขาว-ไม้ เน้นมุมลองเสื้อ", size: "6x9 ม.", dueDate: day(1), revisions: 2, status: "ส่งตรวจ" }),
+    add("design_requests", { name: "โพสต์ Facebook โปรปลายปี 4 ชิ้น", type: "โซเชียลมีเดีย", requester: person(3), designer: person(5), brief: "ลด 20% ทั้งร้าน 1-31 ธ.ค.", size: "1080x1080", dueDate: day(6), revisions: 0, status: "กำลังออกแบบ" }),
+  ];
+  add("design_assets", { name: "โลโก้บริษัท (ฉบับเต็ม)", category: "โลโก้", format: "AI, PNG", version: "2026", fileUrl: "https://example.com/brand/logo.ai", owner: person(5), status: "ใช้งาน" });
+  add("design_assets", { name: "เทมเพลตโพสต์โซเชียล", category: "เทมเพลต", format: "PSD", version: "v3", requestId: dr[1], fileUrl: "https://example.com/brand/social.psd", owner: person(5), status: "ใช้งาน" });
+  add("cs_feedback", { name: "ส่งยูนิฟอร์มล็อตแรก", customerId: cus[1], channel: "LINE", score: 5, date: day(-1), comment: "ส่งตรงเวลา งานเรียบร้อย", owner: person(4), status: "ปิดเรื่อง" });
+  add("cs_feedback", { name: "เปลี่ยนไซซ์เสื้อ", customerId: cus[2], channel: "โทรศัพท์", score: 3, date: day(-3), comment: "รอนานเกินไป", owner: person(4), status: "ติดตามแล้ว" });
+  add("claims", { name: "CL-6911-001 เสื้อเชิ้ตตะเข็บหลุด", customerId: cus[2], productId: prd[0], serial: "LOT-1169", type: "เปลี่ยนสินค้า", date: day(-4), warrantyUntil: day(60), problem: "ตะเข็บแขนซ้ายหลุดหลังซัก 2 ครั้ง", cost: 0, owner: person(4), status: "กำลังดำเนินการ" });
+  add("knowledge_base", { name: "เปลี่ยนไซซ์ได้ภายในกี่วัน", category: "เคลม / ประกัน", answer: "เปลี่ยนไซซ์ได้ภายใน 14 วันหลังได้รับสินค้า สินค้าต้องยังไม่ผ่านการซัก", owner: person(4), status: "ใช้งาน" });
+  add("knowledge_base", { name: "ออกใบกำกับภาษีเต็มรูปได้ไหม", category: "การชำระเงิน", answer: "ได้ แจ้งชื่อบริษัท ที่อยู่ และเลขผู้เสียภาษีก่อนชำระเงิน", owner: person(7), status: "ใช้งาน" });
+  add("metrics", { name: "ยอดขายรวม", department: "Sales", period: "2026-11", unit: "บาท", target: 1800000, actual: 1925400, owner: person(1), status: "เกินเป้า" });
+  add("metrics", { name: "ส่งงานตรงเวลา", department: "Operations", period: "2026-11", unit: "%", target: 95, actual: 88, owner: person(8), status: "ต่ำกว่าเป้า" });
+  add("data_requests", { name: "ยอดขายแยกช่องทาง ไตรมาส 4", requester: person(0), department: "Sales", purpose: "ประชุมวางแผนปีหน้า", dueDate: day(4), owner: person(11), status: "กำลังทำ" });
+  add("data_sources", { name: "EliteFlow (ทุกแผนก)", type: "ระบบ EliteFlow", department: "Admin", owner: person(11), refresh: "ทันที", sensitivity: "ภายใน", status: "ใช้งาน" });
+  add("data_sources", { name: "ยอดขาย Shopee (ไฟล์ส่งออก)", type: "Google Sheets / Excel", department: "Sales", owner: person(1), refresh: "รายสัปดาห์", sensitivity: "ภายใน", status: "ใช้งาน" });
+  add("partnerships", { name: "สยามเท็กซ์ไทล์", type: "ผู้ให้บริการ", contact: "คุณวิไล", phone: "02-555-0188", value: 600000, startDate: day(-200), endDate: day(165), owner: person(0), status: "ทำงานร่วมกัน" });
+  add("partnerships", { name: "Bangkok Fashion Week", type: "Co-marketing", contact: "คุณธีร์", email: "partner@example.com", value: 250000, startDate: day(30), owner: person(3), status: "เจรจา" });
+  add("market_research", { name: "ยูนิฟอร์มโรงแรมภาคใต้", market: "โรงแรม 4-5 ดาว ภูเก็ต กระบี่", competitors: "2 รายในท้องถิ่น", potential: 12000000, investment: 800000, findings: "โรงแรมเปลี่ยนชุดทุก 2 ปี ยังไม่มีเจ้าใหญ่", owner: person(0), status: "กำลังศึกษา" });
+
   // ---------- HR ----------
   staff.forEach((s, i) => {
     if (i === 9) return add("attendance", { name: s[0], employeeId: emp[i], date: day(0), shiftStart: "09:00", checkIn: "-", status: "ลา" });

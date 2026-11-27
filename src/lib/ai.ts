@@ -18,7 +18,7 @@ import { templates, dbError } from "./data";
 import { supabaseServer } from "./supabase/server";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES, subscriptionActive, type Subscription } from "./billing";
-import { freeKind } from "./departments";
+import { freeKind, SHOP_KINDS, shopLockText } from "./departments";
 import { catalog } from "./catalog";
 import { sortMessage, withTagged, type Tagged } from "./line-sort";
 import { billingPrompt, plansCarousel } from "./line-billing";
@@ -451,12 +451,22 @@ async function paidPackage(sb: ReturnType<typeof supabaseAdmin>, companyId: stri
 }
 /** A record on this page needs a paid package (only บัญชีและการเงิน is free). */
 async function needsUpgrade(sb: ReturnType<typeof supabaseAdmin>, companyId: string, kind: string) {
+  // A department sold on its own: its system must be bought, whatever the package.
+  if (SHOP_KINDS[kind]) return !(await sb.from("company_modules").select("module_id").eq("company_id", companyId).eq("module_id", SHOP_KINDS[kind]).maybeSingle()).data;
   return !freeKind(kind) && !(await paidPackage(sb, companyId));
 }
 /** Tell the group the record needs a paid package, with the link to the package page. */
 async function tellUpgrade(sb: ReturnType<typeof supabaseAdmin>, job: Job, kind: string) {
   const base = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
   const pricing = base ? base + "/workspace/pricing" : "";
+  if (SHOP_KINDS[kind]) {
+    // Not a package matter: the department's system is bought in App Shop.
+    const text = shopLockText(kind, catalog[kind]?.label || kind) + (base ? "\n" + base + "/workspace/departments" : "");
+    if (job.reply_token && (await lineReplyId(job.reply_token, text)).ok) return;
+    if (job.group_id)
+      await sb.from("notification_outbox").insert({ company_id: job.company_id, target: job.group_id, body: text, ingestion_id: job.id, role: "source" }).then(() => {}, () => {});
+    return;
+  }
   const text = upgradeText(kind, pricing);
   // The packages as cards: tap a price, pay, send the slip here — opened at once.
   if (job.reply_token && (await lineReplyId(job.reply_token, [{ type: "text", text: upgradeText(kind, "") + "\n\n" + billingPrompt }, plansCarousel(pricing)])).ok) return;

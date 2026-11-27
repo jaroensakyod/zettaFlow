@@ -36,6 +36,9 @@ import {
   Sparkles,
   CircleCheck,
   MessageCircle,
+  Wrench,
+  ShoppingCart,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 import type { Context } from "@/lib/types";
@@ -58,6 +61,10 @@ const icons: Record<string, LucideIcon> = {
   legal: Scale,
   inventory: Package,
   event: CalendarDays,
+  operations: Wrench,
+  purchasing: ShoppingCart,
+  design: Palette,
+  business_development: Briefcase,
 };
 const statusText: Record<string, string> = { pending: "รอ Admin ยืนยัน", verified: "เหรียญเข้าแล้ว", rejected: "ไม่ผ่าน" };
 

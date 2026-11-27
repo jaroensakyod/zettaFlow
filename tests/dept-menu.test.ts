@@ -9,7 +9,7 @@ import { templateSchema, validateEntity } from "../src/lib/domain";
 test("every แผนก menu item opens a real page", async () => {
   const page = await readFile("src/app/workspace/[view]/page.tsx", "utf8");
   const items = departmentMenu.flatMap((d) => [d.overview, ...d.items.map((i) => i.view)]);
-  assert.equal(departmentMenu.length, 9);
+  assert.equal(departmentMenu.length, 15);
   assert.ok(departmentMenu.every((d) => d.items.length === 6));
   for (const v of items) {
     const key = baseView(v);

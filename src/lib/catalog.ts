@@ -909,11 +909,6 @@ modules.push({
   department: "Admin", icon: "Building2", columns: ["name", "code", "manager", "phone", "status"],
   fields: [f("photo", "รูปสาขา", "image"), f("name", "ชื่อสาขา", "text", true), f("code", "รหัสสาขา (00000 = สำนักงานใหญ่)"), f("phone", "โทรศัพท์"), f("manager", "ผู้จัดการสาขา"), f("address", "ที่อยู่สาขา", "textarea"), status(["เปิดทำการ", "ปิดชั่วคราว", "ปิดแล้ว"]), notes],
 });
-export const branchKinds = ["customers", "employees", "products", "purchases", "expenses", "invoices", "payments", "quotations", "sales_orders", "bills"];
-for (const m of modules)
-  if (branchKinds.includes(m.key) && !m.fields.some((x) => x.key === "branchId"))
-    m.fields.push(f("branchId", "สาขา", "relation", false, { resource: "branches" }));
-export const catalog = Object.fromEntries(modules.map((m) => [m.key, m]));
 export const departmentNames = [
   "Operations",
   "Business Development",
@@ -931,6 +926,90 @@ export const departmentNames = [
   "Event",
   "Admin",
 ];
+// The six departments sold in App Shop (0006_department_systems.sql): the record types each one adds.
+modules.push(
+  // ปฏิบัติการ
+  {
+    key: "work_orders", label: "ใบสั่งงาน", description: "สั่งงานหน้างาน มอบหมายทีม กำหนดเสร็จ และติดตามจนปิดงาน",
+    department: "Operations", icon: "ClipboardList", columns: ["name", "assignee", "dueDate", "priority", "status"],
+    fields: [f("name", "งานที่สั่ง", "text", true), f("customerId", "ลูกค้า", "relation", false, { resource: "customers" }), project, f("location", "สถานที่ทำงาน"), f("assignee", "ผู้รับงาน / ทีม", "text", true), f("startDate", "วันเริ่ม", "date"), f("dueDate", "กำหนดเสร็จ", "date", true), f("priority", "ความเร่งด่วน", "select", false, { options: ["ปกติ", "ด่วน", "ด่วนมาก"] }), f("cost", "ต้นทุนงาน", "number", false, { min: 0 }), status(["รอเริ่ม", "กำลังทำ", "รอตรวจรับ", "เสร็จแล้ว", "ยกเลิก"]), notes],
+  },
+  {
+    key: "quality_checks", label: "ตรวจคุณภาพ (QC)", description: "ตรวจงานและสินค้าก่อนส่งมอบ บันทึกผลผ่าน/ไม่ผ่านและสิ่งที่ต้องแก้",
+    department: "Operations", icon: "ClipboardCheck", columns: ["name", "inspector", "date", "result", "status"],
+    fields: [f("name", "สิ่งที่ตรวจ", "text", true), f("workOrderId", "ใบสั่งงาน", "relation", false, { resource: "work_orders" }), f("productId", "สินค้า", "relation", false, { resource: "products" }), f("inspector", "ผู้ตรวจ", "text", true), f("date", "วันที่ตรวจ", "date", true), f("sampleSize", "จำนวนที่ตรวจ", "number", false, { min: 0 }), f("defects", "จำนวนที่ไม่ผ่าน", "number", false, { min: 0 }), f("result", "ผลการตรวจ", "select", true, { options: ["ผ่าน", "ผ่านแบบมีเงื่อนไข", "ไม่ผ่าน"] }), f("action", "สิ่งที่ต้องแก้ไข", "textarea"), status(["รอตรวจ", "ตรวจแล้ว", "แก้ไขแล้ว", "ปิดเรื่อง"]), notes],
+  },
+  // จัดซื้อ
+  {
+    key: "purchase_requests", label: "ใบขอซื้อ (PR)", description: "แผนกขอซื้อของ ระบุเหตุผลและงบ ส่งให้จัดซื้อหาผู้ขายและออกใบสั่งซื้อ",
+    department: "Purchasing", icon: "FilePen", columns: ["name", "requester", "neededBy", "budget", "status"],
+    fields: [f("name", "เลขที่ / หัวข้อใบขอซื้อ", "text", true), f("requester", "ผู้ขอซื้อ", "text", true), f("department", "แผนกที่ขอ", "select", false, { options: [...departmentNames] }), lines, f("budget", "งบประมาณ", "number", false, { min: 0 }), f("neededBy", "ต้องการภายใน", "date"), f("reason", "เหตุผลการขอซื้อ", "textarea"), project, f("purchaseId", "ใบสั่งซื้อที่ออกแล้ว", "relation", false, { resource: "purchases" }), status(["รออนุมัติ", "อนุมัติแล้ว", "สั่งซื้อแล้ว", "ไม่อนุมัติ"]), notes],
+  },
+  {
+    key: "supplier_quotes", label: "เปรียบเทียบราคา", description: "ใบเสนอราคาจากผู้ขายหลายราย เทียบราคา เงื่อนไข และระยะส่งของก่อนเลือก",
+    department: "Purchasing", icon: "Scale", columns: ["name", "supplierId", "amount", "leadDays", "status"],
+    fields: [f("name", "สิ่งที่ขอราคา", "text", true), f("requestId", "ใบขอซื้อ", "relation", false, { resource: "purchase_requests" }), f("supplierId", "ผู้ขาย", "relation", true, { resource: "suppliers" }), f("quoteNo", "เลขที่ใบเสนอราคาของผู้ขาย"), f("date", "วันที่ได้รับ", "date"), f("amount", "ราคารวม", "number", true, { min: 0 }), vatMode, f("leadDays", "ส่งของภายใน (วัน)", "number", false, { min: 0 }), f("creditDays", "เครดิต (วัน)", "number", false, { min: 0 }), f("validUntil", "ยืนราคาถึง", "date"), status(["รอพิจารณา", "เลือกแล้ว", "ไม่เลือก"]), notes],
+  },
+  // ออกแบบ
+  {
+    key: "design_requests", label: "บรีฟงานออกแบบ", description: "รับบรีฟงานออกแบบ กำหนดส่ง ผู้ออกแบบ และติดตามรอบแก้ไขจนอนุมัติ",
+    department: "Design", icon: "Palette", columns: ["name", "requester", "designer", "dueDate", "status"],
+    fields: [f("name", "ชื่องาน", "text", true), f("type", "ประเภทงาน", "select", true, { options: ["โลโก้ / แบรนด์", "สื่อโฆษณา", "โซเชียลมีเดีย", "บรรจุภัณฑ์", "สิ่งพิมพ์", "เว็บไซต์ / UI", "บูธ / ตกแต่ง", "วิดีโอ / โมชัน", "อื่นๆ"] }), f("requester", "ผู้สั่งงาน", "text", true), f("customerId", "ลูกค้า", "relation", false, { resource: "customers" }), f("campaignId", "แคมเปญ", "relation", false, { resource: "campaigns" }), f("designer", "ผู้ออกแบบ"), f("brief", "รายละเอียดบรีฟ", "textarea", true), f("size", "ขนาด / สเปก"), f("dueDate", "กำหนดส่ง", "date", true), f("revisions", "แก้ไขไปแล้ว (รอบ)", "number", false, { min: 0 }), f("fileUrl", "ลิงก์ไฟล์งาน", "url"), status(["รับบรีฟ", "กำลังออกแบบ", "ส่งตรวจ", "แก้ไข", "อนุมัติแล้ว", "ยกเลิก"]), notes],
+  },
+  {
+    key: "design_assets", label: "คลังงานออกแบบ", description: "ไฟล์ต้นฉบับ โลโก้ ฟอนต์ และแบรนด์ไกด์ที่ใช้ซ้ำ หาเจอในที่เดียว",
+    department: "Design", icon: "Images", columns: ["name", "category", "format", "version", "status"],
+    fields: [f("preview", "ภาพตัวอย่าง", "image"), f("name", "ชื่อไฟล์ / ชิ้นงาน", "text", true), f("category", "หมวด", "select", true, { options: ["โลโก้", "แบรนด์ไกด์", "ฟอนต์", "เทมเพลต", "ภาพถ่าย", "ไอคอน / กราฟิก", "งานลูกค้า", "อื่นๆ"] }), f("format", "นามสกุลไฟล์ (AI, PSD, PNG …)"), f("version", "เวอร์ชัน"), f("requestId", "จากบรีฟงาน", "relation", false, { resource: "design_requests" }), f("fileUrl", "ลิงก์ไฟล์", "url"), owner, status(["ใช้งาน", "เก่า / ห้ามใช้"]), notes],
+  },
+  // บริการลูกค้า
+  {
+    key: "cs_feedback", label: "ความพึงพอใจลูกค้า", description: "คะแนนและความเห็นหลังให้บริการ ดูแนวโน้มความพึงพอใจและเรื่องที่ต้องปรับ",
+    department: "Customer Service", icon: "Smile", columns: ["name", "customerId", "score", "date", "status"],
+    fields: [f("name", "เรื่อง / งานที่ประเมิน", "text", true), f("customerId", "ลูกค้า", "relation", false, { resource: "customers" }), f("ticketId", "เรื่องแจ้งปัญหา", "relation", false, { resource: "tickets" }), f("channel", "ช่องทาง", "select", false, { options: ["โทรศัพท์", "LINE", "อีเมล", "หน้าร้าน", "แบบสอบถาม", "อื่นๆ"] }), f("score", "คะแนน (1-5)", "number", true, { min: 1 }), f("date", "วันที่", "date", true), f("comment", "ความเห็นลูกค้า", "textarea"), owner, status(["ใหม่", "ติดตามแล้ว", "ปิดเรื่อง"]), notes],
+  },
+  {
+    key: "claims", label: "เคลม & คืนสินค้า", description: "รับเคลม ซ่อม เปลี่ยน หรือคืนสินค้า ติดตามประกันและผลการดำเนินการ",
+    department: "Customer Service", icon: "PackageX", columns: ["name", "customerId", "productId", "date", "status"],
+    fields: [f("name", "เลขที่ / เรื่องเคลม", "text", true), f("customerId", "ลูกค้า", "relation", true, { resource: "customers" }), f("productId", "สินค้า", "relation", false, { resource: "products" }), f("serial", "เลขเครื่อง / ล็อต"), f("type", "ประเภท", "select", true, { options: ["ซ่อม", "เปลี่ยนสินค้า", "คืนเงิน", "ตรวจเช็ก"] }), f("date", "วันที่รับเคลม", "date", true), f("warrantyUntil", "ประกันถึง", "date"), f("problem", "อาการ / ปัญหา", "textarea", true), f("cost", "ค่าใช้จ่าย", "number", false, { min: 0 }), owner, status(["รับเรื่อง", "ตรวจสอบ", "กำลังดำเนินการ", "ส่งคืนแล้ว", "ปฏิเสธ"]), notes],
+  },
+  {
+    key: "knowledge_base", label: "คลังคำตอบ", description: "คำถามที่พบบ่อยและคำตอบมาตรฐาน ให้ทีมตอบลูกค้าตรงกันทุกคน",
+    department: "Customer Service", icon: "BookOpen", columns: ["name", "category", "owner", "status"],
+    fields: [f("name", "คำถาม / หัวข้อ", "text", true), f("category", "หมวด", "select", false, { options: ["สินค้า", "การสั่งซื้อ", "การชำระเงิน", "จัดส่ง", "เคลม / ประกัน", "บัญชีผู้ใช้", "อื่นๆ"] }), f("answer", "คำตอบ", "textarea", true), f("url", "ลิงก์ประกอบ", "url"), owner, status(["ร่าง", "ใช้งาน", "เลิกใช้"]), notes],
+  },
+  // ข้อมูล
+  {
+    key: "metrics", label: "ตัวชี้วัดองค์กร", description: "ตัวเลขสำคัญของแต่ละแผนกต่องวด เทียบเป้ากับผลจริง",
+    department: "Data", icon: "Gauge", columns: ["name", "department", "period", "target", "actual"],
+    fields: [f("name", "ตัวชี้วัด", "text", true), f("department", "แผนก", "select", true, { options: [...departmentNames] }), f("period", "งวด (เช่น 2026-11 หรือ 2026-Q4)", "text", true), f("unit", "หน่วย (บาท, %, ราย …)"), f("target", "เป้าหมาย", "number"), f("actual", "ผลจริง", "number"), owner, status(["ตามเป้า", "ต่ำกว่าเป้า", "เกินเป้า", "ยังไม่มีข้อมูล"]), notes],
+  },
+  {
+    key: "data_requests", label: "คำขอข้อมูล & รายงาน", description: "แผนกขอรายงานหรือข้อมูลเฉพาะ ทีมข้อมูลรับงาน กำหนดส่ง และแนบผล",
+    department: "Data", icon: "FileChartColumn", columns: ["name", "requester", "dueDate", "owner", "status"],
+    fields: [f("name", "ข้อมูล / รายงานที่ขอ", "text", true), f("requester", "ผู้ขอ", "text", true), f("department", "แผนกที่ขอ", "select", false, { options: [...departmentNames] }), f("purpose", "นำไปใช้ทำอะไร", "textarea"), f("dueDate", "ต้องการภายใน", "date"), owner, f("resultUrl", "ลิงก์ผลงาน", "url"), status(["รับเรื่อง", "กำลังทำ", "ส่งแล้ว", "ยกเลิก"]), notes],
+  },
+  {
+    key: "data_sources", label: "แหล่งข้อมูล", description: "ระบบและไฟล์ที่องค์กรเก็บข้อมูล ใครดูแล อัปเดตบ่อยแค่ไหน และระดับความลับ",
+    department: "Data", icon: "Database", columns: ["name", "type", "owner", "refresh", "status"],
+    fields: [f("name", "ชื่อแหล่งข้อมูล", "text", true), f("type", "ประเภท", "select", true, { options: ["ระบบ EliteFlow", "Google Sheets / Excel", "ฐานข้อมูล", "ระบบภายนอก / API", "ไฟล์เอกสาร", "อื่นๆ"] }), f("department", "แผนกเจ้าของ", "select", false, { options: [...departmentNames] }), owner, f("refresh", "ความถี่อัปเดต", "select", false, { options: ["ทันที", "รายวัน", "รายสัปดาห์", "รายเดือน", "ไม่แน่นอน"] }), f("sensitivity", "ระดับความลับ", "select", false, { options: ["ทั่วไป", "ภายใน", "ลับ", "ข้อมูลส่วนบุคคล (PDPA)"] }), f("url", "ลิงก์", "url"), status(["ใช้งาน", "เลิกใช้"]), notes],
+  },
+  // พัฒนาธุรกิจ
+  {
+    key: "partnerships", label: "พันธมิตรธุรกิจ", description: "คู่ค้าและพันธมิตร รูปแบบความร่วมมือ ผลประโยชน์ และวันต่อสัญญา",
+    department: "Business Development", icon: "Handshake", columns: ["name", "type", "owner", "endDate", "status"],
+    fields: [f("name", "ชื่อพันธมิตร", "text", true), f("type", "รูปแบบความร่วมมือ", "select", true, { options: ["ตัวแทนจำหน่าย", "Co-marketing", "Joint Venture", "ผู้ให้บริการ", "แนะนำลูกค้า (Referral)", "อื่นๆ"] }), f("contact", "ผู้ติดต่อ"), f("phone", "โทรศัพท์", "tel"), f("email", "อีเมล", "email"), f("value", "มูลค่าที่คาดว่าจะได้ / ปี", "number", false, { min: 0 }), f("startDate", "เริ่มความร่วมมือ", "date"), f("endDate", "สิ้นสุด / ต่อสัญญา", "date"), f("contractId", "สัญญา", "relation", false, { resource: "contracts" }), owner, status(["เจรจา", "ทำงานร่วมกัน", "พักไว้", "สิ้นสุด"]), notes],
+  },
+  {
+    key: "market_research", label: "โอกาส & วิจัยตลาด", description: "ไอเดียธุรกิจใหม่ ตลาด คู่แข่ง ขนาดโอกาส และผลการประเมินก่อนลงทุน",
+    department: "Business Development", icon: "Telescope", columns: ["name", "market", "potential", "owner", "status"],
+    fields: [f("name", "หัวข้อ / โอกาส", "text", true), f("market", "ตลาด / กลุ่มลูกค้า"), f("competitors", "คู่แข่ง"), f("potential", "มูลค่าตลาดโดยประมาณ", "number", false, { min: 0 }), f("investment", "เงินลงทุนที่ต้องใช้", "number", false, { min: 0 }), f("findings", "สิ่งที่พบ", "textarea"), f("fileUrl", "ลิงก์รายงาน", "url"), owner, status(["ไอเดีย", "กำลังศึกษา", "เสนอผู้บริหาร", "อนุมัติไปต่อ", "ไม่ไปต่อ"]), notes],
+  },
+);
+export const branchKinds = ["customers", "employees", "products", "purchases", "expenses", "invoices", "payments", "quotations", "sales_orders", "bills"];
+for (const m of modules)
+  if (branchKinds.includes(m.key) && !m.fields.some((x) => x.key === "branchId"))
+    m.fields.push(f("branchId", "สาขา", "relation", false, { resource: "branches" }));
+export const catalog = Object.fromEntries(modules.map((m) => [m.key, m]));
 export const statusLabels: Record<string, string> = {
   product: "สินค้า",
   service: "บริการ",

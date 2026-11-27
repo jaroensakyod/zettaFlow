@@ -1,4 +1,4 @@
-// แผนก mega menu: 9 colour-coded departments, 6 shortcuts each. Every `view` is a real workspace page
+// แผนก mega menu: 15 colour-coded departments, 6 shortcuts each. Every `view` is a real workspace page
 // (catalog kind or extra view); `?kind=` opens the report page on that department's data.
 import { catalog } from "./catalog";
 export type MenuItem = { label: string; view: string; icon: string };
@@ -175,7 +175,93 @@ export const departmentMenu: DepartmentMenu[] = [
       { label: "งานบริการทั่วไป", view: "services", icon: "Wrench" },
     ],
   },
+  // Sold one by one in App Shop (SHOP_DEPARTMENTS): locked until the company buys the department's system.
+  {
+    id: "operations", title: "ปฏิบัติการ", en: "Operations", subtitle: "สั่งงาน ติดตาม และตรวจคุณภาพ", icon: "Wrench", tone: "teal", overview: "work_orders",
+    items: [
+      { label: "ใบสั่งงาน", view: "work_orders", icon: "ClipboardList" },
+      { label: "โครงการ", view: "projects", icon: "FolderKanban" },
+      { label: "งาน & Workflow", view: "tasks", icon: "ListTodo" },
+      { label: "ตรวจคุณภาพ (QC)", view: "quality_checks", icon: "ClipboardCheck" },
+      { label: "ทรัพย์สิน & เครื่องมือ", view: "assets", icon: "Monitor" },
+      { label: "รายงานปฏิบัติการ", view: "reports?kind=work_orders", icon: "ChartNoAxesCombined" },
+    ],
+  },
+  {
+    id: "purchasing", title: "จัดซื้อ", en: "Purchasing", subtitle: "ขอซื้อ เทียบราคา และสั่งซื้อ", icon: "ShoppingCart", tone: "cyan", overview: "purchase_requests",
+    items: [
+      { label: "ใบขอซื้อ (PR)", view: "purchase_requests", icon: "FilePen" },
+      { label: "เปรียบเทียบราคา", view: "supplier_quotes", icon: "Scale" },
+      { label: "ใบสั่งซื้อ & รับของ", view: "purchases", icon: "ShoppingCart" },
+      { label: "ผู้จำหน่าย (Supplier)", view: "suppliers", icon: "Truck" },
+      { label: "ใบรับวางบิล", view: "bills", icon: "ReceiptText" },
+      { label: "รายงานจัดซื้อ", view: "reports?kind=purchases", icon: "ChartNoAxesCombined" },
+    ],
+  },
+  {
+    id: "design", title: "ออกแบบ", en: "Design", subtitle: "รับบรีฟ ออกแบบ และเก็บไฟล์งาน", icon: "Palette", tone: "rose", overview: "design_requests",
+    items: [
+      { label: "บรีฟงานออกแบบ", view: "design_requests", icon: "Palette" },
+      { label: "คลังงานออกแบบ", view: "design_assets", icon: "Images" },
+      { label: "งานในทีม", view: "tasks", icon: "ListTodo" },
+      { label: "โครงการลูกค้า", view: "projects", icon: "FolderKanban" },
+      { label: "คอนเทนต์ & สื่อ", view: "content", icon: "Files" },
+      { label: "รายงานงานออกแบบ", view: "reports?kind=design_requests", icon: "ChartNoAxesCombined" },
+    ],
+  },
+  {
+    id: "customer_service", title: "บริการลูกค้า", en: "Customer Service", subtitle: "รับเรื่อง เคลม และดูแลความพึงพอใจ", icon: "Headset", tone: "sky", overview: "tickets",
+    items: [
+      { label: "เรื่องแจ้ง & ร้องเรียน", view: "tickets", icon: "MessageCircle" },
+      { label: "เคลม & คืนสินค้า", view: "claims", icon: "PackageX" },
+      { label: "ความพึงพอใจลูกค้า", view: "cs_feedback", icon: "Smile" },
+      { label: "คลังคำตอบ", view: "knowledge_base", icon: "BookOpen" },
+      { label: "ข้อมูลลูกค้า", view: "customers", icon: "Users" },
+      { label: "รายงานบริการลูกค้า", view: "reports?kind=tickets", icon: "ChartNoAxesCombined" },
+    ],
+  },
+  {
+    id: "data", title: "ข้อมูล", en: "Data", subtitle: "ตัวชี้วัด รายงาน และแหล่งข้อมูล", icon: "Database", tone: "emerald", overview: "metrics",
+    items: [
+      { label: "ตัวชี้วัดองค์กร", view: "metrics", icon: "Gauge" },
+      { label: "คำขอข้อมูล & รายงาน", view: "data_requests", icon: "FileChartColumn" },
+      { label: "แหล่งข้อมูล", view: "data_sources", icon: "Database" },
+      { label: "รายงานข้ามแผนก", view: "reports", icon: "ChartNoAxesCombined" },
+      { label: "Dashboard ผู้บริหาร", view: "dashboard", icon: "Landmark" },
+      { label: "เป้าหมาย KPI", view: "kpi", icon: "Target" },
+    ],
+  },
+  {
+    id: "business_development", title: "พัฒนาธุรกิจ", en: "Business Development", subtitle: "พันธมิตร ดีล และโอกาสใหม่", icon: "Briefcase", tone: "lime", overview: "partnerships",
+    items: [
+      { label: "พันธมิตรธุรกิจ", view: "partnerships", icon: "Handshake" },
+      { label: "โอกาส & วิจัยตลาด", view: "market_research", icon: "Telescope" },
+      { label: "พื้นที่ขาย & ดีล", view: "deals", icon: "Store" },
+      { label: "Dealer & สาขา", view: "dealers", icon: "Building2" },
+      { label: "โอกาสทางการขาย", view: "leads", icon: "Target" },
+      { label: "รายงานพัฒนาธุรกิจ", view: "reports?kind=partnerships", icon: "ChartNoAxesCombined" },
+    ],
+  },
 ];
+/** Departments bought one by one in App Shop (the module with the same id); locked until the company owns it. */
+export const SHOP_DEPARTMENTS = ["operations", "purchasing", "design", "customer_service", "data", "business_development"];
+/**
+ * Record types that belong to one of those departments alone: saved only once the company owns its system, whatever
+ * the package (pages they share with other departments, like โครงการ or Ticket, keep the package rule).
+ */
+export const SHOP_KINDS: Record<string, string> = {
+  work_orders: "operations", quality_checks: "operations",
+  purchase_requests: "purchasing", supplier_quotes: "purchasing",
+  design_requests: "design", design_assets: "design",
+  cs_feedback: "customer_service", claims: "customer_service", knowledge_base: "customer_service",
+  metrics: "data", data_requests: "data", data_sources: "data",
+  partnerships: "business_development", market_research: "business_development",
+};
+/** "ซื้อระบบออกแบบในหน้าแผนก …": what a shop department's record needs before it can be saved. */
+export const shopLockText = (kind: string, label: string) => {
+  const d = departmentMenu.find((x) => x.id === SHOP_KINDS[kind]);
+  return `“${label}” อยู่ในแผนก${d?.title || ""} ซึ่งต้องซื้อระบบก่อนใช้งาน · ซื้อได้ที่หน้าแผนก (App Shop) แล้วใช้ได้ทันที`;
+};
 
 /** Workspace views that are not catalog kinds but are opened from this menu. */
 export const menuViews = ["tax", "transfers", "expiries"];
@@ -188,7 +274,8 @@ const entries = (d: DepartmentMenu) => sidebarOf(d).flatMap((i) => [i, ...(i.chi
  */
 export const FREE_DEPARTMENT = "accounting";
 export const PACKAGE_DEPARTMENTS = ["sales", "marketing", "warehouse", "hr", "admin"];
-export const departmentLocked = (id: string, paid: boolean) => id !== FREE_DEPARTMENT && !(paid && PACKAGE_DEPARTMENTS.includes(id));
+export const departmentLocked = (id: string, paid: boolean, owned: string[] = []) =>
+  id === FREE_DEPARTMENT ? false : PACKAGE_DEPARTMENTS.includes(id) ? !paid : SHOP_DEPARTMENTS.includes(id) ? !owned.includes(id) : true;
 /** Without a paid package only บัญชีและการเงิน's pages may be recorded (ค่าใช้จ่าย, รับชำระ …), from the web or LINE. */
 export function freeKind(kind: string) {
   const free = departmentMenu.find((d) => d.id === FREE_DEPARTMENT);

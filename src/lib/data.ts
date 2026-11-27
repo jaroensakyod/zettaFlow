@@ -32,7 +32,7 @@ import {
 } from "./domain";
 import { catalog } from "./catalog";
 import { supportContext } from "./support-view";
-import { freeKind } from "./departments";
+import { freeKind, SHOP_KINDS, shopLockText } from "./departments";
 import { subscriptionActive, type Subscription } from "./billing";
 import { applyFx } from "./fx";
 import type { Context, Entity, Template, Ingestion, HomeData } from "./types";
@@ -206,6 +206,14 @@ export async function paidPackage(ctx: Context) {
 }
 /** แพ็กเกจฟรี: only บัญชีและการเงิน (and its customers / suppliers) is saved; anything else asks for an upgrade. */
 export async function assertPlanAllows(ctx: Context, kind: string) {
+  // A department sold on its own (ออกแบบ, ข้อมูล …): open once bought, whatever the package.
+  const shop = SHOP_KINDS[kind];
+  if (shop) {
+    if (ctx.demo) return;
+    const { data } = await (await supabaseServer()).from("company_modules").select("module_id").eq("company_id", ctx.company.id).eq("module_id", shop).maybeSingle();
+    if (data) return;
+    throw new UpgradeError(shopLockText(kind, catalog[kind]?.label || kind));
+  }
   if (freeKind(kind) || freeContacts.has(kind) || (await paidPackage(ctx))) return;
   throw new UpgradeError(
     `“${catalog[kind]?.label || kind}” ต้องใช้แพ็กเกจแบบชำระเงิน · แพ็กเกจฟรีใช้ได้เฉพาะระบบบัญชีและการเงิน อัปเกรดแล้วปลดล็อกทุกระบบทันที`,

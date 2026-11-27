@@ -7,14 +7,15 @@ import {
   Gavel, Landmark, ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt,
   ReceiptText, Scale, Search, ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users,
   Wallet, Wrench, FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign,
-  ChartColumn, Settings, TrendingUp, Store, Lock, type LucideIcon,
+  ChartColumn, Settings, TrendingUp, Store, Lock, ClipboardList, FolderKanban, Images, PackageX, Smile, Telescope, Handshake,
+  Database, Headset, Palette, Briefcase, type LucideIcon,
 } from "lucide-react";
 import { departmentMenu, baseView } from "@/lib/departments";
 import { subscriptionActive, type Subscription } from "@/lib/billing";
 import { api } from "./shared";
 
 // Which departments a package opens lives in lib/departments (the LINE worker checks it too).
-import { departmentLocked, PACKAGE_DEPARTMENTS } from "@/lib/departments";
+import { departmentLocked, PACKAGE_DEPARTMENTS, SHOP_DEPARTMENTS } from "@/lib/departments";
 export { FREE_DEPARTMENT, PACKAGE_DEPARTMENTS, departmentLocked } from "@/lib/departments";
 
 const icons: Record<string, LucideIcon> = {
@@ -23,6 +24,7 @@ const icons: Record<string, LucideIcon> = {
   ListTodo, MapPin, Megaphone, MessageCircle, Monitor, Package, PackageMinus, PackagePlus, Receipt, ReceiptText, Scale,
   ShieldAlert, ShieldCheck, ShoppingCart, Target, Truck, UserPlus, UserRound, Users, Wallet, Wrench,
   FileSpreadsheet, FilePen, FileClock, FileChartColumn, FileDigit, ScrollText, BadgeDollarSign, ChartColumn, Settings, TrendingUp, Store,
+  ClipboardList, FolderKanban, Images, PackageX, Smile, Telescope, Handshake, Database, Headset, Palette, Briefcase,
 };
 /** The department the user last opened a page from; its sidebar wins when a page belongs to several. */
 export const DEPT_KEY = "eliteflow-dept";
@@ -36,8 +38,10 @@ export const MenuIcon = ({ name, size = 16 }: { name: string; size?: number }) =
   return <C size={size} />;
 };
 
-// Package departments open the package page; the others have nothing to buy yet, so App Shop.
-const unlockView = (id: string) => (PACKAGE_DEPARTMENTS.includes(id) ? "pricing" : "store");
+// Package departments open the package page; departments sold one by one open แผนก (buy there); the rest App Shop.
+const unlockView = (id: string) => (PACKAGE_DEPARTMENTS.includes(id) ? "pricing" : SHOP_DEPARTMENTS.includes(id) ? "departments" : "store");
+const lockText = (id: string) =>
+  PACKAGE_DEPARTMENTS.includes(id) ? "ล็อกอยู่ · อัปเกรดแพ็กเกจเพื่อใช้งาน" : SHOP_DEPARTMENTS.includes(id) ? "ล็อกอยู่ · ซื้อระบบเพื่อใช้งาน" : "ล็อกอยู่ · เร็วๆ นี้";
 
 export function DepartmentMegaMenu({
   view,
@@ -79,7 +83,14 @@ export function DepartmentMegaMenu({
       .then((b: { subscription?: Subscription }) => setPaid(!!b.subscription && b.subscription.status === "active" && b.subscription.plan !== "free" && subscriptionActive(b.subscription)))
       .catch(() => setPaid(false));
   }, []);
-  const locked = (id: string) => departmentLocked(id, paid);
+  // Departments sold one by one: open once the company owns that system (App Shop).
+  const [owned, setOwned] = useState<string[]>([]);
+  useEffect(() => {
+    api("/shop")
+      .then((s: { modules?: { id: string; owned?: boolean }[] }) => setOwned((s.modules || []).filter((m) => m.owned).map((m) => m.id)))
+      .catch(() => setOwned([]));
+  }, []);
+  const locked = (id: string) => departmentLocked(id, paid, owned);
   const q = query.trim().toLowerCase();
   const cards = useMemo(
     () =>
@@ -111,9 +122,9 @@ export function DepartmentMegaMenu({
         </label>
       </div>
       {!cards.length && <p className="dept-menu-empty">ไม่พบเมนู “{query}”</p>}
-      {/* Same layout as the design: 5 departments on top, 4 below (one grid while searching). */}
-      {(q ? [cards] : [cards.slice(0, 5), cards.slice(5)]).filter((r) => r.length).map((row, i) => (
-        <div key={i} className={"dept-menu-grid" + (q ? "" : row.length === 5 ? " cols-5" : " cols-4")}>
+      {/* One grid: 5 departments a row on wide screens, fewer on narrow ones without gaps. */}
+      {[cards].filter((r) => r.length).map((row, i) => (
+        <div key={i} className={"dept-menu-grid" + (q ? "" : " cols-5")}>
           {row.map((d, n) => {
           const lock = locked(d.id);
           const isOpen = !lock && (!!q || openId === d.id);
@@ -143,7 +154,7 @@ export function DepartmentMegaMenu({
                   <b>
                     {d.title} <small>({d.en})</small>
                   </b>
-                  <em>{lock ? (PACKAGE_DEPARTMENTS.includes(d.id) ? "ล็อกอยู่ · อัปเกรดแพ็กเกจเพื่อใช้งาน" : "ล็อกอยู่ · เร็วๆ นี้") : d.subtitle}</em>
+                  <em>{lock ? lockText(d.id) : d.subtitle}</em>
                 </span>
               </button>
               {lock ? (
