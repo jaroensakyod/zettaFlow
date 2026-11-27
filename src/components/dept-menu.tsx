@@ -39,7 +39,7 @@ export const MenuIcon = ({ name, size = 16 }: { name: string; size?: number }) =
 };
 
 // Package departments open the package page; departments sold one by one open แผนก (buy there); the rest App Shop.
-const unlockView = (id: string) => (PACKAGE_DEPARTMENTS.includes(id) ? "pricing" : SHOP_DEPARTMENTS.includes(id) ? "departments" : "store");
+const unlockView = (id: string) => (PACKAGE_DEPARTMENTS.includes(id) ? "pricing" : SHOP_DEPARTMENTS.includes(id) ? "store?tab=departments" : "store");
 const lockText = (id: string) =>
   PACKAGE_DEPARTMENTS.includes(id) ? "ล็อกอยู่ · อัปเกรดแพ็กเกจเพื่อใช้งาน" : SHOP_DEPARTMENTS.includes(id) ? "ล็อกอยู่ · ซื้อระบบเพื่อใช้งาน" : "ล็อกอยู่ · เร็วๆ นี้";
 

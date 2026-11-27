@@ -1,16 +1,17 @@
 "use client";
 // EliteFlow App Shop (Canva pages 10–11): the แผนก (Departments) page and the App Shop page share a left nav.
 // Department systems are bought once (/coins/buy); characters/themes once and business systems monthly (/shop/buy).
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Bot, Building2, Check, CheckCircle2, ChevronLeft, ChevronRight, Coins, Crown, Eye, Flame, Gem, History, House, LayoutDashboard,
-  LayoutGrid, List, Lock, Palette, Play, Plus, Puzzle, ReceiptText, Search, Settings, ShoppingCart, Sparkles, Star, Stethoscope,
+  Bot, Building2, Check, CheckCircle2, ChevronLeft, ChevronRight, Coins, Crown, Eye, Gem, History, House, LayoutDashboard,
+  LayoutGrid, Lock, Palette, Play, Puzzle, ReceiptText, Search, Settings, ShoppingCart, Sparkles, Star, Stethoscope,
   Store, UsersRound, UtensilsCrossed, type LucideIcon,
 } from "lucide-react";
 import type { Context } from "@/lib/types";
 import type { ShopItem, PurchaseRow } from "@/lib/app-shop";
-import { departmentMenu, type DepartmentMenu } from "@/lib/departments";
+import { departmentMenu, departmentLocked, PACKAGE_DEPARTMENTS, SHOP_DEPARTMENTS, type DepartmentMenu } from "@/lib/departments";
+import { subscriptionActive, type Subscription } from "@/lib/billing";
 import { api, money, displayDate, Modal } from "./shared";
 import { TopupDialog } from "./coins";
 import { MenuIcon } from "./dept-menu";
@@ -68,7 +69,6 @@ const moduleIdOf = (d: DepartmentMenu, modules: StoreModule[]) => {
   const id = moduleOfDept[d.id] || d.id;
   return modules.find((m) => m.id === id);
 };
-const deptActive = (d: DepartmentMenu, modules: StoreModule[]) => moduleIdOf(d, modules)?.owned ?? true;
 
 /* ---------------------------------------------------------------- illustrations */
 
@@ -362,7 +362,6 @@ function ShopNav({ current, navigate, activeDepts }: { current: NavKey; navigate
   const end = billing?.subscription ? billing.subscription.current_period_end || billing.subscription.trial_ends_at : null;
   const entries: [string, string, LucideIcon, NavKey | null, boolean?][] = [
     ["dashboard", "ภาพรวมองค์กร", LayoutDashboard, null],
-    ["departments", "แผนก (Departments)", LayoutGrid, "departments"],
     ["store", "App Shop", Store, "store", true],
     ["store?tab=characters", "AI Characters", Bot, "characters"],
     ["store?tab=addons", "ฟังก์ชันเสริม", Puzzle, "addons"],
@@ -848,171 +847,63 @@ function SectionHead({ icon, title, hint, more }: { icon: ReactNode; title: stri
   );
 }
 
-/* ---------------------------------------------------------------- page 10: แผนก (Departments) */
+/* ---------------------------------------------------------------- แผนก (sold here, in App Shop) */
 
-const deptTabs = [
-  ["rec", "แนะนำสำหรับคุณ", Star],
-  ["systems", "ระบบตามธุรกิจ", Building2],
-  ["all", "ทุกหมวดหมู่", LayoutGrid],
-  ["characters", "AI Characters", Bot],
-  ["addons", "ฟังก์ชันเสริม", Puzzle],
-] as const;
-
-export function DepartmentsPage({ ctx, navigate, notify, unlockAll = false }: { ctx: Context; navigate: Nav; notify: Notify; unlockAll?: boolean }) {
-  const { data, error } = useShop();
-  const a = useShopActions(ctx, data, notify);
-  const [q, setQ] = useState(""),
-    [mode, setMode] = useState<"grid" | "list">("grid"),
-    [tab, setTab] = useState<(typeof deptTabs)[number][0]>("rec");
-  const modules = useMemo(() => data?.modules || [], [data]);
+/**
+ * Every department as a card: in use first (menu order kept), then the locked ones. Same locks as แผนกของฉัน:
+ * บัญชีและการเงิน free, package departments open with a paid package, shop departments once their system is bought.
+ * A locked card buys its system here, or opens the package page for a package department.
+ */
+/** Whether a department is open for this company (the same rule as แผนกของฉัน). */
+function useDeptOpen(data: ShopData | null, unlockAll: boolean) {
+  const billing = useBilling() as { subscription?: Subscription } | null;
+  const paid = !!billing?.subscription && billing.subscription.status === "active" && billing.subscription.plan !== "free" && subscriptionActive(billing.subscription);
+  const owned = (data?.modules || []).filter((m) => m.owned).map((m) => m.id);
+  return (d: DepartmentMenu) => unlockAll || !departmentLocked(d.id, paid, owned);
+}
+function DeptGrid({ data, a, navigate, unlockAll, query }: { data: ShopData | null; a: ReturnType<typeof useShopActions>; navigate: Nav; unlockAll: boolean; query: string }) {
+  const modules = data?.modules || [];
+  const open = useDeptOpen(data, unlockAll);
+  const needle = query.trim().toLowerCase();
   const depts = departmentMenu
-    .filter((d) => !q.trim() || [d.title, d.en, d.subtitle].join(" ").toLowerCase().includes(q.trim().toLowerCase()))
-    // In use first (menu order kept), then the ones to buy.
-    .sort((a, b) => Number(!(unlockAll || !data || deptActive(a, modules))) - Number(!(unlockAll || !data || deptActive(b, modules))));
-  const active = departmentMenu.filter((d) => deptActive(d, modules)).length;
-  const items = data?.items || [];
-  const systems = items.filter((i) => i.kind === "system");
+    .filter((d) => !needle || [d.title, d.en, d.subtitle].join(" ").toLowerCase().includes(needle))
+    .sort((x, y) => Number(!open(x)) - Number(!open(y)));
+  if (!depts.length) return null;
   return (
-    <div className="as-page">
-      <ShopNav current="departments" navigate={navigate} activeDepts={active} />
-      <div className="as-main">
-        <header className="as-head">
-          <span className="as-head-icon">
-            <LayoutGrid size={22} />
-          </span>
-          <div>
-            <h1>แผนก (Departments)</h1>
-            <p>จัดการแผนกและระบบการทำงานขององค์กร พร้อมเลือกซื้อระบบเพิ่มเติมจาก EliteFlow Shop</p>
-          </div>
-          <label className="as-search">
-            <Search size={15} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาแผนก / ระบบ / ฟังก์ชัน…" aria-label="ค้นหาแผนก" />
-          </label>
-          <div className="as-toggle" role="group" aria-label="รูปแบบการแสดงผล">
-            <button className={mode === "grid" ? "on" : ""} aria-pressed={mode === "grid"} aria-label="แบบตาราง" onClick={() => setMode("grid")}>
-              <LayoutGrid size={16} />
-            </button>
-            <button className={mode === "list" ? "on" : ""} aria-pressed={mode === "list"} aria-label="แบบรายการ" onClick={() => setMode("list")}>
-              <List size={16} />
-            </button>
-          </div>
-        </header>
-        {error && <p className="form-error">{error}</p>}
-        <div className={"as-depts " + mode}>
-          {depts.map((d) => {
-            const m = moduleIdOf(d, modules);
-            const on = unlockAll || !data || deptActive(d, modules);
-            return (
-              <button
-                key={d.id}
-                className={"as-dept tone-" + d.tone + (on ? "" : " locked")}
-                onClick={() => (on ? navigate(d.overview) : m && a.buyModule(m))}
-                title={on ? "เปิดแผนก" + d.title : `ซื้อ${m?.name || "ระบบ"} ${m?.price_coins || ""} เหรียญ`}
-              >
-                <span className="as-dept-icon">
-                  <MenuIcon name={d.icon} size={20} />
-                </span>
-                <span className="as-dept-text">
-                  <b>
-                    {d.title} <em>({d.en})</em>
-                  </b>
-                  <small>{d.subtitle}</small>
-                  {on ? (
-                    <span className="as-chip on">
-                      <Check size={12} /> ใช้งานอยู่
-                    </span>
-                  ) : (
-                    <span className="as-chip lock">
-                      <Lock size={12} /> ซื้อเพิ่ม
-                    </span>
-                  )}
-                </span>
-              </button>
-            );
-          })}
-          <button className="as-dept add" onClick={() => navigate("store")}>
+    <div className="as-depts grid">
+      {depts.map((d) => {
+        const on = open(d);
+        const m = moduleIdOf(d, modules);
+        const pkg = PACKAGE_DEPARTMENTS.includes(d.id);
+        const soon = !on && !pkg && !SHOP_DEPARTMENTS.includes(d.id);
+        return (
+          <button
+            key={d.id}
+            className={"as-dept tone-" + d.tone + (on ? "" : " locked")}
+            onClick={() => (on ? navigate(d.overview) : pkg ? navigate("pricing") : !soon && m ? a.buyModule(m) : undefined)}
+            title={on ? "เปิดแผนก" + d.title : pkg ? "อัปเกรดแพ็กเกจเพื่อใช้งาน" : soon ? "เร็วๆ นี้" : `ซื้อ${m?.name || "ระบบ"} ${m?.price_coins || ""} เหรียญ`}
+          >
             <span className="as-dept-icon">
-              <Plus size={20} />
+              <MenuIcon name={d.icon} size={20} />
             </span>
             <span className="as-dept-text">
-              <b>เพิ่มแผนก / ระบบ</b>
-              <small>เลือกจาก App Shop</small>
+              <b>
+                {d.title} <em>({d.en})</em>
+              </b>
+              <small>{d.subtitle}</small>
+              {on ? (
+                <span className="as-chip on">
+                  <Check size={12} /> ใช้งานอยู่
+                </span>
+              ) : (
+                <span className="as-chip lock">
+                  <Lock size={12} /> {pkg ? "อัปเกรดแพ็กเกจ" : soon ? "เร็วๆ นี้" : m ? `ซื้อ ${money(m.price_coins)} เหรียญ` : "ซื้อเพิ่ม"}
+                </span>
+              )}
             </span>
           </button>
-        </div>
-        {!depts.length && <p className="note">ไม่พบแผนกที่ค้นหา</p>}
-
-        <section className="as-banner">
-          <div className="as-banner-brand">
-            <ShopArt />
-            <div>
-              <h2>
-                EliteFlow <span>App Shop</span>
-              </h2>
-              <p>ศูนย์รวมระบบและฟังก์ชันเสริม สำหรับทุกธุรกิจ</p>
-            </div>
-          </div>
-          <div className="as-shortcuts">
-            {(
-              [
-                ["store?tab=addons", "ซื้อระบบเสริม", "เพิ่มแผนก / ฟังก์ชันเฉพาะธุรกิจ", Gem],
-                ["store?tab=characters", "AI Characters", "เลือกตัวละคร AI ผู้ช่วยของคุณ", Bot],
-                ["team", "ทีมงาน (Team)", "ซื้อสิทธิ์การใช้งานเพิ่มทั้งทีม", UsersRound],
-              ] as const
-            ).map(([view, title, sub, Ico]) => (
-              <button key={view} onClick={() => navigate(view)}>
-                <span>
-                  <Ico size={18} />
-                </span>
-                <b>{title}</b>
-                <small>{sub}</small>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <div className="as-tabs" role="tablist">
-          {deptTabs.map(([k, label, Ico]) => (
-            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
-              <Ico size={15} /> {label}
-            </button>
-          ))}
-        </div>
-        {tab === "characters" ? (
-          <>
-            <SectionHead icon={<Bot size={20} />} title="AI Characters" more={() => navigate("store?tab=characters")} />
-            <Carousel label="AI Characters">
-              {items.filter((i) => i.kind === "character").map((i) => <CharacterCard key={i.id} item={i} a={a} />)}
-            </Carousel>
-          </>
-        ) : tab === "addons" ? (
-          <>
-            <SectionHead icon={<Puzzle size={20} />} title="ฟังก์ชันเสริม" more={() => navigate("store?tab=addons")} />
-            <div className="as-addons">
-              {systems.map((i) => <AddonCard key={i.id} item={i} a={a} />)}
-            </div>
-          </>
-        ) : tab === "all" ? (
-          <>
-            <SectionHead icon={<Gem size={20} />} title="ระบบแผนก (ซื้อครั้งเดียว)" />
-            <div className="as-addons">
-              {modules.map((m) => <ModuleCard key={m.id} m={m} a={a} navigate={navigate} />)}
-            </div>
-            <SectionHead icon={<Building2 size={20} />} title="ระบบตามธุรกิจ (รายเดือน)" more={() => navigate("store?tab=systems")} />
-            <Carousel label="ระบบตามธุรกิจ">{systems.map((i) => <SystemCard key={i.id} item={i} a={a} />)}</Carousel>
-          </>
-        ) : (
-          <>
-            <SectionHead
-              icon={tab === "rec" ? <Flame size={20} className="as-flame" /> : <Building2 size={20} />}
-              title={tab === "rec" ? "ระบบยอดนิยม (แนะนำ)" : "ระบบตามธุรกิจ"}
-              more={() => navigate("store?tab=systems")}
-            />
-            <Carousel label="ระบบยอดนิยม">{systems.map((i) => <SystemCard key={i.id} item={i} a={a} />)}</Carousel>
-          </>
-        )}
-        {a.dialogs}
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -1034,6 +925,7 @@ function ShopArt() {
 
 const shopTabs = [
   ["rec", "แนะนำสำหรับคุณ", Star],
+  ["departments", "แผนก (Departments)", LayoutGrid],
   ["characters", "AI Characters", Bot],
   ["themes", "ธีมเสริม (Themes)", Palette],
   ["addons", "ฟังก์ชันเสริม (Add-ons)", Puzzle],
@@ -1042,16 +934,17 @@ const shopTabs = [
 ] as const;
 type ShopTab = (typeof shopTabs)[number][0] | "history";
 
-export function AppShop({ ctx, navigate, notify }: { ctx: Context; navigate: Nav; notify: Notify }) {
+export function AppShop({ ctx, navigate, notify, unlockAll = false, defaultTab }: { ctx: Context; navigate: Nav; notify: Notify; unlockAll?: boolean; defaultTab?: ShopTab }) {
   const params = useSearchParams();
-  const raw = params.get("tab") || "rec";
+  const raw = params.get("tab") || defaultTab || "rec";
   const tab: ShopTab = raw === "history" || shopTabs.some(([k]) => k === raw) ? (raw as ShopTab) : "rec";
   const { data, error } = useShop();
   const a = useShopActions(ctx, data, notify);
   const [q, setQ] = useState(""),
     [topup, setTopup] = useState(false);
   const modules = data?.modules || [];
-  const activeDepts = departmentMenu.filter((d) => deptActive(d, modules)).length;
+  const deptOpen = useDeptOpen(data, unlockAll);
+  const activeDepts = departmentMenu.filter(deptOpen).length;
   const needle = q.trim().toLowerCase();
   const items = (data?.items || []).filter((i) => !needle || [i.name, i.subtitle, i.description, ...i.features].join(" ").toLowerCase().includes(needle));
   const chars = items.filter((i) => i.kind === "character"),
@@ -1080,6 +973,8 @@ export function AppShop({ ctx, navigate, notify }: { ctx: Context; navigate: Nav
     navigate("store?tab=" + (item?.kind === "theme" ? "themes" : tab));
   }, [buyParam, data, a, navigate, notify, tab]);
   const show = (t: ShopTab) => tab === t || tab === "all" || (tab === "rec" && t !== "systems");
+  // แผนก: the department systems are sold right here (top of แนะนำ, their own tab, and ทั้งหมด).
+  const showDepts = tab === "departments" || tab === "rec" || tab === "all";
   const navKey: NavKey = tab === "characters" ? "characters" : tab === "addons" ? "addons" : tab === "history" ? "history" : "store";
   return (
     <div className="as-page">
@@ -1132,6 +1027,17 @@ export function AppShop({ ctx, navigate, notify }: { ctx: Context; navigate: Nav
           <PurchaseHistory data={data} />
         ) : (
           <>
+            {showDepts && (
+              <section>
+                <SectionHead
+                  icon={<LayoutGrid size={20} />}
+                  title="แผนก (Departments)"
+                  hint="แผนกที่ใช้งานอยู่ขึ้นก่อน · แผนกที่ล็อกกดซื้อระบบได้ที่นี่ (ซื้อครั้งเดียว ใช้ได้ตลอด)"
+                  more={tab === "departments" ? undefined : () => go("departments")}
+                />
+                <DeptGrid data={data} a={a} navigate={navigate} unlockAll={unlockAll} query={q} />
+              </section>
+            )}
             {show("characters") && !!chars.length && (
               <section>
                 <SectionHead icon={<Bot size={20} />} title="AI Characters (คาแรกเตอร์ AI)" hint='เลือก "หน้าตา / สไตล์" ของผู้ช่วย AI ได้ตามชอบ (ใช้งานได้ทุกแผนกและทุกประเภทธุรกิจ)' more={tab === "characters" ? undefined : () => go("characters")} />

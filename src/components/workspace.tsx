@@ -75,7 +75,7 @@ import { AiWorkspace } from "./ai-workspace";
 import { LinePending } from "./line-review";
 import { LineIntegrationPage } from "./line-integration";
 import { CoinBadge } from "./coins";
-import { DepartmentsPage, AppShop } from "./app-shop";
+import { AppShop } from "./app-shop";
 import { ThemeApplier } from "./theme-apply";
 import { AdStudio } from "./ads";
 import { Accounting } from "./accounting";
@@ -986,7 +986,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "reports" ? (
             <Reports notify={notify} />
           ) : view === "store" ? (
-            <AppShop ctx={ctx} notify={notify} navigate={navigate} />
+            <AppShop ctx={ctx} notify={notify} navigate={navigate} unlockAll={!!data.unlockAll} />
           ) : view === "ads" ? (
             <AdStudio ctx={ctx} notify={notify} navigate={navigate} />
           ) : view === "settings" ? (
@@ -1002,7 +1002,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "transfers" ? (
             <TransfersPage ctx={ctx} notify={notify} changed={load} />
           ) : view === "departments" ? (
-            <DepartmentsPage ctx={ctx} notify={notify} navigate={navigate} unlockAll={!!data.unlockAll} />
+            <AppShop ctx={ctx} notify={notify} navigate={navigate} unlockAll={!!data.unlockAll} defaultTab="departments" />
           ) : view === "pricing" ? (
             <div className="elite-zone">
               <SubscriptionPanel ctx={ctx} notify={notify} />

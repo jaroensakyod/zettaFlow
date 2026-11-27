@@ -27,7 +27,7 @@ export function DepartmentSidebar({
   return (
     <aside className={"dept-side tone-" + dept.tone} aria-label={"เมนู" + dept.title}>
       <div className="dept-side-head">
-        <button className="dept-side-back" aria-label="กลับไปหน้าแผนกทั้งหมด" onClick={() => navigate("departments")}>
+        <button className="dept-side-back" aria-label="กลับไปหน้าแผนกทั้งหมด" onClick={() => navigate("store?tab=departments")}>
           <ChevronLeft size={18} />
         </button>
         {/* Each department stands alone: no switching to another one from here (the ‹ goes back to all departments). */}
