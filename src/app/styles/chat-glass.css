@@ -306,10 +306,10 @@
   background: rgba(255, 255, 255, 0.84);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
-  box-shadow: inset 4px 0 0 var(--doc), 0 16px 32px -18px rgba(60, 40, 140, 0.4);
+  box-shadow: 0 16px 32px -18px rgba(60, 40, 140, 0.4);
   transition: transform 0.25s var(--g-ease), box-shadow 0.25s;
 }
-.chat-hub .b2b.glass .deal-card:hover { transform: translateY(-2px); box-shadow: inset 4px 0 0 var(--doc), 0 22px 38px -18px rgba(60, 40, 140, 0.45); }
+.chat-hub .b2b.glass .deal-card:hover { transform: translateY(-2px); box-shadow: 0 22px 38px -18px rgba(60, 40, 140, 0.45); }
 .chat-hub .b2b.glass .deal-card .deal-card-icon { color: var(--doc); background: color-mix(in srgb, var(--doc) 13%, #fff); }
 .chat-hub .b2b.glass .deal-card .deal-card-title small { color: var(--doc); }
 .chat-hub .deal-chip.ok { animation: g-check 0.55s var(--g-spring) both; }
@@ -320,8 +320,8 @@
 }
 .chat-hub .b2b-msg.flash > * { animation: g-flash 1.4s ease; }
 @keyframes g-flash {
-  0%, 100% { box-shadow: inset 4px 0 0 var(--doc, var(--g-purple)), 0 16px 32px -18px rgba(60, 40, 140, 0.4); }
-  25% { box-shadow: inset 4px 0 0 var(--doc, var(--g-purple)), 0 0 0 4px rgba(168, 85, 247, 0.35); }
+  0%, 100% { box-shadow: 0 16px 32px -18px rgba(60, 40, 140, 0.4); }
+  25% { box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.35); }
 }
 
 /* The message box floats above the bottom edge. */
@@ -435,8 +435,8 @@
 .chat-hub .deal-timeline li.now i { color: #fff; background: linear-gradient(135deg, var(--g-purple), var(--g-pink)); box-shadow: 0 0 0 5px rgba(168, 85, 247, 0.18); }
 .chat-hub .deal-timeline li.stopped { margin-top: 6px; padding: 6px 10px; border-radius: 12px; font-weight: 700; color: #b91c1c; background: #fee2e2; }
 .chat-hub .dp-docs { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.chat-hub .dp-doc { --doc: var(--g-purple); display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 1px solid var(--g-edge); border-radius: 16px; text-align: left; color: var(--g-ink); background: rgba(255, 255, 255, 0.7); box-shadow: inset 3px 0 0 var(--doc); transition: transform 0.2s var(--g-ease), box-shadow 0.2s; }
-.chat-hub .dp-doc:hover { transform: translateY(-1px); box-shadow: inset 3px 0 0 var(--doc), 0 10px 20px -12px rgba(60, 40, 140, 0.4); }
+.chat-hub .dp-doc { --doc: var(--g-purple); display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 1px solid var(--g-edge); border-radius: 16px; text-align: left; color: var(--g-ink); background: rgba(255, 255, 255, 0.7); transition: transform 0.2s var(--g-ease), box-shadow 0.2s; }
+.chat-hub .dp-doc:hover { transform: translateY(-1px); box-shadow: 0 10px 20px -12px rgba(60, 40, 140, 0.4); }
 .chat-hub .dp-doc.quote { --doc: #2563eb; }
 .chat-hub .dp-doc.invoice { --doc: var(--g-bad); }
 .chat-hub .dp-doc.payment { --doc: var(--g-ok); }
