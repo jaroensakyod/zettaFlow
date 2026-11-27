@@ -158,6 +158,8 @@ function B2bChat({
     [threads, setThreads] = useState<B2bThread[] | null>(null),
     [samples, setSamples] = useState<SampleThread[]>(() => b2bSample()),
     [active, setActive] = useState<string | null>(params.get("b2b")),
+    // The post and deal panel above the chat start folded to one line so the messages get the room; the choice is remembered.
+    [brief, setBrief] = useState(true),
     [messages, setMessages] = useState<B2bMessage[] | null>(null),
     [topic, setTopic] = useState<B2bPostRef | null>(null),
     [text, setText] = useState(""),
@@ -198,6 +200,18 @@ function B2bChat({
   const target = params.get("with"),
     fromPost = params.get("post"),
     intent = params.get("intent");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("ef.b2b.brief") === "0") setBrief(false);
+    } catch {}
+  }, []);
+  const toggleBrief = () =>
+    setBrief((b) => {
+      try {
+        localStorage.setItem("ef.b2b.brief", b ? "0" : "1");
+      } catch {}
+      return !b;
+    });
   useEffect(() => {
     if (!target) return;
     if (ctx.demo) {
@@ -477,6 +491,13 @@ function B2bChat({
                 </strong>
                 <small>{[thread.company.industry, thread.company.province].filter(Boolean).join(" · ") || "บริษัทในเครือข่าย"}</small>
               </span>
+              {post && brief && (
+                <button type="button" className="b2b-post-mini" onClick={openPost} title={`${kindLabel[post.kind]} ที่คุยกันอยู่: ${post.title}`}>
+                  {post.image ? <img src={imageSrc(post.image)} alt="" /> : <Handshake size={14} />}
+                  <span>{post.title}</span>
+                  <ExternalLink size={12} />
+                </button>
+              )}
               {jobPost && (
                 <span className="b2b-roles">
                   <em className={amOwner ? "owner" : "offer"}>คุณ · {amOwner ? "เจ้าของประกาศ" : "ผู้เสนอตัว"}</em>
@@ -486,7 +507,7 @@ function B2bChat({
                 </span>
               )}
             </header>
-            {post && (
+            {post && !brief && (
               <button type="button" className={"b2b-pinned kind-" + post.kind} onClick={openPost} title="ดูโพสต์">
                 {post.image ? <img src={imageSrc(post.image)} alt="" /> : <Handshake size={18} />}
                 <span>
@@ -499,6 +520,8 @@ function B2bChat({
             )}
             <DealBar
               deals={shownDeals}
+              collapsed={brief}
+              onToggle={toggleBrief}
               disabled={viewer}
               // On a job / partner post the company that offered only asks in the chat; the poster writes the quotation.
               onRequest={() =>

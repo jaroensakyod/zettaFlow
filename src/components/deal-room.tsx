@@ -2,7 +2,7 @@
 // ห้องดีล in the B2B chat (phase 1): progress bar, the request / quotation cards, their forms and decisions.
 // Rules live in the database (migration 0064); these only show what each side can press.
 import { useMemo, useState, type FormEvent } from "react";
-import { UserRound, Ban, BadgeCheck, Banknote, CalendarClock, Camera, Check, CircleX, CreditCard, FileText, Handshake, LoaderCircle, Package, Pencil, Plus, ReceiptText, RotateCcw, Send, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, UserRound, Ban, BadgeCheck, Banknote, CalendarClock, Camera, Check, CircleX, CreditCard, FileText, Handshake, LoaderCircle, Package, Pencil, Plus, ReceiptText, RotateCcw, Send, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import type { Context } from "@/lib/types";
 import type { B2bPostRef } from "@/lib/b2b";
 import { dealMoney, quoteTotals, type Deal, type DealCard, type DealItem } from "@/lib/b2b-deal-types";
@@ -49,6 +49,8 @@ export type DealStepKind = "progress" | "deliver" | "invoice" | "cancel";
 
 export function DealBar({
   deals,
+  collapsed,
+  onToggle,
   onRequest,
   onQuote,
   onStep,
@@ -70,6 +72,9 @@ export function DealBar({
   onTake?: (deal: Deal) => void;
   /** The other company's name, for "ผู้ดูแลฝั่ง …". */
   theirName?: string;
+  /** One line only (title, stage, amount left) so the chat gets the room; the toggle opens the steps and actions. */
+  collapsed?: boolean;
+  onToggle?: () => void;
 }) {
   // The deal in progress (else the latest one).
   const deal = [...deals].reverse().find((d) => d.stage === "request" || d.stage === "quote" || working(d)) || deals[deals.length - 1];
@@ -79,7 +84,7 @@ export function DealBar({
     cancelOpen = deal?.cards.some((c) => c.kind === "cancel" && c.status === "open"),
     billable = m ? m.rows.filter((r) => !r.invoice) : [];
   return (
-    <div className={"deal-bar" + (deal ? " stage-" + deal.stage : "")}>
+    <div className={"deal-bar" + (deal ? " stage-" + deal.stage : "") + (collapsed ? " brief" : "")}>
       <div className="deal-bar-top">
         <Handshake size={16} />
         {deal ? (
@@ -87,7 +92,9 @@ export function DealBar({
             <b title={deal.title}>{deal.title}</b>
             <span className={"deal-stage " + deal.stage}>{stageText[deal.stage]}</span>
             {deals.length > 1 && <small>{deals.length} ดีลในห้องนี้</small>}
-            {(deal.contact_mine || deal.contact_theirs) && (
+            {collapsed && at >= 0 && at < steps.length && <small className="deal-brief-step">ขั้นที่ {at + 1}/{steps.length} · {steps[at].label}</small>}
+            {collapsed && m && m.left > 0 && (working(deal) || deal.stage === "closed") && <small className="deal-brief-left">คงเหลือ {baht(m.left)}</small>}
+            {!collapsed && (deal.contact_mine || deal.contact_theirs) && (
               <span className="deal-people" title="ผู้ดูแลดีลนี้ทั้งสองฝ่าย">
                 <em className="mine">
                   <UserRound size={12} /> ฝั่งเรา: <b>{deal.contact_mine || "ยังไม่ระบุ"}</b>
@@ -117,9 +124,14 @@ export function DealBar({
               <ReceiptText size={14} /> ส่งใบเสนอราคา
             </button>
           )}
+          {deal && onToggle && (
+            <button type="button" className="deal-toggle" onClick={onToggle} aria-expanded={!collapsed} title={collapsed ? "ดูขั้นตอนและการชำระเงิน" : "ย่อให้แชทกว้างขึ้น"}>
+              {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />} {collapsed ? "รายละเอียด" : "ย่อ"}
+            </button>
+          )}
         </span>
       </div>
-      {deal && (
+      {deal && !collapsed && (
         <ol className="deal-steps">
           {steps.map((st, i) => (
             <li key={st.key} className={i < at ? "done" : i === at ? "now" : ""}>
@@ -129,7 +141,7 @@ export function DealBar({
           ))}
         </ol>
       )}
-      {deal && m && (working(deal) || deal.stage === "closed") && (
+      {deal && m && !collapsed && (working(deal) || deal.stage === "closed") && (
         <div className="deal-work">
           <div className="deal-money">
             <span>
