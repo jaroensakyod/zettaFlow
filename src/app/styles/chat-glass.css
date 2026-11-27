@@ -221,11 +221,10 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
-/* The post the conversation started from, floating at the top while the messages scroll under it. */
+/* The post the conversation started from: the first thing in the conversation, scrolling away with the messages
+   (it stays in รายละเอียดงาน and the ⋯ menu). */
 .chat-hub .b2b-pin {
-  position: sticky;
-  top: 0;
-  z-index: 4;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
