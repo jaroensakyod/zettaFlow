@@ -941,6 +941,18 @@
 .lp-footer small {
   grid-column: 1 / -1;
 }
+.lp-footer .lp-legal {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.lp-footer .lp-legal b {
+  color: var(--text);
+  font-weight: 600;
+}
 
 /* Responsive */
 @media (max-width: 1024px) {

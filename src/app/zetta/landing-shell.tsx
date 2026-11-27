@@ -51,6 +51,12 @@ export function LandingFooter() {
       <div>
         <Logo />
         <p>ระบบบริหารธุรกิจ เครือข่ายบริษัท และผู้ช่วย AI ในที่เดียว</p>
+        {/* As registered with the Department of Business Development (หนังสือรับรอง E86001920000782, 27 พ.ย. 2569). */}
+        <address className="lp-legal">
+          <b>บริษัท อีลิทโฟลว์ จำกัด</b>
+          <span>เลขทะเบียนนิติบุคคล / เลขประจำตัวผู้เสียภาษี 0135569035949</span>
+          <span>สำนักงานใหญ่ 23 หมู่ 7 ตำบลบึงคอไห อำเภอลำลูกกา จังหวัดปทุมธานี</span>
+        </address>
       </div>
       <div>
         <h4>ติดต่อ</h4>
@@ -64,7 +70,7 @@ export function LandingFooter() {
         <Link href={LOGIN}>เข้าสู่ระบบ EliteFlow</Link>
         <a href="/demo">ระบบตัวอย่าง</a>
       </div>
-      <small>© 2026 EliteFlow</small>
+      <small>© 2026 บริษัท อีลิทโฟลว์ จำกัด · EliteFlow</small>
     </footer>
   );
 }
