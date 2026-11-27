@@ -101,8 +101,11 @@ export function DepartmentMegaMenu({
             (i) => visible(baseView(i.view)) && (!q || (i.label + " " + d.title + " " + d.en).toLowerCase().includes(q)),
           ),
         }))
-        .filter((d) => d.items.length),
-    [q, visible],
+        .filter((d) => d.items.length)
+        // Open departments first (menu order kept), then the locked ones; a system bought later joins the open ones.
+        .sort((a, b) => Number(locked(a.id)) - Number(locked(b.id))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [q, visible, paid, owned],
   );
   return (
     <div

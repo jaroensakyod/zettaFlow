@@ -865,7 +865,10 @@ export function DepartmentsPage({ ctx, navigate, notify }: { ctx: Context; navig
     [mode, setMode] = useState<"grid" | "list">("grid"),
     [tab, setTab] = useState<(typeof deptTabs)[number][0]>("rec");
   const modules = useMemo(() => data?.modules || [], [data]);
-  const depts = departmentMenu.filter((d) => !q.trim() || [d.title, d.en, d.subtitle].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
+  const depts = departmentMenu
+    .filter((d) => !q.trim() || [d.title, d.en, d.subtitle].join(" ").toLowerCase().includes(q.trim().toLowerCase()))
+    // In use first (menu order kept), then the ones to buy.
+    .sort((a, b) => Number(!(!data || deptActive(a, modules))) - Number(!(!data || deptActive(b, modules))));
   const active = departmentMenu.filter((d) => deptActive(d, modules)).length;
   const items = data?.items || [];
   const systems = items.filter((i) => i.kind === "system");
