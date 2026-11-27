@@ -1,7 +1,7 @@
 // B2B chat: one conversation per pair of companies on the network (see migration 0041).
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { supabaseServer } from "./supabase/server";
+import { supabaseAdmin, supabaseServer } from "./supabase/server";
 import { assert } from "./domain";
 import { dbError } from "./data";
 import type { Context } from "./types";
@@ -95,6 +95,23 @@ export async function b2bRead(ctx: Context, thread: string): Promise<B2bMessage[
   const { data, error } = await sb.rpc("b2b_read", { p_company: ctx.company.id, p_thread: id });
   dbError(error);
   return (data || []) as B2bMessage[];
+}
+/**
+ * When the other company last opened this conversation (b2b_reads), for "อ่านแล้ว" under our messages. Only a company in
+ * the conversation may ask, and it learns nothing but that one time.
+ */
+export async function b2bSeen(ctx: Context, thread: string): Promise<{ read_at: string | null }> {
+  const id = z.uuid().parse(thread);
+  if (ctx.demo) return { read_at: null };
+  const sb = supabaseAdmin();
+  const { data: th, error } = await sb.from("b2b_threads").select("company_a,company_b").eq("id", id).maybeSingle();
+  dbError(error);
+  const me = ctx.company.id,
+    row = th as { company_a: string; company_b: string } | null;
+  assert(row && (row.company_a === me || row.company_b === me), "ไม่พบบทสนทนา", 404);
+  const other = row!.company_a === me ? row!.company_b : row!.company_a;
+  const { data } = await sb.from("b2b_reads").select("read_at").eq("thread_id", id).eq("company_id", other).maybeSingle();
+  return { read_at: (data as { read_at?: string } | null)?.read_at || null };
 }
 const fileSchema = z.object({ path: z.string().max(200), name: z.string().trim().min(1).max(200), mime: z.string().min(1).max(120), size: z.number().int().min(1).max(10_000_000) });
 export async function b2bSend(ctx: Context, thread: string, input: unknown): Promise<B2bMessage> {

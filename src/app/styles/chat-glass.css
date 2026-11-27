@@ -542,3 +542,7 @@
   .chat-hub .b2b.glass > * { animation: none !important; transition: none !important; }
   .chat-hub .b2b.glass button:active:not(:disabled) { transform: none; }
 }
+/* ส่งแล้ว / อ่านแล้ว under our latest message. */
+.chat-hub .b2b-read { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--g-mute); }
+.chat-hub .b2b-read.seen { color: var(--g-purple); }
+.chat-hub .b2b-read.seen svg { animation: g-check 0.5s var(--g-spring) both; }

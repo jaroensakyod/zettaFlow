@@ -4,7 +4,7 @@
 // With no conversation yet (or in the public demo) the list shows a labelled sample inbox (lib/mock/b2b.ts).
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion, ReceiptText, Megaphone, Settings2, Handshake, Info, MoreHorizontal, PanelRight, Pin, Briefcase, Phone, Mail, Globe, Search, Smile } from "lucide-react";
+import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion, ReceiptText, Megaphone, Settings2, Handshake, Info, MoreHorizontal, PanelRight, Pin, Briefcase, Phone, Mail, Globe, Search, Smile, Check, CheckCheck } from "lucide-react";
 import type { Context, FeedPost } from "@/lib/types";
 import type { CompanyProfile } from "@/lib/feed";
 import type { B2bCompany, B2bFile, B2bMessage, B2bPostRef, B2bThread } from "@/lib/b2b";
@@ -91,6 +91,11 @@ const senderFace = (m: B2bMessage, company: { id: string; name: string; has_logo
   ) : (
     companyLogo(company, 38)
   );
+/** Our latest message (not a deal step): the one that says ส่งแล้ว / อ่านแล้ว. */
+const lastMine = (all: B2bMessage[]) => {
+  for (let i = all.length - 1; i >= 0; i--) if (all[i].mine && !all[i].card_id) return all[i];
+  return null;
+};
 /** Emoji the picker offers (inserted into the message as text). */
 const EMOJI = ["👍", "🙏", "😊", "😄", "🎉", "✅", "👌", "🤝", "💯", "🔥", "❤️", "👏", "🙂", "😅", "🤔", "📌", "📎", "📄", "💰", "🚚", "⏰", "📅", "✨", "🙌"];
 type ThreadFilter = "all" | "unread" | "post";
@@ -184,6 +189,8 @@ function B2bChat({
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState<ThreadFilter>("all"),
     [messages, setMessages] = useState<B2bMessage[] | null>(null),
+    // When the other company last opened this conversation ("อ่านแล้ว" under our latest message).
+    [seen, setSeen] = useState<string | null>(null),
     [topic, setTopic] = useState<B2bPostRef | null>(null),
     [text, setText] = useState(""),
     [pending, setPending] = useState<File[]>([]),
@@ -291,10 +298,15 @@ function B2bChat({
   useEffect(() => {
     if (!active || isSampleThread(active)) return;
     setMessages(null);
-    const load = () =>
-      api("/b2b/" + active)
+    setSeen(null);
+    const load = () => {
+      api("/b2b/" + active + "/seen")
+        .then((r: { read_at: string | null }) => setSeen(r.read_at))
+        .catch(() => {});
+      return api("/b2b/" + active)
         .then(setMessages)
         .catch((e) => setError((e as Error).message));
+    };
     load();
     const timer = setInterval(load, 5000);
     return () => clearInterval(timer);
@@ -687,7 +699,7 @@ function B2bChat({
                   {!shown.length && !pendingCard && (
                     <Empty title={"เริ่มคุยกับ " + thread.company.name} description="ข้อความเห็นได้ทุกคนในสองบริษัทนี้เท่านั้น" />
                   )}
-                  {shown.map((m, i) => {
+                  {shown.map((m, i, all) => {
                     const day = new Date(m.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }),
                       newDay = i === 0 || new Date(shown[i - 1].created_at).toDateString() !== new Date(m.created_at).toDateString(),
                       divider = newDay ? (
@@ -745,6 +757,19 @@ function B2bChat({
                             ))}
                           {m.body && <p>{m.body}</p>}
                           {m.files && m.files.length > 0 && <MessageFiles thread={thread.id} files={m.files} />}
+                          {m.mine && !sample && m.id === lastMine(all)?.id && (
+                            <small className={"b2b-read" + (seen && Date.parse(seen) >= Date.parse(m.created_at) ? " seen" : "")}>
+                              {seen && Date.parse(seen) >= Date.parse(m.created_at) ? (
+                                <>
+                                  <CheckCheck size={13} /> อ่านแล้ว · {since(seen)}
+                                </>
+                              ) : (
+                                <>
+                                  <Check size={13} /> ส่งแล้ว
+                                </>
+                              )}
+                            </small>
+                          )}
                         </div>
                       </div>];
                   })}

@@ -85,7 +85,7 @@ import { shopState, shopActive, shopBuy, shopActivate } from "@/lib/app-shop";
 import { projectsOverview, projectDetail } from "@/lib/projects";
 import { receiptsList } from "@/lib/receipts";
 import { dealDecide, dealQuote, dealRequest, dealStep, dealSteps, dealTake, dealWithdraw, dealsOf } from "@/lib/b2b-deals";
-import { avatarUrl, b2bFile, b2bInbox, b2bOpen, b2bRead, b2bSend, b2bUnread, b2bUpload, clearAvatar, myAvatar, setAvatar } from "@/lib/b2b";
+import { avatarUrl, b2bFile, b2bInbox, b2bOpen, b2bRead, b2bSeen, b2bSend, b2bUnread, b2bUpload, clearAvatar, myAvatar, setAvatar } from "@/lib/b2b";
 import { designData, designAction } from "@/lib/design";
 import { coinStore, requestTopup, pendingTopups, confirmTopup, buyModule } from "@/lib/coins";
 import { taxReport, incomeReport, incomeForm, ledger, ledgerDetail, expiries } from "@/lib/dept-views";
@@ -1191,6 +1191,7 @@ async function handle(req: NextRequest) {
       if (path[1] && path[2] === "upload" && method === "POST") return response(await b2bUpload(ctx, path[1], await body(req)), 201);
       if (path[1] && path[2] === "file" && path[3] && method === "GET")
         return NextResponse.redirect(await b2bFile(ctx, path[1], path[3], req.nextUrl.searchParams.get("name")));
+      if (path[1] && path[2] === "seen" && method === "GET") return response(await b2bSeen(ctx, path[1]));
       if (!path[1] && method === "GET") return response(await b2bInbox(ctx));
       if (path[1] === "unread") return response({ unread: await b2bUnread(ctx) });
       if (path[1] === "open" && method === "POST") return response(await b2bOpen(ctx, await body(req)));
