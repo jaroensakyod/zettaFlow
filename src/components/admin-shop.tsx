@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Ban, Check, Coins, Eye, Megaphone, MousePointerClick, Palette, Pause, Play, Puzzle, RotateCcw, Save, ShoppingBag, Smile, Store, Undo2 } from "lucide-react";
 import { api, Loading } from "./shared";
+import { ShopPreview } from "./app-shop";
 import type { AdminAd, AdminAds, AdminShop, AdPackRow, ShopRow } from "@/lib/admin-shop";
 
 const num = (n: number) => n.toLocaleString("th-TH");
@@ -63,18 +64,16 @@ export function ShopPage({ tick, notify }: { tick: number; notify: (s: string) =
           ))}
         </div>
         <p className="ad-hint" style={{ margin: "4px 0 12px" }}>
-          แก้ราคาแล้วกดบันทึก ลูกค้าเห็นราคาใหม่และจ่ายตามราคานี้ทันที · ปิดการขายแล้วบริษัทที่ซื้อไปแล้วยังใช้ต่อได้
+          หน้าตาเหมือนที่ลูกค้าเห็นใน App Shop · แก้ราคาในการ์ดแล้วกดบันทึก ลูกค้าเห็นราคาใหม่และจ่ายตามราคานี้ทันที ·
+          ปิดการขายแล้วบริษัทที่ซื้อไปแล้วยังใช้ต่อได้
         </p>
-        <div className="ad-prices">
-          {list.map((x) => (
-            <PriceRow key={x.id} row={x} notify={notify} saved={reload} />
-          ))}
-        </div>
+        <ShopPreview kind={kind} rows={list as Parameters<typeof ShopPreview>[0]["rows"]} editor={(r) => <PriceEditor row={list.find((x) => x.id === r.id)!} notify={notify} saved={reload} />} />
       </section>
     </div>
   );
 }
-function PriceRow({ row, notify, saved }: { row: ShopRow; notify: (s: string) => void; saved: () => void }) {
+/** Price, on sale and buyers, in the place of the card's buy button. A card turns purple while it has unsaved changes. */
+function PriceEditor({ row, notify, saved }: { row: ShopRow; notify: (s: string) => void; saved: () => void }) {
   const [price, setPrice] = useState(String(row.price)),
     [active, setActive] = useState(row.active),
     [busy, setBusy] = useState(false);
@@ -82,8 +81,7 @@ function PriceRow({ row, notify, saved }: { row: ShopRow; notify: (s: string) =>
     setPrice(String(row.price));
     setActive(row.active);
   }, [row.price, row.active]);
-  const dirty = Number(price) !== row.price || active !== row.active,
-    k = kinds.find((x) => x.key === row.kind) || kinds[0];
+  const dirty = Number(price) !== row.price || active !== row.active;
   const save = async () => {
     setBusy(true);
     try {
@@ -97,44 +95,39 @@ function PriceRow({ row, notify, saved }: { row: ShopRow; notify: (s: string) =>
     }
   };
   return (
-    <div className={"ad-price" + (dirty ? " dirty" : "") + (active ? "" : " off")}>
-      <i style={{ background: `linear-gradient(135deg, ${k.c[0]}, ${k.c[1]})` }}>
-        <k.icon size={16} />
-      </i>
-      <span className="ad-price-name">
-        <b>{row.name}</b>
-        <small>{row.group}</small>
-      </span>
-      <span className="ad-price-buyers">
-        <b>{num(row.buyers)}</b>
-        <small>บริษัทซื้อ</small>
-      </span>
-      <label className="ad-price-input">
-        <Coins size={14} />
-        <input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, "").slice(0, 7))} aria-label={"ราคา " + row.name} />
-        <small>เหรียญ{row.period === "month" ? " / เดือน" : ""}</small>
-      </label>
-      {row.price !== row.base && !dirty && <em className="ad-was">เดิม {num(row.base)}</em>}
-      <button type="button" className={"ad-switch" + (active ? " on" : "")} onClick={() => setActive(!active)} aria-pressed={active} title={active ? "กำลังขาย · กดเพื่อปิดการขาย" : "ปิดการขาย · กดเพื่อเปิดขาย"}>
-        <span />
-        {active ? "เปิดขาย" : "ปิดขาย"}
-      </button>
-      <span className="ad-price-act">
-        {dirty ? (
-          <>
-            <button className="ad-btn ghost" onClick={() => (setPrice(String(row.price)), setActive(row.active))} title="ยกเลิกการแก้ไข" aria-label="ยกเลิกการแก้ไข">
-              <Undo2 size={14} />
+    <div className={"ad-edit" + (dirty ? " dirty" : "") + (active ? "" : " off")}>
+      <div className="ad-edit-row">
+        <label className="ad-price-input">
+          <Coins size={14} />
+          <input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, "").slice(0, 7))} aria-label={"ราคา " + row.name} />
+          <small>เหรียญ{row.period === "month" ? " / เดือน" : ""}</small>
+        </label>
+        <button type="button" className={"ad-switch" + (active ? " on" : "")} onClick={() => setActive(!active)} aria-pressed={active} title={active ? "กำลังขาย · กดเพื่อปิดการขาย" : "ปิดการขาย · กดเพื่อเปิดขาย"}>
+          <span />
+          {active ? "เปิดขาย" : "ปิดขาย"}
+        </button>
+      </div>
+      <div className="ad-edit-row">
+        <span className="ad-edit-buyers">
+          <b>{num(row.buyers)}</b> บริษัทซื้อ{row.price !== row.base && !dirty ? ` · เดิม ${num(row.base)}` : ""}
+        </span>
+        <span className="ad-price-act">
+          {dirty ? (
+            <>
+              <button className="ad-btn ghost" onClick={() => (setPrice(String(row.price)), setActive(row.active))} title="ยกเลิกการแก้ไข" aria-label="ยกเลิกการแก้ไข">
+                <Undo2 size={14} />
+              </button>
+              <button className="ad-btn primary" onClick={save} disabled={busy || price === ""}>
+                <Save size={14} /> {busy ? "กำลังบันทึก" : "บันทึก"}
+              </button>
+            </>
+          ) : row.price !== row.base ? (
+            <button className="ad-btn ghost" onClick={() => setPrice(String(row.base))} title="กลับไปราคาเริ่มต้น">
+              <RotateCcw size={14} /> ราคาเริ่มต้น
             </button>
-            <button className="ad-btn primary" onClick={save} disabled={busy || price === ""}>
-              <Save size={14} /> {busy ? "กำลังบันทึก" : "บันทึก"}
-            </button>
-          </>
-        ) : row.price !== row.base ? (
-          <button className="ad-btn ghost" onClick={() => setPrice(String(row.base))} title="กลับไปราคาเริ่มต้น">
-            <RotateCcw size={14} /> ราคาเริ่มต้น
-          </button>
-        ) : null}
-      </span>
+          ) : null}
+        </span>
+      </div>
     </div>
   );
 }

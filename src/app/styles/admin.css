@@ -598,3 +598,27 @@ button.ad-sec-row:hover { background: #faf8ff; border-color: #ddd6fe; }
 .ad-faces > .ad-av { font-size: 10px; border: 2px solid #fff; margin-left: -6px; box-sizing: content-box; }
 .ad-faces > .ad-av:first-child { margin-left: 0; }
 .ad-faces em { margin-left: 4px; font-style: normal; font-size: 11px; font-weight: 700; color: var(--mut); }
+
+/* App Shop · ราคา: the shop's own cards, with the price editor where the buy button would be. */
+.as-admin-card { display: flex; min-width: 0; }
+.as-admin-card > * { flex: 1; min-width: 0; }
+/* Off sale: the picture and name fade, the editor stays readable. */
+.as-admin-card.off > * > :not(.ad-edit) { opacity: 0.5; filter: grayscale(0.6); }
+.as-admin-depts { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+.as-admin-depts .as-dept { cursor: default; align-items: flex-start; flex-wrap: wrap; }
+.as-admin-depts .as-dept > .ad-edit { flex-basis: 100%; }
+.ad-edit { display: grid; gap: 8px; width: 100%; margin-top: 10px; padding: 10px; border: 1px solid var(--line, #e7e4f2); border-radius: 14px; background: var(--th-surface-2, #faf9fd); text-align: left; }
+.ad-edit.dirty { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); background: #f7f3ff; }
+.ad-edit-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
+.ad-edit .ad-price-input { flex: 1 1 130px; min-width: 0; }
+.ad-edit .ad-price-input input { min-width: 0; width: 100%; }
+.ad-edit-buyers { font-size: 12px; color: var(--muted, #6b6880); }
+.ad-edit-buyers b { color: var(--text, #1d1b2c); }
+.ad-edit .ad-price-act { display: flex; gap: 6px; margin-left: auto; }
+/* Editors line up at the bottom of each card, whatever the name's length. */
+.as-admin-card .as-char,
+.as-admin-card .as-theme,
+.as-admin-card .as-system { display: flex; flex-direction: column; }
+.as-admin-card .as-char > .ad-edit,
+.as-admin-card .as-theme > .ad-edit,
+.as-admin-card .as-system > .ad-edit { margin-top: auto; }

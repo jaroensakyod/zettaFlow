@@ -650,7 +650,7 @@ type Actions = ReturnType<typeof useShopActions>;
 
 /* ---------------------------------------------------------------- cards */
 
-function CharacterCard({ item, a }: { item: Item; a: Actions }) {
+function CharacterCard({ item, a, admin }: { item: Item; a: Actions; admin?: ReactNode }) {
   return (
     <article className={"as-char" + (item.active ? " active" : "")}>
       <div className="as-char-top">
@@ -665,13 +665,17 @@ function CharacterCard({ item, a }: { item: Item; a: Actions }) {
         </button>
       </div>
       <b>{item.name}</b>
-      {item.price_coins ? coin(item.price_coins) : <span className="as-price free">ฟรี</span>}
-      <div className="as-card-actions">
-        <button className="as-ghost" onClick={() => a.preview(item)}>
-          <Eye size={13} /> ดูตัวอย่าง
-        </button>
-        <OwnButton item={item} a={a} />
-      </div>
+      {admin || (
+        <>
+          {item.price_coins ? coin(item.price_coins) : <span className="as-price free">ฟรี</span>}
+          <div className="as-card-actions">
+            <button className="as-ghost" onClick={() => a.preview(item)}>
+              <Eye size={13} /> ดูตัวอย่าง
+            </button>
+            <OwnButton item={item} a={a} />
+          </div>
+        </>
+      )}
     </article>
   );
 }
@@ -694,7 +698,7 @@ function OwnButton({ item, a }: { item: Item; a: Actions }) {
     </button>
   );
 }
-function ThemeCard({ item, a }: { item: Item; a: Actions }) {
+function ThemeCard({ item, a, admin }: { item: Item; a: Actions; admin?: ReactNode }) {
   const trying = useThemePreview()?.id === item.id && !item.active;
   return (
     <article className={"as-theme" + (item.active ? " active" : "") + (trying ? " trying" : "")}>
@@ -715,17 +719,19 @@ function ThemeCard({ item, a }: { item: Item; a: Actions }) {
           ))}
         </span>
       </div>
-      <div className="as-card-actions">
-        {item.price_coins ? coin(item.price_coins) : <span className="as-price free">ฟรี</span>}
-        <button className="as-ghost" onClick={() => a.preview(item)}>
-          ดูตัวอย่าง
-        </button>
-        <OwnButton item={item} a={a} />
-      </div>
+      {admin || (
+        <div className="as-card-actions">
+          {item.price_coins ? coin(item.price_coins) : <span className="as-price free">ฟรี</span>}
+          <button className="as-ghost" onClick={() => a.preview(item)}>
+            ดูตัวอย่าง
+          </button>
+          <OwnButton item={item} a={a} />
+        </div>
+      )}
     </article>
   );
 }
-function SystemCard({ item, a }: { item: Item; a: Actions }) {
+function SystemCard({ item, a, admin }: { item: Item; a: Actions; admin?: ReactNode }) {
   const look = systemLook[item.id] || systemLook.condo_rental;
   return (
     <article className="as-system">
@@ -746,14 +752,16 @@ function SystemCard({ item, a }: { item: Item; a: Actions }) {
           </li>
         ))}
       </ul>
-      <div className="as-system-foot">
-        <span>
-          {coin(item.price_coins)} <small className="muted">/ เดือน</small>
-        </span>
-        <button className="as-buy-btn" onClick={() => a.buy(item)}>
-          <ShoppingCart size={14} /> {item.owned ? "ต่ออายุ" : "ซื้อเลย"}
-        </button>
-      </div>
+      {admin || (
+        <div className="as-system-foot">
+          <span>
+            {coin(item.price_coins)} <small className="muted">/ เดือน</small>
+          </span>
+          <button className="as-buy-btn" onClick={() => a.buy(item)}>
+            <ShoppingCart size={14} /> {item.owned ? "ต่ออายุ" : "ซื้อเลย"}
+          </button>
+        </div>
+      )}
       {item.owned && item.expires_at && (
         <small className="as-owned-note">
           <CheckCircle2 size={13} /> ใช้งานอยู่ ถึง {displayDate(item.expires_at)}
@@ -1093,5 +1101,62 @@ function PurchaseHistory({ data }: { data: ShopData | null }) {
         </div>
       )}
     </section>
+  );
+}
+
+/* ---------------------------------------------------------------- หลังบ้าน: the shop as customers see it, priced in place */
+
+type PricedRow = { id: string; kind: "system" | "module" | "character" | "theme"; name: string; group: string; price: number; active: boolean; item?: ShopItem };
+const noActions = { buy() {}, buyModule() {}, preview() {}, use: async () => {}, canUse: false, dialogs: null } as unknown as Actions;
+/**
+ * หลังบ้าน › App Shop · ราคา: the same cards App Shop shows (department, AI character, theme, business system), with the
+ * buy button swapped for `editor` (price, on sale, buyers). Off-sale items are dimmed but still listed.
+ */
+export function ShopPreview({ kind, rows, editor }: { kind: PricedRow["kind"]; rows: PricedRow[]; editor: (row: PricedRow) => ReactNode }) {
+  const asItem = (r: PricedRow): Item => ({ ...(r.item as ShopItem), id: r.id, name: r.name, price_coins: r.price, owned: false, active: false, bought_at: null, expires_at: null });
+  const wrap = (r: PricedRow, card: ReactNode) => (
+    <div key={r.id} className={"as-admin-card" + (r.active ? "" : " off")}>
+      {card}
+    </div>
+  );
+  if (kind === "module")
+    return (
+      <div className="as-depts grid as-admin-depts">
+        {rows.map((r) => {
+          const d = departmentMenu.find((x) => (moduleOfDept[x.id] || x.id) === r.id);
+          return wrap(
+            r,
+            <article className={"as-dept tone-" + (d?.tone || "violet")}>
+              <span className="as-dept-icon">
+                <MenuIcon name={d?.icon || "Store"} size={20} />
+              </span>
+              <span className="as-dept-text">
+                <b>
+                  {d ? d.title : r.name} {d && <em>({d.en})</em>}
+                </b>
+                <small>{r.name}{d ? " · " + d.subtitle : ""}</small>
+              </span>
+              {editor(r)}
+            </article>,
+          );
+        })}
+      </div>
+    );
+  const items = rows.filter((r) => r.item);
+  return (
+    <div className={"as-grid " + (kind === "system" ? "systems" : kind === "character" ? "chars" : "themes")}>
+      {items.map((r) =>
+        wrap(
+          r,
+          kind === "system" ? (
+            <SystemCard item={asItem(r)} a={noActions} admin={editor(r)} />
+          ) : kind === "character" ? (
+            <CharacterCard item={asItem(r)} a={noActions} admin={editor(r)} />
+          ) : (
+            <ThemeCard item={asItem(r)} a={noActions} admin={editor(r)} />
+          ),
+        ),
+      )}
+    </div>
   );
 }

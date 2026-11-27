@@ -8,14 +8,14 @@ import { demoMutate, demoRead } from "./demo";
 import { assert } from "./domain";
 import { dbError } from "./data";
 import { DAY, rawDemo, requireAdmin, requireAdminWrite, type DemoAdmin } from "./admin-console";
-import { shopCatalog, type ShopKind } from "./app-shop";
+import { shopCatalog, type ShopKind, type ShopItem } from "./app-shop";
 import { moduleCatalog } from "./coins";
 import { adPackages } from "./ads";
 import { demoPrices, priced, type DemoPrices, type PriceEdit } from "./shop-prices";
 import { platformCompanyId } from "./package-sale";
 import type { Context } from "./types";
 
-export type ShopRow = { id: string; kind: ShopKind | "module"; name: string; group: string; price: number; base: number; period: "once" | "month"; active: boolean; buyers: number };
+export type ShopRow = { id: string; kind: ShopKind | "module"; name: string; group: string; price: number; base: number; period: "once" | "month"; active: boolean; buyers: number; item?: ShopItem };
 export type AdPackRow = { id: string; name: string; days: number; coins: number; sold: number };
 export type AdminShop = { items: ShopRow[]; adPackages: AdPackRow[] };
 
@@ -29,7 +29,7 @@ export async function adminShop(ctx: Context): Promise<AdminShop> {
       items: [
         ...shopCatalog.map((x) => {
           const c = priced(x, p.items);
-          return { id: x.id, kind: x.kind, name: x.name, group: x.subtitle, price: c.price_coins, base: x.price_coins, period: x.period, active: c.on_sale, buyers: x.price_coins ? buyers(x.id) : 0 };
+          return { id: x.id, kind: x.kind, name: x.name, group: x.subtitle, price: c.price_coins, base: x.price_coins, period: x.period, active: c.on_sale, buyers: x.price_coins ? buyers(x.id) : 0, item: x };
         }),
         ...moduleCatalog.map((m) => {
           const c = priced(m, p.modules);
@@ -73,6 +73,7 @@ export async function adminShop(ctx: Context): Promise<AdminShop> {
         period: x.period,
         active: x.active,
         buyers: bi.get(x.id) || 0,
+        item: cat.get(x.id),
       })),
       ...((mods.data || []) as Mod[]).map((m) => ({
         id: m.id,
