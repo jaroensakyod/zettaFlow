@@ -33,6 +33,7 @@ import {
 import { catalog } from "./catalog";
 import { supportContext } from "./support-view";
 import { freeKind, SHOP_KINDS, shopLockText } from "./departments";
+import { unlocksEverything } from "./admin-team";
 import { subscriptionActive, type Subscription } from "./billing";
 import { applyFx } from "./fx";
 import type { Context, Entity, Template, Ingestion, HomeData } from "./types";
@@ -206,6 +207,8 @@ export async function paidPackage(ctx: Context) {
 }
 /** แพ็กเกจฟรี: only บัญชีและการเงิน (and its customers / suppliers) is saved; anything else asks for an upgrade. */
 export async function assertPlanAllows(ctx: Context, kind: string) {
+  // Platform admins and the EliteFlow company account: every department is open (not during a support view).
+  if (!ctx.demo && !ctx.support && unlocksEverything(ctx.user.email)) return;
   // A department sold on its own (ออกแบบ, ข้อมูล …): open once bought, whatever the package.
   const shop = SHOP_KINDS[kind];
   if (shop) {

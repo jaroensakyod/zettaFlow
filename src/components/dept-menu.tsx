@@ -47,6 +47,7 @@ export function DepartmentMegaMenu({
   view,
   visible,
   locked: noAccess = () => false,
+  unlockAll = false,
   navigate,
   closing = false,
   onPointerEnter,
@@ -58,6 +59,8 @@ export function DepartmentMegaMenu({
   locked?: (key: string) => boolean;
   navigate: (view: string) => void;
   closing?: boolean;
+  /** Platform admins and the EliteFlow company account: no department is locked. */
+  unlockAll?: boolean;
   onPointerEnter?: PointerEventHandler;
   onPointerLeave?: PointerEventHandler;
 }) {
@@ -90,7 +93,7 @@ export function DepartmentMegaMenu({
       .then((s: { modules?: { id: string; owned?: boolean }[] }) => setOwned((s.modules || []).filter((m) => m.owned).map((m) => m.id)))
       .catch(() => setOwned([]));
   }, []);
-  const locked = (id: string) => departmentLocked(id, paid, owned);
+  const locked = (id: string) => !unlockAll && departmentLocked(id, paid, owned);
   const q = query.trim().toLowerCase();
   const cards = useMemo(
     () =>
@@ -105,7 +108,7 @@ export function DepartmentMegaMenu({
         // Open departments first (menu order kept), then the locked ones; a system bought later joins the open ones.
         .sort((a, b) => Number(locked(a.id)) - Number(locked(b.id))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [q, visible, paid, owned],
+    [q, visible, paid, owned, unlockAll],
   );
   return (
     <div
@@ -117,7 +120,7 @@ export function DepartmentMegaMenu({
       <div className="dept-menu-head">
         <div>
           <h2>แผนกของฉัน</h2>
-          <p>{paid ? "แพ็กเกจของคุณเปิดใช้ การตลาด · เซลล์ · จัดซื้อ · คลัง · HR แล้ว" : "บัญชีและการเงินใช้ได้ฟรี · อัปเกรดแพ็กเกจเพื่อปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลัง · HR"}</p>
+          <p>{unlockAll ? "บัญชีนี้เปิดใช้ทุกแผนก (ผู้ดูแลระบบ EliteFlow)" : paid ? "แพ็กเกจของคุณเปิดใช้ การตลาด · เซลล์ · จัดซื้อ · คลัง · HR แล้ว" : "บัญชีและการเงินใช้ได้ฟรี · อัปเกรดแพ็กเกจเพื่อปลดล็อก การตลาด · เซลล์ · จัดซื้อ · คลัง · HR"}</p>
         </div>
         <label className="dept-menu-search">
           <Search size={16} />

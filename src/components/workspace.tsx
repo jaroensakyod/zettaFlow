@@ -342,6 +342,8 @@ type WorkspaceData = {
   recent: Entity[];
   audit: { id: string; action: string; target: string; created_at: string }[];
   platformAdmin?: boolean;
+  /** Platform admins and the EliteFlow company account: every department open. */
+  unlockAll?: boolean;
   /** This admin is looking at the company read-only (ดูในมุมมองลูกค้า). */
   support?: SupportView | null;
   /** Owners / managers: the EliteFlow team is looking right now. */
@@ -822,6 +824,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
               view={view}
               visible={visible}
               locked={locked}
+              unlockAll={!!data.unlockAll}
               navigate={navigate}
               closing={menuClosing}
               onPointerEnter={menuHoverOpen}
@@ -999,7 +1002,7 @@ function WorkspaceView({ initialView = "feed", product = "elite" }: WorkspacePro
           ) : view === "transfers" ? (
             <TransfersPage ctx={ctx} notify={notify} changed={load} />
           ) : view === "departments" ? (
-            <DepartmentsPage ctx={ctx} notify={notify} navigate={navigate} />
+            <DepartmentsPage ctx={ctx} notify={notify} navigate={navigate} unlockAll={!!data.unlockAll} />
           ) : view === "pricing" ? (
             <div className="elite-zone">
               <SubscriptionPanel ctx={ctx} notify={notify} />

@@ -19,6 +19,7 @@ import { supabaseServer } from "./supabase/server";
 import { decodeQr, parseSlipQr, judgeSlip } from "./slip";
 import { pdfPages, MAX_PDF_PAGES, subscriptionActive, type Subscription } from "./billing";
 import { freeKind, SHOP_KINDS, shopLockText } from "./departments";
+import { unlocksEverything } from "./admin-team";
 import { catalog } from "./catalog";
 import { sortMessage, withTagged, type Tagged } from "./line-sort";
 import { billingPrompt, plansCarousel } from "./line-billing";
@@ -451,6 +452,9 @@ async function paidPackage(sb: ReturnType<typeof supabaseAdmin>, companyId: stri
 }
 /** A record on this page needs a paid package (only บัญชีและการเงิน is free). */
 async function needsUpgrade(sb: ReturnType<typeof supabaseAdmin>, companyId: string, kind: string) {
+  // A company owned by a platform admin or the EliteFlow company account: every department is open.
+  const { data: owners } = await sb.from("memberships").select("email").eq("company_id", companyId).eq("role", "owner");
+  if ((owners || []).some((o: { email?: string | null }) => unlocksEverything(o.email))) return false;
   // A department sold on its own: its system must be bought, whatever the package.
   if (SHOP_KINDS[kind]) return !(await sb.from("company_modules").select("module_id").eq("company_id", companyId).eq("module_id", SHOP_KINDS[kind]).maybeSingle()).data;
   return !freeKind(kind) && !(await paidPackage(sb, companyId));

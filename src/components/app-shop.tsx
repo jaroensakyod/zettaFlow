@@ -858,7 +858,7 @@ const deptTabs = [
   ["addons", "ฟังก์ชันเสริม", Puzzle],
 ] as const;
 
-export function DepartmentsPage({ ctx, navigate, notify }: { ctx: Context; navigate: Nav; notify: Notify }) {
+export function DepartmentsPage({ ctx, navigate, notify, unlockAll = false }: { ctx: Context; navigate: Nav; notify: Notify; unlockAll?: boolean }) {
   const { data, error } = useShop();
   const a = useShopActions(ctx, data, notify);
   const [q, setQ] = useState(""),
@@ -868,7 +868,7 @@ export function DepartmentsPage({ ctx, navigate, notify }: { ctx: Context; navig
   const depts = departmentMenu
     .filter((d) => !q.trim() || [d.title, d.en, d.subtitle].join(" ").toLowerCase().includes(q.trim().toLowerCase()))
     // In use first (menu order kept), then the ones to buy.
-    .sort((a, b) => Number(!(!data || deptActive(a, modules))) - Number(!(!data || deptActive(b, modules))));
+    .sort((a, b) => Number(!(unlockAll || !data || deptActive(a, modules))) - Number(!(unlockAll || !data || deptActive(b, modules))));
   const active = departmentMenu.filter((d) => deptActive(d, modules)).length;
   const items = data?.items || [];
   const systems = items.filter((i) => i.kind === "system");
@@ -901,7 +901,7 @@ export function DepartmentsPage({ ctx, navigate, notify }: { ctx: Context; navig
         <div className={"as-depts " + mode}>
           {depts.map((d) => {
             const m = moduleIdOf(d, modules);
-            const on = !data || deptActive(d, modules);
+            const on = unlockAll || !data || deptActive(d, modules);
             return (
               <button
                 key={d.id}

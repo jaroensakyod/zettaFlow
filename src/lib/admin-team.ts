@@ -14,6 +14,18 @@ export const ownerEmails = () =>
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
+/** EliteFlow's own company account: every department open, like the platform admins. */
+export const COMPANY_EMAIL = "eliteflowofficials@gmail.com";
+/**
+ * Platform owners / admins and the company account use every department without a package or a shop purchase
+ * (menu, แผนก page and saving). Everyone else keeps the normal locks; view-only team members too.
+ */
+export const unlocksEverything = (email: string | null | undefined) => {
+  const e = String(email || "").toLowerCase();
+  if (!e) return false;
+  const role = adminRoleOf(e);
+  return e === COMPANY_EMAIL || role === "owner" || role === "admin";
+};
 /** The role of a signed-in email, or null when it is not on the platform team. */
 export function adminRoleOf(email: string): AdminRole | null {
   const e = email.toLowerCase();

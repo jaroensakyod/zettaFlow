@@ -1,3 +1,4 @@
+import { unlocksEverything } from "@/lib/admin-team";
 import { currencies, thbRate } from "@/lib/fx";
 import { aiScope } from "@/lib/llm";
 import { adStudio, buyAd, liveAds, setAdStatus, trackAd } from "@/lib/ads";
@@ -430,6 +431,7 @@ async function handle(req: NextRequest) {
         summary: { ...result.summary, widgets },
         platformAdmin: platformViewer(ctx),
         adminRole: platformRole(ctx),
+        unlockAll: !ctx.demo && !ctx.support && unlocksEverything(ctx.user.email),
         support: ctx.support || null,
       });
     }
