@@ -4,8 +4,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Bot, Building2, Check, CheckCircle2, ChevronLeft, ChevronRight, Coins, Crown, Eye, Gem, History, House, LayoutDashboard,
-  LayoutGrid, Lock, Palette, Play, Puzzle, ReceiptText, Search, Settings, ShoppingCart, Sparkles, Star, Stethoscope,
+  Bot, Building2, Check, CheckCircle2, ChevronLeft, ChevronRight, Coins, Crown, Eye, History, House, LayoutDashboard,
+  LayoutGrid, Lock, Palette, Play, ReceiptText, Search, Settings, ShoppingCart, Sparkles, Star, Stethoscope,
   Store, UsersRound, UtensilsCrossed, type LucideIcon,
 } from "lucide-react";
 import type { Context } from "@/lib/types";
@@ -364,7 +364,7 @@ function ShopNav({ current, navigate, activeDepts }: { current: NavKey; navigate
     ["dashboard", "ภาพรวมองค์กร", LayoutDashboard, null],
     ["store", "App Shop", Store, "store", true],
     ["store?tab=characters", "AI Characters", Bot, "characters"],
-    ["store?tab=addons", "ฟังก์ชันเสริม", Puzzle, "addons"],
+    ["store?tab=systems", "ระบบตามธุรกิจ", Building2, "addons"],
     ["team", "ทีมงาน & สิทธิ์การใช้งาน", UsersRound, null],
     ["pricing", "การใช้งาน & แพ็กเกจ", ReceiptText, null],
     ["store?tab=history", "ประวัติการซื้อ", History, "history"],
@@ -785,33 +785,6 @@ function AddonCard({ item, a }: { item: Item; a: Actions }) {
     </article>
   );
 }
-function ModuleCard({ m, a, navigate }: { m: StoreModule; a: Actions; navigate: Nav }) {
-  return (
-    <article className="as-addon module">
-      <span className="as-module-icon">
-        <Gem size={20} />
-      </span>
-      <div className="as-addon-body">
-        <b>{m.name}</b>
-        <small>{m.description}</small>
-        <span>
-          {coin(m.price_coins)} <small className="muted">· ซื้อครั้งเดียว</small>
-        </span>
-      </div>
-      <div className="as-card-actions">
-        {m.owned ? (
-          <button className="as-buy-btn soft" onClick={() => navigate(m.view)}>
-            <CheckCircle2 size={13} /> เปิดใช้งาน
-          </button>
-        ) : (
-          <button className="as-buy-btn" onClick={() => a.buyModule(m)}>
-            <ShoppingCart size={13} /> ซื้อเลย
-          </button>
-        )}
-      </div>
-    </article>
-  );
-}
 
 /** Horizontal scroller with arrow buttons (design's carousels). */
 function Carousel({ children, label }: { children: ReactNode; label: string }) {
@@ -923,12 +896,12 @@ function ShopArt() {
 
 /* ---------------------------------------------------------------- page 11: App Shop */
 
+// ฟังก์ชันเสริม (Add-ons) and ระบบตามธุรกิจ were the same items: one tab, ระบบตามธุรกิจ (old ?tab=addons links land there).
 const shopTabs = [
   ["rec", "แนะนำสำหรับคุณ", Star],
   ["departments", "แผนก (Departments)", LayoutGrid],
   ["characters", "AI Characters", Bot],
   ["themes", "ธีมเสริม (Themes)", Palette],
-  ["addons", "ฟังก์ชันเสริม (Add-ons)", Puzzle],
   ["systems", "ระบบตามธุรกิจ", Building2],
   ["all", "ทั้งหมด", LayoutGrid],
 ] as const;
@@ -937,7 +910,7 @@ type ShopTab = (typeof shopTabs)[number][0] | "history";
 export function AppShop({ ctx, navigate, notify, unlockAll = false, defaultTab }: { ctx: Context; navigate: Nav; notify: Notify; unlockAll?: boolean; defaultTab?: ShopTab }) {
   const params = useSearchParams();
   const raw = params.get("tab") || defaultTab || "rec";
-  const tab: ShopTab = raw === "history" || shopTabs.some(([k]) => k === raw) ? (raw as ShopTab) : "rec";
+  const tab: ShopTab = raw === "addons" ? "systems" : raw === "history" || shopTabs.some(([k]) => k === raw) ? (raw as ShopTab) : "rec";
   const { data, error } = useShop();
   const a = useShopActions(ctx, data, notify);
   const [q, setQ] = useState(""),
@@ -975,7 +948,7 @@ export function AppShop({ ctx, navigate, notify, unlockAll = false, defaultTab }
   const show = (t: ShopTab) => tab === t || tab === "all" || (tab === "rec" && t !== "systems");
   // แผนก: the department systems are sold right here (top of แนะนำ, their own tab, and ทั้งหมด).
   const showDepts = tab === "departments" || tab === "rec" || tab === "all";
-  const navKey: NavKey = tab === "characters" ? "characters" : tab === "addons" ? "addons" : tab === "history" ? "history" : "store";
+  const navKey: NavKey = tab === "characters" ? "characters" : tab === "systems" ? "addons" : tab === "history" ? "history" : "store";
   return (
     <div className="as-page">
       <ShopNav current={navKey} navigate={navigate} activeDepts={activeDepts} />
@@ -1058,16 +1031,10 @@ export function AppShop({ ctx, navigate, notify, unlockAll = false, defaultTab }
                 )}
               </section>
             )}
-            {show("addons") && !!systems.length && (
+            {tab === "rec" && !!systems.length && (
               <section>
-                <SectionHead icon={<Puzzle size={20} />} title="ฟังก์ชันเสริม / ระบบตามธุรกิจ (Add-ons)" hint="เลือกระบบสำเร็จรูปและฟีเจอร์เฉพาะทาง เพิ่มความสามารถให้กับองค์กรของคุณ" more={tab === "addons" ? undefined : () => go("addons")} />
+                <SectionHead icon={<Building2 size={20} />} title="ระบบตามธุรกิจ" hint="ระบบสำเร็จรูปเฉพาะธุรกิจ ราคาต่อเดือน" more={() => go("systems")} />
                 <div className="as-addons">{systems.map((i) => <AddonCard key={i.id} item={i} a={a} />)}</div>
-              </section>
-            )}
-            {(tab === "addons" || tab === "all") && !!mods.length && (
-              <section>
-                <SectionHead icon={<Gem size={20} />} title="ระบบแผนก (ซื้อครั้งเดียว ใช้ได้ตลอด)" hint={data && !data.canBuyModules ? "เฉพาะเจ้าของบริษัทซื้อระบบแผนกได้" : undefined} />
-                <div className="as-addons">{mods.map((m) => <ModuleCard key={m.id} m={m} a={a} navigate={navigate} />)}</div>
               </section>
             )}
             {(tab === "systems" || tab === "all") && !!systems.length && (
