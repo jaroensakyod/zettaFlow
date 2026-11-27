@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { DocPrintButtons } from "./doc-print";
 import { catalog, statusLabels, type Field } from "@/lib/catalog";
+import { vatModes, type VatMode } from "@/lib/tax";
 import type { Entity, Context } from "@/lib/types";
 import { api, Modal, Empty, Loading, money, displayDate, SourceLine } from "./shared";
 import { uploadFile } from "./platform";
@@ -199,7 +200,7 @@ export function FieldControl({
                 ))
             : field.options?.map((o) => (
                 <option key={o} value={o}>
-                  {statusLabels[o] || o}
+                  {(field.key === "vatMode" && vatModes[o as VatMode]) || statusLabels[o] || o}
                 </option>
               ))}
         </select>

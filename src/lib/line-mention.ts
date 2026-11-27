@@ -3,6 +3,7 @@
 // "บันทึกได้เลย". Pure helpers here (tested in tests/line-mention.test.ts); the webhook and worker use them.
 import { catalog } from "./catalog";
 import { formatMoney, isForeign } from "./fx";
+import { vatModes, type VatMode } from "./tax";
 import { deptThai, pageUrl } from "./line-message";
 import type { Approval } from "./types";
 
@@ -118,6 +119,7 @@ const skip = new Set(["status", "aiNotes", "aiUncertain", "reviewStatus", "appro
 export function shownValue(key: string, value: unknown, currency?: unknown): string {
   if (value === null || value === undefined || value === "") return "";
   if (key === "lineUserId") return "✓ ผูกกับ LINE ของคนที่แท็กแล้ว";
+  if (key === "vatMode" && String(value) in vatModes) return vatModes[String(value) as VatMode];
   if (typeof value === "boolean") return value ? "ใช่" : "ไม่ใช่";
   if (typeof value === "number") {
     if (/amount|total|price|cost|budget|salary|wage|value|sales|vat|wht/i.test(key))
