@@ -1,0 +1,544 @@
+/* แชท → บริษัทอื่น (b2b-chat.tsx): frosted-glass panels on a slowly moving pastel background.
+   Three panels on wide screens (list 23% · conversation · details 23%), the details as a slide-over on tablets and a
+   bottom sheet on phones. Loaded after chat.css; everything here is scoped to .chat-hub / .b2b.glass. */
+
+.chat-hub {
+  --g-purple: #7c3aed;
+  --g-purple-2: #a855f7;
+  --g-pink: #ec4899;
+  --g-lavender: #f3eeff;
+  --g-blue: #e8f1ff;
+  --g-rose: #fceaf5;
+  --g-ink: #1e1b35;
+  --g-mute: #77758e;
+  --g-ok: #16a34a;
+  --g-warn: #f59e0b;
+  --g-bad: #ef4444;
+  --g-glass: rgba(255, 255, 255, 0.58);
+  --g-glass-strong: rgba(255, 255, 255, 0.78);
+  --g-edge: rgba(255, 255, 255, 0.75);
+  --g-shadow: 0 22px 50px -18px rgba(76, 29, 149, 0.22), 0 4px 14px rgba(76, 29, 149, 0.06);
+  --g-blur: blur(28px) saturate(165%);
+  --g-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --g-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  isolation: isolate;
+  max-width: 1680px;
+}
+/* Ambient background: soft lavender, blue and pink light drifting behind the glass. */
+.chat-hub::before {
+  content: "";
+  position: absolute;
+  inset: -32px 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 40px;
+  background:
+    radial-gradient(42% 46% at 12% 18%, rgba(168, 85, 247, 0.22), transparent 70%),
+    radial-gradient(38% 42% at 88% 14%, rgba(96, 165, 250, 0.2), transparent 70%),
+    radial-gradient(44% 48% at 78% 92%, rgba(236, 72, 153, 0.18), transparent 70%),
+    linear-gradient(135deg, #fbf9ff, #f5f8ff 45%, #fff6fb);
+  background-size: 140% 140%;
+  animation: g-ambient 26s ease-in-out infinite alternate;
+}
+@keyframes g-ambient {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+
+/* ---------- the three panels ---------- */
+.chat-hub .b2b.glass {
+  grid-template-columns: minmax(260px, 23%) minmax(0, 1fr);
+  gap: 14px;
+  height: calc(100dvh - 150px);
+  min-height: 520px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: none;
+  box-shadow: none;
+}
+.chat-hub .b2b.glass > .b2b-list,
+.chat-hub .b2b.glass > .b2b-main,
+.chat-hub .b2b.glass > .b2b-info {
+  position: relative;
+  min-height: 0;
+  border: 1px solid var(--g-edge);
+  border-radius: 26px;
+  background: var(--g-glass);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  box-shadow: var(--g-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+  animation: g-rise 0.55s var(--g-ease) both;
+}
+/* A thin light along the top edge of each pane, like the rim of a glass sheet. */
+.chat-hub .b2b.glass > .b2b-list::before,
+.chat-hub .b2b.glass > .b2b-main::before,
+.chat-hub .b2b.glass > .b2b-info::before {
+  content: "";
+  position: absolute;
+  inset: 0 18px auto;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+}
+.chat-hub .b2b.glass > .b2b-main { overflow: hidden; animation-delay: 0.06s; }
+.chat-hub .b2b.glass > .b2b-info { animation: g-slide-in 0.42s var(--g-ease) both; }
+.chat-hub .b2b.glass > .b2b-info.leaving { animation: g-slide-out 0.22s ease-in both; }
+@keyframes g-rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes g-slide-in {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes g-slide-out {
+  to { opacity: 0; transform: translateX(28px); }
+}
+@media (min-width: 1280px) {
+  .chat-hub .b2b.glass.has-panel { grid-template-columns: minmax(260px, 23%) minmax(0, 1fr) minmax(290px, 23%); }
+  .chat-hub .b2b.glass .b2b-scrim { display: none; }
+}
+
+/* ---------- left: conversations ---------- */
+.chat-hub .b2b.glass .b2b-list { overflow-x: hidden; padding: 14px 10px; background: var(--g-glass); border-right: 1px solid var(--g-edge); }
+.chat-hub .b2b.glass .chat-switch { background: rgba(255, 255, 255, 0.5); border: 1px solid var(--g-edge); border-radius: 16px; }
+.chat-hub .b2b.glass .chat-switch button { border-radius: 12px; transition: transform 0.15s var(--g-ease), background 0.2s; }
+.chat-hub .b2b.glass .chat-switch button.active { color: var(--g-purple); background: #fff; box-shadow: 0 6px 16px rgba(124, 58, 237, 0.14); }
+.chat-hub .b2b-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 4px 8px;
+  padding: 0 12px;
+  height: 40px;
+  border: 1px solid var(--g-edge);
+  border-radius: 14px;
+  color: var(--g-mute);
+  background: rgba(255, 255, 255, 0.65);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.chat-hub .b2b-search:focus-within { border-color: rgba(124, 58, 237, 0.45); box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.14); }
+.chat-hub .b2b-search input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; font-size: 13.5px; color: var(--g-ink); background: none; box-shadow: none; }
+.chat-hub .b2b-filters { display: flex; gap: 6px; margin: 0 4px 12px; overflow-x: auto; scrollbar-width: none; }
+.chat-hub .b2b-filters button {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--g-edge);
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--g-mute);
+  background: rgba(255, 255, 255, 0.55);
+  transition: transform 0.15s var(--g-ease), color 0.2s, background 0.2s;
+}
+.chat-hub .b2b-filters button.on { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--g-purple), var(--g-pink)); box-shadow: 0 6px 14px rgba(124, 58, 237, 0.25); }
+.chat-hub .b2b-none { margin: 18px 8px; text-align: center; font-size: 13px; color: var(--g-mute); }
+.chat-hub .b2b.glass .b2b-me { border-radius: 20px; background: linear-gradient(135deg, var(--g-purple), var(--g-purple-2) 55%, var(--g-pink)); box-shadow: 0 14px 28px -10px rgba(124, 58, 237, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.chat-hub .b2b.glass .b2b-thread {
+  margin: 0 4px 8px;
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 4px 14px rgba(60, 40, 140, 0.05);
+  transition: transform 0.25s var(--g-ease), box-shadow 0.25s var(--g-ease), border-color 0.25s;
+}
+.chat-hub .b2b.glass .b2b-thread:hover { transform: translateY(-2px); border-color: rgba(168, 85, 247, 0.3); box-shadow: 0 12px 24px -10px rgba(76, 29, 149, 0.25); }
+.chat-hub .b2b.glass .b2b-thread.active {
+  border-color: rgba(124, 58, 237, 0.5);
+  background: linear-gradient(135deg, rgba(243, 238, 255, 0.95), rgba(255, 255, 255, 0.85));
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.14), 0 14px 28px -12px rgba(124, 58, 237, 0.45);
+}
+.chat-hub .b2b.glass .b2b-thread strong { color: var(--g-ink); }
+.chat-hub .b2b.glass .b2b-thread small { color: var(--g-mute); }
+.chat-hub .b2b.glass .b2b-thread small.unread { color: var(--g-ink); font-weight: 700; }
+.chat-hub .b2b.glass .b2b-thread .li-alert-count { background: linear-gradient(135deg, var(--g-purple), var(--g-pink)); }
+
+/* ---------- middle: the conversation ---------- */
+.chat-hub .b2b.glass .b2b-head {
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.35));
+}
+.chat-hub .b2b-head-name { min-width: 0; }
+.chat-hub .b2b-head-name strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 16px; color: var(--g-ink); }
+.chat-hub .b2b-head-name small { color: var(--g-mute); }
+.chat-hub .b2b.glass .b2b-roles { margin-left: auto; }
+.chat-hub .b2b-head-acts { display: flex; align-items: center; gap: 6px; margin-left: 8px; flex: none; }
+.chat-hub .b2b.glass .b2b-roles + .b2b-head-acts { margin-left: 4px; }
+.chat-hub .b2b-head > .b2b-head-name + .b2b-head-acts { margin-left: auto; }
+.chat-hub .b2b-round {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--g-edge);
+  border-radius: 50%;
+  color: var(--g-purple);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 12px rgba(76, 29, 149, 0.08);
+  transition: transform 0.15s var(--g-ease), background 0.2s, color 0.2s;
+}
+.chat-hub .b2b-round:hover { background: #fff; }
+.chat-hub .b2b-round.on { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--g-purple), var(--g-pink)); }
+.chat-hub .b2b-more { position: relative; }
+.chat-hub .b2b-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--g-edge);
+  border-radius: 18px;
+  background: var(--g-glass-strong);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  box-shadow: var(--g-shadow);
+  animation: g-pop 0.28s var(--g-spring) both;
+  transform-origin: top right;
+}
+.chat-hub .b2b-menu button { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 12px; border: 0; border-radius: 12px; font-size: 13.5px; font-weight: 600; text-align: left; color: var(--g-ink); background: none; }
+.chat-hub .b2b-menu button:hover { background: var(--g-lavender); color: var(--g-purple); }
+@keyframes g-pop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+.chat-hub .b2b.glass .deal-bar { padding: 9px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.4); }
+.chat-hub .b2b.glass .deal-bar-actions button { border-color: var(--g-edge); background: rgba(255, 255, 255, 0.8); transition: transform 0.15s var(--g-ease), background 0.2s; }
+.chat-hub .b2b.glass .deal-bar-actions .deal-toggle { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--g-purple), var(--g-pink)); box-shadow: 0 6px 14px rgba(124, 58, 237, 0.25); }
+
+.chat-hub .b2b.glass .b2b-messages { gap: 14px; padding: 16px 22px 20px; background: none; animation: g-fade 0.35s ease both; }
+@keyframes g-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+/* The post the conversation started from, floating at the top while the messages scroll under it. */
+.chat-hub .b2b-pin {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: -4px 0 4px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--g-edge);
+  border-radius: 22px;
+  text-align: left;
+  color: var(--g-ink);
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  box-shadow: 0 14px 30px -16px rgba(76, 29, 149, 0.35), inset 0 1px 0 #fff;
+  transition: transform 0.25s var(--g-ease), box-shadow 0.25s;
+}
+.chat-hub .b2b-pin:hover { transform: translateY(-2px); box-shadow: 0 18px 34px -16px rgba(76, 29, 149, 0.45), inset 0 1px 0 #fff; }
+.chat-hub .b2b-pin > img,
+.chat-hub .b2b-pin-icon { flex: none; width: 56px; height: 56px; border-radius: 16px; object-fit: cover; }
+.chat-hub .b2b-pin-icon { display: grid; place-items: center; color: var(--g-purple); background: linear-gradient(135deg, var(--g-lavender), var(--g-rose)); }
+.chat-hub .b2b-pin-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.chat-hub .b2b-pin-text small { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 800; color: #c2410c; }
+.chat-hub .b2b-pin.kind-job .b2b-pin-text small { color: #0369a1; }
+.chat-hub .b2b-pin-text b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14.5px; }
+.chat-hub .b2b-pin-excerpt { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; font-size: 12.5px; color: var(--g-mute); }
+.chat-hub .b2b-pin-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.chat-hub .b2b-pin-meta em { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 99px; font-size: 11.5px; font-style: normal; font-weight: 700; color: #6d28d9; background: var(--g-lavender); }
+.chat-hub .b2b-pin-go { flex: none; color: var(--g-purple); }
+
+/* Bubbles: theirs frosted white, ours purple; the newest ones spring in. */
+.chat-hub .b2b.glass .b2b-msg.person .b2b-msg-body > p {
+  padding: 11px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 22px 22px 22px 8px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--g-ink);
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 20px -12px rgba(60, 40, 140, 0.3);
+}
+.chat-hub .b2b.glass .b2b-msg.person.mine .b2b-msg-body > p {
+  border-color: transparent;
+  border-radius: 22px 22px 8px 22px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--g-purple), var(--g-purple-2));
+  box-shadow: 0 12px 24px -12px rgba(124, 58, 237, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.chat-hub .b2b.glass .b2b-msg .b2b-who b { color: var(--g-ink); }
+.chat-hub .b2b.glass .b2b-msg.mine .b2b-who b { color: var(--g-purple); }
+.chat-hub .b2b.glass .b2b-msg .b2b-who span,
+.chat-hub .b2b.glass .b2b-msg .b2b-who time { color: var(--g-mute); }
+.chat-hub .b2b.glass .b2b-messages > .b2b-msg { animation: g-fade 0.3s ease both; }
+.chat-hub .b2b.glass .b2b-messages > .b2b-msg:nth-last-child(-n + 5) { animation: g-spring 0.5s var(--g-spring) both; }
+.chat-hub .b2b.glass .b2b-messages > .b2b-msg.mine:nth-last-child(-n + 5) { transform-origin: bottom right; }
+.chat-hub .b2b.glass .b2b-messages > .b2b-msg:not(.mine):nth-last-child(-n + 5) { transform-origin: bottom left; }
+@keyframes g-spring {
+  from { opacity: 0; transform: translateY(10px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+.chat-hub .b2b-day span { border: 1px solid var(--g-edge); background: rgba(255, 255, 255, 0.7); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.chat-hub .b2b-face { position: relative; flex: none; width: 38px; height: 38px; margin-top: 18px; }
+.chat-hub .b2b-face > img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(30, 20, 60, 0.15); }
+.chat-hub .b2b-face-co { position: absolute; right: -4px; bottom: -4px; display: grid; padding: 2px; border-radius: 50%; background: #fff; }
+.chat-hub .b2b-face-co .net-logo { border-radius: 50%; }
+
+/* Document cards: one colour per kind (คำขอ purple, ใบเสนอราคา blue, ใบแจ้งหนี้ red, ชำระเงิน green, ส่งมอบ orange). */
+.chat-hub .deal-card { --doc: var(--g-purple); }
+.chat-hub .deal-card.quote { --doc: #2563eb; }
+.chat-hub .deal-card.invoice { --doc: var(--g-bad); }
+.chat-hub .deal-card.payment { --doc: var(--g-ok); }
+.chat-hub .deal-card.delivery { --doc: var(--g-warn); }
+.chat-hub .deal-card.progress { --doc: #0ea5e9; }
+.chat-hub .deal-card.cancel { --doc: #9ca3af; }
+.chat-hub .b2b.glass .deal-card {
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.84);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: inset 4px 0 0 var(--doc), 0 16px 32px -18px rgba(60, 40, 140, 0.4);
+  transition: transform 0.25s var(--g-ease), box-shadow 0.25s;
+}
+.chat-hub .b2b.glass .deal-card:hover { transform: translateY(-2px); box-shadow: inset 4px 0 0 var(--doc), 0 22px 38px -18px rgba(60, 40, 140, 0.45); }
+.chat-hub .b2b.glass .deal-card .deal-card-icon { color: var(--doc); background: color-mix(in srgb, var(--doc) 13%, #fff); }
+.chat-hub .b2b.glass .deal-card .deal-card-title small { color: var(--doc); }
+.chat-hub .deal-chip.ok { animation: g-check 0.55s var(--g-spring) both; }
+@keyframes g-check {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: none; }
+}
+.chat-hub .b2b-msg.flash > * { animation: g-flash 1.4s ease; }
+@keyframes g-flash {
+  0%, 100% { box-shadow: inset 4px 0 0 var(--doc, var(--g-purple)), 0 16px 32px -18px rgba(60, 40, 140, 0.4); }
+  25% { box-shadow: inset 4px 0 0 var(--doc, var(--g-purple)), 0 0 0 4px rgba(168, 85, 247, 0.35); }
+}
+
+/* The message box floats above the bottom edge. */
+.chat-hub .b2b.glass .b2b-compose { padding: 10px 96px calc(14px + env(safe-area-inset-bottom)) 16px; border-top: 0; background: none; }
+.chat-hub .b2b.glass.has-panel .b2b-compose { padding-right: 16px; }
+.chat-hub .b2b.glass .b2b-compose > div:last-child {
+  align-items: flex-end;
+  padding: 5px 5px 5px 6px;
+  border: 1px solid var(--g-edge);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  box-shadow: 0 16px 34px -16px rgba(76, 29, 149, 0.35), inset 0 1px 0 #fff;
+}
+.chat-hub .b2b.glass .b2b-compose > div:last-child:focus-within { border-color: rgba(124, 58, 237, 0.45); box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.14), 0 16px 34px -16px rgba(76, 29, 149, 0.35); }
+.chat-hub .b2b.glass .b2b-compose textarea { align-self: center; padding: 9px 8px; border: 0; outline: 0; color: var(--g-ink); background: none; box-shadow: none; transition: height 0.12s ease; }
+.chat-hub .b2b.glass .b2b-compose > div:last-child > .b2b-attach,
+.chat-hub .b2b-emoji > .b2b-attach { flex: none; display: grid; place-items: center; width: 38px; height: 38px; margin: 0; padding: 0; border: 0; border-radius: 50%; color: #6d28d9; background: none; }
+.chat-hub .b2b.glass .b2b-compose .b2b-attach:hover:not(:disabled) { background: var(--g-lavender); }
+.chat-hub .b2b.glass .b2b-compose > div:last-child > .b2b-send {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--g-purple), var(--g-purple-2) 55%, var(--g-pink));
+  box-shadow: 0 10px 22px -8px rgba(124, 58, 237, 0.7);
+  transition: transform 0.15s var(--g-ease), box-shadow 0.2s, opacity 0.2s;
+}
+.chat-hub .b2b.glass .b2b-compose > div:last-child > .b2b-send:disabled { opacity: 0.45; background: linear-gradient(135deg, var(--g-purple), var(--g-pink)); box-shadow: none; }
+.chat-hub .b2b-emoji { position: relative; flex: none; display: flex; }
+.chat-hub .b2b-emoji-pop {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(6, 38px);
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--g-edge);
+  border-radius: 20px;
+  background: var(--g-glass-strong);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  box-shadow: var(--g-shadow);
+  animation: g-pop 0.26s var(--g-spring) both;
+  transform-origin: bottom left;
+}
+.chat-hub .b2b-emoji-pop button { width: 38px; height: 38px; padding: 0; border: 0; border-radius: 12px; font-size: 20px; background: none; }
+.chat-hub .b2b-emoji-pop button:hover { background: var(--g-lavender); }
+
+/* Pressing any button gives a little. */
+.chat-hub .b2b.glass button:active:not(:disabled) { transform: scale(0.96); }
+
+/* ---------- right: รายละเอียดงาน / ข้อมูลบริษัท ---------- */
+.chat-hub .b2b-info { display: flex; flex-direction: column; overflow: hidden; }
+.chat-hub .b2b-grab { display: none; }
+.chat-hub .b2b-info-tabs { display: flex; align-items: center; gap: 4px; margin: 12px 12px 0; padding: 4px; border: 1px solid var(--g-edge); border-radius: 16px; background: rgba(255, 255, 255, 0.5); }
+.chat-hub .b2b-info-tabs button[role="tab"] { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 36px; padding: 0 6px; border: 0; border-radius: 12px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: var(--g-mute); background: none; transition: background 0.2s, color 0.2s; }
+.chat-hub .b2b-info-tabs button.on { color: var(--g-purple); background: #fff; box-shadow: 0 6px 16px rgba(124, 58, 237, 0.14); }
+.chat-hub .b2b-info-close { flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 12px; color: var(--g-mute); background: none; }
+.chat-hub .b2b-info-close:hover { color: var(--g-ink); background: rgba(255, 255, 255, 0.8); }
+.chat-hub .b2b-info-body { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); animation: g-fade 0.3s ease both; }
+.chat-hub .b2b-info-body h4 { margin: 18px 2px 8px; font-size: 12.5px; letter-spacing: 0.02em; color: var(--g-mute); }
+.chat-hub .dp-post,
+.chat-hub .dp-head { display: grid; gap: 3px; padding: 12px 14px; border: 1px solid var(--g-edge); border-radius: 18px; background: rgba(255, 255, 255, 0.7); }
+.chat-hub .dp-post { margin-bottom: 10px; }
+.chat-hub .dp-post small,
+.chat-hub .dp-head small { font-size: 11.5px; font-weight: 800; color: #c2410c; }
+.chat-hub .dp-head small { color: var(--g-purple); }
+.chat-hub .dp-post b,
+.chat-hub .dp-head b { font-size: 14.5px; color: var(--g-ink); }
+.chat-hub .dp-post span { font-size: 12.5px; color: var(--g-mute); }
+.chat-hub .dp-head .deal-stage { justify-self: start; margin-top: 4px; }
+.chat-hub .dp-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 0; }
+.chat-hub .dp-facts > div { padding: 10px 12px; border: 1px solid var(--g-edge); border-radius: 16px; background: rgba(255, 255, 255, 0.6); }
+.chat-hub .dp-facts dt { font-size: 11.5px; color: var(--g-mute); }
+.chat-hub .dp-facts dd { margin: 2px 0 0; font-size: 15px; font-weight: 800; color: var(--g-ink); }
+.chat-hub .dp-facts dd.ok { color: var(--g-ok); }
+.chat-hub .dp-facts dd.left { color: #c2410c; }
+.chat-hub .deal-panel .deal-inst { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chat-hub .dp-people { display: grid; gap: 6px; margin-top: 10px; padding: 10px 12px; border-radius: 16px; font-size: 12.5px; color: var(--g-mute); background: rgba(243, 238, 255, 0.7); }
+.chat-hub .dp-people span { display: flex; align-items: center; gap: 6px; }
+.chat-hub .dp-people b { color: var(--g-ink); }
+.chat-hub .dp-people .link-button { justify-self: start; }
+.chat-hub .deal-panel .deal-work-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chat-hub .dp-project {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--g-purple), var(--g-purple-2) 55%, var(--g-pink));
+  box-shadow: 0 10px 22px -10px rgba(124, 58, 237, 0.7);
+}
+.chat-hub .dp-empty { margin: 4px 2px; font-size: 13px; color: var(--g-mute); }
+.chat-hub .deal-timeline { position: relative; display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.chat-hub .deal-timeline li { position: relative; display: flex; align-items: center; gap: 10px; min-height: 34px; font-size: 13px; color: var(--g-mute); }
+.chat-hub .deal-timeline li:not(:last-child)::after { content: ""; position: absolute; left: 12px; top: 26px; bottom: -8px; width: 2px; border-radius: 2px; background: #e4e0f2; }
+.chat-hub .deal-timeline li.done:not(:last-child)::after { background: #bbf7d0; }
+.chat-hub .deal-timeline i { position: relative; z-index: 1; display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; font-size: 11.5px; font-style: normal; font-weight: 800; color: #9a96ad; background: #f1eff7; }
+.chat-hub .deal-timeline li.done { color: var(--g-ink); }
+.chat-hub .deal-timeline li.done i { color: #fff; background: var(--g-ok); animation: g-check 0.5s var(--g-spring) both; }
+.chat-hub .deal-timeline li.now { font-weight: 800; color: var(--g-purple); }
+.chat-hub .deal-timeline li.now i { color: #fff; background: linear-gradient(135deg, var(--g-purple), var(--g-pink)); box-shadow: 0 0 0 5px rgba(168, 85, 247, 0.18); }
+.chat-hub .deal-timeline li.stopped { margin-top: 6px; padding: 6px 10px; border-radius: 12px; font-weight: 700; color: #b91c1c; background: #fee2e2; }
+.chat-hub .dp-docs { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.chat-hub .dp-doc { --doc: var(--g-purple); display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 1px solid var(--g-edge); border-radius: 16px; text-align: left; color: var(--g-ink); background: rgba(255, 255, 255, 0.7); box-shadow: inset 3px 0 0 var(--doc); transition: transform 0.2s var(--g-ease), box-shadow 0.2s; }
+.chat-hub .dp-doc:hover { transform: translateY(-1px); box-shadow: inset 3px 0 0 var(--doc), 0 10px 20px -12px rgba(60, 40, 140, 0.4); }
+.chat-hub .dp-doc.quote { --doc: #2563eb; }
+.chat-hub .dp-doc.invoice { --doc: var(--g-bad); }
+.chat-hub .dp-doc.payment { --doc: var(--g-ok); }
+.chat-hub .dp-doc.delivery { --doc: var(--g-warn); }
+.chat-hub .dp-doc > span:first-child { display: grid; flex: 1; min-width: 0; }
+.chat-hub .dp-doc small { font-size: 11.5px; font-weight: 700; color: var(--doc); }
+.chat-hub .dp-doc b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+.chat-hub .dp-doc em { flex: none; font-size: 12.5px; font-style: normal; font-weight: 800; }
+.chat-hub .dp-company { display: grid; justify-items: center; gap: 4px; padding-top: 6px; text-align: center; }
+.chat-hub .dp-company > .net-logo { margin-bottom: 6px; border-radius: 22px; box-shadow: 0 12px 26px -12px rgba(76, 29, 149, 0.45); }
+.chat-hub .dp-company > b { font-size: 16px; color: var(--g-ink); }
+.chat-hub .dp-company > small { font-size: 12.5px; color: var(--g-mute); }
+.chat-hub .dp-bio { margin: 8px 0 0; font-size: 13px; font-weight: 600; color: var(--g-ink); }
+.chat-hub .dp-about { margin: 6px 0 0; font-size: 13px; line-height: 1.6; text-align: left; white-space: pre-line; color: #4a4763; }
+.chat-hub .dp-contacts { display: grid; gap: 6px; width: 100%; margin: 12px 0 0; padding: 0; list-style: none; text-align: left; }
+.chat-hub .dp-contacts li { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 12px; border: 1px solid var(--g-edge); border-radius: 14px; font-size: 13px; color: var(--g-mute); background: rgba(255, 255, 255, 0.65); }
+.chat-hub .dp-contacts a,
+.chat-hub .dp-contacts span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--g-ink); }
+.chat-hub .b2b-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(30, 27, 53, 0.2); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: g-fade-plain 0.25s ease both; }
+@keyframes g-fade-plain {
+  from { opacity: 0; }
+}
+
+/* ---------- tablet: details as a slide-over ---------- */
+@media (max-width: 1279px) {
+  .chat-hub .b2b.glass > .b2b-info {
+    position: fixed;
+    top: 84px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 71;
+    width: min(380px, calc(100vw - 32px));
+    background: var(--g-glass-strong);
+  }
+  .chat-hub .b2b.glass.has-panel .b2b-compose { padding-right: 96px; }
+}
+@media (max-width: 1100px) {
+  .chat-hub .b2b.glass { grid-template-columns: minmax(240px, 32%) minmax(0, 1fr); }
+  .chat-hub .b2b.glass .b2b-roles { display: none; }
+}
+
+/* ---------- phone: one pane at a time, iMessage-like; details as a bottom sheet ---------- */
+@media (max-width: 720px) {
+  .chat-hub::before { inset: -20px -16px; border-radius: 0; }
+  .chat-hub .b2b.glass { grid-template-columns: 1fr; gap: 0; height: calc(100dvh - 180px); min-height: 420px; }
+  .chat-hub .b2b.glass .b2b-msg.deal { max-width: 100%; min-width: 0; }
+  .chat-hub .b2b.glass .deal-card { max-width: 100%; overflow-x: auto; }
+  .chat-hub .b2b.glass .deal-items { font-size: 12px; }
+  .chat-hub .b2b.glass > .b2b-list,
+  .chat-hub .b2b.glass > .b2b-main { border-radius: 22px; }
+  .chat-hub .b2b.glass .b2b-head { padding: 10px 12px; gap: 8px; }
+  .chat-hub .b2b.glass .b2b-head .b2b-back { display: grid; place-items: center; width: 40px; height: 40px; }
+  .chat-hub .b2b-round { width: 40px; height: 40px; }
+  .chat-hub .b2b.glass .deal-bar { padding: 8px 12px; }
+  .chat-hub .b2b.glass .deal-bar-actions { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .chat-hub .b2b.glass .deal-bar-actions button { flex: 1 0 auto; height: 36px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+  /* the Flow AI button sits at the bottom right: the box leaves it room; pictures go through the paperclip */
+  .chat-hub .b2b.glass .b2b-compose > div:last-child > .b2b-attach + input + .b2b-attach { display: none; }
+  .chat-hub .b2b.glass .deal-bar-top > b,
+  .chat-hub .b2b.glass .deal-bar-top .deal-brief-step { display: none; }
+  .chat-hub .b2b.glass .b2b-messages { padding: 12px 12px 16px; }
+  .chat-hub .b2b-pin { padding: 8px 12px 8px 8px; border-radius: 18px; }
+  .chat-hub .b2b-pin > img,
+  .chat-hub .b2b-pin-icon { width: 44px; height: 44px; border-radius: 13px; }
+  .chat-hub .b2b-pin-excerpt,
+  .chat-hub .b2b-pin-meta { display: none; }
+  .chat-hub .b2b.glass .b2b-msg { max-width: 90%; }
+  .chat-hub .b2b.glass .b2b-compose,
+  .chat-hub .b2b.glass.has-panel .b2b-compose { padding: 6px 70px calc(10px + env(safe-area-inset-bottom)) 10px; }
+  .chat-hub .b2b.glass .b2b-compose textarea { font-size: 16px; }
+  .chat-hub .b2b.glass > .b2b-info {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 84dvh;
+    border-radius: 28px 28px 0 0;
+    animation: g-sheet-in 0.42s var(--g-ease) both;
+  }
+  .chat-hub .b2b.glass > .b2b-info.leaving { animation: g-sheet-out 0.22s ease-in both; }
+  .chat-hub .b2b-grab { display: block; width: 40px; height: 5px; margin: 8px auto 0; border-radius: 99px; background: rgba(30, 27, 53, 0.18); }
+  .chat-hub .b2b-info-tabs button[role="tab"] { height: 40px; }
+  .chat-hub .b2b-emoji-pop { grid-template-columns: repeat(6, 40px); }
+}
+@keyframes g-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes g-sheet-out {
+  to { transform: translateY(100%); }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .chat-hub { --g-glass: rgba(255, 255, 255, 0.92); --g-glass-strong: #fff; }
+}
+
+/* No movement for people who asked for less: everything still appears, only without the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-hub::before,
+  .chat-hub .b2b.glass *,
+  .chat-hub .b2b.glass > * { animation: none !important; transition: none !important; }
+  .chat-hub .b2b.glass button:active:not(:disabled) { transform: none; }
+}

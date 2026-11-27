@@ -1,7 +1,7 @@
 "use client";
 // B2B chat: who sent each message (their picture, name and company) and the pictures and files a message carries.
 import { useEffect, useRef, useState } from "react";
-import { Camera, FileArchive, FileSpreadsheet, FileText, Paperclip, Trash2, X } from "lucide-react";
+import { Camera, FileArchive, ImageIcon, FileSpreadsheet, FileText, Paperclip, Trash2, X } from "lucide-react";
 import type { B2bFile } from "@/lib/b2b";
 import { api } from "./shared";
 import { CompanyLogo } from "./feed";
@@ -158,18 +158,26 @@ export function MessageFiles({ thread, files }: { thread: string; files: B2bFile
 
 export const ACCEPT = ".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv,.xlsx,.docx,.pptx,.zip";
 /** The paperclip in the compose box and the files waiting to be sent. */
-export function AttachButton({ disabled, onPick }: { disabled?: boolean; onPick: (files: File[]) => void }) {
+/** Pick files for a message; `images` opens the picker on pictures only (the photo library on a phone). */
+export function AttachButton({ disabled, onPick, images }: { disabled?: boolean; onPick: (files: File[]) => void; images?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
-      <button type="button" className="b2b-attach" aria-label="แนบรูปหรือไฟล์" title="แนบรูปหรือไฟล์ (ไม่เกิน 10 MB ต่อไฟล์)" disabled={disabled} onClick={() => input.current?.click()}>
-        <Paperclip size={18} />
+      <button
+        type="button"
+        className="b2b-attach"
+        aria-label={images ? "ส่งรูปภาพ" : "แนบไฟล์"}
+        title={images ? "ส่งรูปภาพ (ไม่เกิน 10 MB ต่อรูป)" : "แนบไฟล์ PDF, Excel, Word หรือรูป (ไม่เกิน 10 MB ต่อไฟล์)"}
+        disabled={disabled}
+        onClick={() => input.current?.click()}
+      >
+        {images ? <ImageIcon size={18} /> : <Paperclip size={18} />}
       </button>
       <input
         ref={input}
         type="file"
         multiple
-        accept={ACCEPT}
+        accept={images ? ".png,.jpg,.jpeg,.webp" : ACCEPT}
         hidden
         onChange={(e) => {
           onPick([...(e.target.files || [])]);

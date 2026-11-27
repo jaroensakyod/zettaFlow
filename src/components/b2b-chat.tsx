@@ -4,14 +4,15 @@
 // With no conversation yet (or in the public demo) the list shows a labelled sample inbox (lib/mock/b2b.ts).
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion, ReceiptText, Megaphone, Settings2, Handshake } from "lucide-react";
+import { Building2, Send, Users, ArrowLeft, FileText, MapPin, Wallet, Clock3, ExternalLink, X, Sparkles, MessageCircleQuestion, ReceiptText, Megaphone, Settings2, Handshake, Info, MoreHorizontal, PanelRight, Pin, Briefcase, Phone, Mail, Globe, Search, Smile } from "lucide-react";
 import type { Context, FeedPost } from "@/lib/types";
+import type { CompanyProfile } from "@/lib/feed";
 import type { B2bCompany, B2bFile, B2bMessage, B2bPostRef, B2bThread } from "@/lib/b2b";
 import { b2bSample, isSampleThread, quickQuestions, sampleThreadFor, SAMPLE_NOTE, SAMPLE_SENT, type SampleThread } from "@/lib/mock/b2b";
 import { api, Empty, Loading } from "./shared";
 import { Chat } from "./tools";
-import { CompanyLogo, employmentLabels, kindLabel, since } from "./feed";
-import { DealBar, DealCardView, PayForm, RequestForm, StepForm, sampleDeal, sampleWorkDeal, type DealStepKind } from "./deal-room";
+import { CompanyLogo, employmentLabels, kindLabel, profileView, since } from "./feed";
+import { DealBar, DealCardView, DealPanel, PayForm, RequestForm, StepForm, sampleDeal, sampleWorkDeal, type DealStepKind } from "./deal-room";
 import type { Deal, DealCard } from "@/lib/b2b-deal-types";
 import { AttachButton, MessageFiles, PendingFiles } from "./chat-people";
 import { QuoteEditor } from "./quote-editor";
@@ -80,6 +81,20 @@ const imageSrc = (path: string) => (path.startsWith("data:") ? path : "/api/feed
 const companyLogo = (c: { id: string; name: string; has_logo: boolean; logo_url?: string }, size: number) => (
   <CompanyLogo id={c.id} name={c.name} logo={c.logo_url || c.has_logo} size={size} />
 );
+/** The person who wrote a message: their picture when they uploaded one, with their company's logo as a badge. */
+const senderFace = (m: B2bMessage, company: { id: string; name: string; has_logo: boolean; logo_url?: string }) =>
+  m.author_id && m.avatar_at ? (
+    <span className="b2b-face">
+      <img src={`/api/avatar/${m.author_id}?v=${encodeURIComponent(m.avatar_at)}`} alt="" width={38} height={38} loading="lazy" />
+      <span className="b2b-face-co">{companyLogo(company, 18)}</span>
+    </span>
+  ) : (
+    companyLogo(company, 38)
+  );
+/** Emoji the picker offers (inserted into the message as text). */
+const EMOJI = ["👍", "🙏", "😊", "😄", "🎉", "✅", "👌", "🤝", "💯", "🔥", "❤️", "👏", "🙂", "😅", "🤔", "📌", "📎", "📄", "💰", "🚚", "⏰", "📅", "✨", "🙌"];
+type ThreadFilter = "all" | "unread" | "post";
+
 /** A feed post (demo feed) as a chat card. */
 const cardOf = (p: FeedPost): B2bPostRef => ({
   id: p.id,
@@ -158,8 +173,16 @@ function B2bChat({
     [threads, setThreads] = useState<B2bThread[] | null>(null),
     [samples, setSamples] = useState<SampleThread[]>(() => b2bSample()),
     [active, setActive] = useState<string | null>(params.get("b2b")),
-    // The post and deal panel above the chat start folded to one line so the messages get the room; the choice is remembered.
-    [brief, setBrief] = useState(true),
+    // The side panel (รายละเอียดงาน / ข้อมูลบริษัท): open by default on wide screens, remembered; a slide-over / bottom sheet
+    // on smaller ones, closed until asked for.
+    [panel, setPanel] = useState(false),
+    [leaving, setLeaving] = useState(false),
+    [panelTab, setPanelTab] = useState<"job" | "company">("job"),
+    [profile, setProfile] = useState<CompanyProfile | null | undefined>(undefined),
+    [more, setMore] = useState(false),
+    [emoji, setEmoji] = useState(false),
+    [query, setQuery] = useState(""),
+    [filter, setFilter] = useState<ThreadFilter>("all"),
     [messages, setMessages] = useState<B2bMessage[] | null>(null),
     [topic, setTopic] = useState<B2bPostRef | null>(null),
     [text, setText] = useState(""),
@@ -200,18 +223,36 @@ function B2bChat({
   const target = params.get("with"),
     fromPost = params.get("post"),
     intent = params.get("intent");
+  const wide = () => typeof window !== "undefined" && window.matchMedia("(min-width: 1280px)").matches;
   useEffect(() => {
+    let saved: string | null = null;
     try {
-      if (localStorage.getItem("ef.b2b.brief") === "0") setBrief(false);
+      saved = localStorage.getItem("ef.b2b.panel");
     } catch {}
+    if (wide() && saved !== "0") setPanel(true);
   }, []);
-  const toggleBrief = () =>
-    setBrief((b) => {
-      try {
-        localStorage.setItem("ef.b2b.brief", b ? "0" : "1");
-      } catch {}
-      return !b;
-    });
+  const remember = (open: boolean) => {
+    // Only the wide layout remembers: there the panel sits beside the chat; elsewhere it covers it.
+    if (!wide()) return;
+    try {
+      localStorage.setItem("ef.b2b.panel", open ? "1" : "0");
+    } catch {}
+  };
+  const openPanel = (tab: "job" | "company") => {
+    setPanelTab(tab);
+    setPanel(true);
+    remember(true);
+  };
+  // Closing slides the panel out first (instantly when the system asks for less motion).
+  const closePanel = () => {
+    remember(false);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setPanel(false);
+    setLeaving(true);
+    setTimeout(() => {
+      setPanel(false);
+      setLeaving(false);
+    }, 200);
+  };
   useEffect(() => {
     if (!target) return;
     if (ctx.demo) {
@@ -272,6 +313,19 @@ function B2bChat({
     setDeals([]);
     loadDeals();
   }, [loadDeals]);
+  // ข้อมูลบริษัท: the other company's public profile (only what it lets other companies see).
+  const otherId = list?.find((t) => t.id === active)?.company.id;
+  useEffect(() => {
+    setProfile(undefined);
+    if (!otherId || !panel || panelTab !== "company" || (active && isSampleThread(active))) return;
+    let live = true;
+    api("/feed/profile/" + otherId)
+      .then((p: CompanyProfile) => live && setProfile(p))
+      .catch(() => live && setProfile(null));
+    return () => {
+      live = false;
+    };
+  }, [otherId, panel, panelTab, active]);
   useEffect(() => {
     if (messages?.some((m) => m.card_id)) loadDeals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -378,6 +432,8 @@ function B2bChat({
     const el = input.current;
     if (!el) return;
     el.style.height = "auto";
+    // Empty: one line (a long placeholder would otherwise make the box tall).
+    if (!text) return;
     el.style.height = Math.min(el.scrollHeight + 2, Math.max(160, Math.round(window.innerHeight * 0.45))) + "px";
   }, [text, thread?.id]);
   const chips = useMemo(() => (topic ? quickQuestions[topic.kind] : []), [topic]);
@@ -410,8 +466,42 @@ function B2bChat({
     },
     startQuote = () => setForm({ kind: "quote", post, notes: agreed() }),
     me = { id: ctx.company.id, name: ctx.company.name, has_logo: !!ctx.company.profile?.logo };
+  const q = query.trim().toLowerCase(),
+    shownList = (list || []).filter(
+      (t) =>
+        (filter === "all" || (filter === "unread" ? Number(t.unread) > 0 && t.id !== active : !!t.post)) &&
+        (!q || [t.company.name, t.post?.title, t.last?.body].some((x) => x && x.toLowerCase().includes(q))),
+    );
+  // A document in the side panel: bring its card into view in the chat (closing the panel where it covers the chat).
+  const showCard = (id: string) => {
+    if (!wide()) closePanel();
+    requestAnimationFrame(() => {
+      const el = document.getElementById("deal-card-" + id);
+      if (!el) return;
+      el.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+      el.classList.remove("flash");
+      void el.offsetWidth;
+      el.classList.add("flash");
+    });
+  };
+  const pick = (files: File[]) => {
+    const big = files.find((f) => f.size > 10_000_000);
+    if (big) notify(big.name + " ใหญ่เกิน 10 MB");
+    setPending((all) => [...all, ...files.filter((f) => f.size <= 10_000_000)].slice(0, 10));
+  };
+  const putEmoji = (e: string) => {
+    const el = input.current,
+      at = el?.selectionStart ?? text.length,
+      end = el?.selectionEnd ?? at;
+    setText((t) => t.slice(0, at) + e + t.slice(end));
+    setEmoji(false);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(at + e.length, at + e.length);
+    });
+  };
   return (
-    <section className={"card b2b" + (active && thread ? " open" : "")}>
+    <section className={"card b2b glass" + (active && thread ? " open" : "") + (thread && panel ? " has-panel" : "")}>
       <aside className="b2b-list" aria-label="บริษัทที่คุยด้วย">
         {top}
         <div className="b2b-list-head">
@@ -432,10 +522,29 @@ function B2bChat({
             <Settings2 size={16} />
           </button>
         </div>
+        <label className="b2b-search">
+          <Search size={15} />
+          <input type="search" placeholder="ค้นหาบริษัทหรือข้อความ" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="ค้นหาบทสนทนา" />
+        </label>
+        <div className="b2b-filters" role="tablist" aria-label="กรองแชท">
+          {(
+            [
+              ["all", "ทั้งหมด"],
+              ["unread", "ยังไม่อ่าน"],
+              ["post", "จากประกาศ"],
+            ] as [ThreadFilter, string][]
+          ).map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={filter === k} className={filter === k ? "on" : ""} onClick={() => setFilter(k)}>
+              {label}
+            </button>
+          ))}
+        </div>
         {!list ? (
           <Loading />
+        ) : !shownList.length ? (
+          <p className="b2b-none">{query || filter !== "all" ? "ไม่พบบทสนทนาที่ตรงกัน" : "ยังไม่มีบทสนทนา"}</p>
         ) : (
-          list.map((t) => (
+          shownList.map((t) => (
             <button
               key={t.id}
               className={"b2b-thread" + (t.id === active ? " active" : "")}
@@ -484,20 +593,13 @@ function B2bChat({
               <button className="icon-button b2b-back" aria-label="กลับไปรายชื่อ" onClick={() => setActive(null)}>
                 <ArrowLeft size={18} />
               </button>
-              {companyLogo(thread.company, 40)}
-              <span>
+              {companyLogo(thread.company, 42)}
+              <span className="b2b-head-name">
                 <strong>
                   {thread.company.name} {sample && <span className="sample-badge">ตัวอย่าง</span>}
                 </strong>
                 <small>{[thread.company.industry, thread.company.province].filter(Boolean).join(" · ") || "บริษัทในเครือข่าย"}</small>
               </span>
-              {post && brief && (
-                <button type="button" className="b2b-post-mini" onClick={openPost} title={`${kindLabel[post.kind]} ที่คุยกันอยู่: ${post.title}`}>
-                  {post.image ? <img src={imageSrc(post.image)} alt="" /> : <Handshake size={14} />}
-                  <span>{post.title}</span>
-                  <ExternalLink size={12} />
-                </button>
-              )}
               {jobPost && (
                 <span className="b2b-roles">
                   <em className={amOwner ? "owner" : "offer"}>คุณ · {amOwner ? "เจ้าของประกาศ" : "ผู้เสนอตัว"}</em>
@@ -506,23 +608,39 @@ function B2bChat({
                   </em>
                 </span>
               )}
-            </header>
-            {post && !brief && (
-              <button type="button" className={"b2b-pinned kind-" + post.kind} onClick={openPost} title="ดูโพสต์">
-                {post.image ? <img src={imageSrc(post.image)} alt="" /> : <Handshake size={18} />}
-                <span>
-                  <small>{kindLabel[post.kind]} ที่คุยกันอยู่</small>
-                  <b>{post.title}</b>
+              <span className="b2b-head-acts">
+                <button type="button" className={"b2b-round" + (panel && panelTab === "company" ? " on" : "")} aria-label="ข้อมูลบริษัท" title="ข้อมูลบริษัท" onClick={() => openPanel("company")}>
+                  <Info size={18} />
+                </button>
+                <span className="b2b-more">
+                  <button type="button" className={"b2b-round" + (more ? " on" : "")} aria-label="เมนูเพิ่มเติม" aria-expanded={more} onClick={() => setMore((v) => !v)}>
+                    <MoreHorizontal size={18} />
+                  </button>
+                  {more && (
+                    <span className="b2b-menu" role="menu" onMouseLeave={() => setMore(false)}>
+                      <button type="button" role="menuitem" onClick={() => (setMore(false), openPanel("job"))}>
+                        <PanelRight size={15} /> รายละเอียดงาน
+                      </button>
+                      {!sample && (
+                        <button type="button" role="menuitem" onClick={() => (setMore(false), navigate(profileView(thread.company.id, ctx)))}>
+                          <Building2 size={15} /> ดูโปรไฟล์บริษัท
+                        </button>
+                      )}
+                      {post && (
+                        <button type="button" role="menuitem" onClick={() => (setMore(false), openPost())}>
+                          <ExternalLink size={15} /> ดูโพสต์ต้นทาง
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </span>
-                {(post.meta?.budget || post.meta?.location) && <em>{[post.meta?.location, post.meta?.budget].filter(Boolean).join(" · ")}</em>}
-                <ExternalLink size={14} />
-              </button>
-            )}
+              </span>
+            </header>
             <DealBar
               deals={shownDeals}
-              collapsed={brief}
-              onToggle={toggleBrief}
               disabled={viewer}
+              detailsOpen={panel && panelTab === "job"}
+              onDetails={() => (panel && panelTab === "job" ? closePanel() : openPanel("job"))}
               // On a job / partner post the company that offered only asks in the chat; the poster writes the quotation.
               onRequest={() =>
                 jobPost && !amOwner && post
@@ -532,20 +650,36 @@ function B2bChat({
               onQuote={() => (shownDeals.length ? setForm({ kind: "quote" }) : startQuote())}
               canRequest={canRequest}
               canQuote={canQuote}
-              theirName={thread.company.name}
-              onTake={(deal) =>
-                sample
-                  ? notify(SAMPLE_SENT)
-                  : api(`/b2b/deals/${deal.id}/take`, { method: "POST" })
-                      .then(() => {
-                        notify("คุณเป็นผู้ดูแลดีลนี้แล้ว");
-                        dealChanged();
-                      })
-                      .catch((e) => notify((e as Error).message))
-              }
-              onStep={(step, deal) => setForm({ kind: "step", step, deal })}
             />
-            <div className="b2b-messages">
+            <div className="b2b-messages" key={thread.id}>
+              {post && (
+                <button type="button" className={"b2b-pin kind-" + post.kind} onClick={openPost} title="ดูโพสต์ต้นฉบับ">
+                  {post.image ? <img src={imageSrc(post.image)} alt="" /> : <span className="b2b-pin-icon"><Handshake size={20} /></span>}
+                  <span className="b2b-pin-text">
+                    <small>
+                      <Pin size={11} /> {kindLabel[post.kind]} ที่คุยกันอยู่
+                    </small>
+                    <b>{post.title}</b>
+                    {post.excerpt && post.excerpt.trim() !== post.title.trim() && <span className="b2b-pin-excerpt">{post.excerpt}</span>}
+                    {(post.meta?.budget || post.meta?.location) && (
+                      <span className="b2b-pin-meta">
+                        {post.meta?.budget && (
+                          <em>
+                            <Wallet size={12} /> {post.meta.budget}
+                          </em>
+                        )}
+                        {post.meta?.location && (
+                          <em>
+                            <MapPin size={12} /> {post.meta.location}
+                          </em>
+                        )}
+                      </span>
+                    )}
+                  </span>
+                  <ExternalLink size={15} className="b2b-pin-go" />
+                </button>
+              )}
+
               {!shown ? (
                 <Loading />
               ) : (
@@ -567,7 +701,7 @@ function B2bChat({
                       firstLine.add(m.card_id);
                       return first ? (
                         [divider,
-                        <div className={"b2b-msg deal" + (m.mine ? " mine" : "")} key={m.id}>
+                        <div className={"b2b-msg deal" + (m.mine ? " mine" : "")} key={m.id} id={"deal-card-" + m.card_id}>
                           <DealCardView
                             card={hit.card}
                             deal={hit.deal}
@@ -593,7 +727,7 @@ function B2bChat({
                     const company = m.mine ? { ...me, has_logo: m.company_has_logo ?? me.has_logo } : thread.company;
                     return [divider,
                       <div className={"b2b-msg person" + (m.mine ? " mine" : "")} key={m.id}>
-                        {companyLogo(company, 38)}
+                        {senderFace(m, company)}
                         <div className="b2b-msg-body">
                           <small className="b2b-who">
                             <b>{m.company_name || company.name}</b>
@@ -618,7 +752,7 @@ function B2bChat({
                   {sample &&
                     shownDeals.flatMap((d) =>
                       d.cards.map((c) => (
-                        <div className={"b2b-msg deal" + (c.mine ? " mine" : "")} key={c.id}>
+                        <div className={"b2b-msg deal" + (c.mine ? " mine" : "")} key={c.id} id={"deal-card-" + c.id}>
                           <DealCardView card={c} deal={d} ctx={ctx} sample notify={notify} navigate={navigate} onChanged={() => {}} onQuote={(from) => setForm({ kind: "quote", deal: d, from })} onPay={(card) => setForm({ kind: "pay", card })} />
                         </div>
                       )),
@@ -690,14 +824,22 @@ function B2bChat({
               <PendingFiles files={pending} onRemove={(i) => setPending((all) => all.filter((_, n) => n !== i))} />
               {sample && <small className="b2b-sample-compose">{SAMPLE_SENT} — ลองพิมพ์หรือกดคำถามด่วนได้</small>}
               <div>
-                <AttachButton
-                  disabled={viewer || busy}
-                  onPick={(files) => {
-                    const big = files.find((f) => f.size > 10_000_000);
-                    if (big) notify(big.name + " ใหญ่เกิน 10 MB");
-                    setPending((all) => [...all, ...files.filter((f) => f.size <= 10_000_000)].slice(0, 10));
-                  }}
-                />
+                <AttachButton disabled={viewer || busy} onPick={pick} />
+                <AttachButton disabled={viewer || busy} onPick={pick} images />
+                <span className="b2b-emoji">
+                  <button type="button" className="b2b-attach" aria-label="อีโมจิ" title="อีโมจิ" aria-expanded={emoji} disabled={viewer || busy} onClick={() => setEmoji((v) => !v)}>
+                    <Smile size={18} />
+                  </button>
+                  {emoji && (
+                    <span className="b2b-emoji-pop" role="menu" onMouseLeave={() => setEmoji(false)}>
+                      {EMOJI.map((e) => (
+                        <button type="button" key={e} role="menuitem" onClick={() => putEmoji(e)}>
+                          {e}
+                        </button>
+                      ))}
+                    </span>
+                  )}
+                </span>
                 <textarea
                   ref={input}
                   aria-label={"ข้อความถึง " + thread.company.name}
@@ -714,7 +856,7 @@ function B2bChat({
                     }
                   }}
                 />
-                <button className="primary" aria-label="ส่งข้อความ" disabled={viewer || busy || (!text.trim() && !pending.length)}>
+                <button className="primary b2b-send" aria-label="ส่งข้อความ" disabled={viewer || busy || (!text.trim() && !pending.length)}>
                   <Send size={18} />
                 </button>
               </div>
@@ -730,6 +872,100 @@ function B2bChat({
           </div>
         )}
       </div>
+      {thread && panel && (
+        <>
+          <div className="b2b-scrim" onClick={closePanel} aria-hidden />
+          <aside className={"b2b-info" + (leaving ? " leaving" : "")} aria-label="รายละเอียด">
+            <span className="b2b-grab" aria-hidden />
+            <div className="b2b-info-tabs" role="tablist">
+              <button role="tab" aria-selected={panelTab === "job"} className={panelTab === "job" ? "on" : ""} onClick={() => setPanelTab("job")}>
+                <Briefcase size={14} /> รายละเอียดงาน
+              </button>
+              <button role="tab" aria-selected={panelTab === "company"} className={panelTab === "company" ? "on" : ""} onClick={() => setPanelTab("company")}>
+                <Building2 size={14} /> ข้อมูลบริษัท
+              </button>
+              <button type="button" className="b2b-info-close" aria-label="ปิดรายละเอียด" onClick={closePanel}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="b2b-info-body" key={panelTab}>
+              {panelTab === "job" ? (
+                <>
+                  {post && (
+                    <div className="dp-post">
+                      <small>{kindLabel[post.kind]}</small>
+                      <b>{post.title}</b>
+                      {(post.meta?.budget || post.meta?.location) && (
+                        <span>{[post.meta?.budget && "งบ " + post.meta.budget, post.meta?.location].filter(Boolean).join(" · ")}</span>
+                      )}
+                    </div>
+                  )}
+                  <DealPanel
+                    deals={shownDeals}
+                    disabled={viewer}
+                    talking={!!shown?.some((m) => !m.card_id)}
+                    theirName={thread.company.name}
+                    onStep={(step, deal) => setForm({ kind: "step", step, deal })}
+                    onShowCard={showCard}
+                    onOpenProject={() => navigate("projects")}
+                    onTake={(deal) =>
+                      sample
+                        ? notify(SAMPLE_SENT)
+                        : api(`/b2b/deals/${deal.id}/take`, { method: "POST" })
+                            .then(() => {
+                              notify("คุณเป็นผู้ดูแลดีลนี้แล้ว");
+                              dealChanged();
+                            })
+                            .catch((e) => notify((e as Error).message))
+                    }
+                  />
+                </>
+              ) : (
+                <div className="dp-company">
+                  {companyLogo(thread.company, 72)}
+                  <b>{profile?.name || thread.company.name}</b>
+                  <small>{[profile?.industry || thread.company.industry, profile?.province || thread.company.province].filter(Boolean).join(" · ") || "บริษัทในเครือข่าย"}</small>
+                  {profile?.bio && <p className="dp-bio">{profile.bio}</p>}
+                  {profile?.about && <p className="dp-about">{profile.about}</p>}
+                  {profile === undefined && !sample && <Loading />}
+                  {profile && (
+                    <ul className="dp-contacts">
+                      {profile.details?.phone && (
+                        <li>
+                          <Phone size={14} /> <a href={"tel:" + profile.details.phone.replace(/[^\d+]/g, "")}>{profile.details.phone}</a>
+                        </li>
+                      )}
+                      {profile.details?.email && (
+                        <li>
+                          <Mail size={14} /> <a href={"mailto:" + profile.details.email}>{profile.details.email}</a>
+                        </li>
+                      )}
+                      {profile.website && (
+                        <li>
+                          <Globe size={14} />{" "}
+                          <a href={/^https?:\/\//i.test(profile.website) ? profile.website : "https://" + profile.website} target="_blank" rel="noreferrer noopener">
+                            {profile.website}
+                          </a>
+                        </li>
+                      )}
+                      {profile.details?.address && (
+                        <li>
+                          <MapPin size={14} /> <span>{profile.details.address}</span>
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                  {!sample && (
+                    <button type="button" className="dp-project" onClick={() => navigate(profileView(thread.company.id, ctx))}>
+                      <Building2 size={15} /> ดูโปรไฟล์บริษัท
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
       {form?.kind === "request" && active && (
         <RequestForm
           sample={!!sample}

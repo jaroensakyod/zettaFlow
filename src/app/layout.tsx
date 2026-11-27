@@ -13,6 +13,7 @@ import "./styles/home.css";
 import "./styles/employees.css";
 import "./styles/access.css";
 import "./styles/chat.css";
+import "./styles/chat-glass.css";
 import "./styles/profile.css";
 import "./styles/auth-future.css";
 import "./styles/themes.css";

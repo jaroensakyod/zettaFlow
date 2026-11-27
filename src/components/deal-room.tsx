@@ -47,44 +47,39 @@ function stepAt(d: Deal) {
 }
 export type DealStepKind = "progress" | "deliver" | "invoice" | "cancel";
 
+/** The deal in progress in a conversation (else the latest one). */
+export const currentDeal = (deals: Deal[]) =>
+  [...deals].reverse().find((d) => d.stage === "request" || d.stage === "quote" || working(d)) || deals[deals.length - 1] || null;
+
+/**
+ * One line above the messages: the deal's title, stage, step and amount left, ขอ / ส่งใบเสนอราคา, and the button that
+ * opens the details panel (steps, money, documents and the work actions: DealPanel).
+ */
 export function DealBar({
   deals,
-  collapsed,
-  onToggle,
+  onDetails,
+  detailsOpen,
   onRequest,
   onQuote,
-  onStep,
   disabled,
   canRequest = true,
   canQuote = true,
-  onTake,
-  theirName,
 }: {
   deals: Deal[];
+  onDetails?: () => void;
+  detailsOpen?: boolean;
   onRequest: () => void;
   onQuote: () => void;
-  onStep: (step: DealStepKind, deal: Deal) => void;
   disabled?: boolean;
   /** About a job / partner post: only the company that offered asks for a quotation, only the poster sends one. */
   canRequest?: boolean;
   canQuote?: boolean;
-  /** Take over our side of the deal (ฉันดูแลดีลนี้). */
-  onTake?: (deal: Deal) => void;
-  /** The other company's name, for "ผู้ดูแลฝั่ง …". */
-  theirName?: string;
-  /** One line only (title, stage, amount left) so the chat gets the room; the toggle opens the steps and actions. */
-  collapsed?: boolean;
-  onToggle?: () => void;
 }) {
-  // The deal in progress (else the latest one).
-  const deal = [...deals].reverse().find((d) => d.stage === "request" || d.stage === "quote" || working(d)) || deals[deals.length - 1];
+  const deal = currentDeal(deals);
   const at = deal ? stepAt(deal) : -1,
-    m = deal ? dealMoney(deal) : null,
-    seller = deal?.role === "seller",
-    cancelOpen = deal?.cards.some((c) => c.kind === "cancel" && c.status === "open"),
-    billable = m ? m.rows.filter((r) => !r.invoice) : [];
+    m = deal ? dealMoney(deal) : null;
   return (
-    <div className={"deal-bar" + (deal ? " stage-" + deal.stage : "") + (collapsed ? " brief" : "")}>
+    <div className={"deal-bar brief" + (deal ? " stage-" + deal.stage : "")}>
       <div className="deal-bar-top">
         <Handshake size={16} />
         {deal ? (
@@ -92,23 +87,12 @@ export function DealBar({
             <b title={deal.title}>{deal.title}</b>
             <span className={"deal-stage " + deal.stage}>{stageText[deal.stage]}</span>
             {deals.length > 1 && <small>{deals.length} ดีลในห้องนี้</small>}
-            {collapsed && at >= 0 && at < steps.length && <small className="deal-brief-step">ขั้นที่ {at + 1}/{steps.length} · {steps[at].label}</small>}
-            {collapsed && m && m.left > 0 && (working(deal) || deal.stage === "closed") && <small className="deal-brief-left">คงเหลือ {baht(m.left)}</small>}
-            {!collapsed && (deal.contact_mine || deal.contact_theirs) && (
-              <span className="deal-people" title="ผู้ดูแลดีลนี้ทั้งสองฝ่าย">
-                <em className="mine">
-                  <UserRound size={12} /> ฝั่งเรา: <b>{deal.contact_mine || "ยังไม่ระบุ"}</b>
-                </em>
-                <em>
-                  <UserRound size={12} /> ฝั่ง{theirName ? " " + theirName : "คู่ค้า"}: <b>{deal.contact_theirs || "ยังไม่ระบุ"}</b>
-                </em>
-                {onTake && !deal.contact_is_me && !disabled && !["rejected", "cancelled"].includes(deal.stage) && (
-                  <button type="button" className="link-button" onClick={() => onTake(deal)}>
-                    ฉันดูแลดีลนี้
-                  </button>
-                )}
-              </span>
+            {at >= 0 && at < steps.length && (
+              <small className="deal-brief-step">
+                ขั้นที่ {at + 1}/{steps.length} · {steps[at].label}
+              </small>
             )}
+            {m && m.left > 0 && (working(deal) || deal.stage === "closed") && <small className="deal-brief-left">คงเหลือ {baht(m.left)}</small>}
           </>
         ) : (
           <span className="deal-bar-hint">ห้องดีล · ขอใบเสนอราคา ส่งใบเสนอราคา ตกลงจ้าง ส่งมอบงาน และชำระเงินได้ในแชทนี้</span>
@@ -124,46 +108,146 @@ export function DealBar({
               <ReceiptText size={14} /> ส่งใบเสนอราคา
             </button>
           )}
-          {deal && onToggle && (
-            <button type="button" className="deal-toggle" onClick={onToggle} aria-expanded={!collapsed} title={collapsed ? "ดูขั้นตอนและการชำระเงิน" : "ย่อให้แชทกว้างขึ้น"}>
-              {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />} {collapsed ? "รายละเอียด" : "ย่อ"}
+          {onDetails && (
+            <button type="button" className="deal-toggle" onClick={onDetails} aria-expanded={!!detailsOpen}>
+              {detailsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />} รายละเอียดงาน
             </button>
           )}
         </span>
       </div>
-      {deal && !collapsed && (
-        <ol className="deal-steps">
-          {steps.map((st, i) => (
-            <li key={st.key} className={i < at ? "done" : i === at ? "now" : ""}>
-              <i>{i < at ? <Check size={11} /> : i + 1}</i>
-              {st.label}
-            </li>
-          ))}
-        </ol>
-      )}
-      {deal && m && !collapsed && (working(deal) || deal.stage === "closed") && (
-        <div className="deal-work">
-          <div className="deal-money">
-            <span>
-              ยอดงาน <b>{baht(m.total)}</b>
-            </span>
-            <span className="ok">
-              ชำระแล้ว <b>{baht(m.paid)}</b>
-            </span>
-            {m.left > 0 && (
-              <span className="left">
-                คงเหลือ <b>{baht(m.left)}</b>
-              </span>
+    </div>
+  );
+}
+
+/** The timeline between the two companies: the conversation, the deal's seven steps, then done. */
+export function DealTimeline({ deal, talking }: { deal: Deal | null; talking: boolean }) {
+  const at = deal ? stepAt(deal) : -1,
+    closed = deal?.stage === "closed",
+    stopped = deal?.stage === "rejected" || deal?.stage === "cancelled";
+  const state = (i: number): "done" | "now" | "todo" => {
+    if (!deal) return "todo";
+    if (i < at || (closed && i <= at)) return "done";
+    return i === at && !stopped ? "now" : "todo";
+  };
+  const rows: { label: string; state: "done" | "now" | "todo" }[] = [
+    { label: "เริ่มสนทนา", state: talking || deal ? "done" : "now" },
+    ...steps.map((s, i) => ({ label: s.label, state: state(i) })),
+    { label: "เสร็จสิ้นงาน", state: closed ? "done" : "todo" },
+  ];
+  return (
+    <ol className="deal-timeline">
+      {rows.map((r, i) => (
+        <li key={r.label} className={r.state}>
+          <i>{r.state === "done" ? <Check size={12} /> : i + 1}</i>
+          <span>{r.label}</span>
+        </li>
+      ))}
+      {stopped && deal && <li className="stopped">{stageText[deal.stage]}</li>}
+    </ol>
+  );
+}
+
+const docKind: Partial<Record<DealCard["kind"], string>> = { request: "คำขอใบเสนอราคา", quote: "ใบเสนอราคา", delivery: "ส่งมอบงาน", invoice: "ใบแจ้งหนี้", payment: "แจ้งชำระเงิน" };
+
+/**
+ * รายละเอียดงาน in the chat's side panel: who handles the deal, the money, the work actions (the same buttons and rules
+ * the deal bar had), the timeline and the documents (each opens its card in the chat).
+ */
+export function DealPanel({
+  deals,
+  onStep,
+  onTake,
+  onShowCard,
+  onOpenProject,
+  theirName,
+  disabled,
+  talking,
+}: {
+  deals: Deal[];
+  onStep: (step: DealStepKind, deal: Deal) => void;
+  onTake?: (deal: Deal) => void;
+  onShowCard?: (cardId: string) => void;
+  onOpenProject?: () => void;
+  theirName?: string;
+  disabled?: boolean;
+  talking: boolean;
+}) {
+  const deal = currentDeal(deals);
+  const m = deal ? dealMoney(deal) : null,
+    seller = deal?.role === "seller",
+    cancelOpen = deal?.cards.some((c) => c.kind === "cancel" && c.status === "open"),
+    billable = m ? m.rows.filter((r) => !r.invoice) : [],
+    request = deal ? [...deal.cards].reverse().find((c) => c.kind === "request") : undefined,
+    quote = deal
+      ? [...deal.cards].reverse().find((c) => c.kind === "quote" && c.status === "accepted") || [...deal.cards].reverse().find((c) => c.kind === "quote")
+      : undefined,
+    due = quote?.data.deliverBy || request?.data.needBy || null,
+    docs = deal ? deal.cards.filter((c) => docKind[c.kind] && c.status !== "superseded") : [];
+  return (
+    <div className="deal-panel">
+      {deal ? (
+        <>
+          <div className="dp-head">
+            <small>ดีลที่กำลังคุย</small>
+            <b>{deal.title}</b>
+            <span className={"deal-stage " + deal.stage}>{stageText[deal.stage]}</span>
+          </div>
+          <dl className="dp-facts">
+            {quote?.data.total ? (
+              <div>
+                <dt>ยอดตามใบเสนอราคา</dt>
+                <dd>{baht(quote.data.total)}</dd>
+              </div>
+            ) : request?.data.budget ? (
+              <div>
+                <dt>งบประมาณที่ขอ</dt>
+                <dd>{baht(request.data.budget)}</dd>
+              </div>
+            ) : null}
+            {due && (
+              <div>
+                <dt>กำหนดส่ง</dt>
+                <dd>{thaiDay(due)}</dd>
+              </div>
             )}
-            <span className="deal-inst">
+            {m && m.total > 0 && (
+              <>
+                <div>
+                  <dt>ชำระแล้ว</dt>
+                  <dd className="ok">{baht(m.paid)}</dd>
+                </div>
+                <div>
+                  <dt>คงเหลือ</dt>
+                  <dd className={m.left > 0 ? "left" : "ok"}>{baht(m.left)}</dd>
+                </div>
+              </>
+            )}
+          </dl>
+          {m && m.total > 0 && (
+            <div className="deal-inst">
               {m.rows.map((r) => (
                 <em key={r.index} className={r.paid ? "paid" : r.invoice ? "billed" : ""} title={r.paid ? "ชำระแล้ว" : r.invoice ? "ออกใบแจ้งหนี้แล้ว รอชำระ" : "ยังไม่ออกใบแจ้งหนี้"}>
                   {r.paid ? <Check size={11} /> : null}
                   {r.label} {r.percent}%
                 </em>
               ))}
-            </span>
-          </div>
+            </div>
+          )}
+          {(deal.contact_mine || deal.contact_theirs) && (
+            <div className="dp-people">
+              <span>
+                <UserRound size={13} /> ฝั่งเรา <b>{deal.contact_mine || "ยังไม่ระบุ"}</b>
+              </span>
+              <span>
+                <UserRound size={13} /> ฝั่ง{theirName ? " " + theirName : "คู่ค้า"} <b>{deal.contact_theirs || "ยังไม่ระบุ"}</b>
+              </span>
+              {onTake && !deal.contact_is_me && !disabled && !["rejected", "cancelled"].includes(deal.stage) && (
+                <button type="button" className="link-button" onClick={() => onTake(deal)}>
+                  ฉันดูแลดีลนี้
+                </button>
+              )}
+            </div>
+          )}
           {working(deal) && !disabled && (
             <div className="deal-work-actions">
               {seller && (deal.stage === "accepted" || deal.stage === "work") && (
@@ -188,7 +272,40 @@ export function DealBar({
               )}
             </div>
           )}
-        </div>
+          {seller && deal.project_id && onOpenProject && (
+            <button type="button" className="dp-project" onClick={onOpenProject}>
+              <Package size={15} /> เปิดโปรเจกต์
+            </button>
+          )}
+        </>
+      ) : (
+        <p className="dp-empty">ยังไม่มีดีลในห้องนี้ · เริ่มได้ด้วย “ขอใบเสนอราคา” หรือ “ส่งใบเสนอราคา”</p>
+      )}
+      <h4>สถานะการทำงาน</h4>
+      <DealTimeline deal={deal} talking={talking} />
+      {docs.length > 0 && (
+        <>
+          <h4>เอกสารที่เกี่ยวข้อง</h4>
+          <ul className="dp-docs">
+            {docs.map((c) => {
+              const [label, tone] = kindChip[c.kind]?.[c.status] || statusChip[c.status];
+              return (
+                <li key={c.id}>
+                  <button type="button" className={"dp-doc " + c.kind} onClick={() => onShowCard?.(c.id)} title="ดูเอกสารนี้ในแชท">
+                    <span>
+                      <small>
+                        {docKind[c.kind]} {c.data.docNo || ""}
+                      </small>
+                      <b>{c.kind === "invoice" ? c.data.label || c.data.title : c.data.title}</b>
+                    </span>
+                    {c.kind === "quote" && c.data.total ? <em>{baht(c.data.total)}</em> : null}
+                    <span className={"deal-chip " + tone}>{label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </div>
   );
