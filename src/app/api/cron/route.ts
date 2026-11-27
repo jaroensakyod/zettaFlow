@@ -1,6 +1,7 @@
 import { processJobs, processNotifications } from "@/lib/ai";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { sendAdminAlert } from "@/lib/admin-log";
+import { sweepHeldFiles } from "@/lib/line-held";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ export async function GET(req: Request) {
     const { data: oldVoice } = await sb.rpc("purge_voice_files", { p_days: 90 });
     const voicePaths = ((oldVoice as string[] | null) || []).filter(Boolean);
     if (voicePaths.length) await sb.storage.from("eliteflow-files").remove(voicePaths);
+    // Photos sent in LINE before a mention that never came (line-held.ts): deleted once their wait ran out.
+    const heldDropped = await sweepHeldFiles(sb);
     const jobs = await processJobs(),
       notifications = await processNotifications();
     // Daily health note to the platform team (ตั้งค่าแพลตฟอร์ม → แจ้งเตือน "ระบบมีปัญหา"), only when something failed.
@@ -39,7 +42,7 @@ export async function GET(req: Request) {
 งาน AI ล้มเหลว ${failed.count || 0} รายการ
 แจ้งเตือน LINE ส่งไม่สำเร็จ ${stuck.count || 0} รายการ
 ดูรายละเอียดที่หลังบ้าน → สุขภาพระบบ`);
-    return Response.json({ jobs, notifications, nudges, expired });
+    return Response.json({ jobs, notifications, nudges, expired, heldDropped });
   } catch {
     return Response.json({ error: "Queue processing failed" }, { status: 500 });
   }

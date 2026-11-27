@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
-import { draftAction, draftCard, draftRows, draftText, editText, listenPlan, mentionOf } from "../src/lib/line-mention";
+import { canHold, draftAction, draftCard, draftRows, draftText, editText, heldFiles, listenPlan, mentionOf } from "../src/lib/line-mention";
 
 process.env.NEXT_PUBLIC_APP_URL = "https://eliteflow-ai.com";
 const id = "3f0c2a4e-1111-4222-8333-944455556666";
@@ -54,6 +54,33 @@ test("without a mention, only a member the bot is listening to is read — and o
   assert.deepEqual(listenPlan({ mode: "edit", ingestion_id: id, until: live }, "file", now), { act: "edit", id });
   // stickers are never read
   assert.deepEqual(listenPlan({ mode: "any", ingestion_id: null, until: live }, "sticker", now), { act: "ignore" });
+});
+
+test("a slip sent before the mention is held for that mention, not read and not a draft of its own", () => {
+  const now = Date.parse("2026-11-14T10:00:00Z"),
+    live = "2026-11-14T10:01:00Z",
+    gone = "2026-11-14T09:59:00Z",
+    a = "a0000000-0000-4000-8000-000000000001",
+    b = "b0000000-0000-4000-8000-000000000002";
+  const heldRow = { mode: "files" as const, ingestion_id: null, until: live, meta: { held: [a] } };
+  // nothing waiting for this member: a photo or file is held; chat, voice and stickers are not
+  assert.equal(canHold(null, "image", now), true);
+  assert.equal(canHold(null, "file", now), true);
+  assert.equal(canHold(null, "text", now), false);
+  assert.equal(canHold(null, "audio", now), false);
+  assert.equal(canHold({ mode: "slip", ingestion_id: id, until: gone }, "image", now), true);
+  // a second photo joins the held ones instead of starting a draft
+  assert.deepEqual(listenPlan(heldRow, "image", now), { act: "ignore" });
+  assert.equal(canHold(heldRow, "image", now), true);
+  // something else is waiting (ส่งสลิป, แก้ไข, ไม่อนุมัติ …): that wins, nothing is held
+  assert.equal(canHold({ mode: "fix", ingestion_id: id, until: live }, "image", now), false);
+  assert.equal(canHold({ mode: "files", ingestion_id: id, until: live }, "image", now), false);
+  // the next mention takes them while the wait lasts, also through an empty mention's "any" row
+  assert.deepEqual(heldFiles(heldRow, now), [a]);
+  assert.deepEqual(heldFiles({ until: live, meta: { held: [a, b] } }, now), [a, b]);
+  assert.deepEqual(heldFiles({ ...heldRow, until: gone }, now), []);
+  assert.deepEqual(heldFiles({ until: live, meta: { plan: "pro" } }, now), []);
+  assert.deepEqual(heldFiles(null, now), []);
 });
 
 test("card buttons carry a checked action and id", () => {

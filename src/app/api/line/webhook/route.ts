@@ -17,7 +17,8 @@ import { approvalAction, docCard, docChoices, docRequest, EVIDENCE_MS, evidenceP
 import { summaryCard, summaryRequest, type Summary } from "@/lib/expense-summary";
 import { shareUrl } from "@/lib/share-link";
 import { pageUrl } from "@/lib/line-message";
-import { draftAction, editPrompt, EDIT_MS, editText, listenPlan, LISTEN_MS, mentionOf, mentionPrompt, type ListenRow } from "@/lib/line-mention";
+import { canHold, draftAction, editPrompt, EDIT_MS, editText, heldFiles, HOLD_MAX, HOLD_MS, listenPlan, LISTEN_MS, mentionOf, mentionPrompt, type ListenRow } from "@/lib/line-mention";
+import { dropHeldFiles } from "@/lib/line-held";
 import { assert } from "@/lib/domain";
 import { dbError } from "@/lib/data";
 import { isQuestion, answerQuestion, lineReply, lineReplyId, type QuickStats } from "@/lib/line";
@@ -57,7 +58,7 @@ async function botName() {
 async function listen(sb: Admin, companyId: string, groupId: string, userId: string, mode: ListenRow["mode"], ingestionId: string | null, ms: number, meta?: Record<string, unknown>) {
   await sb
     .from("line_listen")
-    .upsert({ group_id: groupId, line_user: userId, company_id: companyId, mode, ingestion_id: ingestionId, until: new Date(Date.now() + ms).toISOString(), ...(meta ? { meta } : {}) });
+    .upsert({ group_id: groupId, line_user: userId, company_id: companyId, mode, ingestion_id: ingestionId, until: new Date(Date.now() + ms).toISOString(), meta: meta ?? null });
 }
 /** A price tapped on a package card: how to pay, then wait for this member's slip. */
 async function billingButton(sb: Admin, groupId: string, userId: string, data: string, replyToken: string | null) {
@@ -481,21 +482,25 @@ export async function POST(req: Request) {
         editOf: string | null = null,
         slipFor: string | null = null,
         evidenceFor: string | null = null,
-        billingFor: BillingChoice | null = null;
+        billingFor: BillingChoice | null = null,
+        // Photos/files this member sent before the mention (heldFiles), and whether this file is one more of them.
+        held: string[] = [],
+        hold: { prev: string[]; stale: string[] } | null = null;
       if (mentionMode) {
         if (!userId) continue;
         const m = message.type === "text" ? mentionOf(message, await botName()) : { mentioned: false, text: "" };
         if (m.mentioned) {
           mentioned = true;
           raw = m.text;
+          const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until, meta").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
+          held = heldFiles(row as ListenRow | null);
           if (!raw) {
-            await listen(sb, group.company_id, groupId, userId, "any", null, LISTEN_MS);
+            await listen(sb, group.company_id, groupId, userId, "any", null, LISTEN_MS, held.length ? { held } : undefined);
             await lineReply(event.replyToken, mentionPrompt);
             continue;
           }
           // Waiting for this member's correction (after แก้ไข): "@EliteFlow กฤติน …" is that correction, not a new request.
           {
-            const { data: row } = await sb.from("line_listen").select("mode, ingestion_id, until").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
             const plan = listenPlan(row as ListenRow | null, "text");
             if (plan.act === "edit") {
               await sb.from("line_listen").delete().eq("ingestion_id", plan.id).eq("mode", "edit");
@@ -530,7 +535,14 @@ export async function POST(req: Request) {
             let q = sb.from("ingestions").select("id").eq("company_id", group.company_id).eq("status", "awaiting_slip");
             q = paid.code ? q.eq("doc_code", paid.code) : q.eq("source_user", userId).eq("group_id", groupId);
             const { data: waiting } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
-            if (waiting) await askSlip(sb, groupId, userId, waiting.id as string, event.replyToken || null);
+            if (waiting && held.length) {
+              // The slip came first: it is this payment's slip.
+              await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId);
+              const { error: e } = await sb.rpc("line_expense_paid", { p_group: groupId, p_user: userId, p_id: waiting.id, p_attachment: held[0] });
+              const card = e ? null : await expensePaidCard(waiting.id as string);
+              if (card) await lineReplyId(event.replyToken, card);
+              else await lineReply(event.replyToken, "⚠️ " + (e?.message || "บันทึกสลิปไม่ได้"));
+            } else if (waiting) await askSlip(sb, groupId, userId, waiting.id as string, event.replyToken || null);
             else await lineReply(event.replyToken, paid.code ? `ไม่พบ ${paid.code} ที่รอสลิปอยู่ค่ะ (ต้องอนุมัติแล้วและยังไม่ได้ส่งสลิป)` : "ไม่มีคำขอของคุณที่อนุมัติแล้วรอสลิปในกลุ่มนี้ค่ะ ลองพิมพ์พร้อมเลข เช่น “@EliteFlow ส่งสลิป EXP-69-0001”");
             continue;
           }
@@ -556,7 +568,14 @@ export async function POST(req: Request) {
         } else {
           const { data: row } = await sb.from("line_listen").select("*").eq("group_id", groupId).eq("line_user", userId).maybeSingle();
           const plan = listenPlan(row as ListenRow | null, message.type);
-          if (plan.act === "ignore") continue;
+          if (plan.act === "ignore") {
+            if (!canHold(row as ListenRow | null, message.type)) continue;
+            // Sent before the mention: stored, not read; it joins the request the next mention makes.
+            const prev = heldFiles(row as ListenRow | null),
+              stale = prev.length ? [] : ((row as { meta?: { held?: string[] } } | null)?.meta?.held || []);
+            hold = { prev, stale };
+          }
+          if (plan.act === "new") held = heldFiles(row as ListenRow | null);
           if (plan.act === "billing") billingFor = (row as { meta?: BillingChoice | null }).meta || null;
           if (plan.act === "edit") {
             if (message.type === "text") {
@@ -683,6 +702,12 @@ export async function POST(req: Request) {
         });
         dbError(e);
       } else if (message.type !== "text") continue;
+      if (hold && attachmentId && userId) {
+        const all = [...hold.prev, attachmentId];
+        await listen(sb, group.company_id, groupId, userId, "files", null, HOLD_MS, { held: all.slice(-HOLD_MAX) });
+        await dropHeldFiles(sb, [...hold.stale, ...all.slice(0, -HOLD_MAX)]);
+        continue;
+      }
       if (billingFor && attachmentId && userId) {
         await sb.from("line_listen").delete().eq("group_id", groupId).eq("line_user", userId).eq("mode", "billing");
         const r = await linePayment({ companyId: group.company_id, plan: billingFor.plan, cycle: billingFor.cycle, attachmentId, file: slipFile!, bytes: slipFile!.bytes });
@@ -755,7 +780,11 @@ export async function POST(req: Request) {
         attachment_id: attachmentId,
         source_user: userId || null,
         reply_token: event.replyToken || null,
+        // A slip sent before the mention is the file the request is read with.
+        ...(attachmentId || !held.length ? {} : { attachment_id: held[0] }),
       }).select("id").maybeSingle();
+      // Every held file joins the item (the card counts them as its evidence).
+      if (added?.id && held.length) await sb.from("attachments").update({ ingestion_id: added.id }).in("id", held).is("ingestion_id", null);
       // A photo or file that follows a mention joins this draft.
       if (mentionMode && userId && added?.id) await listen(sb, group.company_id, groupId, userId, "files", added.id, LISTEN_MS);
       // Expired plan or a free trial at its ceiling: tell the group instead of failing the webhook.

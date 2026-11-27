@@ -45,7 +45,27 @@ export function editText(text: string): string | null {
   return m ? m[1].trim() : null;
 }
 
-export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix" | "slip" | "evidence" | "billing"; ingestion_id: string | null; until: string };
+export type ListenRow = { mode: "any" | "files" | "edit" | "reject" | "fix" | "slip" | "evidence" | "billing"; ingestion_id: string | null; until: string; meta?: unknown };
+
+/**
+ * Photos and files sent before the mention ("send the slip, then say what it is"): kept for HOLD_MS on a row
+ * { mode "files", ingestion_id null, meta { held: [attachment ids] } } and joined to the request the next mention
+ * makes. Nothing is read or summarised until then; files never claimed are deleted (cron/route.ts).
+ */
+export const HOLD_MS = 30 * 60_000;
+export const HOLD_MAX = 5;
+/** The held files on a live row (any mode: an empty mention keeps them on its "any" row). */
+export function heldFiles(row: Pick<ListenRow, "until" | "meta"> | null | undefined, now = Date.now()): string[] {
+  if (!row || Date.parse(row.until) <= now) return [];
+  const held = (row.meta as { held?: unknown } | null | undefined)?.held;
+  return Array.isArray(held) ? held.filter((x): x is string => typeof x === "string") : [];
+}
+const isHeldRow = (row: ListenRow) => row.mode === "files" && !row.ingestion_id && Array.isArray((row.meta as { held?: unknown } | null | undefined)?.held);
+/** A photo or file with no mention: keep it for the next mention when nothing else is waiting for this member. */
+export function canHold(row: ListenRow | null | undefined, messageType: string, now = Date.now()) {
+  if (!["image", "file"].includes(messageType)) return false;
+  return !row || Date.parse(row.until) <= now || isHeldRow(row);
+}
 export type ListenPlan =
   | { act: "ignore" }
   | { act: "new" }
@@ -76,6 +96,8 @@ export function listenPlan(row: ListenRow | null | undefined, messageType: strin
   // After picking a package on the bot's card: the photo is the payment slip.
   if (row.mode === "billing") return file ? { act: "billing" } : { act: "ignore" };
   if (row.mode === "any") return { act: "new" };
+  // Files waiting for a mention: more files are held too (canHold), not a new draft.
+  if (isHeldRow(row)) return { act: "ignore" };
   if (row.mode === "edit" && row.ingestion_id) return { act: "edit", id: row.ingestion_id };
   if (row.mode === "files" && file) return row.ingestion_id ? { act: "attach", id: row.ingestion_id } : { act: "new" };
   return { act: "ignore" };
